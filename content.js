@@ -16,7 +16,7 @@ const ICONS = {
     emoji: `<svg width="16" height="16" viewBox="0 0 24 24" fill="#FFF3E0" stroke="#FA7B17" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" fill="#FFF3E0"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2" fill="none"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>`
 };
 
-// СЛУШАТЕЛЬ 1: Выделение мышкой (mouseup)
+// СЛУШАТЕЛЬ 1: Выделение мышкой
 document.addEventListener('mouseup', (e) => {
     if (e.target.closest('#gemini-extension-ui')) return;
 
@@ -31,27 +31,49 @@ document.addEventListener('mouseup', (e) => {
     }, 10);
 });
 
-// НОВЫЙ СЛУШАТЕЛЬ 2: Выделение клавиатурой (Ctrl+A / Cmd+A)
+// СЛУШАТЕЛЬ 2: Клавиатура (Ctrl+A и наши Горячие Клавиши)
 document.addEventListener('keydown', (e) => {
     if (e.target.closest('#gemini-extension-ui')) return;
 
-    // Проверяем комбинацию Ctrl+A (Windows/Linux) или Cmd+A (macOS)
+    // 1. Выделение всего текста (Ctrl+A / Cmd+A)
     const isSelectAll = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a';
-    
     if (isSelectAll) {
-        // Задержка 50мс, чтобы браузер успел обновить выделение в DOM перед тем, как мы его заберем
         setTimeout(() => {
             const text = getSelectedText();
             if (text && text.trim().length > 0) {
                 saveSelectionState();
-                
-                // Вычисляем координаты на основе геометрии выделения
                 const coords = getSelectionCoords();
                 showToolbarMenu(coords.x, coords.y);
             } else {
                 closePopup();
             }
         }, 50);
+        return;
+    }
+
+    // 2. Горячие клавиши нейросети (Alt + R/U/Y/T)
+    if (e.altKey && !e.ctrlKey && !e.shiftKey) {
+        const key = e.key.toLowerCase();
+        let mode = null;
+        
+        // Поддержка обеих раскладок: английской и русской
+        if (key === 'r' || key === 'к') mode = 'spellcheck';
+        else if (key === 'u' || key === 'г') mode = 'rephrase';
+        else if (key === 'y' || key === 'н') mode = 'style';
+        else if (key === 't' || key === 'е') mode = 'emoji';
+
+        if (mode) {
+            const text = getSelectedText();
+            if (text && text.trim().length > 0) {
+                e.preventDefault(); // Останавливаем стандартные браузерные действия
+                saveSelectionState();
+                const coords = getSelectionCoords();
+                
+                // Сразу показываем вертикальное меню и запускаем загрузку
+                showAIMenu(coords.x, coords.y);
+                handleActionClick(mode);
+            }
+        }
     }
 });
 
@@ -79,16 +101,13 @@ function saveSelectionState() {
     }
 }
 
-// УМНОЕ ВЫЧИСЛЕНИЕ КООРДИНАТ ДЛЯ КЛАВИАТУРЫ
 function getSelectionCoords() {
     const activeEl = document.activeElement;
     let rect = null;
 
-    // Если выделение внутри инпута или текстового поля
     if (activeEl && (activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'INPUT')) {
         rect = activeEl.getBoundingClientRect();
     } else {
-        // Если выделение на обычной веб-странице
         const sel = window.getSelection();
         if (sel.rangeCount > 0) {
             rect = sel.getRangeAt(0).getBoundingClientRect();
@@ -99,18 +118,12 @@ function getSelectionCoords() {
         let x = rect.left + window.scrollX;
         let y = rect.bottom + window.scrollY;
 
-        // ЗАЩИТА: Если выделили гигантский текст или всю страницу (Ctrl+A), 
-        // нижний край улетит глубоко вниз под экран. Зафиксируем тулбар в видимой зоне.
         const viewportBottom = window.scrollY + window.innerHeight;
-        if (y > viewportBottom - 80) {
-            y = viewportBottom - 80; // Показываем чуть выше нижнего края монитора
-        }
-        if (y < window.scrollY + 20) {
-            y = window.scrollY + 40;
-        }
+        if (y > viewportBottom - 80) y = viewportBottom - 80; 
+        if (y < window.scrollY + 20) y = window.scrollY + 40;
+        
         return { x: x, y: y };
     }
-    // Если геометрию определить не удалось, кидаем тулбар по центру экрана
     return { x: window.innerWidth / 2 + window.scrollX, y: window.innerHeight / 2 + window.scrollY };
 }
 
@@ -186,24 +199,33 @@ function showAIMenu(x, y) {
         box-shadow: 0 6px 16px rgba(0,0,0,0.1);
         border-radius: 8px; z-index: 2147483647;
         font-family: system-ui, -apple-system, sans-serif; font-size: 13px;
-        color: #333; width: max-content; min-width: 180px; 
+        color: #333; width: max-content; min-width: 220px; 
         overflow: hidden; padding: 4px;
     `;
 
-    const createMenuBtn = (icon, text, mode) => {
+    // Обновленная функция для создания кнопок с визуальными хоткеями
+    const createMenuBtn = (icon, text, mode, shortcut) => {
         const btn = document.createElement('div');
-        btn.innerHTML = `<span style="margin-right: 10px; display: flex;">${icon}</span><span style="font-weight: 400;">${text}</span>`;
-        btn.style.cssText = `padding: 8px 12px; cursor: pointer; transition: background 0.15s; display: flex; align-items: center; border-radius: 6px;`;
+        btn.innerHTML = `
+            <div style="display: flex; align-items: center;">
+                <span style="margin-right: 10px; display: flex;">${icon}</span>
+                <span style="font-weight: 400;">${text}</span>
+            </div>
+            ${shortcut ? `<span style="color: #aaa; font-size: 11px; margin-left: 24px; letter-spacing: 0.5px;">${shortcut}</span>` : ''}
+        `;
+        // Добавили justify-content: space-between чтобы разнести текст и хоткей по краям
+        btn.style.cssText = `padding: 8px 12px; cursor: pointer; transition: background 0.15s; display: flex; align-items: center; justify-content: space-between; border-radius: 6px;`;
         btn.onmouseover = () => btn.style.backgroundColor = '#f0f2f5';
         btn.onmouseout = () => btn.style.backgroundColor = 'transparent';
         btn.onclick = () => handleActionClick(mode);
         return btn;
     };
 
-    popupUI.appendChild(createMenuBtn(ICONS.spell, 'Исправить ошибки', 'spellcheck'));
-    popupUI.appendChild(createMenuBtn(ICONS.rephrase, 'Другими словами', 'rephrase'));
-    popupUI.appendChild(createMenuBtn(ICONS.style, 'Улучшить стиль', 'style'));
-    popupUI.appendChild(createMenuBtn(ICONS.emoji, 'Подобрать эмодзи', 'emoji'));
+    // Добавляем хоткеи в отрисовку
+    popupUI.appendChild(createMenuBtn(ICONS.spell, 'Исправить ошибки', 'spellcheck', 'Alt+R'));
+    popupUI.appendChild(createMenuBtn(ICONS.rephrase, 'Другими словами', 'rephrase', 'Alt+U'));
+    popupUI.appendChild(createMenuBtn(ICONS.style, 'Улучшить стиль', 'style', 'Alt+Y'));
+    popupUI.appendChild(createMenuBtn(ICONS.emoji, 'Подобрать эмодзи', 'emoji', 'Alt+T'));
 
     document.body.appendChild(popupUI);
     adjustPopupPosition(x, y);
