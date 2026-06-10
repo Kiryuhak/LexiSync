@@ -1,35 +1,28 @@
-import { API_KEY } from './config.js'; // Безопасный импорт ключа
+import { API_KEY } from './config.js'; 
 
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({
-    id: "checkText",
-    title: "Проверить орфографию (Alt+R)",
-    contexts: ["selection"]
-  });
-  chrome.contextMenus.create({
-    id: "addEmojis",
-    title: "Подобрать эмодзи (Alt+T)",
-    contexts: ["selection"]
-  });
+  chrome.contextMenus.create({ id: "checkText", title: "Исправить ошибки (Alt+R)", contexts: ["selection"] });
+  chrome.contextMenus.create({ id: "addEmojis", title: "Подобрать эмодзи (Alt+T)", contexts: ["selection"] });
+  // Добавляем новые пункты меню
+  chrome.contextMenus.create({ id: "rephraseText", title: "Другими словами (Alt+U)", contexts: ["selection"] });
+  chrome.contextMenus.create({ id: "improveStyle", title: "Улучшить стиль (Alt+Y)", contexts: ["selection"] });
 });
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  if (info.menuItemId === "checkText") {
-    await initiateCheck(tab, info.selectionText, "spellcheck");
-  } else if (info.menuItemId === "addEmojis") {
-    await initiateCheck(tab, info.selectionText, "emoji");
-  }
+  if (info.menuItemId === "checkText") await initiateCheck(tab, info.selectionText, "spellcheck");
+  else if (info.menuItemId === "addEmojis") await initiateCheck(tab, info.selectionText, "emoji");
+  else if (info.menuItemId === "rephraseText") await initiateCheck(tab, info.selectionText, "rephrase");
+  else if (info.menuItemId === "improveStyle") await initiateCheck(tab, info.selectionText, "style");
 });
 
 chrome.commands.onCommand.addListener(async (command) => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab) return;
 
-  if (command === "check_text_shortcut") {
-    await initiateCheck(tab, null, "spellcheck");
-  } else if (command === "suggest_emoji_shortcut") {
-    await initiateCheck(tab, null, "emoji");
-  }
+  if (command === "check_text_shortcut") await initiateCheck(tab, null, "spellcheck");
+  else if (command === "suggest_emoji_shortcut") await initiateCheck(tab, null, "emoji");
+  else if (command === "rephrase_shortcut") await initiateCheck(tab, null, "rephrase");
+  else if (command === "style_shortcut") await initiateCheck(tab, null, "style");
 });
 
 async function initiateCheck(tab, fallbackText, action) {
@@ -54,11 +47,20 @@ async function initiateCheck(tab, fallbackText, action) {
 async function processText(textToFix, tab, action) {
   try {
     let promptText = "";
+    let temp = 0.1; // По умолчанию температура низкая для точности
     
+    // Распределяем промпты в зависимости от того, что нажал пользователь
     if (action === "spellcheck") {
-        promptText = `Исправь ошибки. Дай 2 варианта. Верни СТРОГО JSON-массив объектов: [{"clean": "чистый текст", "html": "текст, где исправленные слова обернуты в тег <mark>"}]. Никакого markdown.\n\nТекст:\n${textToFix}`;
+        promptText = `Исправь ошибки. Дай 2 варианта. Верни СТРОГО JSON-массив: [{"clean": "чистый текст", "html": "текст, где исправленные слова обернуты в тег <mark>"}]. Никакого markdown.\n\nТекст:\n${textToFix}`;
     } else if (action === "emoji") {
-        promptText = `Проанализируй текст и расставь подходящие по смыслу эмодзи. Дай 3 разных варианта (например: сдержанный, эмоциональный, креативный). Верни СТРОГО JSON-массив объектов: [{"clean": "текст с эмодзи", "html": "текст с эмодзи"}]. Никакого markdown.\n\nТекст:\n${textToFix}`;
+        temp = 0.7; // Повышаем креативность для эмодзи
+        promptText = `Расставь подходящие по смыслу эмодзи. Дай 3 разных варианта. Верни СТРОГО JSON-массив: [{"clean": "текст с эмодзи", "html": "текст с эмодзи"}]. Никакого markdown.\n\nТекст:\n${textToFix}`;
+    } else if (action === "rephrase") {
+        temp = 0.5; // Средняя креативность для перефразирования
+        promptText = `Перепиши этот текст другими словами, сохранив исходный смысл. Сделай его живым и естественным. Дай 3 разных варианта. Верни СТРОГО JSON-массив: [{"clean": "перефразированный текст", "html": "перефразированный текст"}]. Никакого markdown.\n\nТекст:\n${textToFix}`;
+    } else if (action === "style") {
+        temp = 0.3; // Умеренная креативность для стиля
+        promptText = `Улучши стиль этого текста (Tone of Voice). Сделай его более профессиональным, структурированным и легко читаемым. Убери воду. Дай 2 варианта. Верни СТРОГО JSON-массив: [{"clean": "улучшенный текст", "html": "улучшенный текст"}]. Никакого markdown.\n\nТекст:\n${textToFix}`;
     }
 
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${API_KEY}`, {
@@ -68,8 +70,8 @@ async function processText(textToFix, tab, action) {
         contents: [{ parts: [{ text: promptText }] }],
         generationConfig: {
           responseMimeType: "application/json",
-          temperature: action === "emoji" ? 0.7 : 0.1, 
-          maxOutputTokens: 512 
+          temperature: temp, 
+          maxOutputTokens: 800 // Увеличили лимит токенов, так как при перефразировании текст может стать длиннее
         }
       })
     });
@@ -111,10 +113,6 @@ function removeLoaderFromTab(tabId) {
         }
     });
 }
-
-// =========================================================================
-// ФУНКЦИИ ИНТЕРФЕЙСА (С УМНЫМ ПОЗИЦИОНИРОВАНИЕМ)
-// =========================================================================
 
 function drawLoaderAndGetText() {
     let text = "";
@@ -256,7 +254,13 @@ function showCorrectionUI(options, action) {
   }
 
   const header = document.createElement('div');
-  header.textContent = action === "emoji" ? 'Выберите вариант с эмодзи:' : 'Выберите вариант (подсвечены исправления):';
+  
+  // Динамический заголовок в зависимости от выбранного режима
+  if (action === "emoji") header.textContent = 'Выберите вариант с эмодзи:';
+  else if (action === "rephrase") header.textContent = 'Выберите вариант перефразирования:';
+  else if (action === "style") header.textContent = 'Выберите вариант с улучшенным стилем:';
+  else header.textContent = 'Выберите вариант (подсвечены исправления):';
+  
   header.style.padding = '4px 16px 8px';
   header.style.fontSize = '12px';
   header.style.color = '#666';

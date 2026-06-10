@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "AI Spell & Emoji",
-  "version": "1.1.0",
-  "description": "Умная проверка орфографии и подбор эмодзи через Gemini 3.1 Flash-Lite.",
+  "version": "1.1.1",
+  "description": "Проверка орфографии, подбор эмодзи и улучшение стиля текста.",
   "permissions": [
     "contextMenus",
     "activeTab",
@@ -22,18 +22,20 @@
   },
   "commands": {
     "check_text_shortcut": {
-      "suggested_key": {
-        "default": "Alt+R",
-        "mac": "Alt+R"
-      },
-      "description": "Проверить выделенный текст"
+      "suggested_key": { "default": "Alt+R", "mac": "Alt+R" },
+      "description": "Проверить орфографию"
     },
     "suggest_emoji_shortcut": {
-      "suggested_key": {
-        "default": "Alt+T",
-        "mac": "Alt+T"
-      },
+      "suggested_key": { "default": "Alt+T", "mac": "Alt+T" },
       "description": "Подобрать эмодзи"
+    },
+    "rephrase_shortcut": {
+      "suggested_key": { "default": "Alt+U", "mac": "Alt+U" },
+      "description": "Другими словами"
+    },
+    "style_shortcut": {
+      "suggested_key": { "default": "Alt+Y", "mac": "Alt+Y" },
+      "description": "Улучшить стиль"
     }
   },
   "background": {
