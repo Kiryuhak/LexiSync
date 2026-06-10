@@ -1,6 +1,21 @@
 let currentSelection = { text: "", range: null, activeElement: null, start: null, end: null, isInput: false };
 let popupUI = null;
 
+// Набор строгих векторных иконок в едином стиле
+const ICONS = {
+    search: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>`,
+    edit: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>`,
+    copy: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`,
+    translate: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>`,
+    check: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`,
+    replace: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 10 4 15 9 20"></polyline><path d="M20 4v7a4 4 0 0 1-4 4H4"></path></svg>`,
+    close: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`,
+    spell: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>`,
+    rephrase: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>`,
+    style: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>`,
+    emoji: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>`
+};
+
 document.addEventListener('mouseup', (e) => {
     if (e.target.closest('#gemini-extension-ui')) return;
 
@@ -8,7 +23,7 @@ document.addEventListener('mouseup', (e) => {
         const text = getSelectedText();
         if (text && text.trim().length > 0) {
             saveSelectionState();
-            showToolbarMenu(e.pageX, e.pageY); // Теперь сначала показываем тулбар
+            showToolbarMenu(e.pageX, e.pageY);
         } else {
             closePopup();
         }
@@ -26,7 +41,6 @@ function getSelectedText() {
 function saveSelectionState() {
     const activeEl = document.activeElement;
     const sel = window.getSelection();
-    
     currentSelection = { text: "", range: null, activeElement: activeEl, start: null, end: null, isInput: false };
 
     if (activeEl && (activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'INPUT')) {
@@ -40,26 +54,26 @@ function saveSelectionState() {
     }
 }
 
-// 1. ГОРИЗОНТАЛЬНАЯ ПАНЕЛЬ ИНСТРУМЕНТОВ (Тулбар)
+// 1. ГОРИЗОНТАЛЬНАЯ ПАНЕЛЬ ИНСТРУМЕНТОВ (В стиле Яндекс)
 function showToolbarMenu(x, y) {
     closePopup();
 
     popupUI = document.createElement('div');
     popupUI.id = 'gemini-extension-ui';
     popupUI.style.cssText = `
-        position: absolute; left: ${x}px; top: ${y + 15}px;
+        position: absolute; left: ${x}px; top: ${y + 12}px;
         background: #ffffff; border: 1px solid #e0e0e0;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         border-radius: 8px; z-index: 2147483647;
-        font-family: system-ui, -apple-system, sans-serif; font-size: 14px;
+        font-family: system-ui, -apple-system, sans-serif; font-size: 13px;
         color: #333; display: flex; align-items: center; padding: 4px; gap: 2px;
     `;
 
     const createBtn = (icon, text, title, onClick) => {
         const btn = document.createElement('div');
-        btn.innerHTML = `<span style="font-size: 16px;">${icon}</span>${text ? `<span style="margin-left: 6px; font-weight: 500;">${text}</span>` : ''}`;
+        btn.innerHTML = `<span style="display: flex; align-items: center; justify-content: center; color: #444;">${icon}</span>${text ? `<span style="margin-left: 6px; font-weight: 500;">${text}</span>` : ''}`;
         btn.title = title;
-        btn.style.cssText = `padding: 6px 10px; cursor: pointer; border-radius: 6px; display: flex; align-items: center; transition: background 0.1s; color: #444;`;
+        btn.style.cssText = `padding: 6px 8px; cursor: pointer; border-radius: 6px; display: flex; align-items: center; transition: background 0.15s;`;
         btn.onmouseover = () => btn.style.backgroundColor = '#f0f2f5';
         btn.onmouseout = () => btn.style.backgroundColor = 'transparent';
         btn.onclick = (e) => { e.stopPropagation(); onClick(e, btn); };
@@ -68,37 +82,37 @@ function showToolbarMenu(x, y) {
 
     const divider = () => {
         const d = document.createElement('div');
-        d.style.cssText = `width: 1px; height: 18px; background: #e0e0e0; margin: 0 4px;`;
+        d.style.cssText = `width: 1px; height: 16px; background: #e0e0e0; margin: 0 4px;`;
         return d;
     };
 
-    // Кнопка 1: Поиск в Google
-    popupUI.appendChild(createBtn('🔍', '', 'Искать в Google', () => {
+    // 1. Поиск
+    popupUI.appendChild(createBtn(ICONS.search, '', 'Искать в Google', () => {
         window.open('https://www.google.com/search?q=' + encodeURIComponent(currentSelection.text), '_blank');
         closePopup();
     }));
 
     popupUI.appendChild(divider());
 
-    // Кнопка 2: Редактировать (Разворачивает AI меню)
-    popupUI.appendChild(createBtn('✨', 'Редактировать', 'Функции нейросети', () => {
+    // 2. Редактировать (открывает подменю)
+    popupUI.appendChild(createBtn(ICONS.edit, 'Редактировать', 'Функции текста', () => {
         const rect = popupUI.getBoundingClientRect();
         showAIMenu(rect.left + window.scrollX, rect.top + window.scrollY);
     }));
 
     popupUI.appendChild(divider());
 
-    // Кнопка 3: Копировать
-    popupUI.appendChild(createBtn('📋', '', 'Копировать', (e, btn) => {
+    // 3. Копировать
+    popupUI.appendChild(createBtn(ICONS.copy, '', 'Копировать', (e, btn) => {
         navigator.clipboard.writeText(currentSelection.text);
-        btn.innerHTML = `<span style="font-size: 16px;">✅</span>`;
+        btn.innerHTML = `<span style="display: flex; align-items: center; justify-content: center;">${ICONS.check}</span>`;
         setTimeout(() => closePopup(), 1000);
     }));
 
     popupUI.appendChild(divider());
 
-    // Кнопка 4: Перевести
-    popupUI.appendChild(createBtn('🌐', '', 'Перевести', () => {
+    // 4. Перевести
+    popupUI.appendChild(createBtn(ICONS.translate, '', 'Перевести', () => {
         handleActionClick('translate');
     }));
 
@@ -115,70 +129,77 @@ function showAIMenu(x, y) {
     popupUI.style.cssText = `
         position: absolute; left: ${x}px; top: ${y}px;
         background: #fff; border: 1px solid #e0e0e0;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-        border-radius: 12px; z-index: 2147483647;
-        font-family: system-ui, -apple-system, sans-serif; font-size: 14px;
-        color: #333; width: max-content; min-width: 200px; max-width: 360px; 
-        overflow: hidden; line-height: 1.5;
+        box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+        border-radius: 8px; z-index: 2147483647;
+        font-family: system-ui, -apple-system, sans-serif; font-size: 13px;
+        color: #333; width: max-content; min-width: 180px; 
+        overflow: hidden; padding: 4px;
     `;
 
     const createMenuBtn = (icon, text, mode) => {
         const btn = document.createElement('div');
-        btn.innerHTML = `<span style="margin-right: 10px; font-size: 16px;">${icon}</span>${text}`;
-        btn.style.cssText = `padding: 10px 16px; cursor: pointer; transition: background 0.2s; display: flex; align-items: center;`;
-        btn.onmouseover = () => btn.style.backgroundColor = '#f4f6f8';
+        btn.innerHTML = `<span style="margin-right: 10px; color: #555; display: flex;">${icon}</span><span style="font-weight: 400;">${text}</span>`;
+        btn.style.cssText = `padding: 8px 12px; cursor: pointer; transition: background 0.15s; display: flex; align-items: center; border-radius: 6px;`;
+        btn.onmouseover = () => btn.style.backgroundColor = '#f0f2f5';
         btn.onmouseout = () => btn.style.backgroundColor = 'transparent';
         btn.onclick = () => handleActionClick(mode);
         return btn;
     };
 
-    popupUI.appendChild(createMenuBtn('✍️', 'Исправить ошибки', 'spellcheck'));
-    popupUI.appendChild(createMenuBtn('🔄', 'Другими словами', 'rephrase'));
-    popupUI.appendChild(createMenuBtn('✨', 'Улучшить стиль', 'style'));
-    popupUI.appendChild(createMenuBtn('😊', 'Подобрать эмодзи', 'emoji'));
+    popupUI.appendChild(createMenuBtn(ICONS.spell, 'Исправить ошибки', 'spellcheck'));
+    popupUI.appendChild(createMenuBtn(ICONS.rephrase, 'Другими словами', 'rephrase'));
+    popupUI.appendChild(createMenuBtn(ICONS.style, 'Улучшить стиль', 'style'));
+    popupUI.appendChild(createMenuBtn(ICONS.emoji, 'Подобрать эмодзи', 'emoji'));
 
     document.body.appendChild(popupUI);
     adjustPopupPosition(x, y);
 }
 
-// 3. ОТПРАВКА ЗАПРОСА К НЕЙРОСЕТИ
 function handleActionClick(mode) {
-    // Превращаем тулбар или меню в лоадер
     popupUI.style.width = 'max-content';
-    popupUI.innerHTML = `<div style="padding: 12px 16px; font-weight: 500; color: #555; display: flex; align-items: center; gap: 8px;"><span>⚡</span> Думаю...</div>`;
+    popupUI.style.padding = '0';
+    popupUI.innerHTML = `<div style="padding: 10px 14px; font-weight: 500; color: #555; display: flex; align-items: center; gap: 8px;"><div class="gemini-loader"></div>Обработка...</div>`;
     
+    // Анимация загрузки
+    if (!document.getElementById('gemini-loader-style')) {
+        const style = document.createElement('style');
+        style.id = 'gemini-loader-style';
+        style.textContent = `@keyframes gemini-spin { to { transform: rotate(360deg); } } .gemini-loader { width: 14px; height: 14px; border: 2px solid #ccc; border-top-color: #666; border-radius: 50%; animation: gemini-spin 0.8s linear infinite; }`;
+        document.head.appendChild(style);
+    }
+
     chrome.runtime.sendMessage({ action: "callGemini", text: currentSelection.text, mode: mode }, (response) => {
         if (chrome.runtime.lastError) {
-            popupUI.innerHTML = `<div style="padding: 12px 16px; color: #d32f2f;">Сбой связи. Выделите текст заново.</div>`;
-            setTimeout(closePopup, 3000);
+            popupUI.innerHTML = `<div style="padding: 10px 14px; color: #d32f2f;">Сбой связи.</div>`;
+            setTimeout(closePopup, 2000);
             return;
         }
 
         if (response && response.success) {
             showResultsMenu(response.data, mode);
         } else {
-            popupUI.innerHTML = `<div style="padding: 12px 16px; color: #d32f2f;">Ошибка: ${response ? response.error : 'Неизвестная ошибка'}</div>`;
-            setTimeout(closePopup, 4000);
+            popupUI.innerHTML = `<div style="padding: 10px 14px; color: #d32f2f;">Ошибка: ${response ? response.error : 'Неизвестная ошибка'}</div>`;
+            setTimeout(closePopup, 3000);
         }
     });
 }
 
-// 4. ПОКАЗ РЕЗУЛЬТАТОВ (КАРТОЧКИ)
+// 3. КОМПАКТНОЕ И КРАСИВОЕ ОКНО РЕЗУЛЬТАТОВ
 function showResultsMenu(options, mode) {
     popupUI.innerHTML = '';
+    popupUI.style.width = '320px'; // Фиксированная компактная ширина как на скриншоте 2
     
     const header = document.createElement('div');
-    if (mode === "emoji") header.textContent = 'Варианты с эмодзи:';
-    else if (mode === "translate") header.textContent = 'Перевод:';
-    else header.textContent = 'Выберите вариант:';
+    if (mode === "translate") header.innerHTML = `<span style="display:flex; align-items:center; gap:6px;">${ICONS.translate} Перевод</span>`;
+    else if (mode === "emoji") header.innerHTML = `Варианты с эмодзи`;
+    else header.innerHTML = `Выберите вариант`;
     
-    header.style.cssText = 'padding: 10px 16px; font-size: 13px; font-weight: 600; color: #666; border-bottom: 1px solid #eaeaea; background: #fdfdfd; display: flex; justify-content: space-between; align-items: center;';
+    header.style.cssText = 'padding: 8px 12px; font-size: 13px; font-weight: 600; color: #333; border-bottom: 1px solid #eaeaea; background: #fafafa; display: flex; justify-content: space-between; align-items: center;';
     
-    // Кнопка закрытия окна результатов
-    const closeBtn = document.createElement('span');
-    closeBtn.textContent = '✖';
-    closeBtn.style.cssText = 'cursor: pointer; color: #999; padding: 2px 6px; border-radius: 4px;';
-    closeBtn.onmouseover = () => closeBtn.style.background = '#eee';
+    const closeBtn = document.createElement('div');
+    closeBtn.innerHTML = ICONS.close;
+    closeBtn.style.cssText = 'cursor: pointer; color: #777; display: flex; align-items: center; padding: 4px; border-radius: 4px; transition: background 0.15s;';
+    closeBtn.onmouseover = () => closeBtn.style.background = '#e4e4e4';
     closeBtn.onmouseout = () => closeBtn.style.background = 'transparent';
     closeBtn.onclick = closePopup;
     header.appendChild(closeBtn);
@@ -191,29 +212,29 @@ function showResultsMenu(options, mode) {
         style.textContent = `
             #gemini-extension-ui mark { background: #dcfce7; color: #166534; padding: 2px 4px; border-radius: 4px; font-weight: 500; }
             .gemini-btn-action { 
-                background: #f1f3f4; border: none; border-radius: 6px; padding: 6px 12px; 
-                font-size: 13px; cursor: pointer; color: #333; display: flex; align-items: center; gap: 6px; 
-                transition: background 0.2s; font-family: inherit; font-weight: 500;
+                background: #f5f5f5; border: 1px solid #eaeaea; border-radius: 6px; padding: 6px 10px; 
+                font-size: 13px; cursor: pointer; color: #444; display: flex; align-items: center; gap: 6px; 
+                transition: all 0.15s; font-family: inherit; font-weight: 500;
             }
-            .gemini-btn-action:hover { background: #e4e6e8; }
+            .gemini-btn-action:hover { background: #ebebeb; color: #222; }
         `;
         document.head.appendChild(style);
     }
 
     options.forEach((opt, index) => {
         const item = document.createElement('div');
-        item.style.cssText = `padding: 14px 16px; border-bottom: ${index < options.length - 1 ? '1px solid #eaeaea' : 'none'};`;
+        item.style.cssText = `padding: 12px; border-bottom: ${index < options.length - 1 ? '1px solid #eaeaea' : 'none'};`;
         
         const textContainer = document.createElement('div');
         textContainer.innerHTML = opt.html || opt.clean || opt;
-        textContainer.style.cssText = `word-wrap: break-word; white-space: pre-wrap; margin-bottom: 12px;`;
+        textContainer.style.cssText = `word-wrap: break-word; white-space: pre-wrap; margin-bottom: 12px; color: #222;`;
         
         const actionsContainer = document.createElement('div');
         actionsContainer.style.cssText = `display: flex; gap: 8px;`;
 
         const replaceBtn = document.createElement('button');
         replaceBtn.className = 'gemini-btn-action';
-        replaceBtn.innerHTML = `<span>↵</span> Заменить`;
+        replaceBtn.innerHTML = `${ICONS.replace} Заменить`;
         replaceBtn.onclick = (e) => {
             e.preventDefault();
             insertTextToDOM(opt.clean || opt);
@@ -222,13 +243,13 @@ function showResultsMenu(options, mode) {
 
         const copyBtn = document.createElement('button');
         copyBtn.className = 'gemini-btn-action';
-        copyBtn.innerHTML = `📋`;
+        copyBtn.innerHTML = ICONS.copy;
         copyBtn.title = "Копировать в буфер";
         copyBtn.onclick = (e) => {
             e.preventDefault();
             navigator.clipboard.writeText(opt.clean || opt);
-            copyBtn.innerHTML = `✅`;
-            setTimeout(() => copyBtn.innerHTML = `📋`, 1500); 
+            copyBtn.innerHTML = ICONS.check;
+            setTimeout(() => copyBtn.innerHTML = ICONS.copy, 1500); 
         };
 
         actionsContainer.appendChild(replaceBtn);
