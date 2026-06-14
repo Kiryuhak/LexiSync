@@ -10,6 +10,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       .then(data => sendResponse({ success: true, data: data }))
       .catch(error => sendResponse({ success: false, error: error.message }));
     return true; 
+  } 
+  // --- НОВОЕ: БЕЗОПАСНОЕ ОТКРЫТИЕ ИСТОРИИ ---
+  else if (request.action === "openHistory") {
+    chrome.tabs.create({ url: chrome.runtime.getURL("history.html") });
+    return true;
   }
 });
 
@@ -21,7 +26,6 @@ async function getApiKey() {
     });
 }
 
-// --- НОВАЯ ФУНКЦИЯ ДЛЯ СОХРАНЕНИЯ И ОЧИСТКИ ИСТОРИИ ---
 async function saveToHistory(originalText, resultText, mode) {
     return new Promise((resolve) => {
         chrome.storage.local.get(['aiHistory'], (res) => {
@@ -29,10 +33,8 @@ async function saveToHistory(originalText, resultText, mode) {
             const now = Date.now();
             const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
 
-            // Очищаем старые записи (> 7 дней)
             history = history.filter(item => (now - item.timestamp) < sevenDaysMs);
 
-            // Добавляем новую запись в начало массива
             history.unshift({
                 id: now,
                 timestamp: now,
@@ -41,7 +43,6 @@ async function saveToHistory(originalText, resultText, mode) {
                 mode: mode
             });
 
-            // Оставляем максимум 100 записей, чтобы не превысить лимит памяти браузера
             if (history.length > 100) {
                 history = history.slice(0, 100);
             }
@@ -50,7 +51,6 @@ async function saveToHistory(originalText, resultText, mode) {
         });
     });
 }
-// --------------------------------------------------------
 
 async function processText(textToFix, mode, targetLang) {
     const apiKey = await getApiKey();
@@ -144,7 +144,6 @@ Do not add any markdown, explanations, or extra text.`;
             result = [parsedJson];
         }
 
-        // --- СОХРАНЯЕМ В ИСТОРИЮ ПЕРЕД ВОЗВРАТОМ ---
         const finalCleanText = result[0].clean || result[0];
         await saveToHistory(textToFix, finalCleanText, mode);
 
