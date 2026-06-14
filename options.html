@@ -35,13 +35,11 @@
         .release { position: relative; margin-bottom: 24px; }
         .release:last-child { margin-bottom: 0; }
         
-        /* Кружочек на линии таймлайна */
         .release::before {
             content: ''; position: absolute; left: -21px; top: 2px;
             width: 10px; height: 10px; border-radius: 50%;
             background: #ffffff; border: 2px solid #1a73e8;
         }
-        /* У старых версий кружочек серый */
         .release.old::before { border-color: #9aa0a6; }
         
         .rel-version { font-weight: 600; font-size: 14px; color: #202124; margin-bottom: 4px; }
@@ -54,7 +52,7 @@
     <div class="container">
         <div class="header-row">
             <h2>Настройки нейросети</h2>
-            <span class="version-badge" id="app-version">v1.0.0</span>
+            <span class="version-badge" id="app-version">v1.1.3</span>
         </div>
         <p>Укажите ваш персональный API ключ от Mistral AI. Он будет надежно сохранен в локальном хранилище браузера.</p>
         
@@ -80,31 +78,36 @@
             <div class="timeline">
                 
                 <div class="release">
+                    <div class="rel-version">Версия 1.1.3</div>
+                    <div class="rel-date">Июнь 2026</div>
+                    <ul class="rel-notes">
+                        <li><b>Исправлено:</b> Восстановлено корректное отображение иконки "Перевести" в выпадающем меню "Ещё".</li>
+                    </ul>
+                </div>
+
+                <div class="release old">
+                    <div class="rel-version">Версия 1.1.2</div>
+                    <div class="rel-date">Июнь 2026</div>
+                    <ul class="rel-notes">
+                        <li><b>Исправлено:</b> Восстановлены правильные пропорции и отображение иконки глобуса.</li>
+                        <li><b>Улучшено:</b> Таймаут ожидания сервера увеличен до 60 секунд.</li>
+                    </ul>
+                </div>
+
+                <div class="release old">
+                    <div class="rel-version">Версия 1.1.1</div>
+                    <div class="rel-date">Июнь 2026</div>
+                    <ul class="rel-notes">
+                        <li><b>Улучшено:</b> Интеллектуальное позиционирование окна.</li>
+                    </ul>
+                </div>
+
+                <div class="release old">
                     <div class="rel-version">Версия 1.1.0</div>
                     <div class="rel-date">Июнь 2026</div>
                     <ul class="rel-notes">
-                        <li><b>Новое:</b> Добавлена страница «История изменений» с сохранением результатов (хранятся 7 дней).</li>
-                        <li><b>Улучшено:</b> Возвращен и переработан режим «Улучшить стиль» для деловой переписки.</li>
-                        <li><b>Исправлено:</b> Обновлены иконки и интерфейс в стиле Material Design 3.</li>
-                        <li><b>Безопасность:</b> Переход на локальное хранение API-ключа для загрузки в Web Store.</li>
-                    </ul>
-                </div>
-
-                <div class="release old">
-                    <div class="rel-version">Версия 1.0.1</div>
-                    <div class="rel-date">Июнь 2026</div>
-                    <ul class="rel-notes">
-                        <li><b>Улучшено:</b> Интегрирован умный автоповтор запросов при достижении лимитов (Rate limit).</li>
-                        <li><b>Улучшено:</b> Добавлена анимация песочных часов.</li>
-                    </ul>
-                </div>
-
-                <div class="release old">
-                    <div class="rel-version">Версия 1.0.0</div>
-                    <div class="rel-date">Июнь 2026</div>
-                    <ul class="rel-notes">
-                        <li><b>Релиз:</b> Базовый запуск расширения с интеграцией Mistral AI.</li>
-                        <li><b>Функции:</b> Корректура, перефразирование, эмодзи, перевод.</li>
+                        <li><b>Новое:</b> Страница «История изменений» с сохранением результатов.</li>
+                        <li><b>Безопасность:</b> Локальное хранение API-ключа.</li>
                     </ul>
                 </div>
 
