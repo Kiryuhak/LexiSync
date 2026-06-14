@@ -4,36 +4,63 @@
     <meta charset="UTF-8">
     <title>Настройки AI Spell & Emoji</title>
     <style>
-        body { font-family: system-ui, -apple-system, sans-serif; background: #f8f9fa; color: #202124; display: flex; justify-content: center; padding-top: 60px; margin: 0; }
-        .container { background: #ffffff; padding: 32px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); width: 420px; border: 1px solid #e0e0e0; }
-        h2 { margin-top: 0; color: #1a73e8; font-weight: 500; font-size: 22px; margin-bottom: 8px; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #f8f9fa; color: #202124; display: flex; justify-content: center; padding-top: 40px; padding-bottom: 40px; margin: 0; }
+        .container { background: #ffffff; padding: 32px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); width: 440px; border: 1px solid #e0e0e0; }
+        
+        .header-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+        h2 { margin: 0; color: #1a73e8; font-weight: 500; font-size: 22px; }
+        .version-badge { background: #E8F0FE; color: #1967D2; padding: 4px 10px; border-radius: 100px; font-size: 12px; font-weight: 600; }
+        
         p { font-size: 14px; color: #5f6368; margin-bottom: 24px; line-height: 1.5; }
         label { font-weight: 500; font-size: 14px; display: block; margin-bottom: 8px; color: #3c4043; }
-        input[type="password"], input[type="text"] { width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid #dadce0; border-radius: 8px; font-size: 14px; margin-bottom: 16px; transition: border 0.2s; font-family: monospace; }
-        input[type="password"]:focus, input[type="text"]:focus { border-color: #1a73e8; outline: none; box-shadow: 0 0 0 1px #1a73e8; }
+        input[type="password"] { width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid #dadce0; border-radius: 8px; font-size: 14px; margin-bottom: 16px; transition: border 0.2s; font-family: monospace; }
+        input[type="password"]:focus { border-color: #1a73e8; outline: none; box-shadow: 0 0 0 1px #1a73e8; }
         
-        /* Стили для блока с инструкцией */
         .instruction-box { background: #f4f7fe; border: 1px solid #d2e3fc; border-radius: 8px; padding: 16px; margin-bottom: 24px; }
         .instruction-box h4 { margin: 0 0 8px 0; color: #1967d2; font-size: 14px; font-weight: 600; }
         .instruction-box ol { margin: 0; padding-left: 20px; color: #3c4043; font-size: 13px; line-height: 1.6; }
         .instruction-box a { color: #1a73e8; text-decoration: none; font-weight: 500; }
         .instruction-box a:hover { text-decoration: underline; }
 
-        .btn-container { display: flex; align-items: center; }
+        .btn-container { display: flex; align-items: center; margin-bottom: 32px; }
         button { background: #1a73e8; color: #fff; border: none; padding: 10px 24px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.2s; }
         button:hover { background: #1557b0; }
         #status { margin-left: 16px; font-size: 14px; color: #188038; font-weight: 500; opacity: 0; transition: opacity 0.3s; }
+
+        /* --- Стили для истории версий (Changelog) --- */
+        .changelog { border-top: 1px solid #eaeaea; padding-top: 24px; }
+        .changelog h3 { margin: 0 0 16px 0; font-size: 16px; color: #202124; font-weight: 500; }
+        
+        .timeline { position: relative; padding-left: 16px; border-left: 2px solid #e0e0e0; margin-left: 8px; }
+        .release { position: relative; margin-bottom: 24px; }
+        .release:last-child { margin-bottom: 0; }
+        
+        /* Кружочек на линии таймлайна */
+        .release::before {
+            content: ''; position: absolute; left: -21px; top: 2px;
+            width: 10px; height: 10px; border-radius: 50%;
+            background: #ffffff; border: 2px solid #1a73e8;
+        }
+        /* У старых версий кружочек серый */
+        .release.old::before { border-color: #9aa0a6; }
+        
+        .rel-version { font-weight: 600; font-size: 14px; color: #202124; margin-bottom: 4px; }
+        .rel-date { font-size: 12px; color: #80868b; margin-bottom: 8px; }
+        .rel-notes { margin: 0; padding-left: 16px; font-size: 13px; color: #4d5156; line-height: 1.6; }
+        .rel-notes li { margin-bottom: 4px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>Настройки нейросети</h2>
-        <p>Укажите ваш персональный API ключ от Mistral AI. Он будет надежно сохранен в локальном хранилище вашего браузера.</p>
+        <div class="header-row">
+            <h2>Настройки нейросети</h2>
+            <span class="version-badge" id="app-version">v1.0.0</span>
+        </div>
+        <p>Укажите ваш персональный API ключ от Mistral AI. Он будет надежно сохранен в локальном хранилище браузера.</p>
         
         <label for="apiKey">Ваш Mistral API Key:</label>
         <input type="password" id="apiKey" placeholder="Вставьте ключ, начинающийся с букв..." />
         
-        <!-- Добавленный блок с инструкцией -->
         <div class="instruction-box">
             <h4>Где взять API ключ?</h4>
             <ol>
@@ -47,6 +74,43 @@
             <button id="saveBtn">Сохранить</button>
             <span id="status">✓ Сохранено успешно!</span>
         </div>
+
+        <div class="changelog">
+            <h3>История обновлений</h3>
+            <div class="timeline">
+                
+                <div class="release">
+                    <div class="rel-version">Версия 1.1.0</div>
+                    <div class="rel-date">Июнь 2026</div>
+                    <ul class="rel-notes">
+                        <li><b>Новое:</b> Добавлена страница «История изменений» с сохранением результатов (хранятся 7 дней).</li>
+                        <li><b>Улучшено:</b> Возвращен и переработан режим «Улучшить стиль» для деловой переписки.</li>
+                        <li><b>Исправлено:</b> Обновлены иконки и интерфейс в стиле Material Design 3.</li>
+                        <li><b>Безопасность:</b> Переход на локальное хранение API-ключа для загрузки в Web Store.</li>
+                    </ul>
+                </div>
+
+                <div class="release old">
+                    <div class="rel-version">Версия 1.0.1</div>
+                    <div class="rel-date">Июнь 2026</div>
+                    <ul class="rel-notes">
+                        <li><b>Улучшено:</b> Интегрирован умный автоповтор запросов при достижении лимитов (Rate limit).</li>
+                        <li><b>Улучшено:</b> Добавлена анимация песочных часов.</li>
+                    </ul>
+                </div>
+
+                <div class="release old">
+                    <div class="rel-version">Версия 1.0.0</div>
+                    <div class="rel-date">Июнь 2026</div>
+                    <ul class="rel-notes">
+                        <li><b>Релиз:</b> Базовый запуск расширения с интеграцией Mistral AI.</li>
+                        <li><b>Функции:</b> Корректура, перефразирование, эмодзи, перевод.</li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+
     </div>
     <script src="options.js"></script>
 </body>

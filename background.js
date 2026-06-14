@@ -11,7 +11,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       .catch(error => sendResponse({ success: false, error: error.message }));
     return true; 
   } 
-  // --- НОВОЕ: БЕЗОПАСНОЕ ОТКРЫТИЕ ИСТОРИИ ---
   else if (request.action === "openHistory") {
     chrome.tabs.create({ url: chrome.runtime.getURL("history.html") });
     return true;
@@ -99,7 +98,8 @@ Do not add any markdown, explanations, or extra text.`;
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    // УВЕЛИЧЕНО ВРЕМЯ ОЖИДАНИЯ ДО 60 СЕКУНД (60000 мс)
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
 
     try {
         const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
