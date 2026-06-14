@@ -1,11 +1,8 @@
-// --- НОВАЯ ФИЧА: Открытие настроек при первой установке ---
 chrome.runtime.onInstalled.addListener((details) => {
     if (details.reason === "install") {
-        // Открываем страницу options.html автоматически
         chrome.runtime.openOptionsPage();
     }
 });
-// -----------------------------------------------------------
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "callGemini") {
@@ -23,6 +20,37 @@ async function getApiKey() {
         });
     });
 }
+
+// --- НОВАЯ ФУНКЦИЯ ДЛЯ СОХРАНЕНИЯ И ОЧИСТКИ ИСТОРИИ ---
+async function saveToHistory(originalText, resultText, mode) {
+    return new Promise((resolve) => {
+        chrome.storage.local.get(['aiHistory'], (res) => {
+            let history = res.aiHistory || [];
+            const now = Date.now();
+            const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+
+            // Очищаем старые записи (> 7 дней)
+            history = history.filter(item => (now - item.timestamp) < sevenDaysMs);
+
+            // Добавляем новую запись в начало массива
+            history.unshift({
+                id: now,
+                timestamp: now,
+                original: originalText,
+                result: resultText,
+                mode: mode
+            });
+
+            // Оставляем максимум 100 записей, чтобы не превысить лимит памяти браузера
+            if (history.length > 100) {
+                history = history.slice(0, 100);
+            }
+
+            chrome.storage.local.set({ aiHistory: history }, resolve);
+        });
+    });
+}
+// --------------------------------------------------------
 
 async function processText(textToFix, mode, targetLang) {
     const apiKey = await getApiKey();
@@ -55,12 +83,13 @@ ${baseJsonInstruction}`;
 ПРАВИЛА:
 1. Сделай 2 абсолютно разных варианта (добавь их в массив options).
 Вариант 1: Более живой, современный и разговорный.
-Вариант 2: Лаконичный, строгий и четкий.
+Вариант 2: Лаконичный и емкий.
 2. КРИТИЧЕСКИ ВАЖНО: Текст должен быть грамматически безупречным на русском языке. Следи за падежами и окончаниями.
 ${baseJsonInstruction}`;
     } else if (mode === "style") {
         temperature = 0.3;
-        systemPrompt = `Улучши стиль текста пользователя, сделай его профессиональным и деловым. Сделай 2 варианта. ${baseJsonInstruction}`;
+        systemPrompt = `Ты строгий корпоративный редактор. Улучши стиль текста пользователя, сделай его максимально профессиональным, деловым и вежливым. Сделай 2 разных варианта (добавь их в массив options).
+${baseJsonInstruction}`;
     } else if (mode === "translate") {
         temperature = 0.1;
         systemPrompt = `You are a professional translator. Translate the user's text into the following language: ${targetLang || "English"}.
@@ -114,6 +143,10 @@ Do not add any markdown, explanations, or extra text.`;
         if (!Array.isArray(result)) {
             result = [parsedJson];
         }
+
+        // --- СОХРАНЯЕМ В ИСТОРИЮ ПЕРЕД ВОЗВРАТОМ ---
+        const finalCleanText = result[0].clean || result[0];
+        await saveToHistory(textToFix, finalCleanText, mode);
 
         return result;
     } catch (error) {
