@@ -6,48 +6,68 @@
     <title>История AI Spell</title>
     <style>
         :root {
-            --m3-surface: #F3F4F9;
-            --m3-surface-container: #ECEEF4;
-            --m3-primary: #6750A4;
-            --m3-on-primary: #FFFFFF;
-            --m3-error-container: #F9DEDC;
-            --m3-on-error-container: #410E0B;
-            --m3-success-container: #C4EED0;
-            --m3-on-success-container: #072711;
-            --m3-text-main: #1D1B20;
-            --m3-text-secondary: #49454F;
+            --bg-main: #F3F4F9;
+            --bg-card: #FFFFFF;
+            --text-main: #1D1B20;
+            --text-secondary: #49454F;
+            --primary: #6750A4;
+            --border: #e0e0e0;
+            --err-bg: #F9DEDC;
+            --err-text: #410E0B;
+            --succ-bg: #C4EED0;
+            --succ-text: #072711;
+            --expl-bg: #FFF8E1;
+            --expl-border: #F9AB00;
+            --expl-hover: #FFECB3;
+            --expl-text: #5F6368;
+            --badge-bg: #E8DEF8;
+        }
+        [data-theme="dark"] {
+            --bg-main: #141218;
+            --bg-card: #211F26;
+            --text-main: #E6E1E5;
+            --text-secondary: #CAC4D0;
+            --primary: #D0BCFF;
+            --border: #49454F;
+            --err-bg: #5c1e19;
+            --err-text: #f2b8b5;
+            --succ-bg: #0f5223;
+            --succ-text: #c4eed0;
+            --expl-bg: #423000;
+            --expl-border: #F9AB00;
+            --expl-hover: #5c4300;
+            --expl-text: #E6E1E5;
+            --badge-bg: #4A4458;
         }
 
-        body { font-family: system-ui, -apple-system, sans-serif; background-color: var(--m3-surface); color: var(--m3-text-main); margin: 0; padding: 40px 20px; display: flex; flex-direction: column; align-items: center; }
+        body { font-family: system-ui, -apple-system, sans-serif; background-color: var(--bg-main); color: var(--text-main); margin: 0; padding: 40px 20px; display: flex; flex-direction: column; align-items: center; transition: background 0.3s, color 0.3s; }
         .header { width: 100%; max-width: 800px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
         h1 { margin: 0; font-size: 28px; font-weight: 500; }
-        .clear-btn { background-color: transparent; color: var(--m3-primary); border: 1px solid var(--m3-primary); padding: 10px 20px; border-radius: 100px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+        .clear-btn { background-color: transparent; color: var(--primary); border: 1px solid var(--primary); padding: 10px 20px; border-radius: 100px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
         .clear-btn:hover { background-color: rgba(103, 80, 164, 0.08); }
         #history-container { width: 100%; max-width: 800px; display: flex; flex-direction: column; gap: 20px; }
-        .history-card { background-color: #FFFFFF; border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03); display: flex; flex-direction: column; gap: 16px; }
-        .card-header { display: flex; justify-content: space-between; font-size: 13px; color: var(--m3-text-secondary); font-weight: 500; }
-        .mode-badge { background: #E8DEF8; color: var(--m3-primary); padding: 4px 10px; border-radius: 8px; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
+        .history-card { background-color: var(--bg-card); border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03); display: flex; flex-direction: column; gap: 16px; border: 1px solid var(--border); }
+        .card-header { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-secondary); font-weight: 500; }
+        .mode-badge { background: var(--badge-bg); color: var(--primary); padding: 4px 10px; border-radius: 8px; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
         .text-blocks { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
         .text-box { padding: 16px; border-radius: 12px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
-        .original-text { background-color: var(--m3-error-container); color: var(--m3-on-error-container); }
-        .result-text { background-color: var(--m3-success-container); color: var(--m3-on-success-container); }
+        .original-text { background-color: var(--err-bg); color: var(--err-text); }
+        .result-text { background-color: var(--succ-bg); color: var(--succ-text); }
 
-        .explanation-box { background-color: #FFF8E1; border-left: 4px solid #F9AB00; border-radius: 4px 12px 12px 4px; overflow: hidden; margin-top: 8px; }
+        .explanation-box { background-color: var(--expl-bg); border-left: 4px solid var(--expl-border); border-radius: 4px 12px 12px 4px; overflow: hidden; margin-top: 8px; }
         .explanation-header { padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; transition: background 0.2s; }
-        .explanation-header:hover { background-color: #FFECB3; }
+        .explanation-header:hover { background-color: var(--expl-hover); }
         .explanation-title-wrap { display: flex; align-items: center; gap: 8px; }
-        .explanation-icon { color: #F9AB00; flex-shrink: 0; }
-        .explanation-title { font-size: 12px; font-weight: 700; color: #F9AB00; text-transform: uppercase; letter-spacing: 0.5px; margin: 0; }
-        .explanation-chevron { width: 16px; height: 16px; color: #F9AB00; transition: transform 0.3s; }
-        
+        .explanation-icon { color: var(--expl-border); flex-shrink: 0; }
+        .explanation-title { font-size: 12px; font-weight: 700; color: var(--expl-border); text-transform: uppercase; letter-spacing: 0.5px; margin: 0; }
+        .explanation-chevron { width: 16px; height: 16px; color: var(--expl-border); transition: transform 0.3s; }
         .explanation-content { display: none; padding: 0 16px 16px 42px; }
-        .explanation-text { font-size: 13px; color: #5F6368; line-height: 1.5; margin: 0; padding-top: 12px; border-top: 1px solid rgba(249, 171, 0, 0.2); }
-        
+        .explanation-text { font-size: 13px; color: var(--expl-text); line-height: 1.5; margin: 0; padding-top: 12px; border-top: 1px solid rgba(249, 171, 0, 0.2); }
         .explanation-box.open .explanation-content { display: block; }
         .explanation-box.open .explanation-chevron { transform: rotate(180deg); }
 
-        .empty-state { text-align: center; color: var(--m3-text-secondary); margin-top: 50px; font-size: 16px; }
-        .copy-btn { margin-top: 8px; background: none; border: none; color: var(--m3-primary); cursor: pointer; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 4px; padding: 0; }
+        .empty-state { text-align: center; color: var(--text-secondary); margin-top: 50px; font-size: 16px; }
+        .copy-btn { margin-top: 8px; background: none; border: none; color: var(--primary); cursor: pointer; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 4px; padding: 0; }
         .copy-btn:hover { text-decoration: underline; }
     </style>
 </head>
@@ -57,6 +77,7 @@
         <button class="clear-btn" id="clearHistoryBtn">Очистить историю</button>
     </div>
     <div id="history-container"></div>
+    <!-- Весь JavaScript теперь находится только в этом внешнем файле -->
     <script src="history.js"></script>
 </body>
 </html>

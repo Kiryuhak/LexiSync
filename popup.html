@@ -3,61 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <style>
-        body {
-            width: 200px;
-            margin: 0;
-            font-family: system-ui, -apple-system, sans-serif;
-            padding: 8px;
-            background: #ffffff;
-            color: #333;
+        :root {
+            --bg-main: #ffffff;
+            --text-main: #333333;
+            --text-icon: #5f6368;
+            --header-text: #6750A4;
+            --hover-bg: #f0f2f5;
+            --border: #eaeaea;
         }
-        .header {
-            font-size: 14px;
-            font-weight: 600;
-            color: #1a73e8;
-            margin-bottom: 4px;
-            padding: 10px 12px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            user-select: none;
+        [data-theme="dark"] {
+            --bg-main: #202124;
+            --text-main: #e8eaed;
+            --text-icon: #9aa0a6;
+            --header-text: #d0bcff;
+            --hover-bg: #3c4043;
+            --border: #3c4043;
         }
-        .btn {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 12px;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background 0.2s;
-            font-size: 14px;
-            font-weight: 500;
-            color: #1f1f1f;
-            border: none;
-            background: transparent;
-            width: 100%;
-            text-align: left;
-            box-sizing: border-box;
-        }
-        .btn:hover {
-            background: #f0f2f5;
-        }
-        .icon-wrapper {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 20px; 
-            height: 20px;
-            color: #5f6368;
-        }
-        .header .icon-wrapper {
-            color: #1a73e8; 
-        }
-        .divider {
-            height: 1px;
-            background: #eaeaea;
-            margin: 4px 8px;
-        }
+
+        body { width: 200px; margin: 0; font-family: system-ui, -apple-system, sans-serif; padding: 8px; background: var(--bg-main); color: var(--text-main); }
+        .header { font-size: 14px; font-weight: 600; color: var(--header-text); margin-bottom: 4px; padding: 10px 12px; display: flex; align-items: center; gap: 12px; user-select: none; }
+        .btn { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; cursor: pointer; transition: background 0.2s; font-size: 14px; font-weight: 500; color: var(--text-main); border: none; background: transparent; width: 100%; text-align: left; box-sizing: border-box; }
+        .btn:hover { background: var(--hover-bg); }
+        .icon-wrapper { display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; color: var(--text-icon); }
+        .divider { height: 1px; background: var(--border); margin: 4px 8px; }
     </style>
 </head>
 <body>
@@ -71,7 +39,7 @@
     <div class="divider"></div>
     
     <button class="btn" id="btn-history">
-        <span class="icon-wrapper" style="color: #6750A4;">
+        <span class="icon-wrapper" style="color: var(--header-text);">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
         </span>
         <span>История</span>
