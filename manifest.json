@@ -1,9 +1,10 @@
 {
   "manifest_version": 3,
-  "name": "AI Spell & Emoji",
-  "version": "2.5.1",
-  "description": "Умный помощник для работы с текстом на базе Mistral AI",
-"permissions": [
+  "name": "__MSG_extName__",
+  "version": "2.6.0",
+  "description": "__MSG_extDesc__",
+  "default_locale": "ru",
+  "permissions": [
     "storage",
     "activeTab",
     "contextMenus",

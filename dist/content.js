@@ -8,27 +8,31 @@ let isDragging = false;
 let dragOffsetX = 0;
 let dragOffsetY = 0;
 let isManuallyPositioned = false;
-// Запоминаем, где находится мышка, чтобы открывать меню прямо под ней
 let lastMouseX = 0;
 let lastMouseY = 0;
-// Генерируем уникальный ключ для текста и режима
+// УТИЛИТА 1: Кэширование
 async function getCacheHash(mode, text) {
     const msgBuffer = new TextEncoder().encode(mode + ":" + text.trim());
     const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     return 'ai_cache_' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
-// Превращаем ответы нейросети (со списками и жирным текстом) в красивый HTML
+// УТИЛИТА 2: Продвинутый парсер Markdown (Списки, абзацы, теги и подсветка)
 function parseMarkdownToHTML(text) {
-    let html = text.replace(/</g, "&lt;").replace(/>/g, "&gt;"); // Защита от багов
-    html = html.replace(/\*\*([\s\S]*?)\*\*/g, '<mark>$1</mark>'); // Жирный текст
-    html = html.replace(/\*/g, ''); // Удаляем лишние звездочки
-    // Парсим списки (маркированные "- " и нумерованные "1. ")
+    // 1. Перехватываем HTML-теги жирного текста от нейросети и превращаем в **
+    let html = text.replace(/<\/?(b|strong)>/gi, '**');
+    // 2. Экранируем все остальные теги (защита браузера)
+    html = html.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    // 3. Парсим двойные звездочки в красивую зеленую подсветку
+    html = html.replace(/\*\*([\s\S]*?)\*\*/g, '<mark>$1</mark>');
+    if (html.includes('**'))
+        html = html.replace(/\*\*([^*]*)$/, '<mark>$1</mark>');
+    html = html.replace(/\*/g, ''); // Удаляем случайные одиночные звездочки
+    // 4. Парсим списки
     html = html.replace(/^- (.*)$/gm, '<li>$1</li>');
     html = html.replace(/^\d+\.\s(.*)$/gm, '<li>$1</li>');
-    // Оборачиваем списки в тег <ul> с красивыми отступами
     html = html.replace(/(<li>.*<\/li>(\n<li>.*<\/li>)*)/g, '<ul style="margin: 8px 0; padding-left: 20px;">$1</ul>');
-    // Оставшиеся переносы строк делаем абзацами
+    // 5. Оставшиеся переносы строк делаем абзацами
     html = html.replace(/\n/g, '<br>');
     return html;
 }
@@ -41,15 +45,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         handleActionClick(request.mode);
     }
     if (request.action === "hotkeyTriggered") {
-        // Оборачиваем в самовызывающуюся асинхронную функцию для безопасности
         (async () => {
             let text = getSelectedText();
-            // Если текст не выделился (Google Docs), берем из буфера обмена
             if (!text || text.trim().length === 0) {
                 try {
                     text = await navigator.clipboard.readText();
                     if (!text || text.trim().length === 0) {
-                        alert("✨ AI-Spell: Текст не найден!\n\nВ Google Docs:\n1. Выделите текст\n2. Нажмите Ctrl+C (Скопировать)\n3. Снова нажмите хоткей");
+                        alert("✨ AI-Spell: Текст не найден!\n\nВ Google Docs:\n1. Выделите текст\n2. Нажмите Ctrl+C\n3. Снова нажмите хоткей");
                         return;
                     }
                 }
@@ -65,7 +67,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 handleActionClick(request.mode);
             }
         })();
-        return true;
+        // Убрали return true, чтобы не было ошибки в консоли!
     }
 });
 document.addEventListener('mousemove', (e) => {
@@ -110,13 +112,11 @@ document.addEventListener('mouseup', (e) => {
     if (e.target.closest('#gemini-extension-ui'))
         return;
     if (e.button === 2)
-        return; // Игнорируем ПКМ
-    // Даем браузеру 50мс, чтобы он точно понял, что текст выделен в input
+        return;
     setTimeout(() => {
         const text = getSelectedText();
         if (text && text.trim().length > 0) {
             saveSelectionState();
-            // Всегда открываем меню ровно под курсором мыши!
             showToolbarMenu(lastMouseX, lastMouseY);
         }
     }, 50);
@@ -124,7 +124,6 @@ document.addEventListener('mouseup', (e) => {
 document.addEventListener('keydown', async (e) => {
     if (e.target.closest('#gemini-extension-ui'))
         return;
-    // Обработка Ctrl+A / Cmd+A
     const isSelectAll = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a';
     if (isSelectAll) {
         setTimeout(() => {
@@ -137,7 +136,6 @@ document.addEventListener('keydown', async (e) => {
         }, 50);
         return;
     }
-    // Хоткеи Alt+R, Alt+Y, Alt+T
     if (e.altKey && !e.ctrlKey && !e.shiftKey) {
         const key = e.key.toLowerCase();
         let mode = null;
@@ -150,24 +148,22 @@ document.addEventListener('keydown', async (e) => {
         if (mode) {
             e.preventDefault();
             let text = getSelectedText();
-            // 🔥 ОБХОД GOOGLE DOCS: Если текст не выделился стандартно, берем из буфера обмена
             if (!text || text.trim().length === 0) {
                 try {
                     text = await navigator.clipboard.readText();
                     if (!text || text.trim().length === 0) {
-                        alert("✨ AI-Spell: Текст не найден!\n\nЕсли вы находитесь в Google Docs:\n1. Выделите текст\n2. Нажмите Ctrl+C (скопировать)\n3. Снова нажмите горячую клавишу (Alt+R или Alt+Y)");
+                        alert("✨ AI-Spell: Текст не найден!\n\nЕсли вы находитесь в Google Docs:\n1. Выделите текст\n2. Нажмите Ctrl+C (скопировать)\n3. Снова нажмите горячую клавишу");
                         return;
                     }
                 }
                 catch (err) {
-                    alert("✨ AI-Spell: Ошибка доступа к буферу обмена.\n\nПожалуйста, нажмите на иконку настроек сайта (возле адресной строки слева) и разрешите доступ к Буферу обмена (Clipboard).");
+                    alert("✨ AI-Spell: Ошибка доступа к буферу обмена.");
                     return;
                 }
             }
             if (text && text.trim().length > 0) {
                 saveSelectionState(text);
                 const coords = getSelectionCoords();
-                // В Google Docs панель появится строго по центру экрана
                 showAIMenu(coords.x, coords.y);
                 handleActionClick(mode);
             }
@@ -199,12 +195,10 @@ function injectStyles() {
                 --bg-primary: #ffffff; --bg-secondary: #f1f5f9; --text-primary: #1e293b; --text-secondary: #64748b;
                 --border-color: rgba(0,0,0,0.06); --hover-bg: #e2e8f0; --shadow-color: rgba(0,0,0,0.1);
                 transition: opacity 0.15s ease; border-radius: 12px;
-                box-shadow: 0 8px 24px -4px var(--shadow-color), 0 4px 8px -4px var(--shadow-color);
                 border: 1px solid var(--border-color);
                 animation: aiSpellFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-                box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12); /* Делаем тень более объемной */
+                box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
             }
-            
             #gemini-extension-ui[data-theme="dark"] {
                 --bg-primary: #1e1e24; --bg-secondary: #2b2b36; --text-primary: #f8fafc; --text-secondary: #94a3b8;
                 --border-color: rgba(255,255,255,0.08); --hover-bg: #3f3f46; --shadow-color: rgba(0,0,0,0.5);
@@ -213,7 +207,7 @@ function injectStyles() {
             #gemini-extension-ui svg { min-width: 14px !important; min-height: 14px !important; }
             @keyframes gemini-spin { to { transform: rotate(360deg); } } 
             @keyframes gemini-flip { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(180deg); } }
-            @keyframes aiSpellFadeIn { 0% { opacity: 0; transform: translateY(12px) scale(0.98); /* Начинаем чуть ниже и меньше */ } 100% { opacity: 1; transform: translateY(0) scale(1); /* Встает на свое место */}}
+            @keyframes aiSpellFadeIn { 0% { opacity: 0; transform: translateY(12px) scale(0.98); } 100% { opacity: 1; transform: translateY(0) scale(1); }}
             .gemini-loader { width: 14px; height: 14px; border: 2.5px solid var(--text-secondary); border-top-color: transparent; border-radius: 50%; animation: gemini-spin 0.8s linear infinite; }
             .gemini-hourglass { animation: gemini-flip 2s ease-in-out infinite; display: flex; align-items: center; justify-content: center; }
             #gemini-extension-ui mark { background: #dcfce7; color: #166534; padding: 2px 4px; border-radius: 4px; font-weight: 500; }
@@ -292,7 +286,6 @@ function saveSelectionState(fallbackText) {
     else {
         if (sel && sel.rangeCount > 0) {
             currentSelection.range = sel.getRangeAt(0).cloneRange();
-            // 🔥 МАГИЯ RICH TEXT: Захватываем не просто текст, а весь HTML (жирный шрифт, ссылки)
             const container = document.createElement('div');
             container.appendChild(currentSelection.range.cloneContents());
             currentSelection.text = container.innerHTML || sel.toString();
@@ -304,7 +297,6 @@ function saveSelectionState(fallbackText) {
             let node = sel.anchorNode.parentElement;
             while (node && window.getComputedStyle(node).display === 'inline')
                 node = node.parentElement;
-            // Берем контекст вместе с HTML-тегами
             if (node)
                 blockText = node.innerHTML || node.innerText || node.textContent || currentSelection.text;
         }
@@ -616,11 +608,10 @@ function executeRequest(mode) {
             return;
         }
         streamPort = chrome.runtime.connect({ name: "geminiStream" });
-        streamPort.postMessage({ action: "callGemini", text: currentSelection.text, context: currentSelection.context, mode: mode, targetLang: currentTargetLang });
+        streamPort.postMessage({ action: "callGemini", text: currentSelection.text, context: currentSelection.context, mode: mode, targetLang: currentTargetLang, pageTitle: document.title, pageUrl: window.location.hostname });
         streamPort.onMessage.addListener((response) => {
             if (response.status === "chunk") {
                 fullResult += response.text;
-                // ИСПОЛЬЗУЕМ НАШ НОВЫЙ ПАРСЕР:
                 contentPane.innerHTML = parseMarkdownToHTML(fullResult);
                 contentPane.scrollTop = contentPane.scrollHeight;
                 adjustPopupPosition();
@@ -633,19 +624,19 @@ function executeRequest(mode) {
                 getCacheHash(cacheModeKey, currentSelection.text).then(cacheKey => {
                     chrome.storage.local.set({ [cacheKey]: fullResult });
                 });
-                // 🔥 СОХРАНЯЕМ В ИСТОРИЮ (только успешные ответы)
+                // 🔥 СОХРАНЯЕМ В ИСТОРИЮ
                 const historyItem = {
                     id: Date.now(),
                     mode: mode,
                     original: currentSelection.text,
-                    result: fullResult.replace(/\*/g, ''), // Чистый текст для истории
+                    result: fullResult.replace(/\*/g, ''),
                     date: new Date().toISOString()
                 };
                 chrome.storage.local.get({ aiHistory: [] }, (data) => {
                     const history = data.aiHistory;
-                    history.unshift(historyItem); // Добавляем в начало списка
+                    history.unshift(historyItem);
                     if (history.length > 50)
-                        history.pop(); // Храним только последние 50 штук
+                        history.pop();
                     chrome.storage.local.set({ aiHistory: history });
                 });
             }
@@ -701,30 +692,53 @@ function executeRequest(mode) {
         }
         adjustPopupPosition();
     }
-    // 🔥 ПРОВЕРЯЕМ КЭШ ПЕРЕД ЗАПУСКОМ (Вместо простого вызова startStream())
     async function checkCacheAndRun() {
-        // Учитываем язык в ключе кэша, если это перевод
-        const cacheModeKey = mode === 'translate' ? mode + currentTargetLang : mode;
-        const cacheKey = await getCacheHash(cacheModeKey, currentSelection.text);
-        // Передаем cacheKey в квадратных скобках
-        chrome.storage.local.get([cacheKey], (result) => {
-            if (result[cacheKey]) {
-                // Если есть в кэше — выдаем результат МГНОВЕННО!
-                // Явно говорим TypeScript, что мы достали строку (as string)
-                fullResult = result[cacheKey];
-                let finalHtml = parseMarkdownToHTML(fullResult);
-                finalHtml = finalHtml.replace(/\*\*([\s\S]*?)\*\*/g, '<mark>$1</mark>');
-                finalHtml = finalHtml.replace(/\*/g, '');
-                contentPane.innerHTML = finalHtml;
-                finishStream(true); // Рисуем кнопки "Скопировать" и "Заменить"
+        chrome.storage.local.get(['mistralApiKey'], async (res) => {
+            const apiKey = res.mistralApiKey;
+            if (!apiKey || apiKey.trim() === '') {
+                contentPane.innerHTML = `
+                    <div style="text-align: center; padding: 24px 16px;">
+                        <span style="font-size: 32px; display: block; margin-bottom: 12px;">🔑</span>
+                        <div style="font-weight: 600; font-size: 16px; margin-bottom: 8px;">API-ключ не настроен</div>
+                        <div style="color: var(--text-secondary); margin-bottom: 16px; font-size: 13px;">Открываем настройки через <span id="redirectTimer" style="font-weight:bold; color:var(--primary);">3</span>...</div>
+                        <button id="openSettingsBtn" style="background: var(--primary); color: #fff; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 500;">Открыть сейчас</button>
+                    </div>`;
+                let timeLeft = 3;
+                const timerSpan = document.getElementById('redirectTimer');
+                const interval = setInterval(() => {
+                    timeLeft--;
+                    if (timerSpan)
+                        timerSpan.textContent = timeLeft.toString();
+                    if (timeLeft <= 0) {
+                        clearInterval(interval);
+                        chrome.runtime.sendMessage({ action: "openOptionsPage" });
+                        closePopup();
+                    }
+                }, 1000);
+                setTimeout(() => {
+                    document.getElementById('openSettingsBtn')?.addEventListener('click', () => {
+                        clearInterval(interval);
+                        chrome.runtime.sendMessage({ action: "openOptionsPage" });
+                        closePopup();
+                    });
+                }, 50);
+                return;
             }
-            else {
-                // Если кэша нет — обращаемся к API через background.js
-                startStream();
-            }
+            const cacheModeKey = mode === 'translate' ? mode + currentTargetLang : mode;
+            const cacheKey = await getCacheHash(cacheModeKey, currentSelection.text);
+            chrome.storage.local.get([cacheKey], (result) => {
+                if (result[cacheKey]) {
+                    fullResult = result[cacheKey];
+                    let finalHtml = parseMarkdownToHTML(fullResult);
+                    contentPane.innerHTML = finalHtml;
+                    finishStream(true);
+                }
+                else {
+                    startStream();
+                }
+            });
         });
     }
-    // Запускаем проверку кэша
     checkCacheAndRun();
 }
 function adjustPopupPosition() {
@@ -746,13 +760,10 @@ function adjustPopupPosition() {
     popupUI.style.left = `${viewportX}px`;
     popupUI.style.top = `${viewportY}px`;
 }
-// Обратите внимание на новую строчку: теперь функция принимает второй необязательный параметр (btnElement)
 function insertTextToDOM(newText, btnElement) {
     const isDocs = window.location.hostname.includes('docs.google.com');
-    // 🔥 СПЕЦНАЗ ДЛЯ GOOGLE DOCS (Продвинутый буфер обмена)
     if (isDocs) {
         try {
-            // Превращаем текст в базовый HTML, чтобы Google Docs не делал его весь жирным
             const htmlText = `<span style="font-weight: normal;">${newText.replace(/\n/g, '<br>')}</span>`;
             const htmlBlob = new Blob([htmlText], { type: 'text/html' });
             const plainBlob = new Blob([newText], { type: 'text/plain' });
@@ -774,7 +785,6 @@ function insertTextToDOM(newText, btnElement) {
             });
         }
         catch (err) {
-            // Запасной план, если что-то пойдет не так
             navigator.clipboard.writeText(newText).then(() => {
                 if (btnElement) {
                     btnElement.innerHTML = `✨ Скопировано!`;
@@ -784,7 +794,6 @@ function insertTextToDOM(newText, btnElement) {
         }
         return;
     }
-    // --- СТАНДАРТНАЯ ЛОГИКА ДЛЯ ВСЕХ ОСТАЛЬНЫХ САЙТОВ ---
     const { isInput, activeElement, start, end, range } = currentSelection;
     try {
         if (isInput && activeElement) {
@@ -854,7 +863,7 @@ function insertTextToDOM(newText, btnElement) {
                 activeElement.dispatchEvent(new Event('change', { bubbles: true }));
             }
         }
-        closePopup(); // Мгновенно закрываем панель на обычных сайтах
+        closePopup();
     }
     catch (err) {
         console.error("Ошибка вставки:", err);

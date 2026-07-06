@@ -1,173 +1,154 @@
-chrome.runtime.onInstalled.addListener((details) => {
-    if (details.reason === "install") {
-        chrome.runtime.openOptionsPage();
-    }
-    
-    // --- ИНТЕГРАЦИЯ В КОНТЕКСТНОЕ МЕНЮ БРАУЗЕРА ---
-    chrome.contextMenus.create({ id: "ai-spell-root", title: "✨ AI-Spell: Действия с текстом", contexts: ["selection"] });
-    chrome.contextMenus.create({ id: "spellcheck", parentId: "ai-spell-root", title: "Исправить ошибки", contexts: ["selection"] });
-    chrome.contextMenus.create({ id: "style", parentId: "ai-spell-root", title: "Переписать текст", contexts: ["selection"] });
-    chrome.contextMenus.create({ id: "translate", parentId: "ai-spell-root", title: "Перевести", contexts: ["selection"] });
-    chrome.contextMenus.create({ id: "layout", parentId: "ai-spell-root", title: "Исправить раскладку", contexts: ["selection"] });
+// 1. Создаем элементы в системном контекстном меню (ПКМ) при установке расширения
+chrome.runtime.onInstalled.addListener(() => {
+    chrome.contextMenus.create({ id: "spellcheck", title: "Исправить ошибки (Alt+R)", contexts: ["selection"] });
+    chrome.contextMenus.create({ id: "style", title: "Переписать текст (Alt+Y)", contexts: ["selection"] });
+    chrome.contextMenus.create({ id: "emoji", title: "Подобрать эмодзи (Alt+T)", contexts: ["selection"] });
+    chrome.contextMenus.create({ id: "layout", title: "Исправить раскладку", contexts: ["selection"] });
+    chrome.contextMenus.create({ id: "translate", title: "Перевести", contexts: ["selection"] });
 });
 
-// Слушаем клики по контекстному меню и отправляем команду на страницу
+// 2. Обработчик клика по системному контекстному меню
 chrome.contextMenus.onClicked.addListener((info, tab) => {
-    if (tab?.id && info.selectionText) {
+    if (tab && tab.id) {
         chrome.tabs.sendMessage(tab.id, { 
             action: "contextMenuClicked", 
-            mode: info.menuItemId,
-            text: info.selectionText // Принудительно передаем текст!
+            mode: info.menuItemId, 
+            text: info.selectionText 
         });
     }
 });
 
-// --- СЛУШАЕМ ОФИЦИАЛЬНЫЕ ХОТКЕИ CHROME ---
+// 3. Обработчик глобальных горячих клавиш Chrome (Alt+R, Alt+Y, Alt+T)
 chrome.commands.onCommand.addListener((command) => {
-    chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-        if (tabs[0].id) {
-            chrome.tabs.sendMessage(tabs[0].id, { action: "hotkeyTriggered", mode: command });
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0] && tabs[0].id) {
+            chrome.tabs.sendMessage(tabs[0].id, { 
+                action: "hotkeyTriggered", 
+                mode: command 
+            });
         }
     });
 });
 
-// Открытие вкладки с историей по клику в меню
+// 4. Обработчик сообщений от контент-скрипта (открытие Истории и Настроек)
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "openHistory") {
         chrome.tabs.create({ url: chrome.runtime.getURL("history.html") });
     }
+    if (request.action === "openOptionsPage") {
+        chrome.runtime.openOptionsPage(); // Нативный метод Chrome для открытия настроек
+    }
 });
 
+// 5. ДВИЖОК API: Работа с Mistral AI через потоковое соединение (Streaming)
 chrome.runtime.onConnect.addListener((port) => {
-    if (port.name === "geminiStream") {
-        port.onMessage.addListener(async (request) => {
-            if (request.action === "callGemini") {
-                try {
-                    await processTextStream(request.text, request.context, request.mode, request.targetLang, port);
-                } catch (error: any) {
-                    port.postMessage({ status: "error", error: error.message });
+    if (port.name !== "geminiStream") return;
+
+    port.onMessage.addListener(async (msg) => {
+        if (msg.action === "callGemini") {
+            try {
+                // Достаем ключ и стиль из хранилища, явно указывая TypeScript, что это строки
+                const data = await chrome.storage.local.get(['mistralApiKey', 'selectedTone']);
+                const mistralApiKey = data.mistralApiKey as string;
+                const selectedTone = data.selectedTone as string;
+                
+                if (!mistralApiKey) {
+                    port.postMessage({ status: "error", error: "API-ключ не настроен. Откройте настройки расширения." });
+                    return;
                 }
-            }
-        });
-    }
-});
 
-async function getApiKeyAndTone(): Promise<{apiKey: string, tone: string}> {
-    return new Promise((resolve) => {
-        chrome.storage.local.get(['mistralApiKey', 'selectedTone'], (result) => {
-            resolve({ apiKey: result.mistralApiKey as string, tone: (result.selectedTone as string) || 'business' });
-        });
-    });
-}
+                // --- ФОРМИРУЕМ СИСТЕМНЫЙ ПРОМПТ ---
+                let systemPrompt = "Ты умный ассистент по работе с текстом. Твоя задача — вернуть ТОЛЬКО обработанный текст. Не пиши приветствий, объяснений, не оборачивай текст в кавычки или блоки кода (```). Сохраняй оригинальное HTML-форматирование (теги), если оно есть.";
+                
+                // 🔥 Добавляем контекст страницы, на которой находится пользователь
+                if (msg.pageUrl || msg.pageTitle) {
+                    systemPrompt += `\nКонтекст: Пользователь работает с текстом на сайте "${msg.pageUrl || 'неизвестный сайт'}" (Заголовок: "${msg.pageTitle || 'Без заголовка'}"). Учитывай специфику этого ресурса при необходимости.`;
+                }
 
-async function saveToHistory(originalText: string, resultObj: any, mode: string): Promise<void> {
-    return new Promise<void>((resolve) => {
-        chrome.storage.local.get(['geminiHistory'], (res) => {
-            let history = (res.geminiHistory as any[]) || [];
-            if (!Array.isArray(history)) history = [];
-            history.push({ mode: mode || "unknown", originalText: originalText || "", result: resultObj || {}, timestamp: new Date().toISOString() });
-            if (history.length > 100) history.shift();
-            chrome.storage.local.set({ geminiHistory: history }, () => resolve());
-        });
-    });
-}
+                // Добавляем специфичные инструкции для выбранного режима
+                if (msg.mode === "spellcheck") {
+                    systemPrompt += " Тщательно исправь все ошибки в тексте. ОБЯЗАТЕЛЬНО оборачивай каждое исправленное, измененное или добавленное слово в двойные звездочки, вот так: **исправленное**.";
+                } else if (msg.mode === "style") {
+                    const toneMap: Record<string, string> = {
+                        business: "в строгом, деловом и профессиональном стиле",
+                        friendly: "в дружелюбном, открытом и разговорном стиле",
+                        persuasive: "в убедительном и продающем стиле",
+                        creative: "в креативном стиле с использованием ярких метафор"
+                    };
+                    systemPrompt += ` Перепиши текст ${toneMap[selectedTone || 'business']}, сделав его более естественным. Ключевые измененные фразы или новые слова оборачивай в двойные звездочки, например: **новая фраза**.`;
+                } else if (msg.mode === "emoji") {
+                    systemPrompt += " Добавь подходящие по смыслу эмодзи в предоставленный текст, чтобы сделать его более выразительным. Не переборщи.";
+                } else if (msg.mode === "layout") {
+                    systemPrompt += " Исправь текст, набранный в неправильной раскладке (например, 'ghbdtn' -> 'привет'). Исправленные слова оберни в двойные звездочки: **привет**.";
+                } else if (msg.mode === "translate") {
+                    systemPrompt += ` Переведи этот текст на ${msg.targetLang} язык.`;
+                }
 
-async function processTextStream(text: string, context: string, mode: string, targetLang: string, port: chrome.runtime.Port) {
-    const { apiKey, tone } = await getApiKeyAndTone();
+                // --- ЗАПРОС К MISTRAL API ---
+                const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${mistralApiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: "mistral-large-latest",
+                        messages: [
+                            { role: "system", content: systemPrompt },
+                            { role: "user", content: `Широкий контекст вокруг выделенного текста: ${msg.context || ''}\n\nСам выделенный текст для обработки: ${msg.text}` }
+                        ],
+                        stream: true // Включаем потоковую передачу
+                    })
+                });
 
-    if (!apiKey) throw new Error("API ключ не настроен. Пожалуйста, зайдите в настройки расширения.");
-
-    let systemPrompt = "";
-    let temperature = 0.7;
-
-    const baseInstruction = `CRITICAL INSTRUCTION: You are a strict text-processing API. 
-You will receive a [CONTEXT] block and a [TARGET] block. 
-[CONTEXT] is strictly READ-ONLY background information so you understand the situation. 
-Your ONLY task is to process the [TARGET] block and return the exact replacement for it. 
-RULE 1: NEVER output any text from the [CONTEXT] block!
-RULE 2: If [TARGET] is a single word, your response MUST be exactly a single word.
-RULE 3: DO NOT include greetings or explanations.
-RULE 4: PRESERVE ALL HTML TAGS in the [TARGET] exactly as they are. Do not remove or change HTML formatting (like <b>, <i>, <a>).
-START YOUR RESPONSE IMMEDIATELY with the processed [TARGET].`;
-
-    const highlightInstruction = `If you change or add a word in the [TARGET], YOU MUST wrap it in double asterisks (e.g., **word**).`;
-
-    if (mode === "spellcheck") {
-        temperature = 0.1;
-        systemPrompt = `Ты профессиональный русский корректор. Исправь грамматические, орфографические, пунктуационные и речевые ошибки ТОЛЬКО в блоке [TARGET].\n\n${baseInstruction}\n${highlightInstruction}`;
-    } else if (mode === "layout") {
-        temperature = 0.1;
-        systemPrompt = `Расшифруй текст из неправильной раскладки клавиатуры ТОЛЬКО для блока [TARGET].\n\n${baseInstruction}\n${highlightInstruction}`;
-    } else if (mode === "translate") {
-        temperature = 0.2;
-        const lang = targetLang || "Русский";
-        systemPrompt = `Переведи ТОЛЬКО блок [TARGET] на язык: ${lang}. Сохрани смысл.\n\n${baseInstruction}`;
-    } else if (mode === "style") {
-        temperature = 0.3; 
-        const toneMap: Record<string, string> = { 'business': 'строгий, деловой, профессиональный', 'friendly': 'дружелюбный, открытый, разговорный', 'persuasive': 'убедительный, сильный, продающий', 'creative': 'креативный, живой, с использованием метафор' };
-        const activeTone = toneMap[tone] || 'профессиональный';
-        systemPrompt = `Ты профессиональный редактор. Перепиши ТОЛЬКО блок [TARGET], строго используя стиль: "${activeTone}".\nНе придумывай новые факты. Сохрани оригинальный смысл на 100%.\n\n${baseInstruction}\n${highlightInstruction}`;
-    } else if (mode === "emoji") {
-        temperature = 0.6;
-        systemPrompt = `Добавь подходящие по смыслу эмодзи ТОЛЬКО в текст блока [TARGET].\n\n${baseInstruction}`;
-    }
-
-    const finalUserMessage = `[CONTEXT]\n${context || text}\n\n[TARGET]\n${text}`;
-    const payload = { model: "mistral-large-latest", messages: [{ role: "system", content: systemPrompt }, { role: "user", content: finalUserMessage }], temperature: temperature, stream: true };
-
-    // --- 🛡 ЗАЩИТА "ОТ ДУРАКА": ТАЙМАУТ 15 СЕКУНД ---
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
-
-    let response;
-    try {
-        response = await fetch("https://api.mistral.ai/v1/chat/completions", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-            body: JSON.stringify(payload),
-            signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-    } catch (error: any) {
-        if (error.name === 'AbortError') throw new Error("Сервер не ответил за 15 секунд (Таймаут). Повторите попытку.");
-        throw error;
-    }
-
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error?.message || `Ошибка сервера: ${response.status}`);
-    }
-
-    const reader = response.body?.getReader();
-    if (!reader) throw new Error("Не удалось прочитать поток данных");
-    
-    const decoder = new TextDecoder("utf-8");
-    let fullText = "";
-    let buffer = "";
-
-    while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || ""; 
-        for (const line of lines) {
-            const trimmedLine = line.trim();
-            if (trimmedLine.startsWith('data: ')) {
-                const dataStr = trimmedLine.slice(6);
-                if (dataStr === '[DONE]') continue;
-                try {
-                    const data = JSON.parse(dataStr);
-                    const content = data.choices[0]?.delta?.content;
-                    if (content) {
-                        fullText += content;
-                        port.postMessage({ status: "chunk", text: content });
+                if (!response.ok) {
+                    const errText = await response.text();
+                    if (response.status === 401) {
+                         port.postMessage({ status: "error", error: "Неверный API-ключ. Проверьте настройки." });
+                    } else if (response.status === 429) {
+                         port.postMessage({ status: "error", error: "Rate limit (превышен лимит запросов)." });
+                    } else {
+                         port.postMessage({ status: "error", error: `Ошибка Mistral API (${response.status}): ${errText}` });
                     }
-                } catch (e) {}
+                    return;
+                }
+
+                // --- ПАРСИНГ ПОТОКА ДАННЫХ (STREAM) ---
+                const reader = response.body?.getReader();
+                const decoder = new TextDecoder();
+
+                if (reader) {
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        
+                        const chunk = decoder.decode(value, { stream: true });
+                        const lines = chunk.split('\n').filter(line => line.trim() !== '');
+                        
+                        for (const line of lines) {
+                            if (line.replace(/^data: /, '') === '[DONE]') {
+                                port.postMessage({ status: "done" });
+                                return;
+                            }
+                            if (line.startsWith('data: ')) {
+                                try {
+                                    const parsed = JSON.parse(line.replace(/^data: /, ''));
+                                    if (parsed.choices && parsed.choices[0].delta && parsed.choices[0].delta.content) {
+                                        port.postMessage({ status: "chunk", text: parsed.choices[0].delta.content });
+                                    }
+                                } catch (e) {
+                                    console.error("Ошибка парсинга чанка:", e);
+                                }
+                            }
+                        }
+                    }
+                }
+                port.postMessage({ status: "done" });
+
+            } catch (err: any) {
+                console.error("Глобальная ошибка API:", err);
+                port.postMessage({ status: "error", error: err.message || "Неизвестная ошибка сети." });
             }
         }
-    }
-    port.postMessage({ status: "done" });
-    const cleanTextForHistory = fullText.replace(/\*\*/g, '');
-    await saveToHistory(text, { clean: cleanTextForHistory, html: cleanTextForHistory }, mode);
-}
+    });
+});
