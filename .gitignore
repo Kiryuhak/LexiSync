@@ -1,5 +1,6 @@
 # Зависимости
 node_modules/
+dist/
 
 # Логи и кэш
 npm-debug.log*
@@ -7,6 +8,7 @@ yarn-debug.log*
 yarn-error.log*
 .npm/
 .eslintcache
+*.log
 
 # Тесты (Jest)
 coverage/
@@ -22,3 +24,9 @@ Thumbs.db
 # Секретные ключи (если когда-то решите добавить .env)
 .env
 .env.local
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
+blob-report/
