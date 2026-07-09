@@ -73,11 +73,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 try {
                     text = await navigator.clipboard.readText();
                     if (!text || text.trim().length === 0) {
-                        alert("✨ AI-Spell: Текст не найден!\n\nВ Google Docs:\n1. Выделите текст\n2. Нажмите Ctrl+C\n3. Снова нажмите хоткей");
+                        alert("✨ LexiSync: Текст не найден!\n\nВ Google Docs:\n1. Выделите текст\n2. Нажмите Ctrl+C\n3. Снова нажмите хоткей");
                         return;
                     }
                 } catch (err) {
-                    alert("✨ AI-Spell: Нет доступа к буферу обмена. Кликните мышкой по документу и попробуйте снова.");
+                    alert("✨ LexiSync: Нет доступа к буферу обмена. Кликните мышкой по документу и попробуйте снова.");
                     return;
                 }
             }
@@ -165,11 +165,11 @@ document.addEventListener('keydown', async (e: KeyboardEvent) => {
                 try {
                     text = await navigator.clipboard.readText();
                     if (!text || text.trim().length === 0) {
-                        alert("✨ AI-Spell: Текст не найден!\n\nЕсли вы находитесь в Google Docs:\n1. Выделите текст\n2. Нажмите Ctrl+C (скопировать)\n3. Снова нажмите горячую клавишу");
+                        alert("✨ LexiSync: Текст не найден!\n\nЕсли вы находитесь в Google Docs:\n1. Выделите текст\n2. Нажмите Ctrl+C (скопировать)\n3. Снова нажмите горячую клавишу");
                         return;
                     }
                 } catch (err) {
-                    alert("✨ AI-Spell: Ошибка доступа к буферу обмена.");
+                    alert("✨ LexiSync: Ошибка доступа к буферу обмена.");
                     return;
                 }
             }

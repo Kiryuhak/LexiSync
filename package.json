@@ -1,5 +1,5 @@
 {
-  "name": "ai-spell",
+  "name": "lexisync-extension",
   "version": "2.7.1",
   "description": "",
   "main": "background.js",

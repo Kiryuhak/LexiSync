@@ -54,7 +54,7 @@ async function selectTextOnPage(page: any, selector: string = 'p') {
 // ==========================================
 // 🚀 3. ПОЛНЫЙ РЕГРЕССИОННЫЙ НАБОР ТЕСТОВ
 // ==========================================
-test.describe('E2E Регрессия: AI-Spell', () => {
+test.describe('E2E Регрессия: LexiSync', () => {
 
   test('Кейс 1: Защита системы (Отказ без API-ключа)', async ({ page, context }) => {
     await clearApiKey(context);
