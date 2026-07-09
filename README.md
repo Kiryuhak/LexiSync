@@ -31,12 +31,12 @@
 
 1. Клонируйте репозиторий:
    ```bash
-   git clone [https://github.com/Kiryuhak/AI-Spell.git](https://github.com/Kiryuhak/AI-Spell.git)
+   git clone [https://github.com/Kiryuhak/LexiSync.git](https://github.com/Kiryuhak/LexiSync.git)
 
 2. Перейдите в папку проекта и установите зависимости компилятора:
  
    ```bash
-   cd AI-Spell
+   cd LexiSync
    npm install
 
 3. Соберите проект (компиляция .ts в .js):
