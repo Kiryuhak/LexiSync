@@ -33,8 +33,11 @@ async function getCacheHash(mode: string, text: string): Promise<string> {
 
 // УТИЛИТА 2: Продвинутый парсер Markdown (Списки, абзацы, теги и подсветка)
 function parseMarkdownToHTML(text: string): string {
+    // 🔥 НОВОЕ: Жестко вырезаем любые HTML-теги, которые могла вернуть нейросеть
+    let html = text.replace(/<\/?[^>]+(>|$)/g, "");
+    
     // 1. Перехватываем HTML-теги жирного текста от нейросети и превращаем в **
-    let html = text.replace(/<\/?(b|strong)>/gi, '**');
+    html = html.replace(/<\/?(b|strong)>/gi, '**');
     
     // 2. Экранируем все остальные теги (защита браузера)
     html = html.replace(/</g, "&lt;").replace(/>/g, "&gt;"); 
@@ -209,24 +212,65 @@ function injectStyles(): void {
                 box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
             }
             #gemini-extension-ui[data-theme="dark"] {
-                --bg-primary: #1e1e24; --bg-secondary: #2b2b36; --text-primary: #f8fafc; --text-secondary: #94a3b8;
-                --border-color: rgba(255,255,255,0.08); --hover-bg: #3f3f46; --shadow-color: rgba(0,0,0,0.5);
+            --bg-primary: #1e1e24; --bg-secondary: #2b2b36; --text-primary: #f8fafc; --text-secondary: #94a3b8;
+            --border-color: rgba(255,255,255,0.08); --hover-bg: #3f3f46; --shadow-color: rgba(0,0,0,0.5);
             }
-            #gemini-extension-ui span, #gemini-extension-ui svg { flex-shrink: 0 !important; }
-            #gemini-extension-ui svg { min-width: 14px !important; min-height: 14px !important; }
-            @keyframes gemini-spin { to { transform: rotate(360deg); } } 
+            #gemini-extension-ui span { flex-shrink: 0 !important; }
+            #gemini-extension-ui svg { width: 16px !important; height: 16px !important; min-width: 16px !important; min-height: 16px !important; max-width: 16px !important; max-height: 16px !important; flex-shrink: 0 !important; display: block !important; }
+            @keyframes gemini-spin { to { transform: rotate(360deg); } }
             @keyframes gemini-flip { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(180deg); } }
             @keyframes aiSpellFadeIn { 0% { opacity: 0; transform: translateY(12px) scale(0.98); } 100% { opacity: 1; transform: translateY(0) scale(1); }}
             .gemini-loader { width: 14px; height: 14px; border: 2.5px solid var(--text-secondary); border-top-color: transparent; border-radius: 50%; animation: gemini-spin 0.8s linear infinite; }
             .gemini-hourglass { animation: gemini-flip 2s ease-in-out infinite; display: flex; align-items: center; justify-content: center; }
             #gemini-extension-ui mark { background: #dcfce7; color: #166534; padding: 2px 4px; border-radius: 4px; font-weight: 500; }
             #gemini-extension-ui[data-theme="dark"] mark { background: #0f5223; color: #c4eed0; }
+            /* Общие стили для обеих кнопок */
             .gemini-btn-action, .gemini-translate-btn { 
-                background: var(--bg-secondary); border: none; border-radius: 8px; padding: 6px 12px; font-size: 13px; cursor: pointer; color: var(--text-primary); display: flex; align-items: center; gap: 6px; font-family: inherit; font-weight: 500; transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+                background: var(--bg-secondary) !important; 
+                border: none !important; 
+                border-radius: 8px !important; 
+                padding: 0 16px !important; 
+                height: 38px !important; /* Строгая высота */
+                font-size: 13px !important; 
+                cursor: pointer !important; 
+                color: var(--text-primary) !important; 
+                display: flex !important; 
+                flex-direction: row !important; /* Выстраиваем в линию */
+                align-items: center !important; 
+                justify-content: center !important; 
+                gap: 8px !important; 
+                font-family: inherit !important; 
+                font-weight: 500 !important; 
+                box-sizing: border-box !important; 
+                white-space: nowrap !important; /* ЗАПРЕЩАЕМ ПЕРЕНОС ТЕКСТА */
+                flex-shrink: 0 !important; /* Запрещаем сжатие кнопки */
+                transition: all 0.2s cubic-bezier(0.2, 0, 0, 1) !important;
             }
-            .gemini-btn-action:hover, .gemini-translate-btn:hover { background: var(--hover-bg); }
-            .gemini-btn-action:active, .gemini-translate-btn:active { transform: translateY(1px) scale(0.98); }
-            .gemini-translate-btn.icon-only { padding: 6px; }
+
+            .gemini-btn-action:hover, .gemini-translate-btn:hover { 
+                background: var(--hover-bg) !important; 
+            }
+
+            .gemini-btn-action:active, .gemini-translate-btn:active { 
+                transform: translateY(1px) scale(0.98) !important; 
+            }
+
+            /* Стили только для квадратной кнопки копирования */
+            .gemini-translate-btn.icon-only, .gemini-btn-action.icon-only { 
+                padding: 0 !important; 
+                width: 38px !important; 
+                min-width: 38px !important; 
+            }
+
+            /* Иконки внутри кнопок */
+            .gemini-btn-action svg, .gemini-translate-btn svg {
+                width: 16px !important;
+                height: 16px !important;
+                min-width: 16px !important;
+                flex-shrink: 0 !important;
+                display: block !important;
+                margin: 0 !important;
+            }
             .gemini-scroll::-webkit-scrollbar { width: 6px; }
             .gemini-scroll::-webkit-scrollbar-track { background: transparent; }
             .gemini-scroll::-webkit-scrollbar-thumb { background: var(--text-secondary); border-radius: 4px; }
@@ -571,7 +615,7 @@ function executeRequest(mode: string): void {
     contentPane.style.cssText = 'padding: 16px; min-height: 50px; max-height: 50vh; overflow-y: auto; overflow-x: hidden; font-size: 14px; color: var(--text-primary); line-height: 1.6; font-family: system-ui, sans-serif; word-wrap: break-word; white-space: pre-wrap;';
     
     const actionsContainer = document.createElement('div');
-    actionsContainer.style.cssText = 'display: none; padding: 0 16px 16px 16px; gap: 10px;';
+    actionsContainer.style.cssText = 'display: none; padding: 0 16px 16px 16px; gap: 10px; align-items: center; justify-content: flex-start;';
     
     popupUI.innerHTML = '';
     popupUI.appendChild(header);
