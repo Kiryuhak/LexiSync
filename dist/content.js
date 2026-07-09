@@ -53,12 +53,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 try {
                     text = await navigator.clipboard.readText();
                     if (!text || text.trim().length === 0) {
-                        alert("✨ AI-Spell: Текст не найден!\n\nВ Google Docs:\n1. Выделите текст\n2. Нажмите Ctrl+C\n3. Снова нажмите хоткей");
+                        alert("✨ LexiSync: Текст не найден!\n\nВ Google Docs:\n1. Выделите текст\n2. Нажмите Ctrl+C\n3. Снова нажмите хоткей");
                         return;
                     }
                 }
                 catch (err) {
-                    alert("✨ AI-Spell: Нет доступа к буферу обмена. Кликните мышкой по документу и попробуйте снова.");
+                    alert("✨ LexiSync: Нет доступа к буферу обмена. Кликните мышкой по документу и попробуйте снова.");
                     return;
                 }
             }
@@ -154,12 +154,12 @@ document.addEventListener('keydown', async (e) => {
                 try {
                     text = await navigator.clipboard.readText();
                     if (!text || text.trim().length === 0) {
-                        alert("✨ AI-Spell: Текст не найден!\n\nЕсли вы находитесь в Google Docs:\n1. Выделите текст\n2. Нажмите Ctrl+C (скопировать)\n3. Снова нажмите горячую клавишу");
+                        alert("✨ LexiSync: Текст не найден!\n\nЕсли вы находитесь в Google Docs:\n1. Выделите текст\n2. Нажмите Ctrl+C (скопировать)\n3. Снова нажмите горячую клавишу");
                         return;
                     }
                 }
                 catch (err) {
-                    alert("✨ AI-Spell: Ошибка доступа к буферу обмена.");
+                    alert("✨ LexiSync: Ошибка доступа к буферу обмена.");
                     return;
                 }
             }
@@ -198,7 +198,7 @@ function injectStyles() {
                 --border-color: rgba(0,0,0,0.06); --hover-bg: #e2e8f0; --shadow-color: rgba(0,0,0,0.1);
                 transition: opacity 0.15s ease; border-radius: 12px;
                 border: 1px solid var(--border-color);
-                animation: aiSpellFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+                animation: lexiSyncFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
                 box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
             }
             #gemini-extension-ui[data-theme="dark"] {
@@ -209,7 +209,7 @@ function injectStyles() {
             #gemini-extension-ui svg { width: 16px !important; height: 16px !important; min-width: 16px !important; min-height: 16px !important; max-width: 16px !important; max-height: 16px !important; flex-shrink: 0 !important; display: block !important; }
             @keyframes gemini-spin { to { transform: rotate(360deg); } }
             @keyframes gemini-flip { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(180deg); } }
-            @keyframes aiSpellFadeIn { 0% { opacity: 0; transform: translateY(12px) scale(0.98); } 100% { opacity: 1; transform: translateY(0) scale(1); }}
+            @keyframes lexiSyncFadeIn { 0% { opacity: 0; transform: translateY(12px) scale(0.98); } 100% { opacity: 1; transform: translateY(0) scale(1); }}
             .gemini-loader { width: 14px; height: 14px; border: 2.5px solid var(--text-secondary); border-top-color: transparent; border-radius: 50%; animation: gemini-spin 0.8s linear infinite; }
             .gemini-hourglass { animation: gemini-flip 2s ease-in-out infinite; display: flex; align-items: center; justify-content: center; }
             #gemini-extension-ui mark { background: #dcfce7; color: #166534; padding: 2px 4px; border-radius: 4px; font-weight: 500; }

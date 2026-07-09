@@ -1,4 +1,4 @@
-﻿=== C:\Users\user\Documents\AI-Spell\src\background.ts ===
+﻿=== C:\Users\user\Documents\LexiSync\src\background.ts ===
 // 1. РЎРѕР·РґР°РµРј СЌР»РµРјРµРЅС‚С‹ РІ СЃРёСЃС‚РµРјРЅРѕРј РєРѕРЅС‚РµРєСЃС‚РЅРѕРј РјРµРЅСЋ (РџРљРњ) РїСЂРё СѓСЃС‚Р°РЅРѕРІРєРµ СЂР°СЃС€РёСЂРµРЅРёСЏ
 chrome.runtime.onInstalled.addListener(() => {
     chrome.contextMenus.create({ id: "spellcheck", title: "РСЃРїСЂР°РІРёС‚СЊ РѕС€РёР±РєРё (Alt+R)", contexts: ["selection"] });
@@ -206,7 +206,7 @@ chrome.runtime.onConnect.addListener((port) => {
     });
 });
 
-=== C:\Users\user\Documents\AI-Spell\src\content.ts ===
+=== C:\Users\user\Documents\LexiSync\src\content.ts ===
 interface SelectionData {
     text: string;
     context: string;
@@ -282,11 +282,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 try {
                     text = await navigator.clipboard.readText();
                     if (!text || text.trim().length === 0) {
-                        alert("вњЁ AI-Spell: РўРµРєСЃС‚ РЅРµ РЅР°Р№РґРµРЅ!\n\nР’ Google Docs:\n1. Р’С‹РґРµР»РёС‚Рµ С‚РµРєСЃС‚\n2. РќР°Р¶РјРёС‚Рµ Ctrl+C\n3. РЎРЅРѕРІР° РЅР°Р¶РјРёС‚Рµ С…РѕС‚РєРµР№");
+                        alert("вњЁ LexiSync: РўРµРєСЃС‚ РЅРµ РЅР°Р№РґРµРЅ!\n\nР’ Google Docs:\n1. Р’С‹РґРµР»РёС‚Рµ С‚РµРєСЃС‚\n2. РќР°Р¶РјРёС‚Рµ Ctrl+C\n3. РЎРЅРѕРІР° РЅР°Р¶РјРёС‚Рµ С…РѕС‚РєРµР№");
                         return;
                     }
                 } catch (err) {
-                    alert("вњЁ AI-Spell: РќРµС‚ РґРѕСЃС‚СѓРїР° Рє Р±СѓС„РµСЂСѓ РѕР±РјРµРЅР°. РљР»РёРєРЅРёС‚Рµ РјС‹С€РєРѕР№ РїРѕ РґРѕРєСѓРјРµРЅС‚Сѓ Рё РїРѕРїСЂРѕР±СѓР№С‚Рµ СЃРЅРѕРІР°.");
+                    alert("вњЁ LexiSync: РќРµС‚ РґРѕСЃС‚СѓРїР° Рє Р±СѓС„РµСЂСѓ РѕР±РјРµРЅР°. РљР»РёРєРЅРёС‚Рµ РјС‹С€РєРѕР№ РїРѕ РґРѕРєСѓРјРµРЅС‚Сѓ Рё РїРѕРїСЂРѕР±СѓР№С‚Рµ СЃРЅРѕРІР°.");
                     return;
                 }
             }
@@ -374,11 +374,11 @@ document.addEventListener('keydown', async (e: KeyboardEvent) => {
                 try {
                     text = await navigator.clipboard.readText();
                     if (!text || text.trim().length === 0) {
-                        alert("вњЁ AI-Spell: РўРµРєСЃС‚ РЅРµ РЅР°Р№РґРµРЅ!\n\nР•СЃР»Рё РІС‹ РЅР°С…РѕРґРёС‚РµСЃСЊ РІ Google Docs:\n1. Р’С‹РґРµР»РёС‚Рµ С‚РµРєСЃС‚\n2. РќР°Р¶РјРёС‚Рµ Ctrl+C (СЃРєРѕРїРёСЂРѕРІР°С‚СЊ)\n3. РЎРЅРѕРІР° РЅР°Р¶РјРёС‚Рµ РіРѕСЂСЏС‡СѓСЋ РєР»Р°РІРёС€Сѓ");
+                        alert("вњЁ LexiSync: РўРµРєСЃС‚ РЅРµ РЅР°Р№РґРµРЅ!\n\nР•СЃР»Рё РІС‹ РЅР°С…РѕРґРёС‚РµСЃСЊ РІ Google Docs:\n1. Р’С‹РґРµР»РёС‚Рµ С‚РµРєСЃС‚\n2. РќР°Р¶РјРёС‚Рµ Ctrl+C (СЃРєРѕРїРёСЂРѕРІР°С‚СЊ)\n3. РЎРЅРѕРІР° РЅР°Р¶РјРёС‚Рµ РіРѕСЂСЏС‡СѓСЋ РєР»Р°РІРёС€Сѓ");
                         return;
                     }
                 } catch (err) {
-                    alert("вњЁ AI-Spell: РћС€РёР±РєР° РґРѕСЃС‚СѓРїР° Рє Р±СѓС„РµСЂСѓ РѕР±РјРµРЅР°.");
+                    alert("вњЁ LexiSync: РћС€РёР±РєР° РґРѕСЃС‚СѓРїР° Рє Р±СѓС„РµСЂСѓ РѕР±РјРµРЅР°.");
                     return;
                 }
             }
@@ -417,7 +417,7 @@ function injectStyles(): void {
                 --border-color: rgba(0,0,0,0.06); --hover-bg: #e2e8f0; --shadow-color: rgba(0,0,0,0.1);
                 transition: opacity 0.15s ease; border-radius: 12px;
                 border: 1px solid var(--border-color);
-                animation: aiSpellFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+                animation: lexiSyncFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
                 box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
             }
             #gemini-extension-ui[data-theme="dark"] {
@@ -428,7 +428,7 @@ function injectStyles(): void {
             #gemini-extension-ui svg { width: 16px !important; height: 16px !important; min-width: 16px !important; min-height: 16px !important; max-width: 16px !important; max-height: 16px !important; flex-shrink: 0 !important; display: block !important; }
             @keyframes gemini-spin { to { transform: rotate(360deg); } }
             @keyframes gemini-flip { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(180deg); } }
-            @keyframes aiSpellFadeIn { 0% { opacity: 0; transform: translateY(12px) scale(0.98); } 100% { opacity: 1; transform: translateY(0) scale(1); }}
+            @keyframes lexiSyncFadeIn { 0% { opacity: 0; transform: translateY(12px) scale(0.98); } 100% { opacity: 1; transform: translateY(0) scale(1); }}
             .gemini-loader { width: 14px; height: 14px; border: 2.5px solid var(--text-secondary); border-top-color: transparent; border-radius: 50%; animation: gemini-spin 0.8s linear infinite; }
             .gemini-hourglass { animation: gemini-flip 2s ease-in-out infinite; display: flex; align-items: center; justify-content: center; }
             #gemini-extension-ui mark { background: #dcfce7; color: #166534; padding: 2px 4px; border-radius: 4px; font-weight: 500; }
@@ -1297,7 +1297,7 @@ function cropAndProcessImage(rect: DOMRect) {
     img.src = capturedScreenshotDataUrl;
 }
 
-=== C:\Users\user\Documents\AI-Spell\src\history.ts ===
+=== C:\Users\user\Documents\LexiSync\src\history.ts ===
 document.addEventListener('DOMContentLoaded', () => {
     const historyList = document.getElementById('historyList');
     const clearBtn = document.getElementById('clearBtn');
@@ -1353,7 +1353,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistory();
 });
 
-=== C:\Users\user\Documents\AI-Spell\src\icons.ts ===
+=== C:\Users\user\Documents\LexiSync\src\icons.ts ===
 // Р¤Р°Р№Р»: src/icons.ts
 const ICONS: Record<string, string> = {
     // Р­С‚Р°Р»РѕРЅРЅС‹Р№ Google (С…РѕР»СЃС‚ 24x24)
@@ -1385,7 +1385,7 @@ const ICONS: Record<string, string> = {
     dots: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="min-width: 16px !important; min-height: 16px !important; flex-shrink: 0 !important;"><circle cx="12" cy="5" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="12" cy="19" r="1.5"></circle></svg>`
 };
 
-=== C:\Users\user\Documents\AI-Spell\src\options.ts ===
+=== C:\Users\user\Documents\LexiSync\src\options.ts ===
 // Р¤СѓРЅРєС†РёСЏ РґР»СЏ СЃРѕС…СЂР°РЅРµРЅРёСЏ РЅР°СЃС‚СЂРѕРµРє
 // РР·РјРµРЅСЏРµРј С„СѓРЅРєС†РёСЋ РЅР° Р°СЃРёРЅС…СЂРѕРЅРЅСѓСЋ (async)
 async function saveOptions(): Promise<void> {
@@ -1516,7 +1516,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
 });
 
-=== C:\Users\user\Documents\AI-Spell\src\popup.ts ===
+=== C:\Users\user\Documents\LexiSync\src\popup.ts ===
 // --- РЈСЃС‚Р°РЅРѕРІРєР° С‚РµРјС‹ РїСЂРё РѕС‚РєСЂС‹С‚РёРё РѕРєРЅР° ---
 chrome.storage.local.get(['selectedTheme'], function(res) {
     const theme = res.selectedTheme || 'auto';
@@ -1536,7 +1536,7 @@ document.getElementById('btn-options')!.addEventListener('click', () => {
     window.close();
 });
 
-=== C:\Users\user\Documents\AI-Spell\tests\e2e.spec.ts ===
+=== C:\Users\user\Documents\LexiSync\tests\e2e.spec.ts ===
 import { test as base, expect, chromium } from '@playwright/test';
 import path from 'path';
 
@@ -1593,7 +1593,7 @@ async function selectTextOnPage(page: any, selector: string = 'p') {
 // ==========================================
 // рџљЂ 3. РџРћР›РќР«Р™ Р Р•Р“Р Р•РЎРЎРРћРќРќР«Р™ РќРђР‘РћР  РўР•РЎРўРћР’
 // ==========================================
-test.describe('E2E Р РµРіСЂРµСЃСЃРёСЏ: AI-Spell', () => {
+test.describe('E2E Р РµРіСЂРµСЃСЃРёСЏ: LexiSync', () => {
 
   test('РљРµР№СЃ 1: Р—Р°С‰РёС‚Р° СЃРёСЃС‚РµРјС‹ (РћС‚РєР°Р· Р±РµР· API-РєР»СЋС‡Р°)', async ({ page, context }) => {
     await clearApiKey(context);
@@ -1716,7 +1716,7 @@ test.describe('E2E Р РµРіСЂРµСЃСЃРёСЏ: AI-Spell', () => {
 
 });
 
-=== C:\Users\user\Documents\AI-Spell\tests\tsconfig.json ===
+=== C:\Users\user\Documents\LexiSync\tests\tsconfig.json ===
 {
   "extends": "../tsconfig.json",
   "compilerOptions": {
