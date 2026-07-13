@@ -75,7 +75,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 // 5. ДВИЖОК API: Работа с Mistral AI (Text & Vision) через потоковое соединение
 chrome.runtime.onConnect.addListener((port) => {
-    if (port.name !== "geminiStream") return;
+    if (port.name !== "mistralStream") return;
 
     // Создаем контроллер для отмены запроса
     let abortController = new AbortController();
@@ -87,7 +87,7 @@ chrome.runtime.onConnect.addListener((port) => {
     });
 
     port.onMessage.addListener(async (msg) => {
-        if (msg.action === "callGemini") {
+        if (msg.action === "callMistral") {
             // Пересоздаем контроллер для нового запроса
             abortController.abort();
             abortController = new AbortController(); 

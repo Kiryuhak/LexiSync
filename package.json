@@ -1,10 +1,10 @@
 {
   "name": "lexisync-extension",
-  "version": "2.7.1",
+  "version": "2.8.0",
   "description": "",
   "main": "background.js",
   "scripts": {
-    "build": "esbuild src/*.ts --bundle --outdir=dist --minify --target=es2020",
+    "build": "node build.js",
     "watch": "esbuild src/*.ts --bundle --outdir=dist --target=es2020 --watch",
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test"
@@ -25,6 +25,7 @@
     "@playwright/test": "^1.61.1",
     "@types/chrome": "^0.2.0",
     "@types/node": "^26.1.0",
+    "archiver": "^5.3.2",
     "esbuild": "^0.28.1",
     "typescript": "^6.0.3"
   }

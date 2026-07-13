@@ -14,7 +14,7 @@
 ## 🛠 Технологии и Архитектура
 
 *   **Язык:** TypeScript (Strict Mode)
-*   **Сборка:** Node.js + TypeScript Compiler (`tsc`)
+*   **Сборка:** Node.js + esbuild (Сверхбыстрый бандлинг и минификация)
 *   **API:** Chrome Extension API (Manifest V3), Mistral AI API
 *   **UI/UX:** Vanilla DOM, CSS Variables, SVG Icons (без использования тяжелых внешних библиотек)
 
