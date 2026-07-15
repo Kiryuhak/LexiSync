@@ -25,6 +25,20 @@ let lastMouseX = 0;
 let lastMouseY = 0;
 
 // УТИЛИТА 1: Кэширование
+const CACHE_INDEX_KEY = 'ai_cache_index';
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const CACHE_MAX_ENTRIES = 100;
+
+interface CacheEntry {
+    value: string;
+    expiresAt: number;
+}
+
+interface CacheIndexItem {
+    key: string;
+    expiresAt: number;
+}
+
 async function getCacheHash(mode: string, text: string): Promise<string> {
     const msgBuffer = new TextEncoder().encode(mode + ":" + text.trim());
     const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
@@ -32,16 +46,54 @@ async function getCacheHash(mode: string, text: string): Promise<string> {
     return 'ai_cache_' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// УТИЛИТА 2: Продвинутый парсер Markdown (Списки, абзацы, теги и подсветка)
+async function getCachedText(key: string): Promise<string | null> {
+    const result = await chrome.storage.local.get([key]);
+    const cached = result[key] as string | CacheEntry | undefined;
+
+    // Поддержка кэша, созданного версиями до 2.8.0.
+    if (typeof cached === 'string') return cached;
+    if (!cached || typeof cached.value !== 'string') return null;
+
+    if (cached.expiresAt <= Date.now()) {
+        await chrome.storage.local.remove(key);
+        return null;
+    }
+
+    return cached.value;
+}
+
+async function setCachedText(key: string, value: string): Promise<void> {
+    const now = Date.now();
+    const expiresAt = now + CACHE_TTL_MS;
+    const result = await chrome.storage.local.get([CACHE_INDEX_KEY]);
+    const previousIndex = Array.isArray(result[CACHE_INDEX_KEY])
+        ? result[CACHE_INDEX_KEY] as CacheIndexItem[]
+        : [];
+
+    const activeIndex = previousIndex
+        .filter(item => item?.key !== key && item?.expiresAt > now)
+        .concat({ key, expiresAt })
+        .slice(-CACHE_MAX_ENTRIES);
+
+    const activeKeys = new Set(activeIndex.map(item => item.key));
+    const keysToRemove = previousIndex
+        .map(item => item?.key)
+        .filter((oldKey): oldKey is string => Boolean(oldKey) && !activeKeys.has(oldKey));
+
+    if (keysToRemove.length > 0) await chrome.storage.local.remove(keysToRemove);
+    await chrome.storage.local.set({
+        [key]: { value, expiresAt } satisfies CacheEntry,
+        [CACHE_INDEX_KEY]: activeIndex,
+    });
+}
+
+// УТИЛИТА 2: безопасный парсер ограниченного Markdown
 function parseMarkdownToHTML(text: string): string {
-    // 🔥 НОВОЕ: Жестко вырезаем любые HTML-теги, которые могла вернуть нейросеть
-    let html = text.replace(/<\/?[^>]+(>|$)/g, "");
-    
-    // 1. Перехватываем HTML-теги жирного текста от нейросети и превращаем в **
-    html = html.replace(/<\/?(b|strong)>/gi, '**');
-    
-    // 2. Экранируем все остальные теги (защита браузера)
-    html = html.replace(/</g, "&lt;").replace(/>/g, "&gt;"); 
+    // Никогда не вставляем HTML модели напрямую в страницу.
+    let html = text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
     
     // 3. Парсим двойные звездочки в красивую зеленую подсветку
     html = html.replace(/\*\*([\s\S]*?)\*\*/g, '<mark>$1</mark>'); 
@@ -691,9 +743,9 @@ function executeRequest(mode: string): void {
                 
                 // 🔥 СОХРАНЯЕМ В КЭШ
                 const cacheModeKey = mode === 'translate' ? mode + currentTargetLang : mode;
-                getCacheHash(cacheModeKey, currentSelection.text).then(cacheKey => {
-                    chrome.storage.local.set({ [cacheKey]: fullResult });
-                });
+                void getCacheHash(cacheModeKey, currentSelection.text)
+                    .then(cacheKey => setCachedText(cacheKey, fullResult))
+                    .catch(error => console.error('Ошибка сохранения кэша:', error));
 
                 // 🔥 СОХРАНЯЕМ В ИСТОРИЮ
                 const historyItem = {
@@ -824,16 +876,15 @@ function executeRequest(mode: string): void {
             const cacheModeKey = mode === 'translate' ? mode + currentTargetLang : mode;
             const cacheKey = await getCacheHash(cacheModeKey, currentSelection.text);
             
-            chrome.storage.local.get([cacheKey], (result) => {
-                if (result[cacheKey]) {
-                    fullResult = result[cacheKey] as string;
-                    let finalHtml = parseMarkdownToHTML(fullResult);
-                    contentPane.innerHTML = finalHtml;
-                    finishStream(true); 
-                } else {
-                    startStream();
-                }
-            });
+            const cachedResult = await getCachedText(cacheKey);
+            if (cachedResult) {
+                fullResult = cachedResult;
+                const finalHtml = parseMarkdownToHTML(fullResult);
+                contentPane.innerHTML = finalHtml;
+                finishStream(true);
+            } else {
+                startStream();
+            }
         });
     }
 
@@ -911,116 +962,6 @@ function adjustPopupPosition(): void {
 
     popupUI.style.left = `${viewportX}px`;
     popupUI.style.top = `${viewportY}px`;
-}
-
-function insertTextToDOM(newText: string, btnElement?: HTMLButtonElement): void {
-    const isDocs = window.location.hostname.includes('docs.google.com');
-
-    if (isDocs) {
-        try {
-            const htmlText = `<span style="font-weight: normal;">${newText.replace(/\n/g, '<br>')}</span>`;
-            const htmlBlob = new Blob([htmlText], { type: 'text/html' });
-            const plainBlob = new Blob([newText], { type: 'text/plain' });
-            
-            const clipboardItem = new window.ClipboardItem({
-                'text/html': htmlBlob,
-                'text/plain': plainBlob
-            });
-
-            navigator.clipboard.write([clipboardItem]).then(() => {
-                if (btnElement) {
-                    btnElement.innerHTML = `✨ Скопировано! Нажмите Ctrl+V`;
-                    btnElement.style.backgroundColor = '#dcfce7';
-                    btnElement.style.color = '#166534';
-                    btnElement.style.fontWeight = '600';
-                    setTimeout(() => closePopup(), 2000);
-                } else {
-                    closePopup();
-                }
-            });
-        } catch (err) {
-            navigator.clipboard.writeText(newText).then(() => {
-                if (btnElement) {
-                    btnElement.innerHTML = `✨ Скопировано!`;
-                    setTimeout(() => closePopup(), 1500);
-                }
-            });
-        }
-        return;
-    }
-
-    const { isInput, activeElement, start, end, range } = currentSelection;
-    try {
-        if (isInput && activeElement) {
-            const val = activeElement.value;
-            const safeStart = start || 0;
-            const safeEnd = end || 0;
-            const newFullText = val.substring(0, safeStart) + newText + val.substring(safeEnd);
-            
-            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
-            const nativeTextAreaValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set;
-            
-            if (activeElement.tagName === 'INPUT' && nativeInputValueSetter) nativeInputValueSetter.call(activeElement, newFullText);
-            else if (activeElement.tagName === 'TEXTAREA' && nativeTextAreaValueSetter) nativeTextAreaValueSetter.call(activeElement, newFullText);
-            else activeElement.value = newFullText;
-
-            activeElement.selectionStart = activeElement.selectionEnd = safeStart + newText.length;
-            activeElement.dispatchEvent(new Event('input', { bubbles: true }));
-            activeElement.dispatchEvent(new Event('change', { bubbles: true }));
-            
-            const originalBg = activeElement.style.backgroundColor;
-            const originalTransition = activeElement.style.transition;
-            activeElement.style.transition = 'background-color 0.3s ease';
-            activeElement.style.backgroundColor = '#dcfce7'; 
-            setTimeout(() => {
-                activeElement.style.backgroundColor = originalBg;
-                setTimeout(() => { activeElement.style.transition = originalTransition; }, 300);
-            }, 800);
-            
-        } else if (range) {
-            const sel = window.getSelection();
-            if (sel) { sel.removeAllRanges(); sel.addRange(range); }
-            
-            const hlId = 'gemini-hl-' + Date.now();
-            const safeText = newText.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-            const hlHtml = `<span id="${hlId}" style="background-color: #dcfce7; transition: background-color 0.8s ease; border-radius: 3px;">${safeText}</span>`;
-            
-            const success = document.execCommand('insertHTML', false, hlHtml);
-            if (success) {
-                const span = document.getElementById(hlId);
-                if (span) {
-                    setTimeout(() => { span.style.backgroundColor = 'transparent'; }, 800);
-                    setTimeout(() => {
-                        const parent = span.parentNode;
-                        if (parent) {
-                            while(span.firstChild) parent.insertBefore(span.firstChild, span);
-                            parent.removeChild(span);
-                        }
-                    }, 1600);
-                }
-            } else {
-                const successText = document.execCommand('insertText', false, newText);
-                if (!successText && sel) {
-                    range.deleteContents();
-                    const textNode = document.createTextNode(newText);
-                    range.insertNode(textNode);
-                    sel.removeAllRanges();
-                    const newRange = document.createRange();
-                    newRange.setStartAfter(textNode);
-                    newRange.setEndAfter(textNode);
-                    sel.addRange(newRange);
-                }
-            }
-            
-            if (activeElement) {
-                activeElement.dispatchEvent(new Event('input', { bubbles: true }));
-                activeElement.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-        }
-        closePopup(); 
-    } catch (err) {
-        console.error("Ошибка вставки:", err);
-    }
 }
 
 function closePopup(): void {

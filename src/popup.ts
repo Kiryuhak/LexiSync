@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // --- Обработчики кнопок ---
 document.getElementById('btn-history')!.addEventListener('click', () => {
-    chrome.tabs.create({ url: 'history.html' });
+    chrome.tabs.create({ url: chrome.runtime.getURL('lexisync-history.html') });
     window.close();
 });
 

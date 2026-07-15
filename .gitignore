@@ -1,6 +1,8 @@
 # Зависимости
 node_modules/
 dist/
+.output/
+.wxt/
 
 # Логи и кэш
 npm-debug.log*

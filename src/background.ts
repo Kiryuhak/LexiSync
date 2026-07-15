@@ -66,7 +66,7 @@ chrome.commands.onCommand.addListener((command) => {
 // 4. Обработчик сообщений от контент-скрипта (открытие Истории и Настроек)
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "openHistory") {
-        chrome.tabs.create({ url: chrome.runtime.getURL("history.html") });
+        chrome.tabs.create({ url: chrome.runtime.getURL("lexisync-history.html") });
     }
     if (request.action === "openOptionsPage") {
         chrome.runtime.openOptionsPage(); // Нативный метод Chrome для открытия настроек

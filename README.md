@@ -1,6 +1,6 @@
-# ✨ LexiSync (Chrome Extension)
+# ✨ LexiSync (Chrome & Firefox Extension)
 
-Умное расширение для Google Chrome на базе нейросети **Mistral AI**, созданное для удобной работы с текстом в любом поле ввода. Позволяет исправлять ошибки, переписывать текст, переводить, менять раскладку и подбирать эмодзи прямо «на лету».
+Кросс-браузерное расширение для Chrome и Firefox на базе **Mistral AI**. Позволяет исправлять ошибки, переписывать и переводить текст, менять раскладку, добавлять эмодзи и распознавать текст на изображениях.
 
 ## 🚀 Основные возможности
 
@@ -14,8 +14,8 @@
 ## 🛠 Технологии и Архитектура
 
 *   **Язык:** TypeScript (Strict Mode)
-*   **Сборка:** Node.js + esbuild (Сверхбыстрый бандлинг и минификация)
-*   **API:** Chrome Extension API (Manifest V3), Mistral AI API
+*   **Сборка:** WXT + Vite
+*   **API:** WebExtensions Manifest V3, Mistral AI API
 *   **UI/UX:** Vanilla DOM, CSS Variables, SVG Icons (без использования тяжелых внешних библиотек)
 
 ## 🎯 QA & Тестирование
@@ -27,26 +27,19 @@
 *   **Edge Cases при работе с DOM:** Безопасная вставка и замена текста в различных типах узлов (`<input>`, `<textarea>`, `contenteditable`), включая сохранение фокуса и позиции каретки.
 *   **Безопасность данных:** Строгая типизация данных при записи и чтении из асинхронного `chrome.storage.local`.
 
-## ⚙️ Установка для разработчиков (Локально)
+## ⚙️ Разработка и сборка
 
-1. Клонируйте репозиторий:
-   ```bash
-   git clone [https://github.com/Kiryuhak/LexiSync.git](https://github.com/Kiryuhak/LexiSync.git)
+```bash
+npm install
+npm run dev              # Chrome с hot reload
+npm run dev:firefox      # Firefox с hot reload
+npm run build            # production-сборки обоих браузеров
+npm run zip              # архивы для Chrome Web Store и Firefox AMO
+```
 
-2. Перейдите в папку проекта и установите зависимости компилятора:
- 
-   ```bash
-   cd LexiSync
-   npm install
+Готовые распакованные сборки создаются в `.output/chrome-mv3` и `.output/firefox-mv3`. Команды `npm run zip:chrome` и `npm run zip:firefox` создают отдельные архивы для магазинов.
 
-3. Соберите проект (компиляция .ts в .js):
-   ```bash
-   npm run build
-  (Для запуска компилятора в режиме реального времени используйте команду `npm run watch`).
-
-4. Откройте браузер Chrome и перейдите по адресу `chrome://extensions/`.
-5. Включите «Режим разработчика» (Developer mode) в правом верхнем углу.
-6. Нажмите «Загрузить распакованное расширение» (Load unpacked) и выберите корневую папку проекта AI-Spell.
+Для ручной установки Chrome откройте `chrome://extensions/`, включите режим разработчика и выберите `.output/chrome-mv3`. Для временной установки Firefox откройте `about:debugging#/runtime/this-firefox` и выберите `manifest.json` из `.output/firefox-mv3`.
 
 🔑 Начало работы
 1. Для работы расширения требуется API ключ от Mistral AI:

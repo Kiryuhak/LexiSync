@@ -1,17 +1,10 @@
 {
+  "extends": "./.wxt/tsconfig.json",
   "compilerOptions": {
-    "target": "ES2020",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "rootDir": "./src", 
-    "outDir": "./dist",
     "types": ["chrome", "node"]
-  },
-  "include": [
-    "src/**/*"
-  ]
+  }
 }

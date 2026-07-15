@@ -1,4 +1,5 @@
 import { test as base, expect, chromium } from '@playwright/test';
+import fs from 'node:fs/promises';
 import path from 'path';
 
 // ==========================================
@@ -6,7 +7,7 @@ import path from 'path';
 // ==========================================
 const test = base.extend({
   context: async ({ }, use) => {
-    const pathToExtension = path.resolve(__dirname, '../');
+    const pathToExtension = path.resolve(__dirname, '../.output/chrome-mv3');
     const context = await chromium.launchPersistentContext('', {
       headless: false,
       permissions: ['clipboard-read', 'clipboard-write'], 
@@ -50,6 +51,23 @@ async function selectTextOnPage(page: any, selector: string = 'p') {
     }
   }, selector);
 }
+
+test('Сборки Chrome и Firefox используют совместимые background-механизмы', async () => {
+  const chromeManifest = JSON.parse(await fs.readFile(
+    path.resolve(__dirname, '../.output/chrome-mv3/manifest.json'),
+    'utf8'
+  ));
+  const firefoxManifest = JSON.parse(await fs.readFile(
+    path.resolve(__dirname, '../.output/firefox-mv3/manifest.json'),
+    'utf8'
+  ));
+
+  expect(chromeManifest.background.service_worker).toBe('background.js');
+  expect(firefoxManifest.background.scripts).toEqual(['background.js']);
+  expect(firefoxManifest.browser_specific_settings.gecko.id).toBe('lexisync@kiryuhak.dev');
+  expect(chromeManifest.permissions).toContain('clipboardWrite');
+  expect(chromeManifest.permissions).not.toContain('scripting');
+});
 
 test('Кейс 3: Мультимодальный OCR (Alt+S) и буфер обмена', async ({ page, context }) => {
     await setFakeApiKey(context);
