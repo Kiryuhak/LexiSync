@@ -7,6 +7,7 @@
     "build": "node build.js",
     "watch": "esbuild src/*.ts --bundle --outdir=dist --target=es2020 --watch",
     "typecheck": "tsc --noEmit",
+    "pretest:e2e": "npm run build",
     "test:e2e": "playwright test"
   },
   "repository": {

@@ -630,6 +630,7 @@ function executeRequest(mode: string): void {
     function startStream() {
         fullResult = "";
         contentPane.textContent = "";
+        contentPane.style.color = '';
         actionsContainer.style.display = 'none';
         loaderOrClose.innerHTML = `<div class="gemini-loader"></div>`;
         
@@ -650,9 +651,9 @@ function executeRequest(mode: string): void {
             return;
         }
 
-        streamPort = chrome.runtime.connect({ name: "geminiStream" });
+        streamPort = chrome.runtime.connect({ name: "mistralStream" });
         streamPort.postMessage({ 
-            action: "callGemini", 
+            action: "callMistral",
             text: currentSelection.text, 
             context: currentSelection.context, 
             mode: mode, 
@@ -667,11 +668,9 @@ function executeRequest(mode: string): void {
                 contentPane.innerHTML = parseMarkdownToHTML(fullResult);
                 contentPane.scrollTop = contentPane.scrollHeight; 
                 adjustPopupPosition();
+
             } else if (response.status === "done") {
                 contentPane.innerHTML = parseMarkdownToHTML(fullResult);
-                // Вставляем финальный результат прямо в поле ввода на странице
-                replaceSelectedTextSafely(fullResult);
-                
                 finishStream();
 
                 
@@ -709,10 +708,12 @@ function executeRequest(mode: string): void {
                 saveToHistorySafe(historyItem);
 
             } else if (response.status === "error") {
-                if (response.error.toLowerCase().includes('rate limit') || response.error.includes('429')) {
+                const errorMessage = typeof response.error === 'string' ? response.error : 'Неизвестная ошибка.';
+                if (errorMessage.toLowerCase().includes('rate limit') || errorMessage.includes('429')) {
                     showRateLimitTimer(5, startStream, contentPane);
                 } else {
-                    contentPane.innerHTML = `<span style="color: #d32f2f;">Ошибка: ${response.error}</span>`;
+                    contentPane.textContent = `Ошибка: ${errorMessage}`;
+                    contentPane.style.color = '#d32f2f';
                 }
                 finishStream(false);
             }
@@ -743,17 +744,28 @@ function executeRequest(mode: string): void {
             replaceBtn.type = 'button'; 
             replaceBtn.className = btnClass;
             replaceBtn.innerHTML = `${replaceIcon} Заменить текст`;
+            // ✅ НОВАЯ ЛОГИКА (ВСТАВИТЬ)
             replaceBtn.onclick = (e) => { 
-                e.preventDefault(); 
-                e.stopPropagation(); 
-                insertTextToDOM(cleanResult, replaceBtn); 
+                e.preventDefault();
+                e.stopPropagation();
+
+                // Вставляем очищенный текст (без звездочек) умным методом
+                replaceSelectedTextSafely(cleanResult);
+
+                // Делаем красивую анимацию кнопки
+                replaceBtn.innerHTML = `${ICONS.check} Заменено!`;
+                replaceBtn.style.backgroundColor = '#dcfce7';
+                replaceBtn.style.color = '#166534';
+                replaceBtn.style.fontWeight = '600';
+
+                setTimeout(() => closePopup(), 1500);
             };
 
             if (mode === 'ocr') {
                 navigator.clipboard.writeText(cleanResult);
                 headerTitleWrapper.innerHTML = `<span style="display:flex; align-items:center; gap:8px; color: #166534;">${ICONS.check} Текст скопирован!</span>`;
             }
-            
+
             const copyBtn = document.createElement('button');
             copyBtn.type = 'button'; 
             copyBtn.className = `${btnClass} icon-only`;
@@ -763,7 +775,7 @@ function executeRequest(mode: string): void {
                 copyBtn.innerHTML = (mode === 'translate' || mode === 'layout') ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>` : ICONS.check;
                 setTimeout(() => copyBtn.innerHTML = copyIcon, 1500);
             };
-            
+
             actionsContainer.appendChild(replaceBtn);
             actionsContainer.appendChild(copyBtn);
         }
@@ -831,45 +843,56 @@ function executeRequest(mode: string): void {
 
 /**
  * Умная и безопасная замена выделенного текста.
- * Поддерживает <input>, <textarea> и <div contenteditable="true">
+ * Восстанавливает фокус и пробивает защиту React/Vue/Angular.
  */
 function replaceSelectedTextSafely(newText: string) {
-    const activeEl = document.activeElement as HTMLElement;
+    const { isInput, activeElement, start, end, range } = currentSelection;
 
-    if (!activeEl) return;
+    try {
+        // СЦЕНАРИЙ 1: Стандартные поля (input, textarea)
+        if (isInput && activeElement) {
+            const val = activeElement.value;
+            const safeStart = start || 0;
+            const safeEnd = end || 0;
+            const newFullText = val.substring(0, safeStart) + newText + val.substring(safeEnd);
 
-    // СЦЕНАРИЙ 1: Стандартные поля ввода (input, textarea)
-    if (activeEl instanceof HTMLInputElement || activeEl instanceof HTMLTextAreaElement) {
-        const start = activeEl.selectionStart || 0;
-        const end = activeEl.selectionEnd || 0;
+            // Магия для обхода Virtual DOM современных фреймворков
+            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
+            const nativeTextAreaValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set;
 
-        // Нативный метод замены текста (сохраняет историю Ctrl+Z браузера)
-        activeEl.setRangeText(newText, start, end, 'end');
+            if (activeElement.tagName === 'INPUT' && nativeInputValueSetter) {
+                nativeInputValueSetter.call(activeElement, newFullText);
+            } else if (activeElement.tagName === 'TEXTAREA' && nativeTextAreaValueSetter) {
+                nativeTextAreaValueSetter.call(activeElement, newFullText);
+            } else {
+                activeElement.value = newFullText;
+            }
 
-        // 🔥 КРИТИЧЕСКИ ВАЖНО: триггерим события, чтобы React/Vue обновили свой state
-        activeEl.dispatchEvent(new Event('input', { bubbles: true }));
-        activeEl.dispatchEvent(new Event('change', { bubbles: true }));
-    } 
-    // СЦЕНАРИЙ 2: Rich-text редакторы (contenteditable)
-    else if (activeEl.isContentEditable) {
-        // Фокусируемся на всякий случай
-        activeEl.focus();
-        
-        // execCommand устарел в стандартах, но это ЕДИНСТВЕННЫЙ рабочий способ 
-        // вставить текст в contenteditable так, чтобы сработали внутренние скрипты сайтов
-        document.execCommand('insertText', false, newText);
-    } 
-    // СЦЕНАРИЙ 3: Обычный текст на странице (если юзер выделил абзац статьи)
-    else {
-        const selection = window.getSelection();
-        if (selection && selection.rangeCount > 0) {
-            const range = selection.getRangeAt(0);
-            range.deleteContents();
-            range.insertNode(document.createTextNode(newText));
+            // Восстанавливаем положение каретки (курсора)
+            activeElement.selectionStart = activeElement.selectionEnd = safeStart + newText.length;
+
+            // Форсируем обновление состояния сайта
+            activeElement.dispatchEvent(new Event('input', { bubbles: true }));
+            activeElement.dispatchEvent(new Event('change', { bubbles: true }));
             
-            // Сбрасываем выделение
-            selection.removeAllRanges();
+            // Обязательно возвращаем фокус в поле ввода!
+            activeElement.focus();
         }
+        // СЦЕНАРИЙ 2: Сложные редакторы (contenteditable) и Google Translate
+        else if (range) {
+            const sel = window.getSelection();
+            if (sel) {
+                // Восстанавливаем выделение текста там, где оно было до клика по кнопке
+                sel.removeAllRanges();
+                sel.addRange(range);
+            }
+            // Нативный метод браузера для вставки (сохраняет историю Ctrl+Z)
+            document.execCommand('insertText', false, newText);
+        }
+    } catch (err) {
+        console.error("Ошибка при вставке текста:", err);
+        // Резервный план на случай непредвиденных блокировок сайта
+        navigator.clipboard.writeText(newText);
     }
 }
 
@@ -1036,6 +1059,7 @@ function initOcrOverlay() {
 
     // 1. Создаем затемняющий фон
     ocrOverlay = document.createElement('div');
+    ocrOverlay.id = 'lexisync-ocr-overlay';
     ocrOverlay.style.cssText = `
         position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
         background: rgba(0, 0, 0, 0.4); z-index: 2147483646; cursor: crosshair;
@@ -1043,6 +1067,7 @@ function initOcrOverlay() {
 
     // 2. Создаем прямоугольник выделения (светлое окно)
     ocrSelection = document.createElement('div');
+    ocrSelection.id = 'lexisync-ocr-selection';
     ocrSelection.style.cssText = `
         position: fixed; border: 2px dashed #ffffff; background: rgba(255, 255, 255, 0.1);
         display: none; z-index: 2147483647; pointer-events: none;

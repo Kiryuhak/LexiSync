@@ -186,29 +186,48 @@ chrome.runtime.onConnect.addListener((port) => {
                 const decoder = new TextDecoder();
 
                 if (reader) {
+                    let buffer = '';
+
+                    const processLine = (line: string): boolean => {
+                        const trimmedLine = line.trimEnd();
+                        if (!trimmedLine.startsWith('data:')) return false;
+
+                        const payload = trimmedLine.slice(5).trimStart();
+                        if (payload === '[DONE]') return true;
+
+                        try {
+                            const parsed = JSON.parse(payload);
+                            const content = parsed.choices?.[0]?.delta?.content;
+                            if (typeof content === 'string' && content.length > 0) {
+                                port.postMessage({ status: "chunk", text: content });
+                            }
+                        } catch (error) {
+                            console.error("Ошибка парсинга чанка:", error);
+                        }
+
+                        return false;
+                    };
+
                     while (true) {
                         const { done, value } = await reader.read();
                         if (done) break;
-                        
-                        const chunk = decoder.decode(value, { stream: true });
-                        const lines = chunk.split('\n').filter(line => line.trim() !== '');
-                        
+
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split(/\r?\n/);
+                        buffer = lines.pop() ?? '';
+
                         for (const line of lines) {
-                            if (line.replace(/^data: /, '') === '[DONE]') {
+                            if (processLine(line)) {
                                 port.postMessage({ status: "done" });
                                 return;
                             }
-                            if (line.startsWith('data: ')) {
-                                try {
-                                    const parsed = JSON.parse(line.replace(/^data: /, ''));
-                                    if (parsed.choices && parsed.choices[0].delta && parsed.choices[0].delta.content) {
-                                        port.postMessage({ status: "chunk", text: parsed.choices[0].delta.content });
-                                    }
-                                } catch (e) {
-                                    console.error("Ошибка парсинга чанка:", e);
-                                }
-                            }
                         }
+                    }
+
+                    buffer += decoder.decode();
+                    if (buffer && processLine(buffer)) {
+                        port.postMessage({ status: "done" });
+                        return;
                     }
                 }
                 port.postMessage({ status: "done" });
