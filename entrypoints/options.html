@@ -63,6 +63,10 @@
         button#saveBtn:hover { background: var(--primary-hover); }
         button#saveBtn:disabled { cursor: not-allowed; }
         #status { margin-left: 16px; font-size: 14px; color: #34A853; font-weight: 500; display: none; }
+        .privacy-option { display: flex; gap: 12px; align-items: flex-start; padding: 14px; margin-bottom: 20px; border: 1px solid var(--border); border-radius: 10px; background: var(--box-bg); }
+        .privacy-option input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--primary); }
+        .privacy-option label { margin: 0; color: var(--text-main); cursor: pointer; }
+        .privacy-option small { display: block; margin-top: 5px; color: var(--text-secondary); line-height: 1.4; font-weight: 400; }
     </style>
 </head>
 <body>
@@ -112,6 +116,14 @@
                 <option value="yandex">Яндекс</option>
                 <option value="duckduckgo">DuckDuckGo</option>
             </select>
+        </div>
+
+        <div class="privacy-option">
+            <input type="checkbox" id="sendPageContext" />
+            <label for="sendPageContext">
+                Передавать контекст страницы в Mistral
+                <small>Если включено, вместе с выделенным текстом отправляются до 2000 символов окружения, заголовок страницы и домен. По умолчанию выключено.</small>
+            </label>
         </div>
 
         <div class="instruction-box">

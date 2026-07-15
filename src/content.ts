@@ -12,6 +12,9 @@ interface SelectionData {
 
 let currentSelection: SelectionData = { text: "", context: "", range: null, activeElement: null, start: null, end: null, isInput: false };
 let popupUI: HTMLElement | null = null;
+let popupHost: HTMLElement | null = null;
+let popupShadow: ShadowRoot | null = null;
+let popupStyleText = '';
 let currentTargetLang: string = "Английский"; 
 let currentTheme: string = 'auto';
 let currentSearchEngine: string = 'google';
@@ -237,11 +240,11 @@ document.addEventListener('mousedown', (e: MouseEvent) => {
     lastMouseX = e.clientX;
     lastMouseY = e.clientY;
     if (popupUI) {
-        if (!popupUI.contains(e.target as Node)) closePopup();
+        if (!isPopupEvent(e)) closePopup();
         else {
-            const moreWrap = document.getElementById('gemini-more-btn-wrap');
-            const moreDropdown = document.getElementById('gemini-more-dropdown');
-            if (moreWrap && moreDropdown && !moreWrap.contains(e.target as Node)) moreDropdown.style.display = 'none';
+            const moreWrap = getPopupElementById<HTMLElement>('lexisync-more-btn-wrap');
+            const moreDropdown = getPopupElementById<HTMLElement>('lexisync-more-dropdown');
+            if (moreWrap && moreDropdown && !e.composedPath().includes(moreWrap)) moreDropdown.style.display = 'none';
         }
     }
 }, true);
@@ -251,10 +254,10 @@ document.addEventListener('mouseup', (e: MouseEvent) => {
     lastMouseY = e.clientY;
     if (isDragging && popupUI) {
         isDragging = false;
-        const header = popupUI.querySelector('.gemini-header') as HTMLElement;
+        const header = popupUI.querySelector('.lexisync-header') as HTMLElement;
         if (header) header.style.cursor = 'grab';
     }
-    if ((e.target as Element).closest('#gemini-extension-ui')) return;
+    if (isPopupEvent(e)) return;
     if (e.button === 2) return; 
     
     setTimeout(() => {
@@ -267,7 +270,7 @@ document.addEventListener('mouseup', (e: MouseEvent) => {
 }, true);
 
 document.addEventListener('keydown', async (e: KeyboardEvent) => {
-    if ((e.target as Element).closest('#gemini-extension-ui')) return;
+    if (isPopupEvent(e)) return;
     const isSelectAll = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a';
     if (isSelectAll) {
         setTimeout(() => {
@@ -328,11 +331,10 @@ let lastAnchorX: number = 0;
 let lastAnchorY: number = 0;
 
 function injectStyles(): void {
-    if (!document.getElementById('gemini-styles')) {
+    if (!popupStyleText) {
         const style = document.createElement('style');
-        style.id = 'gemini-styles';
         style.textContent = `
-            #gemini-extension-ui {
+            #lexisync-extension-ui {
                 --bg-primary: #ffffff; --bg-secondary: #f1f5f9; --text-primary: #1e293b; --text-secondary: #64748b;
                 --border-color: rgba(0,0,0,0.06); --hover-bg: #e2e8f0; --shadow-color: rgba(0,0,0,0.1);
                 transition: opacity 0.15s ease; border-radius: 12px;
@@ -340,21 +342,21 @@ function injectStyles(): void {
                 animation: lexiSyncFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
                 box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
             }
-            #gemini-extension-ui[data-theme="dark"] {
+            #lexisync-extension-ui[data-theme="dark"] {
             --bg-primary: #1e1e24; --bg-secondary: #2b2b36; --text-primary: #f8fafc; --text-secondary: #94a3b8;
             --border-color: rgba(255,255,255,0.08); --hover-bg: #3f3f46; --shadow-color: rgba(0,0,0,0.5);
             }
-            #gemini-extension-ui span { flex-shrink: 0 !important; }
-            #gemini-extension-ui svg { width: 16px !important; height: 16px !important; min-width: 16px !important; min-height: 16px !important; max-width: 16px !important; max-height: 16px !important; flex-shrink: 0 !important; display: block !important; }
-            @keyframes gemini-spin { to { transform: rotate(360deg); } }
-            @keyframes gemini-flip { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(180deg); } }
+            #lexisync-extension-ui span { flex-shrink: 0 !important; }
+            #lexisync-extension-ui svg { width: 16px !important; height: 16px !important; min-width: 16px !important; min-height: 16px !important; max-width: 16px !important; max-height: 16px !important; flex-shrink: 0 !important; display: block !important; }
+            @keyframes lexisync-spin { to { transform: rotate(360deg); } }
+            @keyframes lexisync-flip { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(180deg); } }
             @keyframes lexiSyncFadeIn { 0% { opacity: 0; transform: translateY(12px) scale(0.98); } 100% { opacity: 1; transform: translateY(0) scale(1); }}
-            .gemini-loader { width: 14px; height: 14px; border: 2.5px solid var(--text-secondary); border-top-color: transparent; border-radius: 50%; animation: gemini-spin 0.8s linear infinite; }
-            .gemini-hourglass { animation: gemini-flip 2s ease-in-out infinite; display: flex; align-items: center; justify-content: center; }
-            #gemini-extension-ui mark { background: #dcfce7; color: #166534; padding: 2px 4px; border-radius: 4px; font-weight: 500; }
-            #gemini-extension-ui[data-theme="dark"] mark { background: #0f5223; color: #c4eed0; }
+            .lexisync-loader { width: 14px; height: 14px; border: 2.5px solid var(--text-secondary); border-top-color: transparent; border-radius: 50%; animation: lexisync-spin 0.8s linear infinite; }
+            .lexisync-hourglass { animation: lexisync-flip 2s ease-in-out infinite; display: flex; align-items: center; justify-content: center; }
+            #lexisync-extension-ui mark { background: #dcfce7; color: #166534; padding: 2px 4px; border-radius: 4px; font-weight: 500; }
+            #lexisync-extension-ui[data-theme="dark"] mark { background: #0f5223; color: #c4eed0; }
             /* Общие стили для обеих кнопок */
-            .gemini-btn-action, .gemini-translate-btn { 
+            .lexisync-btn-action, .lexisync-translate-btn {
                 background: var(--bg-secondary) !important; 
                 border: none !important; 
                 border-radius: 8px !important; 
@@ -376,23 +378,23 @@ function injectStyles(): void {
                 transition: all 0.2s cubic-bezier(0.2, 0, 0, 1) !important;
             }
 
-            .gemini-btn-action:hover, .gemini-translate-btn:hover { 
+            .lexisync-btn-action:hover, .lexisync-translate-btn:hover {
                 background: var(--hover-bg) !important; 
             }
 
-            .gemini-btn-action:active, .gemini-translate-btn:active { 
+            .lexisync-btn-action:active, .lexisync-translate-btn:active {
                 transform: translateY(1px) scale(0.98) !important; 
             }
 
             /* Стили только для квадратной кнопки копирования */
-            .gemini-translate-btn.icon-only, .gemini-btn-action.icon-only { 
+            .lexisync-translate-btn.icon-only, .lexisync-btn-action.icon-only {
                 padding: 0 !important; 
                 width: 38px !important; 
                 min-width: 38px !important; 
             }
 
             /* Иконки внутри кнопок */
-            .gemini-btn-action svg, .gemini-translate-btn svg {
+            .lexisync-btn-action svg, .lexisync-translate-btn svg {
                 width: 16px !important;
                 height: 16px !important;
                 min-width: 16px !important;
@@ -400,12 +402,39 @@ function injectStyles(): void {
                 display: block !important;
                 margin: 0 !important;
             }
-            .gemini-scroll::-webkit-scrollbar { width: 6px; }
-            .gemini-scroll::-webkit-scrollbar-track { background: transparent; }
-            .gemini-scroll::-webkit-scrollbar-thumb { background: var(--text-secondary); border-radius: 4px; }
+            .lexisync-scroll::-webkit-scrollbar { width: 6px; }
+            .lexisync-scroll::-webkit-scrollbar-track { background: transparent; }
+            .lexisync-scroll::-webkit-scrollbar-thumb { background: var(--text-secondary); border-radius: 4px; }
         `;
-        document.head.appendChild(style);
+        popupStyleText = style.textContent;
     }
+}
+
+function isPopupEvent(event: Event): boolean {
+    return event.composedPath().some((node) => node === popupHost || node === popupUI);
+}
+
+function getPopupElementById<T extends HTMLElement>(id: string): T | null {
+    return popupShadow?.getElementById(id) as T | null;
+}
+
+function createPopupElement(): HTMLElement {
+    injectStyles();
+    popupHost = document.createElement('div');
+    popupHost.id = 'lexisync-shadow-host';
+    popupHost.style.cssText = 'all: initial !important; position: fixed !important; inset: 0 !important; width: 0 !important; height: 0 !important; z-index: 2147483647 !important; pointer-events: none !important;';
+    popupShadow = popupHost.attachShadow({ mode: 'open' });
+
+    const style = document.createElement('style');
+    style.textContent = `:host { all: initial; } ${popupStyleText}`;
+    popupShadow.appendChild(style);
+
+    const popup = document.createElement('div');
+    popup.id = 'lexisync-extension-ui';
+    popup.style.pointerEvents = 'auto';
+    popupShadow.appendChild(popup);
+    getPopupContainer().appendChild(popupHost);
+    return popup;
 }
 
 function applyThemeToPopup(popup: HTMLElement): void {
@@ -467,14 +496,14 @@ function saveSelectionState(fallbackText?: string): void {
             currentSelection.range = sel.getRangeAt(0).cloneRange();
             const container = document.createElement('div');
             container.appendChild(currentSelection.range.cloneContents());
-            currentSelection.text = container.innerHTML || sel.toString();
+            currentSelection.text = sel.toString() || container.textContent || '';
         }
         if (!currentSelection.text && fallbackText) currentSelection.text = fallbackText;
         let blockText = currentSelection.text;
         if (sel && sel.anchorNode) {
             let node: HTMLElement | null = sel.anchorNode.parentElement;
             while (node && window.getComputedStyle(node).display === 'inline') node = node.parentElement;
-            if (node) blockText = node.innerHTML || node.innerText || node.textContent || currentSelection.text;
+            if (node) blockText = node.innerText || node.textContent || currentSelection.text;
         }
         if (blockText && blockText.length > 2000) {
             const idx = blockText.indexOf(currentSelection.text);
@@ -497,7 +526,7 @@ function getSelectionCoords(): { x: number, y: number } {
 
 function showToolbarMenu(x: number, y: number): void {
     closePopup(); injectStyles(); lastAnchorX = x; lastAnchorY = y;
-    popupUI = document.createElement('div'); popupUI.id = 'gemini-extension-ui';
+    popupUI = createPopupElement();
     applyThemeToPopup(popupUI);
     
     popupUI.addEventListener('mousedown', e => e.stopPropagation());
@@ -542,11 +571,11 @@ function showToolbarMenu(x: number, y: number): void {
     popupUI.appendChild(divider());
 
     const moreWrap = document.createElement('div');
-    moreWrap.id = 'gemini-more-btn-wrap';
+    moreWrap.id = 'lexisync-more-btn-wrap';
     moreWrap.style.cssText = 'position: relative; display: flex; align-items: center;';
 
     const moreBtn = createBtn(ICONS.dots, '', 'Ещё опции', () => {
-        const dropdown = document.getElementById('gemini-more-dropdown');
+        const dropdown = getPopupElementById<HTMLElement>('lexisync-more-dropdown');
         if (dropdown) {
             if (dropdown.style.display === 'flex') dropdown.style.display = 'none';
             else {
@@ -560,7 +589,7 @@ function showToolbarMenu(x: number, y: number): void {
     moreWrap.appendChild(moreBtn);
 
     const moreDropdown = document.createElement('div');
-    moreDropdown.id = 'gemini-more-dropdown';
+    moreDropdown.id = 'lexisync-more-dropdown';
     moreDropdown.style.cssText = `display: none; position: absolute; top: 100%; right: 0; margin-top: 8px; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 12px; box-shadow: 0 16px 32px rgba(0,0,0,0.15); width: max-content; min-width: 120px; z-index: 9999; padding: 8px 0; flex-direction: column; overflow: hidden;`;
 
     const createDropdownItem = (icon: string, text: string, onClick: () => void) => {
@@ -583,13 +612,12 @@ function showToolbarMenu(x: number, y: number): void {
     popupUI.appendChild(divider());
     popupUI.appendChild(createBtn(ICONS.closeColored, '', 'Закрыть панель', () => closePopup()));
 
-    getPopupContainer().appendChild(popupUI);
     adjustPopupPosition();
 }
 
 function showAIMenu(x: number, y: number): void {
     closePopup(); injectStyles(); lastAnchorX = x; lastAnchorY = y;
-    popupUI = document.createElement('div'); popupUI.id = 'gemini-extension-ui';
+    popupUI = createPopupElement();
     applyThemeToPopup(popupUI);
 
     popupUI.addEventListener('mousedown', e => e.stopPropagation());
@@ -619,17 +647,16 @@ function showAIMenu(x: number, y: number): void {
     popupUI.appendChild(createMenuBtn(ICONS.style, 'Переписать текст', 'style', 'Alt+Y'));
     popupUI.appendChild(createMenuBtn(ICONS.emoji, 'Подобрать эмодзи', 'emoji', 'Alt+T'));
 
-    getPopupContainer().appendChild(popupUI);
     adjustPopupPosition();
 }
 
 function showRateLimitTimer(seconds: number, retryCallback: () => void, container: HTMLElement | null): void {
     let timeLeft = seconds;
     const render = () => {
-        if (!container || !document.body.contains(container)) return false; 
+        if (!container || !container.isConnected) return false;
         container.innerHTML = `
             <div style="padding: 16px; font-weight: 500; color: #b06000; display: flex; align-items: center; justify-content: center; gap: 10px; background: #fff8f0; border-radius: 12px; border: 1px solid #ffe8cc; margin: 4px;">
-                <span class="gemini-hourglass">${ICONS.hourglass}</span>
+                <span class="lexisync-hourglass">${ICONS.hourglass}</span>
                 <span>Лимит. Автоповтор через <b>${timeLeft}</b> сек...</span>
             </div>
         `;
@@ -641,7 +668,7 @@ function showRateLimitTimer(seconds: number, retryCallback: () => void, containe
         timeLeft--;
         if (timeLeft <= 0) {
             clearInterval(interval);
-            if (container && document.body.contains(container)) retryCallback();
+            if (container && container.isConnected) retryCallback();
         } else {
             if (!render()) clearInterval(interval);
         }
@@ -674,12 +701,12 @@ function executeRequest(mode: string): void {
     else if (mode === "ocr") headerText = `<span style="display:flex; align-items:center; gap:8px;">📸 Распознанный текст</span>`; // 🔥 НОВОЕ
     
     const header = document.createElement('div');
-    header.className = 'gemini-header';
+    header.className = 'lexisync-header';
     header.style.cssText = 'padding: 12px 16px; font-size: 14px; color: var(--text-primary); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; border-radius: 12px 12px 0 0; background: transparent; cursor: grab; user-select: none;';
     
     header.onmousedown = (e) => {
         const target = e.target as HTMLElement;
-        if (target.closest('svg') || target.closest('div[style*="cursor: pointer"]') || target.closest('#gemini-lang-label')) return;
+        if (target.closest('svg') || target.closest('div[style*="cursor: pointer"]') || target.closest('#lexisync-lang-label')) return;
         isDragging = true;
         isManuallyPositioned = true; 
         header.style.cursor = 'grabbing';
@@ -696,12 +723,12 @@ function executeRequest(mode: string): void {
         headerTitleWrapper.style.pointerEvents = 'auto'; 
         const langWrap = document.createElement('div');
         langWrap.style.cssText = 'display: flex; align-items: center; gap: 4px; cursor: pointer; position: relative; user-select: none; padding: 6px 10px; margin-left: -10px; border-radius: 8px; transition: background 0.15s;';
-        langWrap.innerHTML = `<span id="gemini-lang-label">${currentTargetLang}</span> <span style="margin-top:2px;">${ICONS.chevronDown}</span>`;
+        langWrap.innerHTML = `<span id="lexisync-lang-label">${currentTargetLang}</span> <span style="margin-top:2px;">${ICONS.chevronDown}</span>`;
         langWrap.onmouseover = () => langWrap.style.background = 'var(--hover-bg)';
         langWrap.onmouseout = () => langWrap.style.background = 'transparent';
         
         const langDropdown = document.createElement('div');
-        langDropdown.className = 'gemini-scroll';
+        langDropdown.className = 'lexisync-scroll';
         langDropdown.style.cssText = 'display: none; position: absolute; top: 100%; left: -4px; margin-top: 8px; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 12px; box-shadow: 0 12px 24px var(--shadow-color); flex-direction: column; min-width: 140px; z-index: 9999; padding: 8px 0; max-height: 220px; overflow-y: auto; font-weight: normal;';
         
         const popularLangs = ['Английский', 'Русский', 'Немецкий', 'Французский', 'Испанский', 'Итальянский', 'Польский', 'Китайский', 'Турецкий', 'Японский'];
@@ -718,7 +745,8 @@ function executeRequest(mode: string): void {
                 langDropdown.style.display = 'none';
                 if (lang !== currentTargetLang) {
                     currentTargetLang = lang;
-                    document.getElementById('gemini-lang-label')!.textContent = lang;
+                    const languageLabel = getPopupElementById<HTMLElement>('lexisync-lang-label');
+                    if (languageLabel) languageLabel.textContent = lang;
                     if (streamPort) streamPort.disconnect(); 
                     startStream(); 
                 }
@@ -734,13 +762,13 @@ function executeRequest(mode: string): void {
     }
 
     const loaderOrClose = document.createElement('div');
-    loaderOrClose.innerHTML = `<div class="gemini-loader"></div>`;
+    loaderOrClose.innerHTML = `<div class="lexisync-loader"></div>`;
     
     header.appendChild(headerTitleWrapper);
     header.appendChild(loaderOrClose);
     
     const contentPane = document.createElement('div');
-    contentPane.className = 'gemini-scroll';
+    contentPane.className = 'lexisync-scroll';
     contentPane.style.cssText = 'padding: 16px; min-height: 50px; max-height: 50vh; overflow-y: auto; overflow-x: hidden; font-size: 14px; color: var(--text-primary); line-height: 1.6; font-family: system-ui, sans-serif; word-wrap: break-word; white-space: pre-wrap;';
     
     const actionsContainer = document.createElement('div');
@@ -754,13 +782,45 @@ function executeRequest(mode: string): void {
 
     let fullResult = "";
     let streamPort: chrome.runtime.Port | null = null;
+    let usePageContext = false;
+
+    function getCacheSource(): string {
+        return usePageContext
+            ? `${currentSelection.text}\ncontext:${currentSelection.context}`
+            : currentSelection.text;
+    }
+
+    function renderLoadingControl(): void {
+        loaderOrClose.innerHTML = '';
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = 'display:flex; align-items:center; gap:8px;';
+        const loader = document.createElement('div');
+        loader.className = 'lexisync-loader';
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.title = 'Отменить запрос';
+        cancelBtn.setAttribute('aria-label', 'Отменить запрос');
+        cancelBtn.innerHTML = ICONS.closeStandard;
+        cancelBtn.style.cssText = 'display:flex; align-items:center; justify-content:center; padding:4px; border:0; border-radius:6px; background:transparent; color:var(--text-secondary); cursor:pointer;';
+        cancelBtn.onclick = (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            cancelBtn.disabled = true;
+            contentPane.textContent = 'Отменяем запрос…';
+            streamPort?.postMessage({ action: 'cancelMistral' });
+        };
+        wrapper.append(loader, cancelBtn);
+        loaderOrClose.appendChild(wrapper);
+    }
 
     function startStream() {
+        streamPort?.disconnect();
+        streamPort = null;
         fullResult = "";
         contentPane.textContent = "";
         contentPane.style.color = '';
         actionsContainer.style.display = 'none';
-        loaderOrClose.innerHTML = `<div class="gemini-loader"></div>`;
+        renderLoadingControl();
         
         if (!navigator.onLine) {
             contentPane.innerHTML = `<span style="color: #d32f2f;">Нет подключения к интернету. Проверьте сеть и попробуйте снова.</span>`;
@@ -824,7 +884,7 @@ function executeRequest(mode: string): void {
                 
                 // 🔥 СОХРАНЯЕМ В КЭШ
                 const cacheModeKey = mode === 'translate' ? mode + currentTargetLang : mode;
-                void getCacheHash(cacheModeKey, currentSelection.text)
+                void getCacheHash(cacheModeKey, getCacheSource())
                     .then(cacheKey => setCachedText(cacheKey, fullResult))
                     .catch(error => console.error('Ошибка сохранения кэша:', error));
 
@@ -842,18 +902,24 @@ function executeRequest(mode: string): void {
 
             } else if (response.status === "error") {
                 const errorMessage = typeof response.error === 'string' ? response.error : 'Неизвестная ошибка.';
-                if (errorMessage.toLowerCase().includes('rate limit') || errorMessage.includes('429')) {
+                if (errorMessage.toLowerCase().includes('rate limit') || errorMessage.toLowerCase().includes('лимит') || errorMessage.includes('429')) {
                     showRateLimitTimer(5, startStream, contentPane);
                 } else {
                     contentPane.textContent = `Ошибка: ${errorMessage}`;
                     contentPane.style.color = '#d32f2f';
                 }
                 finishStream(false);
+            } else if (response.status === 'cancelled') {
+                contentPane.textContent = 'Запрос отменён.';
+                contentPane.style.color = 'var(--text-secondary)';
+                finishStream(false);
             }
         });
     }
 
     function finishStream(success = true) {
+        streamPort?.disconnect();
+        streamPort = null;
         const closeBtn = document.createElement('div');
         closeBtn.innerHTML = ICONS.closeStandard;
         closeBtn.style.cssText = 'cursor: pointer; display: flex; align-items: center; margin-right: -4px; padding: 6px; border-radius: 8px; color: var(--text-secondary); transition: background 0.15s;';
@@ -869,7 +935,7 @@ function executeRequest(mode: string): void {
             
             
             const cleanResult = fullResult.replace(/\*/g, '');
-            const btnClass = (mode === 'translate' || mode === 'layout') ? 'gemini-translate-btn' : 'gemini-btn-action';
+            const btnClass = (mode === 'translate' || mode === 'layout') ? 'lexisync-translate-btn' : 'lexisync-btn-action';
             const replaceIcon = (mode === 'translate' || mode === 'layout') ? ICONS.replaceCurved : ICONS.replace;
             const copyIcon = (mode === 'translate' || mode === 'layout') ? ICONS.copyStandard : ICONS.copy;
             
@@ -916,8 +982,9 @@ function executeRequest(mode: string): void {
     }
 
     async function checkCacheAndRun() {
-        chrome.storage.local.get(['mistralApiKey'], async (res) => {
+        chrome.storage.local.get(['mistralApiKey', 'sendPageContext'], async (res) => {
             const apiKey = res.mistralApiKey as string;
+            usePageContext = res.sendPageContext === true;
             if (!apiKey || apiKey.trim() === '') {
                 contentPane.innerHTML = `
                     <div style="text-align: center; padding: 24px 16px;">
@@ -928,7 +995,7 @@ function executeRequest(mode: string): void {
                     </div>`;
                 
                 let timeLeft = 3;
-                const timerSpan = document.getElementById('redirectTimer');
+                const timerSpan = getPopupElementById<HTMLElement>('redirectTimer');
                 const interval = setInterval(() => {
                     timeLeft--;
                     if (timerSpan) timerSpan.textContent = timeLeft.toString();
@@ -940,7 +1007,7 @@ function executeRequest(mode: string): void {
                 }, 1000);
 
                 setTimeout(() => {
-                    document.getElementById('openSettingsBtn')?.addEventListener('click', () => {
+                    getPopupElementById<HTMLButtonElement>('openSettingsBtn')?.addEventListener('click', () => {
                         clearInterval(interval);
                         chrome.runtime.sendMessage({ action: "openOptionsPage" });
                         closePopup();
@@ -955,7 +1022,7 @@ function executeRequest(mode: string): void {
             }
 
             const cacheModeKey = mode === 'translate' ? mode + currentTargetLang : mode;
-            const cacheKey = await getCacheHash(cacheModeKey, currentSelection.text);
+            const cacheKey = await getCacheHash(cacheModeKey, getCacheSource());
             
             const cachedResult = await getCachedText(cacheKey);
             if (cachedResult) {
@@ -1054,10 +1121,13 @@ function closePopup(): void {
         isManuallyPositioned = false;
         isDragging = false;
         const el = popupUI;
+        const host = popupHost;
         popupUI = null; 
+        popupHost = null;
+        popupShadow = null;
         el.style.opacity = '0';
         el.style.pointerEvents = 'none';
-        setTimeout(() => { if (el && el.parentNode) el.remove(); }, 150);
+        setTimeout(() => host?.remove(), 150);
     }
 }
 
@@ -1186,15 +1256,12 @@ function cropAndProcessImage(rect: DOMRect) {
         
         closePopup();
         injectStyles();
-        popupUI = document.createElement('div');
-        popupUI.id = 'gemini-extension-ui';
+        popupUI = createPopupElement();
         applyThemeToPopup(popupUI);
 
         // 🔥 ИСПРАВЛЕНИЕ: ВОТ ОНА — ПОТЕРЯННАЯ СТРОКА (CSS-стили панели)
         popupUI.style.cssText = `position: fixed !important; left: -9999px; top: -9999px; background: var(--bg-primary); z-index: 2147483647 !important; font-family: system-ui, sans-serif; font-size: 13px; color: var(--text-primary);`;
         
-        getPopupContainer().appendChild(popupUI);
-
         // Поехали!
         executeRequest('ocr'); 
     };

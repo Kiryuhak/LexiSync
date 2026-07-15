@@ -5,6 +5,7 @@ async function saveOptions(): Promise<void> {
     const toneSelect = document.getElementById('toneSelect') as HTMLSelectElement;
     const themeSelect = document.getElementById('themeSelect') as HTMLSelectElement;    
     const searchSelect = document.getElementById('searchEngine') as HTMLSelectElement; 
+    const sendPageContextInput = document.getElementById('sendPageContext') as HTMLInputElement;
     const statusDiv = document.getElementById('status') as HTMLElement; 
     const saveBtn = document.getElementById('saveBtn') as HTMLButtonElement;
     
@@ -45,7 +46,8 @@ async function saveOptions(): Promise<void> {
         mistralApiKey: apiKey,
         selectedTone: toneSelect.value,
         selectedTheme: themeSelect.value,
-        searchEngine: searchSelect.value 
+        searchEngine: searchSelect.value,
+        sendPageContext: sendPageContextInput.checked
     }, () => {
         if (statusDiv) {
             statusDiv.textContent = '✓ Настройки успешно сохранены!';
@@ -66,18 +68,21 @@ async function restoreOptions(): Promise<void> {
     const toneSelect = document.getElementById('toneSelect') as HTMLSelectElement;
     const themeSelect = document.getElementById('themeSelect') as HTMLSelectElement;
     const searchSelect = document.getElementById('searchEngine') as HTMLSelectElement; 
+    const sendPageContextInput = document.getElementById('sendPageContext') as HTMLInputElement;
     
     const items = await chrome.storage.local.get({
         mistralApiKey: '',
         selectedTone: 'business',
         selectedTheme: 'auto',
-        searchEngine: 'google' 
+        searchEngine: 'google',
+        sendPageContext: false
     });
     
     apiKeyInput.value = items.mistralApiKey as string;
     toneSelect.value = items.selectedTone as string;
     themeSelect.value = items.selectedTheme as string;
     searchSelect.value = items.searchEngine as string; 
+    sendPageContextInput.checked = items.sendPageContext === true;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
