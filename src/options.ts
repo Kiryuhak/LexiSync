@@ -6,6 +6,10 @@ async function saveOptions(): Promise<void> {
     const themeSelect = document.getElementById('themeSelect') as HTMLSelectElement;    
     const searchSelect = document.getElementById('searchEngine') as HTMLSelectElement; 
     const sendPageContextInput = document.getElementById('sendPageContext') as HTMLInputElement;
+    const historyEnabledInput = document.getElementById('historyEnabled') as HTMLInputElement;
+    const historyRetentionSelect = document.getElementById('historyRetentionDays') as HTMLSelectElement;
+    const disabledSitesInput = document.getElementById('disabledSites') as HTMLTextAreaElement;
+    const personalDictionaryInput = document.getElementById('personalDictionary') as HTMLTextAreaElement;
     const statusDiv = document.getElementById('status') as HTMLElement; 
     const saveBtn = document.getElementById('saveBtn') as HTMLButtonElement;
     
@@ -47,7 +51,11 @@ async function saveOptions(): Promise<void> {
         selectedTone: toneSelect.value,
         selectedTheme: themeSelect.value,
         searchEngine: searchSelect.value,
-        sendPageContext: sendPageContextInput.checked
+        sendPageContext: sendPageContextInput.checked,
+        historyEnabled: historyEnabledInput.checked,
+        historyRetentionDays: Number(historyRetentionSelect.value),
+        disabledSites: disabledSitesInput.value.split(/\r?\n/).map((site) => site.trim()).filter(Boolean),
+        personalDictionary: personalDictionaryInput.value.split(/\r?\n/).map((word) => word.trim()).filter(Boolean)
     }, () => {
         if (statusDiv) {
             statusDiv.textContent = '✓ Настройки успешно сохранены!';
@@ -69,13 +77,21 @@ async function restoreOptions(): Promise<void> {
     const themeSelect = document.getElementById('themeSelect') as HTMLSelectElement;
     const searchSelect = document.getElementById('searchEngine') as HTMLSelectElement; 
     const sendPageContextInput = document.getElementById('sendPageContext') as HTMLInputElement;
+    const historyEnabledInput = document.getElementById('historyEnabled') as HTMLInputElement;
+    const historyRetentionSelect = document.getElementById('historyRetentionDays') as HTMLSelectElement;
+    const disabledSitesInput = document.getElementById('disabledSites') as HTMLTextAreaElement;
+    const personalDictionaryInput = document.getElementById('personalDictionary') as HTMLTextAreaElement;
     
     const items = await chrome.storage.local.get({
         mistralApiKey: '',
         selectedTone: 'business',
         selectedTheme: 'auto',
         searchEngine: 'google',
-        sendPageContext: false
+        sendPageContext: false,
+        historyEnabled: true,
+        historyRetentionDays: 30,
+        disabledSites: [],
+        personalDictionary: []
     });
     
     apiKeyInput.value = items.mistralApiKey as string;
@@ -83,6 +99,10 @@ async function restoreOptions(): Promise<void> {
     themeSelect.value = items.selectedTheme as string;
     searchSelect.value = items.searchEngine as string; 
     sendPageContextInput.checked = items.sendPageContext === true;
+    historyEnabledInput.checked = items.historyEnabled !== false;
+    historyRetentionSelect.value = String(items.historyRetentionDays || 30);
+    disabledSitesInput.value = Array.isArray(items.disabledSites) ? items.disabledSites.join('\n') : '';
+    personalDictionaryInput.value = Array.isArray(items.personalDictionary) ? items.personalDictionary.join('\n') : '';
 }
 
 document.addEventListener('DOMContentLoaded', () => {

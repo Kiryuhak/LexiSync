@@ -1,10 +1,10 @@
-type TextMode = 'spellcheck' | 'style' | 'emoji' | 'layout' | 'translate';
+import type { RequestMode } from './types';
 
 interface MistralRequest {
     action: 'callMistral' | 'cancelMistral';
     text?: string;
     context?: string;
-    mode?: TextMode | 'ocr';
+    mode?: RequestMode;
     targetLang?: string;
     pageTitle?: string;
     pageUrl?: string;
@@ -122,7 +122,7 @@ function getApiError(status: number, details: string): string {
     return `Ошибка Mistral API (${status}): ${details.slice(0, 300)}`;
 }
 
-function buildMessages(msg: MistralRequest, selectedTone: string, sendPageContext: boolean): ChatMessage[] {
+function buildMessages(msg: MistralRequest, selectedTone: string, sendPageContext: boolean, personalDictionary: string[]): ChatMessage[] {
     let systemPrompt = 'Ты умный ассистент по работе с текстом. Верни только обработанный текст без приветствий, объяснений, кавычек, блоков кода и HTML-тегов.';
 
     if (sendPageContext && (msg.pageUrl || msg.pageTitle)) {
@@ -131,6 +131,9 @@ function buildMessages(msg: MistralRequest, selectedTone: string, sendPageContex
 
     if (msg.mode === 'spellcheck') {
         systemPrompt += ' Исправь только орфографические, грамматические и пунктуационные ошибки. Сохрани исходный стиль и формулировки. Верни цельный исправленный текст без Markdown и отметок изменений.';
+        if (personalDictionary.length > 0) {
+            systemPrompt += ` Не исправляй слова из личного словаря пользователя: ${personalDictionary.slice(0, 200).join(', ')}.`;
+        }
     } else if (msg.mode === 'style') {
         const toneMap: Record<string, string> = {
             business: 'в строгом, деловом и профессиональном стиле',
@@ -186,6 +189,7 @@ async function streamText(
     apiKey: string,
     selectedTone: string,
     sendPageContext: boolean,
+    personalDictionary: string[],
     signal: AbortSignal,
     onChunk: (text: string) => void,
 ): Promise<void> {
@@ -197,7 +201,7 @@ async function streamText(
         },
         body: JSON.stringify({
             model: 'mistral-large-latest',
-            messages: buildMessages(msg, selectedTone, sendPageContext),
+            messages: buildMessages(msg, selectedTone, sendPageContext, personalDictionary),
             stream: true,
         }),
     }, signal);
@@ -262,6 +266,7 @@ chrome.runtime.onConnect.addListener((port) => {
                 mistralApiKey: '',
                 selectedTone: 'business',
                 sendPageContext: false,
+                personalDictionary: [],
             });
             const apiKey = settings.mistralApiKey as string;
             if (!apiKey) throw new Error('API-ключ не настроен.');
@@ -275,6 +280,7 @@ chrome.runtime.onConnect.addListener((port) => {
                     apiKey,
                     settings.selectedTone as string,
                     settings.sendPageContext === true,
+                    Array.isArray(settings.personalDictionary) ? settings.personalDictionary.map(String) : [],
                     controller.signal,
                     (text) => port.postMessage({ status: 'chunk', text }),
                 );

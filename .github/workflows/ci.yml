@@ -1,0 +1,52 @@
+name: Проверка LexiSync
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Получить код
+        uses: actions/checkout@v4
+
+      - name: Установить Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Установить зависимости
+        run: npm ci
+
+      - name: Установить тестовые браузеры
+        run: npx playwright install --with-deps chromium firefox
+
+      - name: Проверить типы
+        run: npm run typecheck
+
+      - name: Собрать Chrome и Firefox
+        run: npm run build
+
+      - name: Проверить Chrome
+        run: xvfb-run -a npx playwright test tests/e2e.spec.ts
+
+      - name: Упаковать и проверить Firefox
+        run: npm run test:firefox
+
+      - name: Проверить требования Firefox Add-ons
+        run: npm run lint:firefox
+
+      - name: Создать архивы расширения
+        run: npm run zip
+
+      - name: Сохранить сборки
+        uses: actions/upload-artifact@v4
+        with:
+          name: lexisync-builds
+          path: .output/*.zip
+          retention-days: 14

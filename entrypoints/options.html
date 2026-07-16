@@ -43,8 +43,8 @@
         
         p { font-size: 14px; color: var(--text-secondary); margin-bottom: 24px; line-height: 1.5; }
         label { font-weight: 500; font-size: 14px; display: block; margin-bottom: 8px; color: var(--text-secondary); }
-        input[type="password"], input[type="text"], select { width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid var(--border-input); border-radius: 8px; font-size: 14px; margin-bottom: 20px; background: var(--bg-card); color: var(--text-main); transition: border 0.2s; font-family: inherit; }
-        input[type="password"]:focus, input[type="text"]:focus, select:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 1px var(--primary); }
+        input[type="password"], input[type="text"], select, textarea { width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid var(--border-input); border-radius: 8px; font-size: 14px; margin-bottom: 20px; background: var(--bg-card); color: var(--text-main); transition: border 0.2s; font-family: inherit; }
+        input[type="password"]:focus, input[type="text"]:focus, select:focus, textarea:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 1px var(--primary); }
         
         /* 🔥 НОВЫЕ СТИЛИ ДЛЯ ГЛАЗКА */
         .password-wrapper { position: relative; display: flex; align-items: center; margin-bottom: 20px; }
@@ -67,6 +67,9 @@
         .privacy-option input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--primary); }
         .privacy-option label { margin: 0; color: var(--text-main); cursor: pointer; }
         .privacy-option small { display: block; margin-top: 5px; color: var(--text-secondary); line-height: 1.4; font-weight: 400; }
+        .settings-section { border-top: 1px solid var(--border); padding-top: 20px; margin-top: 8px; }
+        .settings-section h3 { font-size: 16px; margin: 0 0 14px; color: var(--text-main); }
+        textarea { min-height: 80px; resize: vertical; }
     </style>
 </head>
 <body>
@@ -124,6 +127,31 @@
                 Передавать контекст страницы в Mistral
                 <small>Если включено, вместе с выделенным текстом отправляются до 2000 символов окружения, заголовок страницы и домен. По умолчанию выключено.</small>
             </label>
+        </div>
+
+        <div class="settings-section">
+            <h3>История и приватность</h3>
+            <div class="privacy-option">
+                <input type="checkbox" id="historyEnabled" checked />
+                <label for="historyEnabled">
+                    Сохранять историю и кэш
+                    <small>В приватных окнах история и кэш всегда отключены.</small>
+                </label>
+            </div>
+            <label for="historyRetentionDays">Срок хранения истории:</label>
+            <select id="historyRetentionDays">
+                <option value="1">1 день</option>
+                <option value="7">7 дней</option>
+                <option value="30" selected>30 дней</option>
+            </select>
+            <label for="disabledSites">Не сохранять данные на сайтах:</label>
+            <textarea id="disabledSites" placeholder="mail.example.com&#10;work.example.org"></textarea>
+        </div>
+
+        <div class="settings-section">
+            <h3>Личный словарь</h3>
+            <label for="personalDictionary">Слова, которые не нужно исправлять:</label>
+            <textarea id="personalDictionary" placeholder="LexiSync&#10;Mistral"></textarea>
         </div>
 
         <div class="instruction-box">

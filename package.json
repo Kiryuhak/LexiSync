@@ -1,6 +1,6 @@
 {
   "name": "lexisync-extension",
-  "version": "2.10.0",
+  "version": "2.11.0",
   "description": "Умный помощник для работы с текстом на базе Mistral AI",
   "scripts": {
     "dev": "wxt",
@@ -13,7 +13,11 @@
     "zip:firefox": "wxt zip -b firefox",
     "typecheck": "tsc --noEmit",
     "pretest:e2e": "npm run build",
-    "test:e2e": "playwright test",
+    "test:e2e": "playwright test tests/e2e.spec.ts",
+    "pretest:firefox": "npm run build:firefox",
+    "test:firefox": "playwright test tests/firefox.spec.ts",
+    "lint:firefox": "web-ext lint --source-dir .output/firefox-mv3",
+    "test:all": "npm run test:e2e && npm run test:firefox",
     "postinstall": "wxt prepare"
   },
   "repository": {
@@ -37,6 +41,7 @@
     "@types/chrome": "^0.2.0",
     "@types/node": "^26.1.0",
     "typescript": "^6.0.3",
+    "web-ext": "^10.3.0",
     "wxt": "^0.20.27"
   }
 }

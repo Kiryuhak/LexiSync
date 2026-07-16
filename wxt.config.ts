@@ -49,7 +49,7 @@ export default defineConfig({
         browser_specific_settings: browser === 'firefox' ? {
             gecko: {
                 id: 'lexisync@kiryuhak.dev',
-                strict_min_version: '121.0',
+                strict_min_version: '142.0',
                 data_collection_permissions: {
                     required: ['websiteContent', 'browsingActivity'],
                 },

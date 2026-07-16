@@ -5,8 +5,10 @@
     <title>История запросов AI Spell</title>
     <style>
         body { font-family: system-ui, sans-serif; background: #f8f9fa; color: #202124; padding: 40px; margin: 0; }
-        .container { max-width: 800px; margin: 0 auto; }
-        h1 { color: #1a73e8; font-size: 24px; margin-bottom: 24px; }
+        .container { max-width: 900px; margin: 0 auto; }
+        h1 { color: #1a73e8; font-size: 24px; margin-bottom: 16px; }
+        .toolbar { display: grid; grid-template-columns: minmax(220px, 1fr) 180px auto auto; gap: 10px; margin-bottom: 24px; }
+        .toolbar input, .toolbar select { border: 1px solid #dadce0; border-radius: 8px; padding: 9px 12px; background: white; font: inherit; color: inherit; }
         .history-card { background: white; border: 1px solid #dadce0; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
         .history-header { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 13px; color: #5f6368; }
         .mode-badge { background: #e8f0fe; color: #1967d2; padding: 4px 8px; border-radius: 6px; font-weight: 600; text-transform: uppercase;}
@@ -15,14 +17,33 @@
         .content { font-size: 14px; line-height: 1.5; white-space: pre-wrap; background: #f1f3f4; padding: 12px; border-radius: 8px; font-family: inherit;}
         .content.result { background: #e6f4ea; color: #137333; border: 1px solid #ceead6; }
         .empty { text-align: center; color: #5f6368; margin-top: 40px; font-size: 16px; }
-        button.clear-btn { background: #fff; border: 1px solid #dadce0; padding: 8px 16px; border-radius: 8px; cursor: pointer; color: #d93025; font-weight: 500; margin-bottom: 24px; transition: 0.2s;}
+        button { background: #fff; border: 1px solid #dadce0; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: 500; transition: 0.2s; }
+        button.clear-btn, .delete-btn { color: #d93025; }
         button.clear-btn:hover { background: #fce8e6; }
+        .card-actions { display: flex; gap: 8px; justify-content: flex-end; }
+        .secondary-btn:hover { background: #e8f0fe; color: #1967d2; }
+        .delete-btn:hover { background: #fce8e6; }
+        .hidden { display: none !important; }
+        @media (max-width: 720px) { body { padding: 20px; } .toolbar { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>История ваших запросов</h1>
-        <button id="clearBtn" class="clear-btn">Очистить историю</button>
+        <div class="toolbar">
+            <input id="historySearch" type="search" placeholder="Поиск по истории…" />
+            <select id="modeFilter">
+                <option value="all">Все операции</option>
+                <option value="spellcheck">Ошибки</option>
+                <option value="style">Стиль</option>
+                <option value="emoji">Эмодзи</option>
+                <option value="layout">Раскладка</option>
+                <option value="translate">Перевод</option>
+                <option value="ocr">OCR</option>
+            </select>
+            <button id="exportBtn">Экспорт JSON</button>
+            <button id="clearBtn" class="clear-btn">Очистить</button>
+        </div>
         <div id="historyList"></div>
     </div>
     <script type="module" src="/src/history.ts"></script>

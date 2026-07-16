@@ -1,14 +1,10 @@
 import { ICONS } from './icons';
-interface SelectionData {
-    text: string;
-    context: string;
-    range: Range | null;
-    activeElement: HTMLInputElement | HTMLTextAreaElement | null;
-    start: number | null;
-    end: number | null;
-    isInput: boolean;
-    imageUrl?: string; // 🔥 НОВОЕ: Сюда будет складываться вырезанная картинка
-}
+import { getCachedText, getCacheHash, setCachedText } from './ai-cache';
+import { addHistoryItem, updateHistoryItemResult } from './history-store';
+import { shouldStoreOnCurrentPage } from './privacy';
+import { getWordCorrections, normalizeSpellcheckResult, renderSpellcheckDiff, resolveCorrections, type WordCorrection } from './spellcheck';
+import { replaceSelectedText } from './text-replacement';
+import type { HistoryItem, RequestMode, SelectionData, StreamResponse } from './types';
 
 let currentSelection: SelectionData = { text: "", context: "", range: null, activeElement: null, start: null, end: null, isInput: false };
 let popupUI: HTMLElement | null = null;
@@ -26,69 +22,6 @@ let isManuallyPositioned = false;
 
 let lastMouseX = 0;
 let lastMouseY = 0;
-
-// УТИЛИТА 1: Кэширование
-const CACHE_INDEX_KEY = 'ai_cache_index';
-const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-const CACHE_MAX_ENTRIES = 100;
-
-interface CacheEntry {
-    value: string;
-    expiresAt: number;
-}
-
-interface CacheIndexItem {
-    key: string;
-    expiresAt: number;
-}
-
-async function getCacheHash(mode: string, text: string): Promise<string> {
-    const msgBuffer = new TextEncoder().encode(mode + ":" + text.trim());
-    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return 'ai_cache_' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-async function getCachedText(key: string): Promise<string | null> {
-    const result = await chrome.storage.local.get([key]);
-    const cached = result[key] as string | CacheEntry | undefined;
-
-    // Поддержка кэша, созданного версиями до 2.8.0.
-    if (typeof cached === 'string') return cached;
-    if (!cached || typeof cached.value !== 'string') return null;
-
-    if (cached.expiresAt <= Date.now()) {
-        await chrome.storage.local.remove(key);
-        return null;
-    }
-
-    return cached.value;
-}
-
-async function setCachedText(key: string, value: string): Promise<void> {
-    const now = Date.now();
-    const expiresAt = now + CACHE_TTL_MS;
-    const result = await chrome.storage.local.get([CACHE_INDEX_KEY]);
-    const previousIndex = Array.isArray(result[CACHE_INDEX_KEY])
-        ? result[CACHE_INDEX_KEY] as CacheIndexItem[]
-        : [];
-
-    const activeIndex = previousIndex
-        .filter(item => item?.key !== key && item?.expiresAt > now)
-        .concat({ key, expiresAt })
-        .slice(-CACHE_MAX_ENTRIES);
-
-    const activeKeys = new Set(activeIndex.map(item => item.key));
-    const keysToRemove = previousIndex
-        .map(item => item?.key)
-        .filter((oldKey): oldKey is string => Boolean(oldKey) && !activeKeys.has(oldKey));
-
-    if (keysToRemove.length > 0) await chrome.storage.local.remove(keysToRemove);
-    await chrome.storage.local.set({
-        [key]: { value, expiresAt } satisfies CacheEntry,
-        [CACHE_INDEX_KEY]: activeIndex,
-    });
-}
 
 // УТИЛИТА 2: безопасный парсер ограниченного Markdown
 function parseMarkdownToHTML(text: string): string {
@@ -113,81 +46,6 @@ function parseMarkdownToHTML(text: string): string {
     return html;
 }
 
-interface TextToken {
-    value: string;
-    significant: boolean;
-}
-
-function tokenizeText(text: string): TextToken[] {
-    const values = text.match(/\s+|[\p{L}\p{N}]+(?:['’][\p{L}\p{N}]+)*|[^\s\p{L}\p{N}]/gu) ?? [];
-    return values.map(value => ({
-        value,
-        significant: !/^\s+$/u.test(value),
-    }));
-}
-
-function normalizeSpellcheckResult(text: string): string {
-    // Убираем разметку старого формата из уже сохраненного кэша.
-    return text
-        .replace(/\*\*([\s\S]*?)\*\*/g, '$1')
-        .replace(/\*\*/g, '');
-}
-
-function renderSpellcheckDiff(original: string, corrected: string): string {
-    const originalTokens = tokenizeText(original);
-    const correctedTokens = tokenizeText(corrected);
-    const originalSignificant = originalTokens.filter(token => token.significant);
-    const correctedSignificant = correctedTokens
-        .map((token, tokenIndex) => ({ ...token, tokenIndex }))
-        .filter(token => token.significant);
-
-    // LCS позволяет корректно находить изменения даже при добавлении или удалении слов.
-    const rows = Array.from(
-        { length: originalSignificant.length + 1 },
-        () => new Uint16Array(correctedSignificant.length + 1),
-    );
-
-    for (let originalIndex = 1; originalIndex <= originalSignificant.length; originalIndex++) {
-        for (let correctedIndex = 1; correctedIndex <= correctedSignificant.length; correctedIndex++) {
-            if (originalSignificant[originalIndex - 1].value === correctedSignificant[correctedIndex - 1].value) {
-                rows[originalIndex][correctedIndex] = rows[originalIndex - 1][correctedIndex - 1] + 1;
-            } else {
-                rows[originalIndex][correctedIndex] = Math.max(
-                    rows[originalIndex - 1][correctedIndex],
-                    rows[originalIndex][correctedIndex - 1],
-                );
-            }
-        }
-    }
-
-    const unchangedTokenIndexes = new Set<number>();
-    let originalIndex = originalSignificant.length;
-    let correctedIndex = correctedSignificant.length;
-
-    while (originalIndex > 0 && correctedIndex > 0) {
-        if (originalSignificant[originalIndex - 1].value === correctedSignificant[correctedIndex - 1].value) {
-            unchangedTokenIndexes.add(correctedSignificant[correctedIndex - 1].tokenIndex);
-            originalIndex--;
-            correctedIndex--;
-        } else if (rows[originalIndex - 1][correctedIndex] >= rows[originalIndex][correctedIndex - 1]) {
-            originalIndex--;
-        } else {
-            correctedIndex--;
-        }
-    }
-
-    return correctedTokens.map((token, tokenIndex) => {
-        const escaped = token.value
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/\n/g, '<br>');
-
-        return token.significant && !unchangedTokenIndexes.has(tokenIndex)
-            ? `<mark>${escaped}</mark>`
-            : escaped;
-    }).join('');
-}
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "contextMenuClicked") {
@@ -205,11 +63,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 try {
                     text = await navigator.clipboard.readText();
                     if (!text || text.trim().length === 0) {
-                        alert("✨ LexiSync: Текст не найден!\n\nВ Google Docs:\n1. Выделите текст\n2. Нажмите Ctrl+C\n3. Снова нажмите хоткей");
+                        showToast('Текст не найден. В Google Docs выделите текст, нажмите Ctrl+C и повторите горячую клавишу.');
                         return;
                     }
                 } catch (err) {
-                    alert("✨ LexiSync: Нет доступа к буферу обмена. Кликните мышкой по документу и попробуйте снова.");
+                    showToast('Нет доступа к буферу обмена. Кликните по документу и попробуйте снова.');
                     return;
                 }
             }
@@ -285,7 +143,7 @@ document.addEventListener('keydown', async (e: KeyboardEvent) => {
     }
     if (e.altKey && !e.ctrlKey && !e.shiftKey) {
         const key = e.key.toLowerCase();
-        let mode: string | null = null;
+        let mode: RequestMode | null = null;
         if (key === 'r' || key === 'к') mode = 'spellcheck';
         else if (key === 'y' || key === 'н') mode = 'style';
         else if (key === 't' || key === 'е') mode = 'emoji';
@@ -297,11 +155,11 @@ document.addEventListener('keydown', async (e: KeyboardEvent) => {
                 try {
                     text = await navigator.clipboard.readText();
                     if (!text || text.trim().length === 0) {
-                        alert("✨ LexiSync: Текст не найден!\n\nЕсли вы находитесь в Google Docs:\n1. Выделите текст\n2. Нажмите Ctrl+C (скопировать)\n3. Снова нажмите горячую клавишу");
+                        showToast('Текст не найден. В Google Docs выделите текст, нажмите Ctrl+C и повторите горячую клавишу.');
                         return;
                     }
                 } catch (err) {
-                    alert("✨ LexiSync: Ошибка доступа к буферу обмена.");
+                    showToast('Не удалось прочитать буфер обмена. Разрешите доступ и попробуйте снова.');
                     return;
                 }
             }
@@ -422,7 +280,7 @@ function createPopupElement(): HTMLElement {
     injectStyles();
     popupHost = document.createElement('div');
     popupHost.id = 'lexisync-shadow-host';
-    popupHost.style.cssText = 'all: initial !important; position: fixed !important; inset: 0 !important; width: 0 !important; height: 0 !important; z-index: 2147483647 !important; pointer-events: none !important;';
+    popupHost.style.cssText = 'all: initial !important; position: fixed !important; inset: 0 !important; width: 0 !important; height: 0 !important; z-index: 2147483647 !important; pointer-events: auto !important;';
     popupShadow = popupHost.attachShadow({ mode: 'open' });
 
     const style = document.createElement('style');
@@ -435,6 +293,20 @@ function createPopupElement(): HTMLElement {
     popupShadow.appendChild(popup);
     getPopupContainer().appendChild(popupHost);
     return popup;
+}
+
+function showToast(message: string): void {
+    closePopup();
+    popupUI = createPopupElement();
+    applyThemeToPopup(popupUI);
+    popupUI.setAttribute('role', 'status');
+    popupUI.setAttribute('aria-live', 'polite');
+    popupUI.style.cssText = 'position:fixed !important; left:50% !important; top:24px !important; transform:translateX(-50%); max-width:360px; padding:12px 16px; background:var(--bg-primary); color:var(--text-primary); font:14px/1.45 system-ui,sans-serif; z-index:2147483647;';
+    popupUI.textContent = message;
+    const host = popupHost;
+    setTimeout(() => {
+        if (popupHost === host) closePopup();
+    }, 4500);
 }
 
 function applyThemeToPopup(popup: HTMLElement): void {
@@ -626,7 +498,7 @@ function showAIMenu(x: number, y: number): void {
 
     popupUI.style.cssText = `position: fixed !important; left: -9999px; top: -9999px; background: var(--bg-primary); z-index: 2147483647 !important; font-family: system-ui, sans-serif; font-size: 13px; color: var(--text-primary); width: max-content; min-width: 220px; padding: 4px;`;
 
-    const createMenuBtn = (icon: string, text: string, mode: string, shortcut?: string) => {
+    const createMenuBtn = (icon: string, text: string, mode: RequestMode, shortcut?: string) => {
         const btn = document.createElement('button'); btn.type = 'button'; 
         btn.innerHTML = `
             <div style="display: flex; align-items: center;">
@@ -675,7 +547,7 @@ function showRateLimitTimer(seconds: number, retryCallback: () => void, containe
     }, 1000);
 }
 
-function handleActionClick(mode: string): void {
+function handleActionClick(mode: RequestMode): void {
     if (mode === 'translate') {
         const text = currentSelection.text || "";
         const ruCount = (text.match(/[а-яА-ЯёЁ]/g) || []).length;
@@ -685,7 +557,7 @@ function handleActionClick(mode: string): void {
     executeRequest(mode);
 }
 
-function executeRequest(mode: string): void {
+function executeRequest(mode: RequestMode): void {
     if (!popupUI) return;
     
     popupUI.style.width = '320px';
@@ -773,22 +645,103 @@ function executeRequest(mode: string): void {
     
     const actionsContainer = document.createElement('div');
     actionsContainer.style.cssText = 'display: none; padding: 0 16px 16px 16px; gap: 10px; align-items: center; justify-content: flex-start;';
+
+    const correctionsContainer = document.createElement('div');
+    correctionsContainer.style.cssText = 'display:none; padding:0 16px 12px; gap:6px; flex-direction:column;';
     
     popupUI.innerHTML = '';
     popupUI.appendChild(header);
     popupUI.appendChild(contentPane);
+    popupUI.appendChild(correctionsContainer);
     popupUI.appendChild(actionsContainer);
     adjustPopupPosition();
 
     let fullResult = "";
     let streamPort: chrome.runtime.Port | null = null;
     let usePageContext = false;
+    let storageAllowed = false;
+    let savedHistoryId: number | null = null;
+    let wordCorrections: WordCorrection[] = [];
+    const rejectedCorrections = new Set<number>();
 
     function getCacheSource(): string {
         return usePageContext
             ? `${currentSelection.text}\ncontext:${currentSelection.context}`
             : currentSelection.text;
     }
+
+    function getEffectiveResult(): string {
+        const clean = fullResult.replace(/\*/g, '');
+        return mode === 'spellcheck'
+            ? resolveCorrections(clean, wordCorrections, rejectedCorrections)
+            : clean;
+    }
+
+    function refreshSpellcheck(): void {
+        if (mode !== 'spellcheck') return;
+        contentPane.innerHTML = renderSpellcheckDiff(currentSelection.text, fullResult, rejectedCorrections);
+        renderCorrectionControls();
+    }
+
+    async function addToDictionary(word: string): Promise<void> {
+        const data = await chrome.storage.local.get({ personalDictionary: [] });
+        const dictionary = Array.isArray(data.personalDictionary) ? data.personalDictionary.map(String) : [];
+        if (!dictionary.some((item) => item.toLocaleLowerCase('ru-RU') === word.toLocaleLowerCase('ru-RU'))) {
+            dictionary.push(word);
+            await chrome.storage.local.set({ personalDictionary: dictionary.sort((a, b) => a.localeCompare(b, 'ru')) });
+        }
+    }
+
+    function toggleCorrection(correction: WordCorrection): void {
+        if (rejectedCorrections.has(correction.tokenIndex)) rejectedCorrections.delete(correction.tokenIndex);
+        else rejectedCorrections.add(correction.tokenIndex);
+        refreshSpellcheck();
+        if (storageAllowed && savedHistoryId !== null) {
+            void updateHistoryItemResult(savedHistoryId, getEffectiveResult());
+        }
+    }
+
+    function renderCorrectionControls(): void {
+        correctionsContainer.replaceChildren();
+        correctionsContainer.style.display = wordCorrections.length > 0 ? 'flex' : 'none';
+        for (const correction of wordCorrections) {
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex; align-items:center; gap:7px; padding:7px 9px; border:1px solid var(--border-color); border-radius:8px; font-size:12px;';
+            const label = document.createElement('span');
+            label.style.cssText = 'flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
+            label.textContent = `${correction.original} → ${correction.corrected}`;
+            const choice = document.createElement('button');
+            choice.type = 'button';
+            choice.textContent = rejectedCorrections.has(correction.tokenIndex) ? 'Вернуть' : 'Принято';
+            choice.title = rejectedCorrections.has(correction.tokenIndex) ? 'Снова принять исправление' : 'Оставить исходное слово';
+            choice.style.cssText = 'border:0; border-radius:6px; padding:5px 7px; cursor:pointer; background:var(--bg-secondary); color:var(--text-primary);';
+            choice.onclick = () => toggleCorrection(correction);
+            const dictionary = document.createElement('button');
+            dictionary.type = 'button';
+            dictionary.textContent = '+ Словарь';
+            dictionary.title = 'Не исправлять это слово в будущем';
+            dictionary.style.cssText = choice.style.cssText;
+            dictionary.onclick = async () => {
+                await addToDictionary(correction.original);
+                rejectedCorrections.add(correction.tokenIndex);
+                dictionary.textContent = 'Добавлено';
+                dictionary.disabled = true;
+                refreshSpellcheck();
+                if (storageAllowed && savedHistoryId !== null) {
+                    void updateHistoryItemResult(savedHistoryId, getEffectiveResult());
+                }
+            };
+            row.append(label, choice, dictionary);
+            correctionsContainer.appendChild(row);
+        }
+    }
+
+    contentPane.addEventListener('click', (event) => {
+        const mark = (event.target as HTMLElement).closest('mark[data-token-index]') as HTMLElement | null;
+        const tokenIndex = Number(mark?.dataset.tokenIndex);
+        const correction = wordCorrections.find((item) => item.tokenIndex === tokenIndex);
+        if (correction) toggleCorrection(correction);
+    });
 
     function renderLoadingControl(): void {
         loaderOrClose.innerHTML = '';
@@ -850,7 +803,7 @@ function executeRequest(mode: string): void {
             pageUrl: window.location.hostname,
             imageUrl: currentSelection.imageUrl // 🔥 НОВОЕ
         });        
-        streamPort.onMessage.addListener((response) => {
+        streamPort.onMessage.addListener((response: StreamResponse) => {
             if (response.status === "chunk") {
                 fullResult += response.text;
                 contentPane.innerHTML = parseMarkdownToHTML(fullResult);
@@ -860,45 +813,32 @@ function executeRequest(mode: string): void {
             } else if (response.status === "done") {
                 if (mode === 'spellcheck') {
                     fullResult = normalizeSpellcheckResult(fullResult);
-                    contentPane.innerHTML = renderSpellcheckDiff(currentSelection.text, fullResult);
+                    wordCorrections = getWordCorrections(currentSelection.text, fullResult);
+                    refreshSpellcheck();
                 } else {
                     contentPane.innerHTML = parseMarkdownToHTML(fullResult);
                 }
                 finishStream();
 
                 
-                const saveToHistorySafe = async (newItem: any) => {
-                    const data = await chrome.storage.local.get({ aiHistory: [] });
-                    let history = data.aiHistory as any[];
-                    
-                    // Добавляем свежий запрос в начало
-                    history.unshift(newItem);
-                    
-                    // СТРОГИЙ ЛИМИТ: Оставляем только 50 последних записей
-                    if (history.length > 50) {
-                        history = history.slice(0, 50);
-                    }
-                    
-                    await chrome.storage.local.set({ aiHistory: history });
-                };
-                
-                // 🔥 СОХРАНЯЕМ В КЭШ
-                const cacheModeKey = mode === 'translate' ? mode + currentTargetLang : mode;
-                void getCacheHash(cacheModeKey, getCacheSource())
-                    .then(cacheKey => setCachedText(cacheKey, fullResult))
-                    .catch(error => console.error('Ошибка сохранения кэша:', error));
-
-                // 🔥 СОХРАНЯЕМ В ИСТОРИЮ
-                const historyItem = {
+                const historyItem: HistoryItem = {
                     id: Date.now(),
-                    mode: mode,
+                    mode,
                     original: currentSelection.text,
-                    result: fullResult.replace(/\*/g, ''),
-                    date: new Date().toISOString()
+                    result: getEffectiveResult(),
+                    date: new Date().toISOString(),
                 };
 
-                // Вызываем функцию с лимитом, передавая ей сформированный объект
-                saveToHistorySafe(historyItem);
+                if (storageAllowed) {
+                    const cacheModeKey = mode === 'translate' ? mode + currentTargetLang : mode;
+                    void getCacheHash(cacheModeKey, getCacheSource())
+                        .then((cacheKey) => setCachedText(cacheKey, fullResult))
+                        .catch((error) => console.error('Ошибка сохранения кэша:', error));
+                    void addHistoryItem(historyItem).then(async () => {
+                        savedHistoryId = historyItem.id;
+                        await updateHistoryItemResult(historyItem.id, getEffectiveResult());
+                    });
+                }
 
             } else if (response.status === "error") {
                 const errorMessage = typeof response.error === 'string' ? response.error : 'Неизвестная ошибка.';
@@ -934,7 +874,6 @@ function executeRequest(mode: string): void {
             actionsContainer.innerHTML = '';
             
             
-            const cleanResult = fullResult.replace(/\*/g, '');
             const btnClass = (mode === 'translate' || mode === 'layout') ? 'lexisync-translate-btn' : 'lexisync-btn-action';
             const replaceIcon = (mode === 'translate' || mode === 'layout') ? ICONS.replaceCurved : ICONS.replace;
             const copyIcon = (mode === 'translate' || mode === 'layout') ? ICONS.copyStandard : ICONS.copy;
@@ -948,8 +887,7 @@ function executeRequest(mode: string): void {
                 e.preventDefault();
                 e.stopPropagation();
 
-                // Вставляем очищенный текст (без звездочек) умным методом
-                replaceSelectedTextSafely(cleanResult);
+                const undo = replaceSelectedText(currentSelection, getEffectiveResult());
 
                 // Делаем красивую анимацию кнопки
                 replaceBtn.innerHTML = `${ICONS.check} Заменено!`;
@@ -957,11 +895,24 @@ function executeRequest(mode: string): void {
                 replaceBtn.style.color = '#166534';
                 replaceBtn.style.fontWeight = '600';
 
-                setTimeout(() => closePopup(), 1500);
+                if (undo) {
+                    const undoBtn = document.createElement('button');
+                    undoBtn.type = 'button';
+                    undoBtn.className = btnClass;
+                    undoBtn.textContent = 'Отменить замену';
+                    undoBtn.onclick = () => {
+                        undo();
+                        undoBtn.remove();
+                        replaceBtn.disabled = false;
+                        replaceBtn.innerHTML = `${replaceIcon} Заменить текст`;
+                    };
+                    actionsContainer.appendChild(undoBtn);
+                }
+                replaceBtn.disabled = true;
             };
 
             if (mode === 'ocr') {
-                navigator.clipboard.writeText(cleanResult);
+                navigator.clipboard.writeText(getEffectiveResult());
                 headerTitleWrapper.innerHTML = `<span style="display:flex; align-items:center; gap:8px; color: #166534;">${ICONS.check} Текст скопирован!</span>`;
             }
 
@@ -970,7 +921,7 @@ function executeRequest(mode: string): void {
             copyBtn.className = `${btnClass} icon-only`;
             copyBtn.innerHTML = copyIcon;
             copyBtn.onclick = (e) => {
-                e.preventDefault(); e.stopPropagation(); navigator.clipboard.writeText(cleanResult);
+                e.preventDefault(); e.stopPropagation(); navigator.clipboard.writeText(getEffectiveResult());
                 copyBtn.innerHTML = (mode === 'translate' || mode === 'layout') ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>` : ICONS.check;
                 setTimeout(() => copyBtn.innerHTML = copyIcon, 1500);
             };
@@ -985,6 +936,7 @@ function executeRequest(mode: string): void {
         chrome.storage.local.get(['mistralApiKey', 'sendPageContext'], async (res) => {
             const apiKey = res.mistralApiKey as string;
             usePageContext = res.sendPageContext === true;
+            storageAllowed = await shouldStoreOnCurrentPage();
             if (!apiKey || apiKey.trim() === '') {
                 contentPane.innerHTML = `
                     <div style="text-align: center; padding: 24px 16px;">
@@ -1023,16 +975,17 @@ function executeRequest(mode: string): void {
 
             const cacheModeKey = mode === 'translate' ? mode + currentTargetLang : mode;
             const cacheKey = await getCacheHash(cacheModeKey, getCacheSource());
-            
-            const cachedResult = await getCachedText(cacheKey);
+            const cachedResult = storageAllowed ? await getCachedText(cacheKey) : null;
             if (cachedResult) {
                 fullResult = mode === 'spellcheck'
                     ? normalizeSpellcheckResult(cachedResult)
                     : cachedResult;
+                if (mode === 'spellcheck') wordCorrections = getWordCorrections(currentSelection.text, fullResult);
                 const finalHtml = mode === 'spellcheck'
                     ? renderSpellcheckDiff(currentSelection.text, fullResult)
                     : parseMarkdownToHTML(fullResult);
                 contentPane.innerHTML = finalHtml;
+                renderCorrectionControls();
                 finishStream(true);
             } else {
                 startStream();
@@ -1043,61 +996,6 @@ function executeRequest(mode: string): void {
     checkCacheAndRun();
 }
 
-
-/**
- * Умная и безопасная замена выделенного текста.
- * Восстанавливает фокус и пробивает защиту React/Vue/Angular.
- */
-function replaceSelectedTextSafely(newText: string) {
-    const { isInput, activeElement, start, end, range } = currentSelection;
-
-    try {
-        // СЦЕНАРИЙ 1: Стандартные поля (input, textarea)
-        if (isInput && activeElement) {
-            const val = activeElement.value;
-            const safeStart = start || 0;
-            const safeEnd = end || 0;
-            const newFullText = val.substring(0, safeStart) + newText + val.substring(safeEnd);
-
-            // Магия для обхода Virtual DOM современных фреймворков
-            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
-            const nativeTextAreaValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set;
-
-            if (activeElement.tagName === 'INPUT' && nativeInputValueSetter) {
-                nativeInputValueSetter.call(activeElement, newFullText);
-            } else if (activeElement.tagName === 'TEXTAREA' && nativeTextAreaValueSetter) {
-                nativeTextAreaValueSetter.call(activeElement, newFullText);
-            } else {
-                activeElement.value = newFullText;
-            }
-
-            // Восстанавливаем положение каретки (курсора)
-            activeElement.selectionStart = activeElement.selectionEnd = safeStart + newText.length;
-
-            // Форсируем обновление состояния сайта
-            activeElement.dispatchEvent(new Event('input', { bubbles: true }));
-            activeElement.dispatchEvent(new Event('change', { bubbles: true }));
-            
-            // Обязательно возвращаем фокус в поле ввода!
-            activeElement.focus();
-        }
-        // СЦЕНАРИЙ 2: Сложные редакторы (contenteditable) и Google Translate
-        else if (range) {
-            const sel = window.getSelection();
-            if (sel) {
-                // Восстанавливаем выделение текста там, где оно было до клика по кнопке
-                sel.removeAllRanges();
-                sel.addRange(range);
-            }
-            // Нативный метод браузера для вставки (сохраняет историю Ctrl+Z)
-            document.execCommand('insertText', false, newText);
-        }
-    } catch (err) {
-        console.error("Ошибка при вставке текста:", err);
-        // Резервный план на случай непредвиденных блокировок сайта
-        navigator.clipboard.writeText(newText);
-    }
-}
 
 function adjustPopupPosition(): void {
     if (!popupUI || isManuallyPositioned) return;
