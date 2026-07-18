@@ -7,15 +7,38 @@ import { isSiteDisabled, normalizeDisabledSites, shouldStoreOnCurrentPage } from
 import { getWordCorrections, normalizeSpellcheckResult, renderSpellcheckDiff, resolveCorrections, type WordCorrection } from './spellcheck';
 import { replaceSelectedText } from './text-replacement';
 import type { CustomCommand, HistoryItem, RequestMode, SelectionData, StreamResponse } from './types';
+import { recordCacheHit } from './usage-stats';
+import { escapeHTML, parseMarkdownToHTML } from './markdown';
+import { captureSelection, getSelectedText, getSelectionCoords as readSelectionCoords } from './selection-state';
 
 initializeAdaptiveSuggestions();
+
+let extensionEnabledOnSite = true;
+void chrome.storage.local.get({ blockedSites: [] }).then((stored) => {
+    extensionEnabledOnSite = !isSiteDisabled(location.hostname, normalizeDisabledSites(stored.blockedSites));
+});
+chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === 'local' && changes.blockedSites) {
+        extensionEnabledOnSite = !isSiteDisabled(location.hostname, normalizeDisabledSites(changes.blockedSites.newValue));
+        if (!extensionEnabledOnSite) closePopup();
+    }
+});
 
 let currentSelection: SelectionData = { text: "", context: "", range: null, activeElement: null, start: null, end: null, isInput: false };
 let popupUI: HTMLElement | null = null;
 let popupHost: HTMLElement | null = null;
 let popupShadow: ShadowRoot | null = null;
+let previousFocus: HTMLElement | null = null;
 let popupStyleText = '';
-let currentTargetLang: string = "Английский"; 
+function getLanguageName(code: string): string {
+    try {
+        return new Intl.DisplayNames([chrome.i18n.getUILanguage()], { type: 'language' }).of(code) || code;
+    } catch {
+        return code;
+    }
+}
+
+let currentTargetLang: string = getLanguageName('en');
 let currentTheme: string = 'auto';
 let currentSearchEngine: string = 'google';
 let currentInterfaceScale: number = 90;
@@ -28,31 +51,8 @@ let isManuallyPositioned = false;
 let lastMouseX = 0;
 let lastMouseY = 0;
 
-// УТИЛИТА 2: безопасный парсер ограниченного Markdown
-function parseMarkdownToHTML(text: string): string {
-    // Никогда не вставляем HTML модели напрямую в страницу.
-    let html = text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-    
-    // 3. Парсим двойные звездочки в красивую зеленую подсветку
-    html = html.replace(/\*\*([\s\S]*?)\*\*/g, '<mark>$1</mark>'); 
-    if (html.includes('**')) html = html.replace(/\*\*([^*]*)$/, '<mark>$1</mark>'); 
-    html = html.replace(/\*/g, ''); // Удаляем случайные одиночные звездочки
-    
-    // 4. Парсим списки
-    html = html.replace(/^- (.*)$/gm, '<li>$1</li>');
-    html = html.replace(/^\d+\.\s(.*)$/gm, '<li>$1</li>');
-    html = html.replace(/(<li>.*<\/li>(\n<li>.*<\/li>)*)/g, '<ul style="margin: 8px 0; padding-left: 20px;">$1</ul>');
-    
-    // 5. Оставшиеся переносы строк делаем абзацами
-    html = html.replace(/\n/g, '<br>');
-    return html;
-}
-
-
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (!extensionEnabledOnSite) return;
     if (request.action === "contextMenuClicked") {
         saveSelectionState(request.text);
         const x = lastMouseX || (window.innerWidth / 2);
@@ -68,11 +68,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 try {
                     text = await navigator.clipboard.readText();
                     if (!text || text.trim().length === 0) {
-                        showToast('Текст не найден. В Google Docs выделите текст, нажмите Ctrl+C и повторите горячую клавишу.');
+                        showToast(t('textNotFound', 'Текст не найден. В Google Docs выделите текст, нажмите Ctrl+C и повторите горячую клавишу.'));
                         return;
                     }
                 } catch (err) {
-                    showToast('Нет доступа к буферу обмена. Кликните по документу и попробуйте снова.');
+                    showToast(t('clipboardDenied', 'Нет доступа к буферу обмена. Кликните по документу и попробуйте снова.'));
                     return;
                 }
             }
@@ -85,9 +85,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         })();
         // Убрали return true, чтобы не было ошибки в консоли!
     }
+
+    if (request.action === 'historyReplay') {
+        void (async () => {
+            saveSelectionState(typeof request.text === 'string' ? request.text : '');
+            const coords = getSelectionCoords();
+            showAIMenu(coords.x, coords.y);
+            if (request.mode === 'custom') {
+                const stored = await chrome.storage.local.get({ customCommands: [] });
+                const commands = Array.isArray(stored.customCommands) ? stored.customCommands as CustomCommand[] : [];
+                const command = commands.find((item) => item.name === request.customName);
+                if (command) executeRequest('custom', command);
+                else showToast(t('commandNotFound', 'Исходная пользовательская команда не найдена.'));
+            } else {
+                handleActionClick(request.mode as RequestMode);
+            }
+        })();
+    }
 });
 
 document.addEventListener('mousemove', (e: MouseEvent) => {
+    if (!extensionEnabledOnSite) return;
     if (!isDragging || !popupUI) return;
     let newX = e.clientX - dragOffsetX;
     let newY = e.clientY - dragOffsetY;
@@ -100,6 +118,7 @@ document.addEventListener('mousemove', (e: MouseEvent) => {
 });
 
 document.addEventListener('mousedown', (e: MouseEvent) => {
+    if (!extensionEnabledOnSite) return;
     lastMouseX = e.clientX;
     lastMouseY = e.clientY;
     if (popupUI) {
@@ -113,6 +132,7 @@ document.addEventListener('mousedown', (e: MouseEvent) => {
 }, true);
 
 document.addEventListener('mouseup', (e: MouseEvent) => {
+    if (!extensionEnabledOnSite) return;
     lastMouseX = e.clientX;
     lastMouseY = e.clientY;
     if (isDragging && popupUI) {
@@ -133,6 +153,7 @@ document.addEventListener('mouseup', (e: MouseEvent) => {
 }, true);
 
 document.addEventListener('keydown', async (e: KeyboardEvent) => {
+    if (!extensionEnabledOnSite) return;
     if (isPopupEvent(e)) return;
     const isSelectAll = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a';
     if (isSelectAll) {
@@ -160,11 +181,11 @@ document.addEventListener('keydown', async (e: KeyboardEvent) => {
                 try {
                     text = await navigator.clipboard.readText();
                     if (!text || text.trim().length === 0) {
-                        showToast('Текст не найден. В Google Docs выделите текст, нажмите Ctrl+C и повторите горячую клавишу.');
+                        showToast(t('textNotFound', 'Текст не найден. В Google Docs выделите текст, нажмите Ctrl+C и повторите горячую клавишу.'));
                         return;
                     }
                 } catch (err) {
-                    showToast('Не удалось прочитать буфер обмена. Разрешите доступ и попробуйте снова.');
+                    showToast(t('clipboardReadFailed', 'Не удалось прочитать буфер обмена. Разрешите доступ и попробуйте снова.'));
                     return;
                 }
             }
@@ -505,6 +526,7 @@ function getPopupElementById<T extends HTMLElement>(id: string): T | null {
 
 function createPopupElement(): HTMLElement {
     injectStyles();
+    if (!popupHost && document.activeElement instanceof HTMLElement) previousFocus = document.activeElement;
     popupHost = document.createElement('div');
     popupHost.id = 'lexisync-shadow-host';
     popupHost.style.cssText = 'all: initial !important; position: fixed !important; inset: 0 !important; width: 0 !important; height: 0 !important; z-index: 2147483647 !important; pointer-events: auto !important;';
@@ -560,69 +582,12 @@ function getPopupContainer(): HTMLElement {
     return container;
 }
 
-function getSelectedText(): string {
-    const activeEl = document.activeElement as HTMLInputElement | HTMLTextAreaElement;
-    if (activeEl && (activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'INPUT')) {
-        try {
-            if (activeEl.selectionStart !== null && activeEl.selectionEnd !== null) {
-                return activeEl.value.substring(activeEl.selectionStart, activeEl.selectionEnd);
-            }
-        } catch(e) {}
-    }
-    return window.getSelection()?.toString() || "";
-}
-
 function saveSelectionState(fallbackText?: string): void {
-    const activeEl = document.activeElement;
-    const sel = window.getSelection();
-    currentSelection = { text: "", context: "", range: null, activeElement: null, start: null, end: null, isInput: false };
-
-    if (activeEl && (activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'INPUT')) {
-        const inputEl = activeEl as HTMLInputElement | HTMLTextAreaElement;
-        currentSelection.isInput = true;
-        currentSelection.activeElement = inputEl;
-        try {
-            currentSelection.start = inputEl.selectionStart;
-            currentSelection.end = inputEl.selectionEnd;
-            currentSelection.text = inputEl.value.substring(currentSelection.start || 0, currentSelection.end || 0);
-        } catch(e) {}
-        
-        if (!currentSelection.text && fallbackText) currentSelection.text = fallbackText;
-        const val = inputEl.value || "";
-        const start = currentSelection.start || 0;
-        const end = currentSelection.end || 0;
-        currentSelection.context = val.substring(Math.max(0, start - 1000), Math.min(val.length, end + 1000));
-    } else {
-        if (sel && sel.rangeCount > 0) {
-            currentSelection.range = sel.getRangeAt(0).cloneRange();
-            const container = document.createElement('div');
-            container.appendChild(currentSelection.range.cloneContents());
-            currentSelection.text = sel.toString() || container.textContent || '';
-        }
-        if (!currentSelection.text && fallbackText) currentSelection.text = fallbackText;
-        let blockText = currentSelection.text;
-        if (sel && sel.anchorNode) {
-            let node: HTMLElement | null = sel.anchorNode.parentElement;
-            while (node && window.getComputedStyle(node).display === 'inline') node = node.parentElement;
-            if (node) blockText = node.innerText || node.textContent || currentSelection.text;
-        }
-        if (blockText && blockText.length > 2000) {
-            const idx = blockText.indexOf(currentSelection.text);
-            if (idx !== -1) currentSelection.context = blockText.substring(Math.max(0, idx - 1000), Math.min(blockText.length, idx + currentSelection.text.length + 1000));
-            else currentSelection.context = currentSelection.text;
-        } else {
-            currentSelection.context = blockText || currentSelection.text;
-        }
-    }
+    currentSelection = captureSelection(fallbackText);
 }
 
 function getSelectionCoords(): { x: number, y: number } {
-    const sel = window.getSelection();
-    if (sel && sel.rangeCount > 0) {
-        const rect = sel.getRangeAt(0).getBoundingClientRect();
-        return { x: rect.left, y: rect.bottom };
-    }
-    return { x: lastMouseX || window.innerWidth / 2, y: lastMouseY || window.innerHeight / 2 };
+    return readSelectionCoords(lastMouseX, lastMouseY);
 }
 
 function showToolbarMenu(x: number, y: number): void {
@@ -630,6 +595,8 @@ function showToolbarMenu(x: number, y: number): void {
     popupUI = createPopupElement();
     applyThemeToPopup(popupUI);
     popupUI.dataset.surface = 'toolbar';
+    popupUI.setAttribute('role', 'toolbar');
+    popupUI.setAttribute('aria-label', t('actionToolbar', 'Действия с выделенным текстом'));
     
     popupUI.addEventListener('mousedown', e => e.stopPropagation());
     popupUI.addEventListener('mouseup', e => e.stopPropagation());
@@ -640,7 +607,7 @@ function showToolbarMenu(x: number, y: number): void {
     const createBtn = (icon: string, text: string, title: string, onClick: (e: MouseEvent, btn: HTMLButtonElement) => void) => {
         const btn = document.createElement('button'); btn.type = 'button'; 
         btn.className = 'lexisync-toolbar-button';
-        btn.innerHTML = `<span style="display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; flex-shrink: 0; color: var(--text-secondary); overflow: visible;">${icon}</span>${text ? `<span style="margin-left: 6px; font-weight: 500;">${text}</span>` : ''}`;
+        btn.innerHTML = `<span style="display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; flex-shrink: 0; color: var(--text-secondary); overflow: visible;">${icon}</span>${text ? `<span style="margin-left: 6px; font-weight: 500;">${escapeHTML(text)}</span>` : ''}`;
         btn.title = title;
         btn.style.cssText = `padding: 6px 8px; cursor: pointer; border-radius: 8px; display: flex; align-items: center; transition: background 0.15s; color: var(--text-primary); background: transparent; border: none; box-sizing: border-box; line-height: 1;`;
         btn.onmousedown = (e) => e.preventDefault(); 
@@ -659,15 +626,15 @@ function showToolbarMenu(x: number, y: number): void {
 
     let searchIcon = ICONS.google;
     let searchUrl = 'https://www.google.com/search?q=';
-    let searchTitle = 'Искать в Google';
-    if (currentSearchEngine === 'yandex') { searchIcon = ICONS.yandex; searchUrl = 'https://yandex.ru/search/?text='; searchTitle = 'Искать в Яндексе'; } 
-    else if (currentSearchEngine === 'duckduckgo') { searchIcon = ICONS.duckduckgo; searchUrl = 'https://duckduckgo.com/?q='; searchTitle = 'Искать в DuckDuckGo'; }
+    let searchTitle = t('searchGoogle', 'Искать в Google');
+    if (currentSearchEngine === 'yandex') { searchIcon = ICONS.yandex; searchUrl = 'https://yandex.ru/search/?text='; searchTitle = t('searchYandex', 'Искать в Яндексе'); }
+    else if (currentSearchEngine === 'duckduckgo') { searchIcon = ICONS.duckduckgo; searchUrl = 'https://duckduckgo.com/?q='; searchTitle = t('searchDuckDuckGo', 'Искать в DuckDuckGo'); }
 
     popupUI.appendChild(createBtn(searchIcon, '', searchTitle, () => { window.open(searchUrl + encodeURIComponent(currentSelection.text), '_blank'); closePopup(); }));
     popupUI.appendChild(divider());
-    popupUI.appendChild(createBtn(ICONS.edit, 'Редактировать', 'Функции текста', () => { showAIMenu(lastAnchorX, lastAnchorY); }));
+    popupUI.appendChild(createBtn(ICONS.edit, t('editText', 'Редактировать'), t('textFunctions', 'Функции текста'), () => { showAIMenu(lastAnchorX, lastAnchorY); }));
     popupUI.appendChild(divider());
-    popupUI.appendChild(createBtn(ICONS.copy, '', 'Копировать', (e, btn) => {
+    popupUI.appendChild(createBtn(ICONS.copy, '', t('copy', 'Копировать'), (e, btn) => {
         navigator.clipboard.writeText(currentSelection.text);
         btn.innerHTML = `<span style="display: flex; align-items: center; justify-content: center; width:16px; height:16px;">${ICONS.check}</span>`;
         setTimeout(() => closePopup(), 1000);
@@ -678,7 +645,7 @@ function showToolbarMenu(x: number, y: number): void {
     moreWrap.id = 'lexisync-more-btn-wrap';
     moreWrap.style.cssText = 'position: relative; display: flex; align-items: center;';
 
-    const moreBtn = createBtn(ICONS.dots, '', 'Ещё опции', () => {
+    const moreBtn = createBtn(ICONS.dots, '', t('moreOptions', 'Ещё опции'), () => {
         const dropdown = getPopupElementById<HTMLElement>('lexisync-more-dropdown');
         if (dropdown) {
             if (dropdown.style.display === 'flex') dropdown.style.display = 'none';
@@ -700,7 +667,7 @@ function showToolbarMenu(x: number, y: number): void {
     const createDropdownItem = (icon: string, text: string, onClick: () => void) => {
         const item = document.createElement('div');
         item.className = 'lexisync-dropdown-item';
-        item.innerHTML = `<span style="display:flex; align-items: center; justify-content: center; margin-right: 12px; width: 16px; height: 16px; flex-shrink: 0;">${icon}</span> <span style="font-weight: 500;">${text}</span>`;
+        item.innerHTML = `<span style="display:flex; align-items: center; justify-content: center; margin-right: 12px; width: 16px; height: 16px; flex-shrink: 0;">${icon}</span> <span style="font-weight: 500;">${escapeHTML(text)}</span>`;
         item.style.cssText = `padding: 10px 14px; font-size: 13px; cursor: pointer; display: flex; align-items: center; color: var(--text-primary); transition: background 0.15s; white-space: nowrap;`;
         item.onmousedown = (e) => e.preventDefault();
         item.onmouseover = () => item.style.backgroundColor = 'var(--hover-bg)';
@@ -709,14 +676,14 @@ function showToolbarMenu(x: number, y: number): void {
         return item;
     };
 
-    moreDropdown.appendChild(createDropdownItem(ICONS.translate, 'Перевести', () => handleActionClick('translate')));
-    moreDropdown.appendChild(createDropdownItem(ICONS.keyboard, 'Исправить раскладку', () => handleActionClick('layout')));
-    moreDropdown.appendChild(createDropdownItem(ICONS.history, 'История', () => { chrome.runtime.sendMessage({ action: "openHistory" }); closePopup(); }));
+    moreDropdown.appendChild(createDropdownItem(ICONS.translate, t('translate', 'Перевести'), () => handleActionClick('translate')));
+    moreDropdown.appendChild(createDropdownItem(ICONS.keyboard, t('fixLayout', 'Исправить раскладку'), () => handleActionClick('layout')));
+    moreDropdown.appendChild(createDropdownItem(ICONS.history, t('history', 'История'), () => { chrome.runtime.sendMessage({ action: "openHistory" }); closePopup(); }));
 
     moreWrap.appendChild(moreDropdown);
     popupUI.appendChild(moreWrap);
     popupUI.appendChild(divider());
-    popupUI.appendChild(createBtn(ICONS.closeColored, '', 'Закрыть панель', () => closePopup()));
+    popupUI.appendChild(createBtn(ICONS.closeColored, '', t('closePanel', 'Закрыть панель'), () => closePopup()));
 
     adjustPopupPosition();
 }
@@ -726,6 +693,8 @@ function showAIMenu(x: number, y: number): void {
     popupUI = createPopupElement();
     applyThemeToPopup(popupUI);
     popupUI.dataset.surface = 'menu';
+    popupUI.setAttribute('role', 'menu');
+    popupUI.setAttribute('aria-label', t('aiMenu', 'AI-инструменты'));
     const menuPopup = popupUI;
 
     popupUI.addEventListener('mousedown', e => e.stopPropagation());
@@ -742,10 +711,11 @@ function showAIMenu(x: number, y: number): void {
     const createMenuBtn = (icon: string, text: string, onClick: () => void, shortcut?: string) => {
         const btn = document.createElement('button'); btn.type = 'button'; 
         btn.className = 'lexisync-menu-button';
+        btn.setAttribute('role', 'menuitem');
         btn.innerHTML = `
             <div style="display: flex; align-items: center;">
                 <span class="lexisync-menu-icon" style="display: flex; align-items: center; justify-content: center; flex-shrink: 0;">${icon}</span>
-                <span style="font-weight: 600;">${text}</span>
+                <span style="font-weight: 600;">${escapeHTML(text)}</span>
             </div>
             ${shortcut ? `<span class="lexisync-shortcut">${shortcut}</span>` : ''}
         `;
@@ -784,7 +754,7 @@ function showRateLimitTimer(seconds: number, retryCallback: () => void, containe
         container.innerHTML = `
             <div style="padding: 16px; font-weight: 500; color: #b06000; display: flex; align-items: center; justify-content: center; gap: 10px; background: #fff8f0; border-radius: 12px; border: 1px solid #ffe8cc; margin: 4px;">
                 <span class="lexisync-hourglass">${ICONS.hourglass}</span>
-                <span>Лимит. Автоповтор через <b>${timeLeft}</b> сек...</span>
+                <span>${t('rateLimitRetry', 'Лимит. Автоповтор через')} <b>${timeLeft}</b> ${t('seconds', 'сек…')}</span>
             </div>
         `;
         adjustPopupPosition(); 
@@ -807,7 +777,7 @@ function handleActionClick(mode: RequestMode): void {
         const text = currentSelection.text || "";
         const ruCount = (text.match(/[а-яА-ЯёЁ]/g) || []).length;
         const enCount = (text.match(/[a-zA-Z]/g) || []).length;
-        currentTargetLang = (ruCount > 0 && ruCount >= enCount) ? "Английский" : "Русский";
+        currentTargetLang = (ruCount > 0 && ruCount >= enCount) ? getLanguageName('en') : getLanguageName('ru');
     }
     executeRequest(mode);
 }
@@ -817,18 +787,20 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
     const originalText = currentSelection.text;
     
     popupUI.dataset.surface = 'result';
+    popupUI.setAttribute('role', 'dialog');
+    popupUI.setAttribute('aria-label', t('resultDialog', 'Результат обработки текста'));
     popupUI.style.width = '340px';
     popupUI.style.padding = '0';
     popupUI.style.display = 'block';
     
     let headerText = '';
-    if (mode === "spellcheck") headerText = `<span style="font-weight: 600;">Ошибки исправлены</span>`;
-    else if (mode === "style") headerText = `<span style="display:flex; align-items:center; gap:8px;">${ICONS.style} Измененный стиль</span>`;
-    else if (mode === "emoji") headerText = `<span style="display:flex; align-items:center; gap:8px;">${ICONS.emoji} Варианты с эмодзи</span>`;
-    else if (mode === "layout") headerText = `<span style="display:flex; align-items:center; gap:8px;">${ICONS.keyboard} Раскладка исправлена</span>`;
-    else if (mode === "translate") headerText = 'Перевод';
-    else if (mode === "ocr") headerText = `<span style="display:flex; align-items:center; gap:8px;">📸 Распознанный текст</span>`; // 🔥 НОВОЕ
-    else if (mode === "custom") headerText = `<span style="display:flex; align-items:center; gap:8px;">${ICONS.style} ${customCommand?.name || 'Моя команда'}</span>`;
+    if (mode === "spellcheck") headerText = `<span style="font-weight: 600;">${t('spellcheckDone', 'Ошибки исправлены')}</span>`;
+    else if (mode === "style") headerText = `<span style="display:flex; align-items:center; gap:8px;">${ICONS.style} ${t('styleChanged', 'Стиль изменён')}</span>`;
+    else if (mode === "emoji") headerText = `<span style="display:flex; align-items:center; gap:8px;">${ICONS.emoji} ${t('emojiVariants', 'Варианты с эмодзи')}</span>`;
+    else if (mode === "layout") headerText = `<span style="display:flex; align-items:center; gap:8px;">${ICONS.keyboard} ${t('layoutFixed', 'Раскладка исправлена')}</span>`;
+    else if (mode === "translate") headerText = t('translation', 'Перевод');
+    else if (mode === "ocr") headerText = `<span style="display:flex; align-items:center; gap:8px;">📸 ${t('ocrResult', 'Распознанный текст')}</span>`;
+    else if (mode === "custom") headerText = `<span style="display:flex; align-items:center; gap:8px;">${ICONS.style} ${escapeHTML(customCommand?.name || t('myCommand', 'Моя команда'))}</span>`;
     
     const header = document.createElement('div');
     header.className = 'lexisync-header';
@@ -854,7 +826,7 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
         headerTitleWrapper.style.pointerEvents = 'auto'; 
         const langWrap = document.createElement('div');
         langWrap.style.cssText = 'display: flex; align-items: center; gap: 4px; cursor: pointer; position: relative; user-select: none; padding: 6px 10px; margin-left: -10px; border-radius: 8px; transition: background 0.15s;';
-        langWrap.innerHTML = `<span id="lexisync-lang-label">${currentTargetLang}</span> <span style="margin-top:2px;">${ICONS.chevronDown}</span>`;
+        langWrap.innerHTML = `<span id="lexisync-lang-label">${escapeHTML(currentTargetLang)}</span> <span style="margin-top:2px;">${ICONS.chevronDown}</span>`;
         langWrap.onmouseover = () => langWrap.style.background = 'var(--hover-bg)';
         langWrap.onmouseout = () => langWrap.style.background = 'transparent';
         
@@ -862,7 +834,7 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
         langDropdown.className = 'lexisync-scroll';
         langDropdown.style.cssText = 'display: none; position: absolute; top: 100%; left: -4px; margin-top: 8px; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 12px; box-shadow: 0 12px 24px var(--shadow-color); flex-direction: column; min-width: 140px; z-index: 9999; padding: 8px 0; max-height: 220px; overflow-y: auto; font-weight: normal;';
         
-        const popularLangs = ['Английский', 'Русский', 'Немецкий', 'Французский', 'Испанский', 'Итальянский', 'Польский', 'Китайский', 'Турецкий', 'Японский'];
+        const popularLangs = ['en', 'ru', 'de', 'fr', 'es', 'it', 'pl', 'zh', 'tr', 'ja'].map(getLanguageName);
         
         popularLangs.forEach(lang => {
             const langItem = document.createElement('div');
@@ -927,6 +899,7 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
     let streamPort: chrome.runtime.Port | null = null;
     let usePageContext = false;
     let storageAllowed = false;
+    let cacheSettingsFingerprint = 'default';
     let savedHistoryId: number | null = null;
     let wordCorrections: WordCorrection[] = [];
     const rejectedCorrections = new Set<number>();
@@ -982,19 +955,19 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
             label.textContent = `${correction.original} → ${correction.corrected}`;
             const choice = document.createElement('button');
             choice.type = 'button';
-            choice.textContent = rejectedCorrections.has(correction.tokenIndex) ? 'Вернуть' : 'Принято';
-            choice.title = rejectedCorrections.has(correction.tokenIndex) ? 'Снова принять исправление' : 'Оставить исходное слово';
+            choice.textContent = rejectedCorrections.has(correction.tokenIndex) ? t('restoreCorrection', 'Вернуть') : t('correctionAccepted', 'Принято');
+            choice.title = rejectedCorrections.has(correction.tokenIndex) ? t('acceptAgain', 'Снова принять исправление') : t('keepOriginal', 'Оставить исходное слово');
             choice.style.cssText = 'border:0; border-radius:6px; padding:5px 7px; cursor:pointer; background:var(--bg-secondary); color:var(--text-primary);';
             choice.onclick = () => toggleCorrection(correction);
             const dictionary = document.createElement('button');
             dictionary.type = 'button';
-            dictionary.textContent = '+ Словарь';
-            dictionary.title = 'Не исправлять это слово в будущем';
+            dictionary.textContent = t('addDictionary', '+ Словарь');
+            dictionary.title = t('dictionaryFuture', 'Не исправлять это слово в будущем');
             dictionary.style.cssText = choice.style.cssText;
             dictionary.onclick = async () => {
                 await addToDictionary(correction.original);
                 rejectedCorrections.add(correction.tokenIndex);
-                dictionary.textContent = 'Добавлено';
+                dictionary.textContent = t('added', 'Добавлено');
                 dictionary.disabled = true;
                 refreshSpellcheck();
                 if (storageAllowed && savedHistoryId !== null) {
@@ -1027,15 +1000,15 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
         const cancelBtn = document.createElement('button');
         cancelBtn.type = 'button';
         cancelBtn.className = 'lexisync-cancel-button';
-        cancelBtn.title = 'Отменить запрос';
-        cancelBtn.setAttribute('aria-label', 'Отменить запрос');
+        cancelBtn.title = t('cancelRequest', 'Отменить запрос');
+        cancelBtn.setAttribute('aria-label', t('cancelRequest', 'Отменить запрос'));
         cancelBtn.innerHTML = ICONS.closeStandard;
         cancelBtn.style.cssText = 'display:flex; align-items:center; justify-content:center; padding:4px; border:0; border-radius:6px; background:transparent; color:var(--text-secondary); cursor:pointer;';
         cancelBtn.onclick = (event) => {
             event.preventDefault();
             event.stopPropagation();
             cancelBtn.disabled = true;
-            contentPane.textContent = 'Отменяем запрос…';
+            contentPane.textContent = t('cancelling', 'Отменяем запрос…');
             streamPort?.postMessage({ action: 'cancelMistral' });
         };
         wrapper.append(loader, cancelBtn);
@@ -1052,7 +1025,7 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
         contentPane.removeAttribute('contenteditable');
         resultTools.style.display = 'none';
         contentPane.innerHTML = `
-            <div class="lexisync-skeleton" role="status" aria-label="LexiSync обрабатывает текст">
+            <div class="lexisync-skeleton" role="status" aria-label="${t('processing', 'LexiSync обрабатывает текст')}">
                 <span class="lexisync-skeleton-line"></span>
                 <span class="lexisync-skeleton-line"></span>
                 <span class="lexisync-skeleton-line"></span>
@@ -1062,19 +1035,19 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
         renderLoadingControl();
         
         if (!navigator.onLine) {
-            contentPane.innerHTML = `<span style="color: #d32f2f;">Нет подключения к интернету. Проверьте сеть и попробуйте снова.</span>`;
+            contentPane.innerHTML = `<span style="color: #d32f2f;">${t('offlineError', 'Нет подключения к интернету. Проверьте сеть и попробуйте снова.')}</span>`;
             finishStream(false);
             return;
         }
 
         if (currentSelection.text.length > 3000) {
-            contentPane.innerHTML = `<span style="color: #d32f2f;">Текст слишком длинный (${currentSelection.text.length} симв.). Пожалуйста, выделите не более 3000 символов за раз.</span>`;
+            contentPane.innerHTML = `<span style="color: #d32f2f;">${t('textTooLong', 'Текст слишком длинный. Выделите не более 3000 символов за раз.')}</span>`;
             finishStream(false);
             return;
         }
 
         if (!chrome.runtime || !chrome.runtime.connect) {
-            contentPane.innerHTML = `<span style="color: #d32f2f;">Пожалуйста, обновите страницу (F5).</span>`;
+            contentPane.innerHTML = `<span style="color: #d32f2f;">${t('reloadPage', 'Пожалуйста, обновите страницу (F5).')}</span>`;
             return;
         }
 
@@ -1119,7 +1092,8 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
                 };
 
                 if (storageAllowed) {
-                    const cacheModeKey = mode === 'translate' ? mode + currentTargetLang : mode === 'custom' ? `custom:${customCommand?.id || 'unknown'}` : mode;
+                    const baseCacheMode = mode === 'translate' ? mode + currentTargetLang : mode === 'custom' ? `custom:${customCommand?.id || 'unknown'}` : mode;
+                    const cacheModeKey = `${baseCacheMode}:${cacheSettingsFingerprint}`;
                     void getCacheHash(cacheModeKey, getCacheSource())
                         .then((cacheKey) => setCachedText(cacheKey, fullResult))
                         .catch((error) => console.error('Ошибка сохранения кэша:', error));
@@ -1130,16 +1104,16 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
                 }
 
             } else if (response.status === "error") {
-                const errorMessage = typeof response.error === 'string' ? response.error : 'Неизвестная ошибка.';
+                const errorMessage = typeof response.error === 'string' ? response.error : t('unknownError', 'Неизвестная ошибка.');
                 if (errorMessage.toLowerCase().includes('rate limit') || errorMessage.toLowerCase().includes('лимит') || errorMessage.includes('429')) {
                     showRateLimitTimer(5, startStream, contentPane);
                 } else {
-                    contentPane.textContent = `Ошибка: ${errorMessage}`;
+                    contentPane.textContent = `${t('errorPrefix', 'Ошибка:')} ${errorMessage}`;
                     contentPane.style.color = '#d32f2f';
                 }
                 finishStream(false);
             } else if (response.status === 'cancelled') {
-                contentPane.textContent = 'Запрос отменён.';
+                contentPane.textContent = t('requestCancelled', 'Запрос отменён.');
                 contentPane.style.color = 'var(--text-secondary)';
                 finishStream(false);
             }
@@ -1149,8 +1123,10 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
     function finishStream(success = true) {
         streamPort?.disconnect();
         streamPort = null;
-        const closeBtn = document.createElement('div');
+        const closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
         closeBtn.className = 'lexisync-close-button';
+        closeBtn.setAttribute('aria-label', t('closePanel', 'Закрыть панель'));
         closeBtn.innerHTML = ICONS.closeStandard;
         closeBtn.style.cssText = 'cursor: pointer; display: flex; align-items: center; margin-right: -4px; padding: 6px; border-radius: 8px; color: var(--text-secondary); transition: background 0.15s;';
         closeBtn.onmouseover = () => closeBtn.style.background = 'var(--hover-bg)';
@@ -1162,7 +1138,7 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
         if (success && fullResult.trim().length > 0) {
             if (mode !== 'spellcheck' && mode !== 'ocr') {
                 contentPane.contentEditable = 'true';
-                contentPane.setAttribute('aria-label', 'Результат можно редактировать');
+                contentPane.setAttribute('aria-label', t('editableResult', 'Результат можно редактировать'));
                 resultTools.style.display = 'flex';
                 editedResultSnapshot = getEffectiveResult();
                 const createTool = (label: string, action: () => void): HTMLButtonElement => {
@@ -1178,7 +1154,7 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
                         editedResultSnapshot = getEffectiveResult();
                         contentPane.contentEditable = 'false';
                         contentPane.textContent = originalText;
-                        compareButton.textContent = 'Показать результат';
+                        compareButton.textContent = t('showResult', 'Показать результат');
                     } else {
                         contentPane.textContent = editedResultSnapshot;
                         contentPane.contentEditable = 'true';
@@ -1195,9 +1171,9 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
                 resultTools.replaceChildren(
                     compareButton,
                     createTool(t('repeat', 'Повторить'), () => executeRequest(mode, customCommand)),
-                    createTool(t('shorter', 'Короче'), () => refine('Сделать короче', 'Сократи текст, сохранив ключевые факты и исходный смысл.')),
-                    createTool(t('longer', 'Подробнее'), () => refine('Сделать подробнее', 'Раскрой текст подробнее, добавив полезные пояснения без лишней воды.')),
-                    createTool(t('moreFormal', 'Формальнее'), () => refine('Сделать формальнее', 'Перепиши текст в более формальном и профессиональном стиле.')),
+                    createTool(t('shorter', 'Короче'), () => refine(t('refineShortName', 'Сделать короче'), t('presetShortPrompt', 'Сократи текст, сохранив ключевые факты и исходный смысл.'))),
+                    createTool(t('longer', 'Подробнее'), () => refine(t('refineLongName', 'Сделать подробнее'), t('refineLongPrompt', 'Раскрой текст подробнее, добавив полезные пояснения без лишней воды.'))),
+                    createTool(t('moreFormal', 'Формальнее'), () => refine(t('refineFormalName', 'Сделать формальнее'), t('refineFormalPrompt', 'Перепиши текст в более формальном и профессиональном стиле.'))),
                 );
             }
             actionsContainer.style.display = 'flex';
@@ -1220,7 +1196,7 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
                 const undo = replaceSelectedText(currentSelection, getEffectiveResult());
 
                 // Делаем красивую анимацию кнопки
-                replaceBtn.innerHTML = `${ICONS.check} Заменено!`;
+                replaceBtn.innerHTML = `${ICONS.check} ${t('replaced', 'Заменено!')}`;
                 replaceBtn.classList.add('lexisync-result-button--success');
                 replaceBtn.style.backgroundColor = '#dcfce7';
                 replaceBtn.style.color = '#166534';
@@ -1230,13 +1206,13 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
                     const undoBtn = document.createElement('button');
                     undoBtn.type = 'button';
                     undoBtn.className = `${btnClass} lexisync-result-button`;
-                    undoBtn.textContent = 'Отменить замену';
+                    undoBtn.textContent = t('undoReplacement', 'Отменить замену');
                     undoBtn.onclick = () => {
                         undo();
                         undoBtn.remove();
                         replaceBtn.disabled = false;
                         replaceBtn.classList.remove('lexisync-result-button--success');
-                        replaceBtn.innerHTML = `${replaceIcon} Заменить текст`;
+                        replaceBtn.innerHTML = `${replaceIcon} ${t('replaceText', 'Заменить текст')}`;
                     };
                     actionsContainer.appendChild(undoBtn);
                 }
@@ -1245,7 +1221,7 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
 
             if (mode === 'ocr') {
                 navigator.clipboard.writeText(getEffectiveResult());
-                headerTitleWrapper.innerHTML = `<span style="display:flex; align-items:center; gap:8px; color: #166534;">${ICONS.check} Текст скопирован!</span>`;
+                headerTitleWrapper.innerHTML = `<span style="display:flex; align-items:center; gap:8px; color: #166534;">${ICONS.check} ${t('copied', 'Текст скопирован!')}</span>`;
             }
 
             const copyBtn = document.createElement('button');
@@ -1265,18 +1241,23 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
     }
 
     async function checkCacheAndRun() {
-        chrome.storage.local.get({ mistralApiKey: '', sendPageContext: false, contextDisabledSites: [] }, async (res) => {
-            const apiKey = res.mistralApiKey as string;
+        const res = await chrome.runtime.sendMessage({ action: 'getRuntimeSettings' }) as {
+            hasApiKey?: boolean;
+            sendPageContext?: boolean;
+            contextDisabledSites?: unknown;
+            cacheFingerprint?: string;
+        };
             usePageContext = res.sendPageContext === true
                 && !isSiteDisabled(location.hostname, normalizeDisabledSites(res.contextDisabledSites));
+            cacheSettingsFingerprint = res.cacheFingerprint || 'default';
             storageAllowed = await shouldStoreOnCurrentPage();
-            if (!apiKey || apiKey.trim() === '') {
+            if (!res.hasApiKey && mode !== 'layout') {
                 contentPane.innerHTML = `
                     <div style="text-align: center; padding: 24px 16px;">
                         <span style="font-size: 32px; display: block; margin-bottom: 12px;">🔑</span>
-                        <div style="font-weight: 600; font-size: 16px; margin-bottom: 8px;">API-ключ не настроен</div>
-                        <div style="color: var(--text-secondary); margin-bottom: 16px; font-size: 13px;">Открываем настройки через <span id="redirectTimer" style="font-weight:bold; color:var(--primary);">3</span>...</div>
-                        <button id="openSettingsBtn" style="background: var(--primary); color: #fff; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 500;">Открыть сейчас</button>
+                        <div style="font-weight: 600; font-size: 16px; margin-bottom: 8px;">${t('apiKeyMissing', 'API-ключ не настроен')}</div>
+                        <div style="color: var(--text-secondary); margin-bottom: 16px; font-size: 13px;">${t('openingSettings', 'Открываем настройки через')} <span id="redirectTimer" style="font-weight:bold; color:var(--primary);">3</span>…</div>
+                        <button id="openSettingsBtn" style="background: var(--primary); color: #fff; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 500;">${t('openSettingsNow', 'Открыть сейчас')}</button>
                     </div>`;
                 
                 let timeLeft = 3;
@@ -1306,10 +1287,12 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
                 return;
             }
 
-            const cacheModeKey = mode === 'translate' ? mode + currentTargetLang : mode === 'custom' ? `custom:${customCommand?.id || 'unknown'}` : mode;
+            const baseCacheMode = mode === 'translate' ? mode + currentTargetLang : mode === 'custom' ? `custom:${customCommand?.id || 'unknown'}` : mode;
+            const cacheModeKey = `${baseCacheMode}:${cacheSettingsFingerprint}`;
             const cacheKey = await getCacheHash(cacheModeKey, getCacheSource());
             const cachedResult = storageAllowed ? await getCachedText(cacheKey) : null;
             if (cachedResult) {
+                void recordCacheHit();
                 fullResult = mode === 'spellcheck'
                     ? normalizeSpellcheckResult(cachedResult)
                     : cachedResult;
@@ -1323,7 +1306,6 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
             } else {
                 startStream();
             }
-        });
     }
 
     checkCacheAndRun();
@@ -1359,6 +1341,8 @@ function closePopup(): void {
         el.style.opacity = '0';
         el.style.pointerEvents = 'none';
         setTimeout(() => host?.remove(), 150);
+        previousFocus?.focus({ preventScroll: true });
+        previousFocus = null;
     }
 }
 
@@ -1375,6 +1359,7 @@ let capturedScreenshotDataUrl = "";
 
 // Слушаем команду на запуск OCR от background.js
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (!extensionEnabledOnSite) return;
     if (request.action === "startOcrMode") {
         capturedScreenshotDataUrl = request.screenshotUrl;
         initOcrOverlay();
@@ -1387,6 +1372,8 @@ function initOcrOverlay() {
     // 1. Создаем затемняющий фон
     ocrOverlay = document.createElement('div');
     ocrOverlay.id = 'lexisync-ocr-overlay';
+    ocrOverlay.setAttribute('role', 'application');
+    ocrOverlay.setAttribute('aria-label', t('selectOcrArea', 'Выберите область экрана для распознавания текста'));
     ocrOverlay.style.cssText = `
         position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
         background: rgba(0, 0, 0, 0.4); z-index: 2147483646; cursor: crosshair;
@@ -1480,7 +1467,7 @@ function cropAndProcessImage(rect: DOMRect) {
 
         const croppedBase64 = canvas.toDataURL('image/jpeg', 0.9);
         
-        currentSelection = { text: "Извлекаем текст...", context: "", range: null, activeElement: null, start: null, end: null, isInput: false, imageUrl: croppedBase64 };
+        currentSelection = { text: t('extractingText', 'Извлекаем текст…'), context: "", range: null, activeElement: null, start: null, end: null, isInput: false, imageUrl: croppedBase64 };
         
         lastAnchorX = rect.left + rect.width / 2;
         lastAnchorY = rect.bottom + 10; 

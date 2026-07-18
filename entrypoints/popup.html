@@ -312,7 +312,7 @@
             </div>
         </header>
 
-        <nav class="actions" aria-label="Разделы LexiSync">
+        <nav class="actions" aria-label="Разделы LexiSync" data-i18n-aria-label="lexisyncSections">
             <button class="action" id="btn-history" type="button">
                 <span class="action-icon" aria-hidden="true">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3.2 2"></path></svg>
@@ -345,13 +345,14 @@
                 <svg class="chevron site-chevron" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"></path></svg>
             </button>
             <div id="site-panel" class="site-panel">
+                <label class="site-toggle"><span data-i18n="enableOnSite">LexiSync включён</span><input id="site-enabled" type="checkbox"><span class="switch"></span></label>
                 <label class="site-toggle"><span data-i18n="personalSuggestions">Персональные подсказки</span><input id="site-suggestions" type="checkbox"><span class="switch"></span></label>
                 <label class="site-toggle"><span data-i18n="saveHistory">Сохранять историю</span><input id="site-history" type="checkbox"><span class="switch"></span></label>
                 <label class="site-toggle"><span data-i18n="sendContext">Передавать контекст</span><input id="site-context" type="checkbox"><span class="switch"></span></label>
             </div>
         </section>
 
-        <footer class="shortcuts" title="Горячие клавиши LexiSync">
+        <footer class="shortcuts" title="Горячие клавиши LexiSync" data-i18n-title="shortcutTitle">
             <span class="shortcut-label" data-i18n="commands">Команды</span>
             <span class="key-list" aria-label="Alt+R, Alt+Y, Alt+T, Alt+S">
                 <span class="key-prefix" aria-hidden="true">Alt +</span>

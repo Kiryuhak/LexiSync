@@ -24,7 +24,7 @@ interface AdaptiveSettings {
     learn: boolean;
     theme: string;
     interfaceScale: number;
-    disabledSites: string[];
+    blockedSites: string[];
     personalDictionary: string[];
     blockedWords: string[];
     adaptiveDisabledSites: string[];
@@ -45,7 +45,7 @@ let settings: AdaptiveSettings = {
     learn: true,
     theme: 'auto',
     interfaceScale: 90,
-    disabledSites: [],
+    blockedSites: [],
     personalDictionary: [],
     blockedWords: [],
     adaptiveDisabledSites: [],
@@ -59,6 +59,7 @@ let activeSuggestions: string[] = [];
 let activeSuggestionIndex = 0;
 let saveTimer: number | null = null;
 let initialized = false;
+let stateReady: Promise<void> = Promise.resolve();
 const learnedTail = new WeakMap<EditableElement, string>();
 
 function normalizeScale(value: unknown): number {
@@ -111,7 +112,7 @@ function isSensitiveField(target: EditableElement): boolean {
 
 function isAllowedOnCurrentPage(): boolean {
     return !chrome.extension.inIncognitoContext
-        && !isSiteDisabled(location.hostname, settings.disabledSites)
+        && !isSiteDisabled(location.hostname, settings.blockedSites)
         && !isSiteDisabled(location.hostname, settings.adaptiveDisabledSites);
 }
 
@@ -412,6 +413,7 @@ function acceptSuggestion(index: number): void {
 }
 
 async function evaluateEditable(target: EditableElement): Promise<void> {
+    await stateReady;
     if (!settings.enabled || !isAllowedOnCurrentPage() || isSensitiveField(target)) {
         hideSuggestions();
         return;
@@ -428,7 +430,7 @@ async function loadState(): Promise<void> {
         adaptiveLearningEnabled: true,
         selectedTheme: 'auto',
         interfaceScale: 90,
-        disabledSites: [],
+        blockedSites: [],
         personalDictionary: [],
         adaptiveBlockedWords: [],
         adaptiveDisabledSites: [],
@@ -439,7 +441,7 @@ async function loadState(): Promise<void> {
         learn: stored.adaptiveLearningEnabled !== false,
         theme: String(stored.selectedTheme || 'auto'),
         interfaceScale: normalizeScale(stored.interfaceScale),
-        disabledSites: normalizeDisabledSites(stored.disabledSites),
+        blockedSites: normalizeDisabledSites(stored.blockedSites),
         personalDictionary: Array.isArray(stored.personalDictionary) ? stored.personalDictionary.map(String) : [],
         blockedWords: Array.isArray(stored.adaptiveBlockedWords) ? stored.adaptiveBlockedWords.map(String) : [],
         adaptiveDisabledSites: normalizeDisabledSites(stored.adaptiveDisabledSites),
@@ -450,7 +452,7 @@ async function loadState(): Promise<void> {
 export function initializeAdaptiveSuggestions(): void {
     if (initialized) return;
     initialized = true;
-    void loadState();
+    stateReady = loadState();
 
     document.addEventListener('input', (event) => {
         if (isEditableElement(event.target)) void evaluateEditable(event.target);
@@ -485,7 +487,7 @@ export function initializeAdaptiveSuggestions(): void {
         if (changes.adaptiveLearningEnabled) settings.learn = changes.adaptiveLearningEnabled.newValue !== false;
         if (changes.selectedTheme) settings.theme = String(changes.selectedTheme.newValue || 'auto');
         if (changes.interfaceScale) settings.interfaceScale = normalizeScale(changes.interfaceScale.newValue);
-        if (changes.disabledSites) settings.disabledSites = normalizeDisabledSites(changes.disabledSites.newValue);
+        if (changes.blockedSites) settings.blockedSites = normalizeDisabledSites(changes.blockedSites.newValue);
         if (changes.personalDictionary) settings.personalDictionary = Array.isArray(changes.personalDictionary.newValue) ? changes.personalDictionary.newValue.map(String) : [];
         if (changes.adaptiveBlockedWords) settings.blockedWords = Array.isArray(changes.adaptiveBlockedWords.newValue) ? changes.adaptiveBlockedWords.newValue.map(String) : [];
         if (changes.adaptiveDisabledSites) settings.adaptiveDisabledSites = normalizeDisabledSites(changes.adaptiveDisabledSites.newValue);

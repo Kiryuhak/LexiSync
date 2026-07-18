@@ -63,9 +63,10 @@ async function initializeSiteControls(): Promise<void> {
     const siteSummary = document.getElementById('site-summary') as HTMLButtonElement | null;
     const domainLabel = document.getElementById('site-domain');
     const suggestionsInput = document.getElementById('site-suggestions') as HTMLInputElement | null;
+    const enabledInput = document.getElementById('site-enabled') as HTMLInputElement | null;
     const historyInput = document.getElementById('site-history') as HTMLInputElement | null;
     const contextInput = document.getElementById('site-context') as HTMLInputElement | null;
-    if (!siteCard || !siteSummary || !domainLabel || !suggestionsInput || !historyInput || !contextInput) return;
+    if (!siteCard || !siteSummary || !domainLabel || !enabledInput || !suggestionsInput || !historyInput || !contextInput) return;
 
     const stored = await chrome.storage.local.get({
         adaptiveSuggestionsEnabled: false,
@@ -73,8 +74,10 @@ async function initializeSiteControls(): Promise<void> {
         disabledSites: [],
         sendPageContext: false,
         contextDisabledSites: [],
+        blockedSites: [],
     });
     domainLabel.textContent = hostname;
+    enabledInput.checked = !isSiteDisabled(hostname, normalizeDisabledSites(stored.blockedSites));
     suggestionsInput.checked = stored.adaptiveSuggestionsEnabled === true
         && !isSiteDisabled(hostname, normalizeDisabledSites(stored.adaptiveDisabledSites));
     historyInput.checked = !isSiteDisabled(hostname, normalizeDisabledSites(stored.disabledSites));
@@ -85,6 +88,11 @@ async function initializeSiteControls(): Promise<void> {
     siteSummary.addEventListener('click', () => {
         const isOpen = siteCard.classList.toggle('is-open');
         siteSummary.setAttribute('aria-expanded', String(isOpen));
+    });
+
+    enabledInput.addEventListener('change', async () => {
+        const current = await chrome.storage.local.get({ blockedSites: [] });
+        await chrome.storage.local.set({ blockedSites: updateSiteList(current.blockedSites, hostname, enabledInput.checked) });
     });
 
     suggestionsInput.addEventListener('change', async () => {

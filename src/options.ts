@@ -1,4 +1,7 @@
 import { localizeDocument, t } from './i18n';
+import type { StyleProfile, UsageStats } from './types';
+import { clearUsageStats, EMPTY_USAGE_STATS } from './usage-stats';
+import { exportPortableSettings, importPortableSettings } from './settings-transfer';
 
 type AppearanceTheme = 'auto' | 'light' | 'dark';
 
@@ -11,6 +14,8 @@ interface EditableCustomCommand {
 const systemDarkTheme = window.matchMedia('(prefers-color-scheme: dark)');
 let restoredApiKey = '';
 let customCommands: EditableCustomCommand[] = [];
+let styleProfiles: StyleProfile[] = [];
+let activeStyleProfileId = '';
 
 function clampInterfaceScale(value: number): number {
     return Math.min(110, Math.max(75, Math.round(value / 5) * 5));
@@ -55,7 +60,7 @@ function renderAdaptiveStats(model: unknown): void {
     const words = candidate.words && typeof candidate.words === 'object' ? Object.keys(candidate.words) : [];
     const cyrillicCount = words.filter((word) => /\p{Script=Cyrillic}/u.test(word)).length;
     const latinCount = words.filter((word) => /\p{Script=Latin}/u.test(word)).length;
-    stats.textContent = `Изучено ${wordCount} слов (RU ${cyrillicCount} / EN ${latinCount}) и ${pairCount} словосочетаний`;
+    stats.textContent = `${t('learnedWords', 'Изучено')} ${wordCount} ${t('words', 'слов')} (RU ${cyrillicCount} / EN ${latinCount}) · ${pairCount} ${t('phrases', 'словосочетаний')}`;
     clearButton.disabled = wordCount === 0 && pairCount === 0;
 }
 
@@ -74,7 +79,7 @@ function renderCustomCommands(): void {
     list.replaceChildren();
     if (customCommands.length === 0) {
         const empty = document.createElement('p');
-        empty.textContent = 'Пока нет пользовательских команд.';
+        empty.textContent = t('noCommands', 'Пока нет пользовательских команд.');
         empty.style.margin = '0 0 4px';
         list.appendChild(empty);
         return;
@@ -91,7 +96,8 @@ function renderCustomCommands(): void {
         const actions = document.createElement('div');
         actions.className = 'command-card-actions';
         const edit = document.createElement('button');
-        edit.type = 'button'; edit.className = 'command-icon-button'; edit.title = 'Изменить'; edit.textContent = '✎';
+        edit.type = 'button'; edit.className = 'command-icon-button'; edit.title = t('edit', 'Изменить'); edit.textContent = '✎';
+        edit.setAttribute('aria-label', `${edit.title}: ${command.name}`);
         edit.onclick = () => {
             (document.getElementById('customCommandId') as HTMLInputElement).value = command.id;
             (document.getElementById('customCommandName') as HTMLInputElement).value = command.name;
@@ -99,7 +105,8 @@ function renderCustomCommands(): void {
             (document.getElementById('cancelCommandEdit') as HTMLButtonElement).hidden = false;
         };
         const remove = document.createElement('button');
-        remove.type = 'button'; remove.className = 'command-icon-button'; remove.title = 'Удалить'; remove.textContent = '×';
+        remove.type = 'button'; remove.className = 'command-icon-button'; remove.title = t('delete', 'Удалить'); remove.textContent = '×';
+        remove.setAttribute('aria-label', `${remove.title}: ${command.name}`);
         remove.onclick = async () => {
             customCommands = customCommands.filter((item) => item.id !== command.id);
             await chrome.storage.local.set({ customCommands });
@@ -109,6 +116,112 @@ function renderCustomCommands(): void {
         card.append(copy, actions);
         list.appendChild(card);
     }
+}
+
+function resetStyleProfileForm(): void {
+    const form = document.getElementById('styleProfileForm') as HTMLFormElement | null;
+    const idInput = document.getElementById('styleProfileId') as HTMLInputElement | null;
+    const cancelButton = document.getElementById('cancelStyleProfileEdit') as HTMLButtonElement | null;
+    form?.reset();
+    if (idInput) idInput.value = '';
+    if (cancelButton) cancelButton.hidden = true;
+}
+
+function renderStyleProfiles(): void {
+    const list = document.getElementById('styleProfileList');
+    if (!list) return;
+    list.replaceChildren();
+    if (!styleProfiles.length) {
+        const empty = document.createElement('p');
+        empty.textContent = t('noStyleProfiles', 'Пока нет профилей стиля.');
+        list.appendChild(empty);
+        return;
+    }
+    for (const profile of styleProfiles) {
+        const card = document.createElement('article');
+        card.className = 'command-card';
+        if (profile.id === activeStyleProfileId) card.style.borderColor = 'var(--primary)';
+        const copy = document.createElement('div');
+        const name = document.createElement('strong');
+        name.textContent = profile.name;
+        const instruction = document.createElement('span');
+        instruction.textContent = profile.instruction;
+        copy.append(name, instruction);
+        const actions = document.createElement('div');
+        actions.className = 'command-card-actions';
+        const activate = document.createElement('button');
+        activate.type = 'button';
+        activate.className = 'command-icon-button';
+        activate.textContent = profile.id === activeStyleProfileId ? '✓' : '○';
+        activate.title = t('activateProfile', 'Использовать профиль');
+        activate.setAttribute('aria-label', `${activate.title}: ${profile.name}`);
+        activate.onclick = async () => {
+            activeStyleProfileId = profile.id === activeStyleProfileId ? '' : profile.id;
+            await chrome.storage.local.set({ activeStyleProfileId });
+            renderStyleProfiles();
+        };
+        const edit = document.createElement('button');
+        edit.type = 'button'; edit.className = 'command-icon-button'; edit.title = t('edit', 'Изменить'); edit.textContent = '✎';
+        edit.setAttribute('aria-label', `${edit.title}: ${profile.name}`);
+        edit.onclick = () => {
+            (document.getElementById('styleProfileId') as HTMLInputElement).value = profile.id;
+            (document.getElementById('styleProfileName') as HTMLInputElement).value = profile.name;
+            (document.getElementById('styleProfileInstruction') as HTMLTextAreaElement).value = profile.instruction;
+            (document.getElementById('cancelStyleProfileEdit') as HTMLButtonElement).hidden = false;
+            (document.getElementById('styleProfileName') as HTMLInputElement).focus();
+        };
+        const remove = document.createElement('button');
+        remove.type = 'button'; remove.className = 'command-icon-button'; remove.title = t('delete', 'Удалить'); remove.textContent = '×';
+        remove.setAttribute('aria-label', `${remove.title}: ${profile.name}`);
+        remove.onclick = async () => {
+            styleProfiles = styleProfiles.filter((item) => item.id !== profile.id);
+            if (activeStyleProfileId === profile.id) activeStyleProfileId = '';
+            await chrome.storage.local.set({ styleProfiles, activeStyleProfileId });
+            renderStyleProfiles();
+        };
+        actions.append(activate, edit, remove);
+        card.append(copy, actions);
+        list.appendChild(card);
+    }
+}
+
+function setupStyleProfiles(): void {
+    const form = document.getElementById('styleProfileForm') as HTMLFormElement | null;
+    const idInput = document.getElementById('styleProfileId') as HTMLInputElement | null;
+    const nameInput = document.getElementById('styleProfileName') as HTMLInputElement | null;
+    const instructionInput = document.getElementById('styleProfileInstruction') as HTMLTextAreaElement | null;
+    if (!form || !idInput || !nameInput || !instructionInput) return;
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const name = nameInput.value.trim().slice(0, 40);
+        const instruction = instructionInput.value.trim().slice(0, 1000);
+        if (!name || !instruction) return;
+        if (!idInput.value && styleProfiles.length >= 8) return;
+        const existing = styleProfiles.find((profile) => profile.id === idInput.value);
+        const profile: StyleProfile = {
+            id: idInput.value || crypto.randomUUID(),
+            name,
+            tone: existing?.tone || 'custom',
+            instruction,
+        };
+        const index = styleProfiles.findIndex((item) => item.id === profile.id);
+        if (index >= 0) styleProfiles[index] = profile;
+        else styleProfiles.push(profile);
+        if (!activeStyleProfileId) activeStyleProfileId = profile.id;
+        await chrome.storage.local.set({ styleProfiles, activeStyleProfileId });
+        resetStyleProfileForm();
+        renderStyleProfiles();
+    });
+    document.getElementById('cancelStyleProfileEdit')?.addEventListener('click', resetStyleProfileForm);
+}
+
+function renderUsageStats(stats: UsageStats): void {
+    const requests = document.getElementById('usageRequests');
+    const hits = document.getElementById('usageCacheHits');
+    const latency = document.getElementById('usageLatency');
+    if (requests) requests.textContent = String(stats.requests);
+    if (hits) hits.textContent = String(stats.cacheHits);
+    if (latency) latency.textContent = stats.requests ? `${(stats.totalLatencyMs / stats.requests / 1000).toFixed(1)} с` : '0 с';
 }
 
 function setupCustomCommands(): void {
@@ -124,7 +237,7 @@ function setupCustomCommands(): void {
         if (!name || !prompt) return;
         if (!idInput.value && customCommands.length >= 8) {
             const status = document.getElementById('status');
-            if (status) { status.textContent = 'Можно создать не более 8 команд.'; status.style.color = '#d97706'; status.style.display = 'block'; }
+            if (status) { status.textContent = t('commandLimit', 'Можно создать не более 8 команд.'); status.style.color = '#d97706'; status.style.display = 'block'; }
             return;
         }
         const command: EditableCustomCommand = { id: idInput.value || crypto.randomUUID(), name, prompt };
@@ -139,8 +252,8 @@ function setupCustomCommands(): void {
     document.querySelectorAll<HTMLButtonElement>('.preset-button').forEach((button) => {
         button.addEventListener('click', () => {
             idInput.value = '';
-            nameInput.value = button.dataset.commandName || '';
-            promptInput.value = button.dataset.commandPrompt || '';
+            nameInput.value = t(button.dataset.commandNameKey || '', button.dataset.commandName || '');
+            promptInput.value = t(button.dataset.commandPromptKey || '', button.dataset.commandPrompt || '');
             nameInput.focus();
         });
     });
@@ -156,6 +269,7 @@ function activateSettingsTab(tabName: string): void {
         const active = button.dataset.tab === tabName;
         button.classList.toggle('is-active', active);
         button.setAttribute('aria-selected', String(active));
+        button.tabIndex = active ? 0 : -1;
     });
 }
 
@@ -168,24 +282,42 @@ async function setupOnboarding(): Promise<void> {
     if (!onboarding || !nextButton || !skipButton || !progress || steps.length === 0) return;
     const stored = await chrome.storage.local.get({ onboardingCompleted: false });
     if (stored.onboardingCompleted === true) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
     let activeStep = 0;
     const render = () => {
         steps.forEach((step, index) => step.classList.toggle('is-active', index === activeStep));
-        progress.textContent = `${activeStep + 1} из ${steps.length}`;
+        progress.textContent = `${activeStep + 1} ${t('of', 'из')} ${steps.length}`;
         nextButton.textContent = activeStep === steps.length - 1 ? t('start', 'Начать работу') : t('next', 'Далее');
     };
     const complete = async () => {
         onboarding.hidden = true;
         await chrome.storage.local.set({ onboardingCompleted: true });
+        previousFocus?.focus();
     };
     nextButton.addEventListener('click', () => {
         if (activeStep >= steps.length - 1) void complete();
         else { activeStep++; render(); }
     });
     skipButton.addEventListener('click', () => void complete());
+    onboarding.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            void complete();
+            return;
+        }
+        if (event.key !== 'Tab') return;
+        const focusable = [...onboarding.querySelectorAll<HTMLElement>('button, input, select, textarea, a[href]')]
+            .filter((element) => !element.hidden && !element.hasAttribute('disabled'));
+        if (!focusable.length) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    });
     onboarding.hidden = false;
     render();
+    nextButton.focus();
 }
 
 async function saveOptions(): Promise<void> {
@@ -201,13 +333,15 @@ async function saveOptions(): Promise<void> {
     const historyRetentionSelect = document.getElementById('historyRetentionDays') as HTMLSelectElement;
     const disabledSitesInput = document.getElementById('disabledSites') as HTMLTextAreaElement;
     const personalDictionaryInput = document.getElementById('personalDictionary') as HTMLTextAreaElement;
+    const aiModeSelect = document.getElementById('aiMode') as HTMLSelectElement;
+    const glossaryInput = document.getElementById('glossary') as HTMLTextAreaElement;
     const statusDiv = document.getElementById('status') as HTMLElement; 
     const saveBtn = document.getElementById('saveBtn') as HTMLButtonElement;
     
     const apiKey = apiKeyInput.value.trim();
 
     const originalBtnText = saveBtn.textContent;
-    saveBtn.textContent = 'Сохранение...';
+    saveBtn.textContent = t('saving', 'Сохранение…');
     saveBtn.style.opacity = '0.7';
     saveBtn.disabled = true;
 
@@ -223,11 +357,13 @@ async function saveOptions(): Promise<void> {
         historyRetentionDays: Number(historyRetentionSelect.value),
         disabledSites: disabledSitesInput.value.split(/\r?\n/).map((site) => site.trim()).filter(Boolean),
         personalDictionary: personalDictionaryInput.value.split(/\r?\n/).map((word) => word.trim()).filter(Boolean),
+        aiMode: aiModeSelect.value === 'fast' ? 'fast' : 'quality',
+        glossary: glossaryInput.value.split(/\r?\n/).map((entry) => entry.trim()).filter(Boolean).slice(0, 200),
     });
 
     let apiKeyStatus = '';
     if (apiKey !== restoredApiKey && apiKey) {
-        saveBtn.textContent = 'Проверка ключа...';
+        saveBtn.textContent = t('checkingKey', 'Проверка ключа…');
         try {
             const response = await fetch('https://api.mistral.ai/v1/models', {
                 headers: { 'Authorization': `Bearer ${apiKey}` }
@@ -236,18 +372,18 @@ async function saveOptions(): Promise<void> {
                 await chrome.storage.local.set({ mistralApiKey: apiKey });
                 restoredApiKey = apiKey;
             } else {
-                apiKeyStatus = 'Настройки сохранены, но новый API-ключ не прошёл проверку.';
+                apiKeyStatus = t('invalidKey', 'Настройки сохранены, но новый API-ключ не прошёл проверку.');
             }
         } catch (error) {
             console.error('Ошибка сети при проверке ключа', error);
-            apiKeyStatus = 'Настройки сохранены. Проверить API-ключ сейчас не удалось.';
+            apiKeyStatus = t('keyCheckUnavailable', 'Настройки сохранены. Проверить API-ключ сейчас не удалось.');
         }
     } else if (!apiKey && restoredApiKey) {
         await chrome.storage.local.set({ mistralApiKey: '' });
         restoredApiKey = '';
     }
 
-    statusDiv.textContent = apiKeyStatus || '✓ Настройки успешно сохранены!';
+    statusDiv.textContent = apiKeyStatus || t('saveSuccess', '✓ Настройки успешно сохранены!');
     statusDiv.style.color = apiKeyStatus ? '#d97706' : '#10b981';
     statusDiv.style.display = 'block';
     window.setTimeout(() => { statusDiv.style.display = 'none'; }, 3500);
@@ -270,6 +406,8 @@ async function restoreOptions(): Promise<void> {
     const historyRetentionSelect = document.getElementById('historyRetentionDays') as HTMLSelectElement;
     const disabledSitesInput = document.getElementById('disabledSites') as HTMLTextAreaElement;
     const personalDictionaryInput = document.getElementById('personalDictionary') as HTMLTextAreaElement;
+    const aiModeSelect = document.getElementById('aiMode') as HTMLSelectElement;
+    const glossaryInput = document.getElementById('glossary') as HTMLTextAreaElement;
     
     const items = await chrome.storage.local.get({
         mistralApiKey: '',
@@ -286,6 +424,11 @@ async function restoreOptions(): Promise<void> {
         disabledSites: [],
         personalDictionary: [],
         customCommands: [],
+        aiMode: 'quality',
+        glossary: [],
+        styleProfiles: [],
+        activeStyleProfileId: '',
+        usageStats: EMPTY_USAGE_STATS,
     });
     
     apiKeyInput.value = items.mistralApiKey as string;
@@ -301,10 +444,18 @@ async function restoreOptions(): Promise<void> {
     historyRetentionSelect.value = String(items.historyRetentionDays || 30);
     disabledSitesInput.value = Array.isArray(items.disabledSites) ? items.disabledSites.join('\n') : '';
     personalDictionaryInput.value = Array.isArray(items.personalDictionary) ? items.personalDictionary.join('\n') : '';
+    aiModeSelect.value = items.aiMode === 'fast' ? 'fast' : 'quality';
+    glossaryInput.value = Array.isArray(items.glossary) ? items.glossary.join('\n') : '';
     customCommands = Array.isArray(items.customCommands)
         ? items.customCommands.filter((item: unknown): item is EditableCustomCommand => Boolean(item && typeof item === 'object' && 'id' in item && 'name' in item && 'prompt' in item)).slice(0, 8)
         : [];
+    styleProfiles = Array.isArray(items.styleProfiles)
+        ? items.styleProfiles.filter((item: unknown): item is StyleProfile => Boolean(item && typeof item === 'object' && 'id' in item && 'name' in item && 'instruction' in item)).slice(0, 8)
+        : [];
+    activeStyleProfileId = typeof items.activeStyleProfileId === 'string' ? items.activeStyleProfileId : '';
     renderCustomCommands();
+    renderStyleProfiles();
+    renderUsageStats(items.usageStats as UsageStats);
     updateAppearancePreview();
     updateAdaptiveControls();
     renderAdaptiveStats(items.adaptiveLanguageModel);
@@ -325,18 +476,67 @@ document.addEventListener('DOMContentLoaded', () => {
     interfaceScaleInput?.addEventListener('input', updateAppearancePreview);
     adaptiveSuggestionsInput?.addEventListener('change', updateAdaptiveControls);
     setupCustomCommands();
+    setupStyleProfiles();
     document.querySelectorAll<HTMLButtonElement>('.settings-tab').forEach((button) => {
         button.addEventListener('click', () => activateSettingsTab(button.dataset.tab || 'main'));
+        button.addEventListener('keydown', (event) => {
+            if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+            const tabs = [...document.querySelectorAll<HTMLButtonElement>('.settings-tab')];
+            const currentIndex = tabs.indexOf(button);
+            const offset = event.key === 'ArrowRight' ? 1 : -1;
+            const next = tabs[(currentIndex + offset + tabs.length) % tabs.length];
+            activateSettingsTab(next.dataset.tab || 'main');
+            next.focus();
+        });
     });
     activateSettingsTab('main');
 
     const clearAdaptiveDataButton = document.getElementById('clearAdaptiveData') as HTMLButtonElement | null;
     clearAdaptiveDataButton?.addEventListener('click', async () => {
-        const confirmed = window.confirm('Удалить все локально изученные слова и словосочетания?');
+        const confirmed = window.confirm(t('clearAdaptiveConfirm', 'Удалить все локально изученные слова и словосочетания?'));
         if (!confirmed) return;
         const emptyModel = { version: 2, words: {}, pairs: {}, rejections: {} };
         await chrome.storage.local.set({ adaptiveLanguageModel: emptyModel, adaptiveBlockedWords: [] });
         renderAdaptiveStats(emptyModel);
+    });
+
+    document.getElementById('clearUsageStats')?.addEventListener('click', async () => {
+        await clearUsageStats();
+        renderUsageStats(EMPTY_USAGE_STATS);
+    });
+
+    const importFile = document.getElementById('importSettingsFile') as HTMLInputElement | null;
+    document.getElementById('exportSettings')?.addEventListener('click', async () => {
+        const payload = await exportPortableSettings();
+        const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `lexisync-settings-${new Date().toISOString().slice(0, 10)}.json`;
+        link.click();
+        URL.revokeObjectURL(url);
+    });
+    document.getElementById('importSettings')?.addEventListener('click', () => importFile?.click());
+    importFile?.addEventListener('change', async () => {
+        const file = importFile.files?.[0];
+        if (!file) return;
+        try {
+            if (file.size > 1_000_000) throw new Error(t('settingsFileTooLarge', 'Файл настроек слишком большой.'));
+            await importPortableSettings(JSON.parse(await file.text()));
+            await restoreOptions();
+            const status = document.getElementById('status');
+            if (status) { status.textContent = t('settingsImported', 'Настройки импортированы.'); status.style.display = 'block'; }
+        } catch (error) {
+            const status = document.getElementById('status');
+            const code = error instanceof Error ? error.message : '';
+            const message = code === 'INVALID_SETTINGS_FILE'
+                ? t('invalidSettingsFile', 'Некорректный файл настроек.')
+                : code === 'UNSUPPORTED_SETTINGS_FORMAT'
+                    ? t('unsupportedSettingsFormat', 'Формат файла настроек не поддерживается.')
+                    : code || t('importFailed', 'Не удалось импортировать настройки.');
+            if (status) { status.textContent = message; status.style.display = 'block'; }
+        } finally {
+            importFile.value = '';
+        }
     });
 
     const versionBadge = document.getElementById('app-version');
@@ -371,7 +571,7 @@ document.addEventListener('DOMContentLoaded', () => {
 systemDarkTheme.addEventListener('change', updateAppearancePreview);
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName === 'local' && changes.adaptiveLanguageModel) {
-        renderAdaptiveStats(changes.adaptiveLanguageModel.newValue);
-    }
+    if (areaName !== 'local') return;
+    if (changes.adaptiveLanguageModel) renderAdaptiveStats(changes.adaptiveLanguageModel.newValue);
+    if (changes.usageStats) renderUsageStats(changes.usageStats.newValue as UsageStats);
 });

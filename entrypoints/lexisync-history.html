@@ -2,22 +2,27 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>История запросов AI Spell</title>
+    <title data-i18n="historyPageTitle">История LexiSync</title>
     <style>
-        body { font-family: system-ui, sans-serif; background: #f8f9fa; color: #202124; padding: 40px; margin: 0; }
+        :root { color-scheme: light; --bg:#f8f9fa; --card:#fff; --text:#202124; --muted:#5f6368; --border:#dadce0; --soft:#f1f3f4; --result:#e6f4ea; --result-text:#137333; }
+        [data-theme="dark"] { color-scheme: dark; --bg:#12131a; --card:#1d1f2a; --text:#f1f3f8; --muted:#a8afc1; --border:#3b3f50; --soft:#282b38; --result:#18382a; --result-text:#81d6a9; }
+        body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); padding: 40px; margin: 0; }
         .container { max-width: 900px; margin: 0 auto; }
         h1 { color: #1a73e8; font-size: 24px; margin-bottom: 16px; }
-        .toolbar { display: grid; grid-template-columns: minmax(220px, 1fr) 180px auto auto; gap: 10px; margin-bottom: 24px; }
-        .toolbar input, .toolbar select { border: 1px solid #dadce0; border-radius: 8px; padding: 9px 12px; background: white; font: inherit; color: inherit; }
-        .history-card { background: white; border: 1px solid #dadce0; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
-        .history-header { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 13px; color: #5f6368; }
+        .toolbar { display: grid; grid-template-columns: minmax(220px, 1fr) 180px auto auto auto; gap: 10px; margin-bottom: 24px; }
+        .toolbar input, .toolbar select { border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; background: var(--card); font: inherit; color: inherit; }
+        .history-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
+        .history-card.is-favorite { border-color: #f4b400; }
+        .history-header { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 13px; color: var(--muted); }
         .mode-badge { background: #e8f0fe; color: #1967d2; padding: 4px 8px; border-radius: 6px; font-weight: 600; text-transform: uppercase;}
         .text-block { margin-bottom: 12px; }
         .label { font-size: 12px; font-weight: 600; color: #9aa0a6; text-transform: uppercase; margin-bottom: 4px; }
-        .content { font-size: 14px; line-height: 1.5; white-space: pre-wrap; background: #f1f3f4; padding: 12px; border-radius: 8px; font-family: inherit;}
-        .content.result { background: #e6f4ea; color: #137333; border: 1px solid #ceead6; }
-        .empty { text-align: center; color: #5f6368; margin-top: 40px; font-size: 16px; }
-        button { background: #fff; border: 1px solid #dadce0; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: 500; transition: 0.2s; }
+        .content { font-size: 14px; line-height: 1.5; white-space: pre-wrap; background: var(--soft); padding: 12px; border-radius: 8px; font-family: inherit;}
+        .content.result { background: var(--result); color: var(--result-text); border: 1px solid var(--border); }
+        .empty { text-align: center; color: var(--muted); margin-top: 40px; font-size: 16px; }
+        button { color: var(--text); background: var(--card); border: 1px solid var(--border); padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: 500; transition: 0.2s; }
+        button[aria-pressed="true"] { color:#8a5a00; background:#fff4ce; border-color:#f4b400; }
+        button:focus-visible, input:focus-visible, select:focus-visible { outline:3px solid rgba(26,115,232,.3); outline-offset:2px; }
         button.clear-btn, .delete-btn { color: #d93025; }
         button.clear-btn:hover { background: #fce8e6; }
         .card-actions { display: flex; gap: 8px; justify-content: flex-end; }
@@ -29,20 +34,22 @@
 </head>
 <body>
     <div class="container">
-        <h1>История ваших запросов</h1>
+        <h1 data-i18n="historyTitle">История запросов</h1>
         <div class="toolbar">
-            <input id="historySearch" type="search" placeholder="Поиск по истории…" />
+            <input id="historySearch" type="search" placeholder="Поиск по истории…" data-i18n-placeholder="historySearch" />
             <select id="modeFilter">
-                <option value="all">Все операции</option>
-                <option value="spellcheck">Ошибки</option>
-                <option value="style">Стиль</option>
-                <option value="emoji">Эмодзи</option>
-                <option value="layout">Раскладка</option>
-                <option value="translate">Перевод</option>
+                <option value="all" data-i18n="allOperations">Все операции</option>
+                <option value="spellcheck" data-i18n="modeSpellcheck">Ошибки</option>
+                <option value="style" data-i18n="modeStyle">Стиль</option>
+                <option value="emoji" data-i18n="modeEmoji">Эмодзи</option>
+                <option value="layout" data-i18n="modeLayout">Раскладка</option>
+                <option value="translate" data-i18n="modeTranslate">Перевод</option>
                 <option value="ocr">OCR</option>
+                <option value="custom" data-i18n="modeCustom">Команда</option>
             </select>
-            <button id="exportBtn">Экспорт JSON</button>
-            <button id="clearBtn" class="clear-btn">Очистить</button>
+            <button id="favoriteFilter" type="button" aria-pressed="false" data-i18n="favoritesOnly">Только избранное</button>
+            <button id="exportBtn" data-i18n="exportJson">Экспорт JSON</button>
+            <button id="clearBtn" class="clear-btn" data-i18n="clear">Очистить</button>
         </div>
         <div id="historyList"></div>
     </div>

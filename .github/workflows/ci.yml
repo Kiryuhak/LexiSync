@@ -29,6 +29,9 @@ jobs:
       - name: Проверить типы
         run: npm run typecheck
 
+      - name: Запустить модульные тесты
+        run: npm run test:unit
+
       - name: Собрать Chrome и Firefox
         run: npm run build
 

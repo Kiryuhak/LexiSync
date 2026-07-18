@@ -1,4 +1,4 @@
-const CURRENT_SETTINGS_SCHEMA = 2;
+const CURRENT_SETTINGS_SCHEMA = 3;
 
 export async function migrateSettings(): Promise<void> {
     const stored = await chrome.storage.local.get(null);
@@ -28,6 +28,27 @@ export async function migrateSettings(): Promise<void> {
             };
         }
     }
+    if (currentVersion < 3) {
+        if (!Array.isArray(stored.blockedSites)) updates.blockedSites = [];
+        if (stored.aiMode !== 'fast' && stored.aiMode !== 'quality') updates.aiMode = 'quality';
+        if (!Array.isArray(stored.glossary)) updates.glossary = [];
+        if (!Array.isArray(stored.styleProfiles)) updates.styleProfiles = [];
+        if (typeof stored.activeStyleProfileId !== 'string') updates.activeStyleProfileId = '';
+        if (!stored.usageStats || typeof stored.usageStats !== 'object') {
+            updates.usageStats = { requests: 0, cacheHits: 0, failures: 0, totalLatencyMs: 0, byMode: {} };
+        }
+    }
     updates.settingsSchemaVersion = CURRENT_SETTINGS_SCHEMA;
+    const migratedKeys = Object.keys(updates).filter((key) => key !== 'settingsSchemaVersion');
+    const latest = migratedKeys.length ? await chrome.storage.local.get(migratedKeys) : {};
+    let concurrentChange = false;
+    for (const key of migratedKeys) {
+        if (JSON.stringify(latest[key]) !== JSON.stringify(stored[key])) {
+            delete updates[key];
+            concurrentChange = true;
+        }
+    }
+    if (concurrentChange) delete updates.settingsSchemaVersion;
     await chrome.storage.local.set(updates);
+    if (concurrentChange) await migrateSettings();
 }

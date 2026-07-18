@@ -1,5 +1,6 @@
 export type TextMode = 'spellcheck' | 'style' | 'emoji' | 'layout' | 'translate';
 export type RequestMode = TextMode | 'ocr' | 'custom';
+export type AiMode = 'fast' | 'quality';
 
 export interface CustomCommand {
     id: string;
@@ -14,6 +15,22 @@ export interface HistoryItem {
     result: string;
     date: string;
     customName?: string;
+    favorite?: boolean;
+}
+
+export interface StyleProfile {
+    id: string;
+    name: string;
+    tone: string;
+    instruction: string;
+}
+
+export interface UsageStats {
+    requests: number;
+    cacheHits: number;
+    failures: number;
+    totalLatencyMs: number;
+    byMode: Partial<Record<RequestMode, number>>;
 }
 
 export interface PrivacySettings {
