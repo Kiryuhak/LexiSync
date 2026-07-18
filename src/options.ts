@@ -150,6 +150,8 @@ function activateSettingsTab(tabName: string): void {
     document.querySelectorAll<HTMLElement>('[data-settings-group]').forEach((element) => {
         element.hidden = element.dataset.settingsGroup !== tabName;
     });
+    const saveActions = document.getElementById('saveActions');
+    if (saveActions) saveActions.hidden = tabName === 'commands';
     document.querySelectorAll<HTMLButtonElement>('.settings-tab').forEach((button) => {
         const active = button.dataset.tab === tabName;
         button.classList.toggle('is-active', active);
