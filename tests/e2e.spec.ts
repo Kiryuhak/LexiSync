@@ -316,3 +316,33 @@ test('Кейс 3: Mistral OCR (Alt+S) и буфер обмена', async ({ page
     await expect(uiPanel).toBeVisible({ timeout: 5000 });
     await expect(uiPanel).toContainText('Ошибка');
   });
+
+test('Персональная подсказка дополняет изученное слово по Tab', async ({ page, context }) => {
+  let [background] = context.serviceWorkers();
+  if (!background) background = await context.waitForEvent('serviceworker');
+  await background.evaluate(() => chrome.storage.local.set({
+    adaptiveSuggestionsEnabled: true,
+    adaptiveLearningEnabled: true,
+    adaptiveLanguageModel: {
+      version: 1,
+      words: {
+        'привет': { count: 4, lastUsed: Date.now(), value: 'привет' },
+      },
+      pairs: {},
+    },
+  }));
+
+  await page.goto('https://example.com');
+  await page.evaluate(() => {
+    const textarea = document.createElement('textarea');
+    textarea.id = 'adaptive-input';
+    document.body.appendChild(textarea);
+    textarea.focus();
+  });
+  await page.locator('#adaptive-input').fill('при');
+
+  const suggestion = page.locator('#lexisync-adaptive-suggestions-host button').first();
+  await expect(suggestion).toHaveText('привет');
+  await page.keyboard.press('Tab');
+  await expect(page.locator('#adaptive-input')).toHaveValue('привет');
+});

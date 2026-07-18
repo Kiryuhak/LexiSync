@@ -1,10 +1,13 @@
 import { ICONS } from './icons';
 import { getCachedText, getCacheHash, setCachedText } from './ai-cache';
+import { initializeAdaptiveSuggestions } from './adaptive-suggestions';
 import { addHistoryItem, updateHistoryItemResult } from './history-store';
 import { shouldStoreOnCurrentPage } from './privacy';
 import { getWordCorrections, normalizeSpellcheckResult, renderSpellcheckDiff, resolveCorrections, type WordCorrection } from './spellcheck';
 import { replaceSelectedText } from './text-replacement';
 import type { HistoryItem, RequestMode, SelectionData, StreamResponse } from './types';
+
+initializeAdaptiveSuggestions();
 
 let currentSelection: SelectionData = { text: "", context: "", range: null, activeElement: null, start: null, end: null, isInput: false };
 let popupUI: HTMLElement | null = null;
@@ -14,6 +17,7 @@ let popupStyleText = '';
 let currentTargetLang: string = "Английский"; 
 let currentTheme: string = 'auto';
 let currentSearchEngine: string = 'google';
+let currentInterfaceScale: number = 90;
 
 let isDragging = false;
 let dragOffsetX = 0;
@@ -173,15 +177,30 @@ document.addEventListener('keydown', async (e: KeyboardEvent) => {
     }
 }, true);
 
-chrome.storage.local.get(['selectedTheme', 'searchEngine'], (res) => {
+function normalizeInterfaceScale(value: unknown): number {
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue)) return 90;
+    return Math.min(110, Math.max(75, Math.round(numericValue / 5) * 5));
+}
+
+chrome.storage.local.get({ selectedTheme: 'auto', searchEngine: 'google', interfaceScale: 90 }, (res) => {
     if (res.selectedTheme) currentTheme = res.selectedTheme as string;
     if (res.searchEngine) currentSearchEngine = res.searchEngine as string;
+    currentInterfaceScale = normalizeInterfaceScale(res.interfaceScale);
 });
 
 chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local') {
-        if (changes.selectedTheme) currentTheme = changes.selectedTheme.newValue as string;
+        if (changes.selectedTheme) {
+            currentTheme = changes.selectedTheme.newValue as string;
+            if (popupUI) applyThemeToPopup(popupUI);
+        }
         if (changes.searchEngine) currentSearchEngine = changes.searchEngine.newValue as string;
+        if (changes.interfaceScale) {
+            currentInterfaceScale = normalizeInterfaceScale(changes.interfaceScale.newValue);
+            popupUI?.style.setProperty('zoom', String(currentInterfaceScale / 100));
+            adjustPopupPosition();
+        }
     }
 });
 
@@ -193,16 +212,24 @@ function injectStyles(): void {
         const style = document.createElement('style');
         style.textContent = `
             #lexisync-extension-ui {
-                --bg-primary: #ffffff; --bg-secondary: #f1f5f9; --text-primary: #1e293b; --text-secondary: #64748b;
-                --border-color: rgba(0,0,0,0.06); --hover-bg: #e2e8f0; --shadow-color: rgba(0,0,0,0.1);
-                transition: opacity 0.15s ease; border-radius: 12px;
+                --bg-primary: rgba(248, 250, 255, 0.78); --bg-solid: #f8faff; --bg-elevated: rgba(248, 250, 255, 0.96); --bg-secondary: rgba(255, 255, 255, 0.72);
+                --text-primary: #1c2438; --text-secondary: #69738d; --primary: #6d5ce7; --primary-strong: #5947d2;
+                --primary-soft: rgba(109, 92, 231, 0.12); --cyan-soft: rgba(31, 174, 190, 0.12);
+                --border-color: rgba(255,255,255,0.74); --inner-border: rgba(83, 91, 126, 0.12);
+                --hover-bg: rgba(255,255,255,0.9); --shadow-color: rgba(41, 43, 77, 0.18);
+                transition: opacity 0.15s ease; border-radius: 18px;
                 border: 1px solid var(--border-color);
                 animation: lexiSyncFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-                box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+                box-shadow: 0 20px 52px var(--shadow-color), 0 3px 10px rgba(38, 40, 72, 0.08), inset 0 1px 0 rgba(255,255,255,0.42);
+                backdrop-filter: blur(22px) saturate(155%);
+                -webkit-backdrop-filter: blur(22px) saturate(155%);
             }
             #lexisync-extension-ui[data-theme="dark"] {
-            --bg-primary: #1e1e24; --bg-secondary: #2b2b36; --text-primary: #f8fafc; --text-secondary: #94a3b8;
-            --border-color: rgba(255,255,255,0.08); --hover-bg: #3f3f46; --shadow-color: rgba(0,0,0,0.5);
+                --bg-primary: rgba(27, 30, 49, 0.82); --bg-solid: #1b1e31; --bg-elevated: rgba(27, 30, 49, 0.96); --bg-secondary: rgba(49, 54, 82, 0.72);
+                --text-primary: #f5f6fc; --text-secondary: #abb4ce; --primary: #b7a8ff; --primary-strong: #9c89ff;
+                --primary-soft: rgba(183, 168, 255, 0.15); --cyan-soft: rgba(102, 215, 228, 0.14);
+                --border-color: rgba(255,255,255,0.14); --inner-border: rgba(255,255,255,0.08);
+                --hover-bg: rgba(64, 70, 104, 0.9); --shadow-color: rgba(0,0,0,0.48);
             }
             #lexisync-extension-ui span { flex-shrink: 0 !important; }
             #lexisync-extension-ui svg { width: 16px !important; height: 16px !important; min-width: 16px !important; min-height: 16px !important; max-width: 16px !important; max-height: 16px !important; flex-shrink: 0 !important; display: block !important; }
@@ -263,6 +290,177 @@ function injectStyles(): void {
             .lexisync-scroll::-webkit-scrollbar { width: 6px; }
             .lexisync-scroll::-webkit-scrollbar-track { background: transparent; }
             .lexisync-scroll::-webkit-scrollbar-thumb { background: var(--text-secondary); border-radius: 4px; }
+
+            #lexisync-extension-ui[data-surface="toolbar"] {
+                border-radius: 14px;
+                background: var(--bg-primary) !important;
+            }
+            .lexisync-toolbar-button {
+                min-height: 32px !important;
+                border-radius: 9px !important;
+                font-family: system-ui, -apple-system, sans-serif !important;
+            }
+            .lexisync-toolbar-button:hover,
+            .lexisync-menu-button:hover,
+            .lexisync-dropdown-item:hover {
+                background: var(--hover-bg) !important;
+                box-shadow: inset 0 0 0 1px var(--inner-border);
+            }
+            .lexisync-toolbar-button:focus-visible,
+            .lexisync-menu-button:focus-visible,
+            .lexisync-result-button:focus-visible {
+                outline: 3px solid color-mix(in srgb, var(--primary) 30%, transparent) !important;
+                outline-offset: 1px !important;
+            }
+            .lexisync-toolbar-divider {
+                background: var(--inner-border) !important;
+            }
+            .lexisync-dropdown {
+                background: var(--bg-elevated) !important;
+                border-color: var(--border-color) !important;
+                box-shadow: 0 18px 42px rgba(37, 39, 68, 0.22), inset 0 1px 0 rgba(255,255,255,.4) !important;
+                backdrop-filter: blur(32px) saturate(125%);
+                -webkit-backdrop-filter: blur(32px) saturate(125%);
+            }
+
+            #lexisync-extension-ui[data-surface="menu"] {
+                background: var(--bg-primary) !important;
+                border-radius: 18px;
+            }
+            .lexisync-menu-label {
+                display: flex;
+                align-items: center;
+                gap: 7px;
+                padding: 7px 10px 8px;
+                color: var(--text-secondary);
+                font: 650 10px/1 system-ui, sans-serif;
+                letter-spacing: .08em;
+                text-transform: uppercase;
+                user-select: none;
+            }
+            .lexisync-menu-label::before {
+                width: 7px;
+                height: 7px;
+                content: "";
+                background: linear-gradient(135deg, var(--primary), #43c9d4);
+                border-radius: 50%;
+                box-shadow: 0 0 0 4px var(--primary-soft);
+            }
+            .lexisync-menu-button {
+                min-height: 43px !important;
+                margin-top: 3px !important;
+                padding: 7px 10px !important;
+                border: 1px solid transparent !important;
+                border-radius: 12px !important;
+                font-family: system-ui, -apple-system, sans-serif !important;
+                text-align: left !important;
+            }
+            .lexisync-menu-icon {
+                width: 30px !important;
+                height: 30px !important;
+                margin-right: 10px !important;
+                color: var(--primary) !important;
+                background: var(--primary-soft);
+                border-radius: 9px;
+            }
+            .lexisync-menu-button:nth-of-type(3) .lexisync-menu-icon { color: #19a5b6 !important; background: var(--cyan-soft); }
+            .lexisync-shortcut {
+                padding: 4px 6px;
+                color: var(--text-secondary) !important;
+                background: var(--bg-secondary);
+                border: 1px solid var(--inner-border);
+                border-radius: 6px;
+                box-shadow: inset 0 -1px 0 var(--inner-border);
+                font: 600 10px/1 ui-monospace, Consolas, monospace !important;
+            }
+
+            #lexisync-extension-ui[data-surface="result"] {
+                overflow: visible;
+                background: var(--bg-primary) !important;
+                border-radius: 20px;
+            }
+            .lexisync-header {
+                min-height: 50px;
+                padding: 11px 14px !important;
+                background: linear-gradient(135deg, var(--primary-soft), transparent 62%) !important;
+                border-bottom-color: var(--inner-border) !important;
+                border-radius: 20px 20px 0 0 !important;
+            }
+            .lexisync-header-title {
+                color: var(--text-primary);
+                letter-spacing: -0.01em;
+            }
+            .lexisync-content-pane {
+                padding: 17px 18px !important;
+                line-height: 1.65 !important;
+            }
+            .lexisync-actions {
+                padding: 4px 14px 14px !important;
+                border-radius: 0 0 20px 20px;
+            }
+            .lexisync-corrections { padding: 0 14px 12px !important; }
+            .lexisync-correction-row {
+                background: var(--bg-secondary);
+                border-color: var(--inner-border) !important;
+                border-radius: 10px !important;
+            }
+            .lexisync-result-button {
+                border: 1px solid var(--inner-border) !important;
+                border-radius: 11px !important;
+                background: var(--bg-secondary) !important;
+                box-shadow: 0 4px 12px rgba(38, 40, 72, 0.06);
+            }
+            .lexisync-result-button--primary {
+                color: #fff !important;
+                background: linear-gradient(135deg, var(--primary), var(--primary-strong)) !important;
+                border-color: transparent !important;
+                box-shadow: 0 8px 18px color-mix(in srgb, var(--primary) 25%, transparent) !important;
+            }
+            .lexisync-result-button--primary:hover {
+                filter: brightness(1.06);
+                transform: translateY(-1px);
+            }
+            .lexisync-result-button--success {
+                color: #166534 !important;
+                background: #dcfce7 !important;
+                border-color: rgba(22, 101, 52, .14) !important;
+                box-shadow: 0 7px 16px rgba(22, 101, 52, .12) !important;
+            }
+            #lexisync-extension-ui[data-theme="dark"] .lexisync-result-button--success {
+                color: #b9f6ce !important;
+                background: #173f2b !important;
+            }
+            .lexisync-close-button:hover,
+            .lexisync-cancel-button:hover { background: var(--hover-bg) !important; }
+
+            .lexisync-skeleton {
+                display: grid;
+                gap: 9px;
+                padding: 4px 0;
+            }
+            .lexisync-skeleton-line {
+                height: 9px;
+                overflow: hidden;
+                background: var(--primary-soft);
+                border-radius: 999px;
+            }
+            .lexisync-skeleton-line::after {
+                display: block;
+                width: 46%;
+                height: 100%;
+                content: "";
+                background: linear-gradient(90deg, transparent, rgba(255,255,255,.62), transparent);
+                animation: lexisync-shimmer 1.2s ease-in-out infinite;
+            }
+            .lexisync-skeleton-line:nth-child(2) { width: 88%; }
+            .lexisync-skeleton-line:nth-child(3) { width: 64%; }
+            @keyframes lexisync-shimmer { from { transform: translateX(-110%); } to { transform: translateX(240%); } }
+
+            @media (prefers-reduced-motion: reduce) {
+                #lexisync-extension-ui { animation-duration: 0.01ms; }
+                .lexisync-loader, .lexisync-hourglass, .lexisync-skeleton-line::after { animation: none; }
+                .lexisync-btn-action, .lexisync-translate-btn { transition: none !important; }
+            }
         `;
         popupStyleText = style.textContent;
     }
@@ -290,6 +488,7 @@ function createPopupElement(): HTMLElement {
     const popup = document.createElement('div');
     popup.id = 'lexisync-extension-ui';
     popup.style.pointerEvents = 'auto';
+    popup.style.setProperty('zoom', String(currentInterfaceScale / 100));
     popupShadow.appendChild(popup);
     getPopupContainer().appendChild(popupHost);
     return popup;
@@ -299,6 +498,7 @@ function showToast(message: string): void {
     closePopup();
     popupUI = createPopupElement();
     applyThemeToPopup(popupUI);
+    popupUI.dataset.surface = 'toast';
     popupUI.setAttribute('role', 'status');
     popupUI.setAttribute('aria-live', 'polite');
     popupUI.style.cssText = 'position:fixed !important; left:50% !important; top:24px !important; transform:translateX(-50%); max-width:360px; padding:12px 16px; background:var(--bg-primary); color:var(--text-primary); font:14px/1.45 system-ui,sans-serif; z-index:2147483647;';
@@ -400,6 +600,7 @@ function showToolbarMenu(x: number, y: number): void {
     closePopup(); injectStyles(); lastAnchorX = x; lastAnchorY = y;
     popupUI = createPopupElement();
     applyThemeToPopup(popupUI);
+    popupUI.dataset.surface = 'toolbar';
     
     popupUI.addEventListener('mousedown', e => e.stopPropagation());
     popupUI.addEventListener('mouseup', e => e.stopPropagation());
@@ -409,6 +610,7 @@ function showToolbarMenu(x: number, y: number): void {
 
     const createBtn = (icon: string, text: string, title: string, onClick: (e: MouseEvent, btn: HTMLButtonElement) => void) => {
         const btn = document.createElement('button'); btn.type = 'button'; 
+        btn.className = 'lexisync-toolbar-button';
         btn.innerHTML = `<span style="display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; flex-shrink: 0; color: var(--text-secondary); overflow: visible;">${icon}</span>${text ? `<span style="margin-left: 6px; font-weight: 500;">${text}</span>` : ''}`;
         btn.title = title;
         btn.style.cssText = `padding: 6px 8px; cursor: pointer; border-radius: 8px; display: flex; align-items: center; transition: background 0.15s; color: var(--text-primary); background: transparent; border: none; box-sizing: border-box; line-height: 1;`;
@@ -421,6 +623,7 @@ function showToolbarMenu(x: number, y: number): void {
 
     const divider = () => {
         const d = document.createElement('div');
+        d.className = 'lexisync-toolbar-divider';
         d.style.cssText = `width: 1px; height: 16px; background: var(--border-color); margin: 0 2px;`;
         return d;
     };
@@ -462,10 +665,12 @@ function showToolbarMenu(x: number, y: number): void {
 
     const moreDropdown = document.createElement('div');
     moreDropdown.id = 'lexisync-more-dropdown';
+    moreDropdown.className = 'lexisync-dropdown';
     moreDropdown.style.cssText = `display: none; position: absolute; top: 100%; right: 0; margin-top: 8px; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 12px; box-shadow: 0 16px 32px rgba(0,0,0,0.15); width: max-content; min-width: 120px; z-index: 9999; padding: 8px 0; flex-direction: column; overflow: hidden;`;
 
     const createDropdownItem = (icon: string, text: string, onClick: () => void) => {
         const item = document.createElement('div');
+        item.className = 'lexisync-dropdown-item';
         item.innerHTML = `<span style="display:flex; align-items: center; justify-content: center; margin-right: 12px; width: 16px; height: 16px; flex-shrink: 0;">${icon}</span> <span style="font-weight: 500;">${text}</span>`;
         item.style.cssText = `padding: 10px 14px; font-size: 13px; cursor: pointer; display: flex; align-items: center; color: var(--text-primary); transition: background 0.15s; white-space: nowrap;`;
         item.onmousedown = (e) => e.preventDefault();
@@ -491,21 +696,28 @@ function showAIMenu(x: number, y: number): void {
     closePopup(); injectStyles(); lastAnchorX = x; lastAnchorY = y;
     popupUI = createPopupElement();
     applyThemeToPopup(popupUI);
+    popupUI.dataset.surface = 'menu';
 
     popupUI.addEventListener('mousedown', e => e.stopPropagation());
     popupUI.addEventListener('mouseup', e => e.stopPropagation());
     popupUI.addEventListener('click', e => e.stopPropagation());
 
-    popupUI.style.cssText = `position: fixed !important; left: -9999px; top: -9999px; background: var(--bg-primary); z-index: 2147483647 !important; font-family: system-ui, sans-serif; font-size: 13px; color: var(--text-primary); width: max-content; min-width: 220px; padding: 4px;`;
+    popupUI.style.cssText = `position: fixed !important; left: -9999px; top: -9999px; background: var(--bg-primary); z-index: 2147483647 !important; font-family: system-ui, sans-serif; font-size: 13px; color: var(--text-primary); width: 250px; padding: 7px;`;
+
+    const menuLabel = document.createElement('div');
+    menuLabel.className = 'lexisync-menu-label';
+    menuLabel.textContent = 'AI-инструменты';
+    popupUI.appendChild(menuLabel);
 
     const createMenuBtn = (icon: string, text: string, mode: RequestMode, shortcut?: string) => {
         const btn = document.createElement('button'); btn.type = 'button'; 
+        btn.className = 'lexisync-menu-button';
         btn.innerHTML = `
             <div style="display: flex; align-items: center;">
-                <span style="margin-right: 12px; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); width: 16px; height: 16px; flex-shrink: 0;">${icon}</span>
-                <span style="font-weight: 500;">${text}</span>
+                <span class="lexisync-menu-icon" style="display: flex; align-items: center; justify-content: center; flex-shrink: 0;">${icon}</span>
+                <span style="font-weight: 600;">${text}</span>
             </div>
-            ${shortcut ? `<span style="color: var(--text-secondary); font-size: 11px; margin-left: 24px; opacity: 0.8;">${shortcut}</span>` : ''}
+            ${shortcut ? `<span class="lexisync-shortcut">${shortcut}</span>` : ''}
         `;
         btn.style.cssText = `width: 100%; padding: 8px 12px; cursor: pointer; transition: background 0.15s; display: flex; align-items: center; justify-content: space-between; border-radius: 8px; color: var(--text-primary); background: transparent; border: none;`;
         btn.onmousedown = (e) => e.preventDefault();
@@ -560,7 +772,8 @@ function handleActionClick(mode: RequestMode): void {
 function executeRequest(mode: RequestMode): void {
     if (!popupUI) return;
     
-    popupUI.style.width = '320px';
+    popupUI.dataset.surface = 'result';
+    popupUI.style.width = '340px';
     popupUI.style.padding = '0';
     popupUI.style.display = 'block';
     
@@ -589,6 +802,7 @@ function executeRequest(mode: RequestMode): void {
     };
 
     const headerTitleWrapper = document.createElement('div');
+    headerTitleWrapper.className = 'lexisync-header-title';
     headerTitleWrapper.style.cssText = 'display: flex; align-items: center; gap: 8px; font-weight: 600; pointer-events: none;';
     
     if (mode === "translate") {
@@ -640,13 +854,15 @@ function executeRequest(mode: RequestMode): void {
     header.appendChild(loaderOrClose);
     
     const contentPane = document.createElement('div');
-    contentPane.className = 'lexisync-scroll';
+    contentPane.className = 'lexisync-scroll lexisync-content-pane';
     contentPane.style.cssText = 'padding: 16px; min-height: 50px; max-height: 50vh; overflow-y: auto; overflow-x: hidden; font-size: 14px; color: var(--text-primary); line-height: 1.6; font-family: system-ui, sans-serif; word-wrap: break-word; white-space: pre-wrap;';
     
     const actionsContainer = document.createElement('div');
+    actionsContainer.className = 'lexisync-actions';
     actionsContainer.style.cssText = 'display: none; padding: 0 16px 16px 16px; gap: 10px; align-items: center; justify-content: flex-start;';
 
     const correctionsContainer = document.createElement('div');
+    correctionsContainer.className = 'lexisync-corrections';
     correctionsContainer.style.cssText = 'display:none; padding:0 16px 12px; gap:6px; flex-direction:column;';
     
     popupUI.innerHTML = '';
@@ -706,6 +922,7 @@ function executeRequest(mode: RequestMode): void {
         correctionsContainer.style.display = wordCorrections.length > 0 ? 'flex' : 'none';
         for (const correction of wordCorrections) {
             const row = document.createElement('div');
+            row.className = 'lexisync-correction-row';
             row.style.cssText = 'display:flex; align-items:center; gap:7px; padding:7px 9px; border:1px solid var(--border-color); border-radius:8px; font-size:12px;';
             const label = document.createElement('span');
             label.style.cssText = 'flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
@@ -751,6 +968,7 @@ function executeRequest(mode: RequestMode): void {
         loader.className = 'lexisync-loader';
         const cancelBtn = document.createElement('button');
         cancelBtn.type = 'button';
+        cancelBtn.className = 'lexisync-cancel-button';
         cancelBtn.title = 'Отменить запрос';
         cancelBtn.setAttribute('aria-label', 'Отменить запрос');
         cancelBtn.innerHTML = ICONS.closeStandard;
@@ -770,7 +988,12 @@ function executeRequest(mode: RequestMode): void {
         streamPort?.disconnect();
         streamPort = null;
         fullResult = "";
-        contentPane.textContent = "";
+        contentPane.innerHTML = `
+            <div class="lexisync-skeleton" role="status" aria-label="LexiSync обрабатывает текст">
+                <span class="lexisync-skeleton-line"></span>
+                <span class="lexisync-skeleton-line"></span>
+                <span class="lexisync-skeleton-line"></span>
+            </div>`;
         contentPane.style.color = '';
         actionsContainer.style.display = 'none';
         renderLoadingControl();
@@ -861,6 +1084,7 @@ function executeRequest(mode: RequestMode): void {
         streamPort?.disconnect();
         streamPort = null;
         const closeBtn = document.createElement('div');
+        closeBtn.className = 'lexisync-close-button';
         closeBtn.innerHTML = ICONS.closeStandard;
         closeBtn.style.cssText = 'cursor: pointer; display: flex; align-items: center; margin-right: -4px; padding: 6px; border-radius: 8px; color: var(--text-secondary); transition: background 0.15s;';
         closeBtn.onmouseover = () => closeBtn.style.background = 'var(--hover-bg)';
@@ -880,7 +1104,7 @@ function executeRequest(mode: RequestMode): void {
             
             const replaceBtn = document.createElement('button');
             replaceBtn.type = 'button'; 
-            replaceBtn.className = btnClass;
+            replaceBtn.className = `${btnClass} lexisync-result-button lexisync-result-button--primary`;
             replaceBtn.innerHTML = `${replaceIcon} Заменить текст`;
             // ✅ НОВАЯ ЛОГИКА (ВСТАВИТЬ)
             replaceBtn.onclick = (e) => { 
@@ -891,6 +1115,7 @@ function executeRequest(mode: RequestMode): void {
 
                 // Делаем красивую анимацию кнопки
                 replaceBtn.innerHTML = `${ICONS.check} Заменено!`;
+                replaceBtn.classList.add('lexisync-result-button--success');
                 replaceBtn.style.backgroundColor = '#dcfce7';
                 replaceBtn.style.color = '#166534';
                 replaceBtn.style.fontWeight = '600';
@@ -898,12 +1123,13 @@ function executeRequest(mode: RequestMode): void {
                 if (undo) {
                     const undoBtn = document.createElement('button');
                     undoBtn.type = 'button';
-                    undoBtn.className = btnClass;
+                    undoBtn.className = `${btnClass} lexisync-result-button`;
                     undoBtn.textContent = 'Отменить замену';
                     undoBtn.onclick = () => {
                         undo();
                         undoBtn.remove();
                         replaceBtn.disabled = false;
+                        replaceBtn.classList.remove('lexisync-result-button--success');
                         replaceBtn.innerHTML = `${replaceIcon} Заменить текст`;
                     };
                     actionsContainer.appendChild(undoBtn);
@@ -918,7 +1144,7 @@ function executeRequest(mode: RequestMode): void {
 
             const copyBtn = document.createElement('button');
             copyBtn.type = 'button'; 
-            copyBtn.className = `${btnClass} icon-only`;
+            copyBtn.className = `${btnClass} lexisync-result-button icon-only`;
             copyBtn.innerHTML = copyIcon;
             copyBtn.onclick = (e) => {
                 e.preventDefault(); e.stopPropagation(); navigator.clipboard.writeText(getEffectiveResult());

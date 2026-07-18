@@ -1,9 +1,60 @@
+type AppearanceTheme = 'auto' | 'light' | 'dark';
+
+const systemDarkTheme = window.matchMedia('(prefers-color-scheme: dark)');
+
+function clampInterfaceScale(value: number): number {
+    return Math.min(110, Math.max(75, Math.round(value / 5) * 5));
+}
+
+function updateAppearancePreview(): void {
+    const themeSelect = document.getElementById('themeSelect') as HTMLSelectElement | null;
+    const scaleInput = document.getElementById('interfaceScale') as HTMLInputElement | null;
+    const scaleValue = document.getElementById('interfaceScaleValue') as HTMLOutputElement | null;
+    const previewStage = document.getElementById('interfacePreview');
+    const previewToolbar = document.getElementById('previewToolbar');
+    if (!themeSelect || !scaleInput || !scaleValue || !previewStage || !previewToolbar) return;
+
+    const scale = clampInterfaceScale(Number(scaleInput.value) || 90);
+    const theme = themeSelect.value as AppearanceTheme;
+    const isDark = theme === 'dark' || (theme === 'auto' && systemDarkTheme.matches);
+
+    scaleInput.value = String(scale);
+    scaleValue.value = `${scale}%`;
+    scaleValue.textContent = `${scale}%`;
+    previewToolbar.style.transform = `scale(${scale / 100})`;
+    previewStage.dataset.theme = isDark ? 'dark' : 'light';
+    document.documentElement.toggleAttribute('data-theme', isDark);
+}
+
+function updateAdaptiveControls(): void {
+    const enabledInput = document.getElementById('adaptiveSuggestionsEnabled') as HTMLInputElement | null;
+    const learningInput = document.getElementById('adaptiveLearningEnabled') as HTMLInputElement | null;
+    const learningOption = document.getElementById('adaptiveLearningOption');
+    if (!enabledInput || !learningInput || !learningOption) return;
+    learningInput.disabled = !enabledInput.checked;
+    learningOption.classList.toggle('is-disabled', !enabledInput.checked);
+}
+
+function renderAdaptiveStats(model: unknown): void {
+    const stats = document.getElementById('adaptiveStats');
+    const clearButton = document.getElementById('clearAdaptiveData') as HTMLButtonElement | null;
+    if (!stats || !clearButton) return;
+    const candidate = model && typeof model === 'object' ? model as { words?: unknown; pairs?: unknown } : {};
+    const wordCount = candidate.words && typeof candidate.words === 'object' ? Object.keys(candidate.words).length : 0;
+    const pairCount = candidate.pairs && typeof candidate.pairs === 'object' ? Object.keys(candidate.pairs).length : 0;
+    stats.textContent = `Изучено ${wordCount} слов и ${pairCount} словосочетаний`;
+    clearButton.disabled = wordCount === 0 && pairCount === 0;
+}
+
 // Функция для сохранения настроек
 // Изменяем функцию на асинхронную (async)
 async function saveOptions(): Promise<void> {
     const apiKeyInput = document.getElementById('apiKey') as HTMLInputElement;
     const toneSelect = document.getElementById('toneSelect') as HTMLSelectElement;
     const themeSelect = document.getElementById('themeSelect') as HTMLSelectElement;    
+    const interfaceScaleInput = document.getElementById('interfaceScale') as HTMLInputElement;
+    const adaptiveSuggestionsInput = document.getElementById('adaptiveSuggestionsEnabled') as HTMLInputElement;
+    const adaptiveLearningInput = document.getElementById('adaptiveLearningEnabled') as HTMLInputElement;
     const searchSelect = document.getElementById('searchEngine') as HTMLSelectElement; 
     const sendPageContextInput = document.getElementById('sendPageContext') as HTMLInputElement;
     const historyEnabledInput = document.getElementById('historyEnabled') as HTMLInputElement;
@@ -50,6 +101,9 @@ async function saveOptions(): Promise<void> {
         mistralApiKey: apiKey,
         selectedTone: toneSelect.value,
         selectedTheme: themeSelect.value,
+        interfaceScale: clampInterfaceScale(Number(interfaceScaleInput.value) || 90),
+        adaptiveSuggestionsEnabled: adaptiveSuggestionsInput.checked,
+        adaptiveLearningEnabled: adaptiveLearningInput.checked,
         searchEngine: searchSelect.value,
         sendPageContext: sendPageContextInput.checked,
         historyEnabled: historyEnabledInput.checked,
@@ -75,6 +129,9 @@ async function restoreOptions(): Promise<void> {
     const apiKeyInput = document.getElementById('apiKey') as HTMLInputElement;
     const toneSelect = document.getElementById('toneSelect') as HTMLSelectElement;
     const themeSelect = document.getElementById('themeSelect') as HTMLSelectElement;
+    const interfaceScaleInput = document.getElementById('interfaceScale') as HTMLInputElement;
+    const adaptiveSuggestionsInput = document.getElementById('adaptiveSuggestionsEnabled') as HTMLInputElement;
+    const adaptiveLearningInput = document.getElementById('adaptiveLearningEnabled') as HTMLInputElement;
     const searchSelect = document.getElementById('searchEngine') as HTMLSelectElement; 
     const sendPageContextInput = document.getElementById('sendPageContext') as HTMLInputElement;
     const historyEnabledInput = document.getElementById('historyEnabled') as HTMLInputElement;
@@ -86,6 +143,10 @@ async function restoreOptions(): Promise<void> {
         mistralApiKey: '',
         selectedTone: 'business',
         selectedTheme: 'auto',
+        interfaceScale: 90,
+        adaptiveSuggestionsEnabled: false,
+        adaptiveLearningEnabled: true,
+        adaptiveLanguageModel: { version: 1, words: {}, pairs: {} },
         searchEngine: 'google',
         sendPageContext: false,
         historyEnabled: true,
@@ -97,12 +158,18 @@ async function restoreOptions(): Promise<void> {
     apiKeyInput.value = items.mistralApiKey as string;
     toneSelect.value = items.selectedTone as string;
     themeSelect.value = items.selectedTheme as string;
+    interfaceScaleInput.value = String(clampInterfaceScale(Number(items.interfaceScale) || 90));
+    adaptiveSuggestionsInput.checked = items.adaptiveSuggestionsEnabled === true;
+    adaptiveLearningInput.checked = items.adaptiveLearningEnabled !== false;
     searchSelect.value = items.searchEngine as string; 
     sendPageContextInput.checked = items.sendPageContext === true;
     historyEnabledInput.checked = items.historyEnabled !== false;
     historyRetentionSelect.value = String(items.historyRetentionDays || 30);
     disabledSitesInput.value = Array.isArray(items.disabledSites) ? items.disabledSites.join('\n') : '';
     personalDictionaryInput.value = Array.isArray(items.personalDictionary) ? items.personalDictionary.join('\n') : '';
+    updateAppearancePreview();
+    updateAdaptiveControls();
+    renderAdaptiveStats(items.adaptiveLanguageModel);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -110,6 +177,22 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const saveBtn = document.getElementById('saveBtn') as HTMLButtonElement | null;
     if (saveBtn) saveBtn.addEventListener('click', saveOptions);
+
+    const themeSelect = document.getElementById('themeSelect');
+    const interfaceScaleInput = document.getElementById('interfaceScale');
+    const adaptiveSuggestionsInput = document.getElementById('adaptiveSuggestionsEnabled');
+    themeSelect?.addEventListener('change', updateAppearancePreview);
+    interfaceScaleInput?.addEventListener('input', updateAppearancePreview);
+    adaptiveSuggestionsInput?.addEventListener('change', updateAdaptiveControls);
+
+    const clearAdaptiveDataButton = document.getElementById('clearAdaptiveData') as HTMLButtonElement | null;
+    clearAdaptiveDataButton?.addEventListener('click', async () => {
+        const confirmed = window.confirm('Удалить все локально изученные слова и словосочетания?');
+        if (!confirmed) return;
+        const emptyModel = { version: 1, words: {}, pairs: {} };
+        await chrome.storage.local.set({ adaptiveLanguageModel: emptyModel });
+        renderAdaptiveStats(emptyModel);
+    });
 
     const versionBadge = document.getElementById('app-version');
     if (versionBadge) {
@@ -137,5 +220,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 eyeClosed.style.display = 'none';
             }
         });
+    }
+});
+
+systemDarkTheme.addEventListener('change', updateAppearancePreview);
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === 'local' && changes.adaptiveLanguageModel) {
+        renderAdaptiveStats(changes.adaptiveLanguageModel.newValue);
     }
 });

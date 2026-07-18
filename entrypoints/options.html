@@ -70,6 +70,34 @@
         .settings-section { border-top: 1px solid var(--border); padding-top: 20px; margin-top: 8px; }
         .settings-section h3 { font-size: 16px; margin: 0 0 14px; color: var(--text-main); }
         textarea { min-height: 80px; resize: vertical; }
+
+        .appearance-panel { padding: 16px; margin: 0 0 20px; background: var(--box-bg); border: 1px solid var(--box-border); border-radius: 12px; }
+        .range-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
+        .range-header label { margin: 0; color: var(--text-main); }
+        .scale-value { min-width: 48px; padding: 4px 8px; color: var(--badge-text); text-align: center; background: var(--badge-bg); border-radius: 999px; font-size: 12px; font-weight: 700; }
+        input[type="range"] { width: 100%; margin: 0; accent-color: var(--primary); cursor: pointer; }
+        .range-scale { display: flex; justify-content: space-between; margin-top: 5px; color: var(--text-secondary); font-size: 10px; }
+        .appearance-hint { margin: 9px 0 14px; font-size: 12px; line-height: 1.45; }
+        .preview-stage { position: relative; display: grid; min-height: 100px; place-items: center; overflow: hidden; background: #f6f8fc; border: 1px solid var(--border); border-radius: 11px; }
+        .preview-stage::before { position: absolute; inset: 17px 20px; content: ""; opacity: .62; background: repeating-linear-gradient(to bottom, #c7ceda 0 4px, transparent 4px 16px); }
+        .preview-toolbar { --preview-bg: rgba(248,250,255,.9); --preview-text: #20283b; --preview-muted: #68738c; position: relative; z-index: 1; display: flex; align-items: center; gap: 6px; padding: 7px 9px; color: var(--preview-text); background: var(--preview-bg); border: 1px solid rgba(255,255,255,.82); border-radius: 14px; box-shadow: 0 14px 32px rgba(38,40,72,.2); backdrop-filter: blur(16px); transform-origin: center; transition: transform .18s ease, background .2s ease; }
+        .preview-stage[data-theme="dark"] { background: #171b2b; border-color: #373d58; }
+        .preview-stage[data-theme="dark"]::before { background: repeating-linear-gradient(to bottom, #66708a 0 4px, transparent 4px 16px); }
+        .preview-stage[data-theme="dark"] .preview-toolbar { --preview-bg: rgba(30,34,54,.94); --preview-text: #f3f5fb; --preview-muted: #aab3cb; border-color: rgba(255,255,255,.14); box-shadow: 0 14px 34px rgba(0,0,0,.42); }
+        .preview-logo { display: grid; width: 22px; height: 22px; place-items: center; color: #fff; background: linear-gradient(135deg, #7564ef, #25b7c7); border-radius: 7px; font-size: 11px; font-weight: 800; }
+        .preview-action { display: flex; align-items: center; gap: 6px; padding: 4px 7px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+        .preview-icon { color: var(--preview-muted); font-size: 16px; line-height: 1; }
+        .preview-divider { width: 1px; height: 19px; background: currentColor; opacity: .13; }
+        .preview-square { display: grid; width: 26px; height: 26px; place-items: center; color: var(--preview-muted); border-radius: 8px; font-size: 16px; }
+        .adaptive-stats { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 14px; margin-bottom: 20px; background: var(--box-bg); border: 1px solid var(--box-border); border-radius: 10px; }
+        .adaptive-stats-copy { min-width: 0; }
+        .adaptive-stats strong { display: block; margin-bottom: 3px; color: var(--text-main); font-size: 13px; }
+        .adaptive-stats span { color: var(--text-secondary); font-size: 12px; }
+        .secondary-button { flex: 0 0 auto; padding: 7px 11px; color: var(--text-main); background: var(--bg-card); border: 1px solid var(--border-input); border-radius: 8px; cursor: pointer; font: 600 12px system-ui, sans-serif; }
+        .secondary-button:hover { color: var(--primary); border-color: var(--primary); }
+        .secondary-button:disabled { cursor: not-allowed; opacity: .5; }
+        .privacy-option.is-disabled { opacity: .58; }
+        @media (max-width: 560px) { body { padding: 12px; } .container { width: 100%; padding: 22px; } }
     </style>
 </head>
 <body>
@@ -112,8 +140,30 @@
             <option value="dark">🌙 Темная</option>
         </select>
 
+        <section class="appearance-panel" aria-labelledby="interfaceScaleLabel">
+            <div class="range-header">
+                <label id="interfaceScaleLabel" for="interfaceScale">Размер интерфейса расширения</label>
+                <output id="interfaceScaleValue" class="scale-value" for="interfaceScale">90%</output>
+            </div>
+            <input type="range" id="interfaceScale" min="75" max="110" step="5" value="90" />
+            <div class="range-scale" aria-hidden="true"><span>Компактный</span><span>Крупный</span></div>
+            <p class="appearance-hint">Масштаб применяется к панели выделения, AI-меню и окну результата.</p>
+            <div id="interfacePreview" class="preview-stage" aria-label="Предпросмотр размера интерфейса">
+                <div id="previewToolbar" class="preview-toolbar">
+                    <span class="preview-logo">L</span>
+                    <span class="preview-divider"></span>
+                    <span class="preview-action"><span class="preview-icon">⌁</span>Редактировать</span>
+                    <span class="preview-divider"></span>
+                    <span class="preview-square">⧉</span>
+                    <span class="preview-square">⋮</span>
+                    <span class="preview-divider"></span>
+                    <span class="preview-square">×</span>
+                </div>
+            </div>
+        </section>
+
         <div style="margin-bottom: 20px;">
-            <label for="searchEngine" style="display: block; font-weight: 500; margin-bottom: 8px; color: #1e293b;">Поисковая система:</label>
+            <label for="searchEngine" style="display: block; font-weight: 500; margin-bottom: 8px; color: var(--text-secondary);">Поисковая система:</label>
             <select id="searchEngine" style="width: 100%; padding: 10px 12px; border: 1px solid var(--border-input); border-radius: 8px; font-size: 14px; background: var(--bg-card); color: var(--text-main); outline: none; cursor: pointer;">
                 <option value="google">Google</option>
                 <option value="yandex">Яндекс</option>
@@ -127,6 +177,31 @@
                 Передавать контекст страницы в Mistral
                 <small>Если включено, вместе с выделенным текстом отправляются до 2000 символов окружения, заголовок страницы и домен. По умолчанию выключено.</small>
             </label>
+        </div>
+
+        <div class="settings-section">
+            <h3>Персональные подсказки</h3>
+            <div class="privacy-option">
+                <input type="checkbox" id="adaptiveSuggestionsEnabled" />
+                <label for="adaptiveSuggestionsEnabled">
+                    Предлагать продолжение текста
+                    <small>LexiSync показывает до трёх вариантов возле поля ввода. Первая подсказка принимается клавишей Tab, меню закрывается клавишей Esc.</small>
+                </label>
+            </div>
+            <div id="adaptiveLearningOption" class="privacy-option">
+                <input type="checkbox" id="adaptiveLearningEnabled" checked />
+                <label for="adaptiveLearningEnabled">
+                    Изучать мой стиль письма
+                    <small>Слова и словосочетания сохраняются только локально. Пароли, платёжные поля, приватные окна и исключённые сайты не обрабатываются.</small>
+                </label>
+            </div>
+            <div class="adaptive-stats">
+                <div class="adaptive-stats-copy">
+                    <strong>Локальный языковой профиль</strong>
+                    <span id="adaptiveStats">Изучено 0 слов и 0 словосочетаний</span>
+                </div>
+                <button type="button" id="clearAdaptiveData" class="secondary-button" disabled>Очистить</button>
+            </div>
         </div>
 
         <div class="settings-section">

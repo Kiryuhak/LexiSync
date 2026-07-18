@@ -1,12 +1,30 @@
-// --- Установка темы при открытии окна ---
-document.addEventListener('DOMContentLoaded', async () => {
-    const res = await chrome.storage.local.get(['selectedTheme']);
-    const theme = res.selectedTheme || 'auto';
-    if (theme === 'dark' || (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-        document.documentElement.setAttribute('data-theme', 'dark');
-    }
+type Theme = 'auto' | 'light' | 'dark';
+
+const systemTheme = window.matchMedia('(prefers-color-scheme: dark)');
+let selectedTheme: Theme = 'auto';
+
+function applyTheme(theme: Theme): void {
+    const useDarkTheme = theme === 'dark' || (theme === 'auto' && systemTheme.matches);
+    document.documentElement.toggleAttribute('data-theme', useDarkTheme);
+}
+
+async function initializeTheme(): Promise<void> {
+    const result = await chrome.storage.local.get({ selectedTheme: 'auto' });
+    selectedTheme = result.selectedTheme as Theme;
+    applyTheme(selectedTheme);
+}
+
+void initializeTheme();
+
+systemTheme.addEventListener('change', () => {
+    if (selectedTheme === 'auto') applyTheme(selectedTheme);
 });
-// ... Обработчики кнопок оставляем без изменений ...
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== 'local' || !changes.selectedTheme) return;
+    selectedTheme = (changes.selectedTheme.newValue || 'auto') as Theme;
+    applyTheme(selectedTheme);
+});
 
 // --- Обработчики кнопок ---
 document.getElementById('btn-history')!.addEventListener('click', () => {
