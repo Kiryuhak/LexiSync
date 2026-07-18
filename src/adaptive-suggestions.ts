@@ -1,4 +1,5 @@
 import { isSiteDisabled, normalizeDisabledSites } from './privacy';
+import { t } from './i18n';
 
 interface WordStat {
     count: number;
@@ -12,9 +13,10 @@ interface PairStat {
 }
 
 export interface AdaptiveLanguageModel {
-    version: 1;
+    version: 2;
     words: Record<string, WordStat>;
     pairs: Record<string, PairStat>;
+    rejections: Record<string, number>;
 }
 
 interface AdaptiveSettings {
@@ -24,6 +26,8 @@ interface AdaptiveSettings {
     interfaceScale: number;
     disabledSites: string[];
     personalDictionary: string[];
+    blockedWords: string[];
+    adaptiveDisabledSites: string[];
 }
 
 type EditableElement = HTMLInputElement | HTMLTextAreaElement | HTMLElement;
@@ -34,7 +38,7 @@ const MAX_WORDS = 1600;
 const MAX_PAIRS = 2600;
 const SAVE_DELAY = 800;
 
-const EMPTY_MODEL: AdaptiveLanguageModel = { version: 1, words: {}, pairs: {} };
+const EMPTY_MODEL: AdaptiveLanguageModel = { version: 2, words: {}, pairs: {}, rejections: {} };
 
 let settings: AdaptiveSettings = {
     enabled: false,
@@ -43,6 +47,8 @@ let settings: AdaptiveSettings = {
     interfaceScale: 90,
     disabledSites: [],
     personalDictionary: [],
+    blockedWords: [],
+    adaptiveDisabledSites: [],
 };
 let model: AdaptiveLanguageModel = structuredClone(EMPTY_MODEL);
 let suggestionHost: HTMLDivElement | null = null;
@@ -50,6 +56,7 @@ let suggestionBar: HTMLDivElement | null = null;
 let activeEditable: EditableElement | null = null;
 let activePrefix = '';
 let activeSuggestions: string[] = [];
+let activeSuggestionIndex = 0;
 let saveTimer: number | null = null;
 let initialized = false;
 const learnedTail = new WeakMap<EditableElement, string>();
@@ -64,9 +71,10 @@ function parseModel(value: unknown): AdaptiveLanguageModel {
     if (!value || typeof value !== 'object') return structuredClone(EMPTY_MODEL);
     const candidate = value as Partial<AdaptiveLanguageModel>;
     return {
-        version: 1,
+        version: 2,
         words: candidate.words && typeof candidate.words === 'object' ? candidate.words : {},
         pairs: candidate.pairs && typeof candidate.pairs === 'object' ? candidate.pairs : {},
+        rejections: candidate.rejections && typeof candidate.rejections === 'object' ? candidate.rejections : {},
     };
 }
 
@@ -103,7 +111,14 @@ function isSensitiveField(target: EditableElement): boolean {
 
 function isAllowedOnCurrentPage(): boolean {
     return !chrome.extension.inIncognitoContext
-        && !isSiteDisabled(location.hostname, settings.disabledSites);
+        && !isSiteDisabled(location.hostname, settings.disabledSites)
+        && !isSiteDisabled(location.hostname, settings.adaptiveDisabledSites);
+}
+
+function getWordScript(word: string): 'cyrillic' | 'latin' | 'other' {
+    if (/\p{Script=Cyrillic}/u.test(word)) return 'cyrillic';
+    if (/\p{Script=Latin}/u.test(word)) return 'latin';
+    return 'other';
 }
 
 function getTextBeforeCaret(target: EditableElement): string {
@@ -194,19 +209,23 @@ function getSuggestions(context: string): { prefix: string; suggestions: string[
     const normalizedPrefix = normalizeWord(prefix);
     const beforePrefix = prefix ? context.slice(0, -prefix.length) : context;
     const previous = normalizeWord(tokenize(beforePrefix).at(-1) || '');
+    const expectedScript = getWordScript(prefix || previous);
+    const blockedWords = new Set(settings.blockedWords.map(normalizeWord));
     const scores = new Map<string, number>();
     const now = Date.now();
 
     for (const [word, stat] of Object.entries(model.words)) {
+        if (blockedWords.has(word) || (expectedScript !== 'other' && getWordScript(word) !== expectedScript)) continue;
         if (stat.count < 2 || word === normalizedPrefix || (normalizedPrefix && !word.startsWith(normalizedPrefix))) continue;
         const recency = Math.max(0, 14 - (now - stat.lastUsed) / 86_400_000) * 0.08;
         const pair = previous ? model.pairs[`${previous}${PAIR_SEPARATOR}${word}`] : undefined;
         if (!normalizedPrefix && (!pair || pair.count < 2)) continue;
-        scores.set(word, Math.log2(stat.count + 1) + (pair ? pair.count * 2.4 : 0) + recency);
+        scores.set(word, Math.log2(stat.count + 1) + (pair ? pair.count * 2.4 : 0) + recency - (model.rejections[word] || 0) * 1.2);
     }
 
     for (const dictionaryWord of settings.personalDictionary) {
         const word = normalizeWord(dictionaryWord);
+        if (blockedWords.has(word) || (expectedScript !== 'other' && getWordScript(word) !== expectedScript)) continue;
         if (!isUsefulWord(word) || word === normalizedPrefix || (normalizedPrefix && !word.startsWith(normalizedPrefix))) continue;
         if (!normalizedPrefix) {
             const pair = previous ? model.pairs[`${previous}${PAIR_SEPARATOR}${word}`] : undefined;
@@ -237,7 +256,8 @@ function ensureSuggestionUi(): void {
         .spark { display:grid; width:25px; height:25px; flex:0 0 auto; place-items:center; color:#fff; background:linear-gradient(135deg,#765ff0,#24b8c6); border-radius:8px; font-size:12px; }
         button { max-width:145px; padding:7px 10px; overflow:hidden; color:var(--text); background:rgba(255,255,255,.42); border:1px solid rgba(93,103,138,.1); border-radius:9px; cursor:pointer; font:600 12px/1 system-ui,-apple-system,sans-serif; text-overflow:ellipsis; white-space:nowrap; }
         .dark button { background:rgba(63,69,103,.58); border-color:rgba(255,255,255,.08); }
-        button:hover,button:focus-visible { background:rgba(109,92,231,.14); outline:none; }
+        button:hover,button:focus-visible,button[aria-selected="true"] { color:var(--text); background:rgba(109,92,231,.17); box-shadow:inset 0 0 0 1px rgba(109,92,231,.22); outline:none; }
+        .dismiss { display:grid; width:25px; height:25px; padding:0; place-items:center; color:var(--muted); background:transparent; border-color:transparent; font-size:15px; }
         kbd { margin-left:1px; padding:4px 5px; color:var(--muted); border:1px solid currentColor; border-radius:6px; font:600 9px/1 ui-monospace,monospace; opacity:.72; }
         @keyframes show { from { opacity:0; transform:translateY(4px) scale(.98); } }
         @media (prefers-reduced-motion:reduce) { .bar { animation:none; } }
@@ -245,7 +265,7 @@ function ensureSuggestionUi(): void {
     suggestionBar = document.createElement('div');
     suggestionBar.className = 'bar';
     suggestionBar.setAttribute('role', 'listbox');
-    suggestionBar.setAttribute('aria-label', 'Персональные подсказки LexiSync');
+    suggestionBar.setAttribute('aria-label', `${t('personalSuggestions', 'Персональные подсказки')} LexiSync`);
     shadow.append(style, suggestionBar);
     document.documentElement.appendChild(suggestionHost);
 }
@@ -278,6 +298,32 @@ function hideSuggestions(): void {
     activeEditable = null;
     activePrefix = '';
     activeSuggestions = [];
+    activeSuggestionIndex = 0;
+}
+
+function rejectSelectedSuggestion(): void {
+    const suggestion = activeSuggestions[activeSuggestionIndex];
+    if (!suggestion) return;
+    const word = normalizeWord(suggestion);
+    model.rejections[word] = Math.min(20, (model.rejections[word] || 0) + 1);
+    scheduleSave();
+}
+
+function updateSelectedSuggestion(): void {
+    if (!suggestionBar) return;
+    const buttons = [...suggestionBar.querySelectorAll<HTMLButtonElement>('button[data-suggestion-index]')];
+    buttons.forEach((button, index) => button.setAttribute('aria-selected', String(index === activeSuggestionIndex)));
+}
+
+async function blockSelectedSuggestion(): Promise<void> {
+    const suggestion = activeSuggestions[activeSuggestionIndex];
+    if (!suggestion) return;
+    const normalized = normalizeWord(suggestion);
+    if (!settings.blockedWords.some((word) => normalizeWord(word) === normalized)) {
+        settings.blockedWords.push(normalized);
+        await chrome.storage.local.set({ adaptiveBlockedWords: settings.blockedWords });
+    }
+    hideSuggestions();
 }
 
 function renderSuggestions(target: EditableElement, prefix: string, suggestions: string[]): void {
@@ -290,6 +336,7 @@ function renderSuggestions(target: EditableElement, prefix: string, suggestions:
     activeEditable = target;
     activePrefix = prefix;
     activeSuggestions = suggestions;
+    activeSuggestionIndex = 0;
     suggestionBar.replaceChildren();
     suggestionBar.className = `bar${useDarkTheme() ? ' dark' : ''}`;
     suggestionBar.style.setProperty('zoom', String(settings.interfaceScale / 100));
@@ -300,7 +347,9 @@ function renderSuggestions(target: EditableElement, prefix: string, suggestions:
     suggestions.forEach((suggestion, index) => {
         const button = document.createElement('button');
         button.type = 'button';
+        button.dataset.suggestionIndex = String(index);
         button.setAttribute('role', 'option');
+        button.setAttribute('aria-selected', String(index === 0));
         button.textContent = suggestion;
         button.onmousedown = (event) => event.preventDefault();
         button.onclick = () => acceptSuggestion(index);
@@ -309,6 +358,15 @@ function renderSuggestions(target: EditableElement, prefix: string, suggestions:
     const key = document.createElement('kbd');
     key.textContent = 'Tab';
     suggestionBar.appendChild(key);
+    const dismissButton = document.createElement('button');
+    dismissButton.type = 'button';
+    dismissButton.className = 'dismiss';
+    dismissButton.title = 'Больше не предлагать выбранное слово';
+    dismissButton.setAttribute('aria-label', 'Больше не предлагать выбранное слово');
+    dismissButton.textContent = '×';
+    dismissButton.onmousedown = (event) => event.preventDefault();
+    dismissButton.onclick = () => void blockSelectedSuggestion();
+    suggestionBar.appendChild(dismissButton);
     suggestionBar.style.display = 'flex';
     requestAnimationFrame(() => positionSuggestionBar(target));
 }
@@ -346,6 +404,10 @@ function acceptSuggestion(index: number): void {
         insertIntoContentEditable(target, insertion, activePrefix.length);
     }
     recordWord(suggestion, previous, 2);
+    const normalizedSuggestion = normalizeWord(suggestion);
+    if (model.rejections[normalizedSuggestion]) {
+        model.rejections[normalizedSuggestion] = Math.max(0, model.rejections[normalizedSuggestion] - 1);
+    }
     hideSuggestions();
 }
 
@@ -368,6 +430,8 @@ async function loadState(): Promise<void> {
         interfaceScale: 90,
         disabledSites: [],
         personalDictionary: [],
+        adaptiveBlockedWords: [],
+        adaptiveDisabledSites: [],
         [MODEL_STORAGE_KEY]: EMPTY_MODEL,
     });
     settings = {
@@ -377,6 +441,8 @@ async function loadState(): Promise<void> {
         interfaceScale: normalizeScale(stored.interfaceScale),
         disabledSites: normalizeDisabledSites(stored.disabledSites),
         personalDictionary: Array.isArray(stored.personalDictionary) ? stored.personalDictionary.map(String) : [],
+        blockedWords: Array.isArray(stored.adaptiveBlockedWords) ? stored.adaptiveBlockedWords.map(String) : [],
+        adaptiveDisabledSites: normalizeDisabledSites(stored.adaptiveDisabledSites),
     };
     model = parseModel(stored[MODEL_STORAGE_KEY]);
 }
@@ -392,11 +458,20 @@ export function initializeAdaptiveSuggestions(): void {
 
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape' && activeSuggestions.length) {
+            rejectSelectedSuggestion();
             hideSuggestions();
-        } else if (event.key === 'Tab' && activeSuggestions.length && activeEditable === event.target) {
+        } else if (['ArrowRight', 'ArrowDown'].includes(event.key) && activeSuggestions.length && activeEditable === event.target) {
+            event.preventDefault();
+            activeSuggestionIndex = (activeSuggestionIndex + 1) % activeSuggestions.length;
+            updateSelectedSuggestion();
+        } else if (['ArrowLeft', 'ArrowUp'].includes(event.key) && activeSuggestions.length && activeEditable === event.target) {
+            event.preventDefault();
+            activeSuggestionIndex = (activeSuggestionIndex - 1 + activeSuggestions.length) % activeSuggestions.length;
+            updateSelectedSuggestion();
+        } else if (['Tab', 'Enter'].includes(event.key) && activeSuggestions.length && activeEditable === event.target) {
             event.preventDefault();
             event.stopPropagation();
-            acceptSuggestion(0);
+            acceptSuggestion(activeSuggestionIndex);
         }
     }, true);
 
@@ -412,6 +487,8 @@ export function initializeAdaptiveSuggestions(): void {
         if (changes.interfaceScale) settings.interfaceScale = normalizeScale(changes.interfaceScale.newValue);
         if (changes.disabledSites) settings.disabledSites = normalizeDisabledSites(changes.disabledSites.newValue);
         if (changes.personalDictionary) settings.personalDictionary = Array.isArray(changes.personalDictionary.newValue) ? changes.personalDictionary.newValue.map(String) : [];
+        if (changes.adaptiveBlockedWords) settings.blockedWords = Array.isArray(changes.adaptiveBlockedWords.newValue) ? changes.adaptiveBlockedWords.newValue.map(String) : [];
+        if (changes.adaptiveDisabledSites) settings.adaptiveDisabledSites = normalizeDisabledSites(changes.adaptiveDisabledSites.newValue);
         if (changes[MODEL_STORAGE_KEY]) model = parseModel(changes[MODEL_STORAGE_KEY].newValue);
         if (!settings.enabled) hideSuggestions();
     });

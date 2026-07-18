@@ -97,19 +97,64 @@
         .secondary-button:hover { color: var(--primary); border-color: var(--primary); }
         .secondary-button:disabled { cursor: not-allowed; opacity: .5; }
         .privacy-option.is-disabled { opacity: .58; }
+        .settings-tabs { display: flex; gap: 6px; margin: 0 0 24px; padding: 5px; overflow-x: auto; background: var(--box-bg); border: 1px solid var(--box-border); border-radius: 12px; scrollbar-width: none; }
+        .settings-tabs::-webkit-scrollbar { display: none; }
+        .settings-tab { flex: 0 0 auto; padding: 8px 11px; color: var(--text-secondary); background: transparent; border: 0; border-radius: 8px; cursor: pointer; font: 600 12px system-ui, sans-serif; }
+        .settings-tab:hover { color: var(--text-main); background: var(--bg-card); }
+        .settings-tab.is-active { color: #fff; background: var(--primary); box-shadow: 0 5px 14px color-mix(in srgb, var(--primary) 22%, transparent); }
+        [data-settings-group][hidden] { display: none !important; }
+        .onboarding { position: fixed; z-index: 100; inset: 0; display: grid; padding: 20px; place-items: center; background: rgba(15,18,32,.48); backdrop-filter: blur(12px); }
+        .onboarding[hidden] { display: none; }
+        .onboarding-card { width: min(430px,100%); padding: 25px; color: var(--text-main); background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; box-shadow: 0 24px 70px rgba(15,18,32,.28); }
+        .onboarding-icon { display: grid; width: 48px; height: 48px; margin-bottom: 18px; place-items: center; color: #fff; background: linear-gradient(135deg,#765ff0,#27b9c8); border-radius: 15px; font-size: 22px; box-shadow: 0 10px 24px rgba(109,92,231,.24); }
+        .onboarding-step { display: none; min-height: 175px; }
+        .onboarding-step.is-active { display: block; }
+        .onboarding-step h3 { margin: 0 0 9px; font-size: 21px; }
+        .onboarding-step p { margin: 0 0 14px; }
+        .onboarding-list { margin: 0; padding-left: 20px; color: var(--text-secondary); font-size: 13px; line-height: 1.8; }
+        .onboarding-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 20px; }
+        .onboarding-progress { color: var(--text-secondary); font-size: 12px; }
+        .onboarding-buttons { display: flex; gap: 8px; }
+        .onboarding-button { padding: 9px 14px; border: 0; border-radius: 9px; cursor: pointer; font: 600 13px system-ui,sans-serif; }
+        .onboarding-button.primary { color: #fff; background: var(--primary); }
+        .onboarding-button.secondary { color: var(--text-secondary); background: var(--box-bg); }
+        .commands-panel h3 { margin: 0 0 7px; }
+        .commands-panel > p { margin: 0 0 16px; }
+        .command-form { padding: 15px; margin-bottom: 15px; background: var(--box-bg); border: 1px solid var(--box-border); border-radius: 11px; }
+        .command-form textarea { min-height: 76px; margin-bottom: 12px; }
+        .command-form input { margin-bottom: 12px !important; }
+        .command-form-actions { display: flex; justify-content: flex-end; gap: 8px; }
+        .command-list { display: grid; gap: 8px; margin-bottom: 18px; }
+        .command-card { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 12px 13px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; }
+        .command-card strong { display: block; margin-bottom: 3px; font-size: 13px; }
+        .command-card span { display: block; overflow: hidden; color: var(--text-secondary); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+        .command-card-actions { display: flex; gap: 5px; }
+        .command-icon-button { display: grid; width: 30px; height: 30px; place-items: center; color: var(--text-secondary); background: var(--box-bg); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
+        .command-icon-button:hover { color: var(--primary); border-color: var(--primary); }
+        .command-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+        .preset-button { padding: 7px 9px; color: var(--text-secondary); background: var(--box-bg); border: 1px solid var(--box-border); border-radius: 8px; cursor: pointer; font: 600 11px system-ui,sans-serif; }
+        .preset-button:hover { color: var(--primary); border-color: var(--primary); }
         @media (max-width: 560px) { body { padding: 12px; } .container { width: 100%; padding: 22px; } }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header-row">
-            <h2>Настройки нейросети</h2>
+            <h2 data-i18n="optionsTitle">Настройки нейросети</h2>
             <span id="app-version" class="version-badge">v1.0.0</span>
         </div>
-        <p>Укажите параметры доступа к API, стиль текста и тему оформления.</p>
+        <p data-i18n="optionsIntro">Укажите параметры доступа к API, стиль текста и тему оформления.</p>
+
+        <nav class="settings-tabs" aria-label="Разделы настроек">
+            <button class="settings-tab is-active" type="button" data-tab="main" data-i18n="tabMain">Основные</button>
+            <button class="settings-tab" type="button" data-tab="appearance" data-i18n="tabAppearance">Оформление</button>
+            <button class="settings-tab" type="button" data-tab="suggestions" data-i18n="tabSuggestions">Подсказки</button>
+            <button class="settings-tab" type="button" data-tab="privacy" data-i18n="tabPrivacy">Приватность</button>
+            <button class="settings-tab" type="button" data-tab="commands" data-i18n="tabCommands">Команды</button>
+        </nav>
         
-        <label for="apiKey">Ваш Mistral API Key:</label>
-        <div class="password-wrapper">
+        <label for="apiKey" data-settings-group="main">Ваш Mistral API Key:</label>
+        <div class="password-wrapper" data-settings-group="main">
             <input type="password" id="apiKey" placeholder="Вставьте ключ..." />
             <button type="button" id="toggleApiKey" class="toggle-password" title="Показать/скрыть">
                 <!-- Иконка "Глаз открыт" -->
@@ -125,28 +170,28 @@
             </button>
         </div>
         
-        <label for="toneSelect">Стиль текста (Tone of Voice):</label>
-        <select id="toneSelect">
+        <label for="toneSelect" data-settings-group="main">Стиль текста (Tone of Voice):</label>
+        <select id="toneSelect" data-settings-group="main">
             <option value="business">💼 Деловой (строгий, вежливый)</option>
             <option value="friendly">👋 Дружелюбный (открытый, разговорный)</option>
             <option value="persuasive">🔥 Убедительный (сильный, продающий)</option>
             <option value="creative">✨ Креативный (живой, с метафорами)</option>
         </select>
 
-        <label for="themeSelect">Тема оформления (Dark Mode):</label>
-        <select id="themeSelect">
+        <label for="themeSelect" data-settings-group="appearance" data-i18n="themeLabel" hidden>Тема оформления:</label>
+        <select id="themeSelect" data-settings-group="appearance" hidden>
             <option value="auto">🖥️ Авто (как в системе)</option>
             <option value="light">☀️ Светлая</option>
             <option value="dark">🌙 Темная</option>
         </select>
 
-        <section class="appearance-panel" aria-labelledby="interfaceScaleLabel">
+        <section class="appearance-panel" aria-labelledby="interfaceScaleLabel" data-settings-group="appearance" hidden>
             <div class="range-header">
-                <label id="interfaceScaleLabel" for="interfaceScale">Размер интерфейса расширения</label>
+                <label id="interfaceScaleLabel" for="interfaceScale" data-i18n="interfaceSize">Размер интерфейса расширения</label>
                 <output id="interfaceScaleValue" class="scale-value" for="interfaceScale">90%</output>
             </div>
             <input type="range" id="interfaceScale" min="75" max="110" step="5" value="90" />
-            <div class="range-scale" aria-hidden="true"><span>Компактный</span><span>Крупный</span></div>
+            <div class="range-scale" aria-hidden="true"><span data-i18n="compact">Компактный</span><span data-i18n="large">Крупный</span></div>
             <p class="appearance-hint">Масштаб применяется к панели выделения, AI-меню и окну результата.</p>
             <div id="interfacePreview" class="preview-stage" aria-label="Предпросмотр размера интерфейса">
                 <div id="previewToolbar" class="preview-toolbar">
@@ -162,7 +207,7 @@
             </div>
         </section>
 
-        <div style="margin-bottom: 20px;">
+        <div style="margin-bottom: 20px;" data-settings-group="main">
             <label for="searchEngine" style="display: block; font-weight: 500; margin-bottom: 8px; color: var(--text-secondary);">Поисковая система:</label>
             <select id="searchEngine" style="width: 100%; padding: 10px 12px; border: 1px solid var(--border-input); border-radius: 8px; font-size: 14px; background: var(--bg-card); color: var(--text-main); outline: none; cursor: pointer;">
                 <option value="google">Google</option>
@@ -171,7 +216,7 @@
             </select>
         </div>
 
-        <div class="privacy-option">
+        <div class="privacy-option" data-settings-group="privacy" hidden>
             <input type="checkbox" id="sendPageContext" />
             <label for="sendPageContext">
                 Передавать контекст страницы в Mistral
@@ -179,13 +224,13 @@
             </label>
         </div>
 
-        <div class="settings-section">
+        <div class="settings-section" data-settings-group="suggestions" hidden>
             <h3>Персональные подсказки</h3>
             <div class="privacy-option">
                 <input type="checkbox" id="adaptiveSuggestionsEnabled" />
                 <label for="adaptiveSuggestionsEnabled">
                     Предлагать продолжение текста
-                    <small>LexiSync показывает до трёх вариантов возле поля ввода. Первая подсказка принимается клавишей Tab, меню закрывается клавишей Esc.</small>
+                    <small>LexiSync показывает до трёх вариантов возле поля ввода. Выбирайте вариант стрелками, принимайте клавишей Tab или Enter, закрывайте меню клавишей Esc.</small>
                 </label>
             </div>
             <div id="adaptiveLearningOption" class="privacy-option">
@@ -204,7 +249,7 @@
             </div>
         </div>
 
-        <div class="settings-section">
+        <div class="settings-section" data-settings-group="privacy" hidden>
             <h3>История и приватность</h3>
             <div class="privacy-option">
                 <input type="checkbox" id="historyEnabled" checked />
@@ -223,13 +268,34 @@
             <textarea id="disabledSites" placeholder="mail.example.com&#10;work.example.org"></textarea>
         </div>
 
-        <div class="settings-section">
+        <div class="settings-section" data-settings-group="privacy" hidden>
             <h3>Личный словарь</h3>
             <label for="personalDictionary">Слова, которые не нужно исправлять:</label>
             <textarea id="personalDictionary" placeholder="LexiSync&#10;Mistral"></textarea>
         </div>
 
-        <div class="instruction-box">
+        <section class="commands-panel" data-settings-group="commands" hidden>
+            <h3 data-i18n="customCommandsTitle">Пользовательские AI-команды</h3>
+            <p data-i18n="customCommandsIntro">Создайте собственные действия. Они появятся в меню LexiSync при выделении текста.</p>
+            <div id="customCommandList" class="command-list"></div>
+            <form id="customCommandForm" class="command-form">
+                <input id="customCommandId" type="hidden">
+                <label for="customCommandName" data-i18n="commandName">Название команды</label>
+                <input id="customCommandName" type="text" maxlength="40" placeholder="Например: Сделать короче" required>
+                <label for="customCommandPrompt" data-i18n="commandPrompt">Инструкция для AI</label>
+                <textarea id="customCommandPrompt" maxlength="2000" placeholder="Сократи текст, сохранив ключевые факты и исходный смысл." required></textarea>
+                <div class="command-form-actions"><button id="cancelCommandEdit" class="secondary-button" type="button" data-i18n="cancel" hidden>Отмена</button><button class="onboarding-button primary" type="submit" data-i18n="saveCommand">Сохранить команду</button></div>
+            </form>
+            <label data-i18n="quickTemplates">Быстрые шаблоны</label>
+            <div class="command-presets">
+                <button class="preset-button" type="button" data-command-name="Сделать короче" data-command-prompt="Сократи текст, сохранив ключевые факты и исходный смысл.">Короче</button>
+                <button class="preset-button" type="button" data-command-name="Объяснить проще" data-command-prompt="Объясни текст простыми и понятными словами без профессионального жаргона.">Проще</button>
+                <button class="preset-button" type="button" data-command-name="Преобразовать в список" data-command-prompt="Преобразуй текст в краткий структурированный маркированный список.">В список</button>
+                <button class="preset-button" type="button" data-command-name="Ответ клиенту" data-command-prompt="Составь вежливый, профессиональный и конкретный ответ клиенту на основе текста.">Ответ клиенту</button>
+            </div>
+        </section>
+
+        <div class="instruction-box" data-settings-group="main">
             <h4>Где взять API ключ?</h4>
             <ol>
                 <li>Перейдите на <a href="https://console.mistral.ai/" target="_blank">console.mistral.ai</a>.</li>
@@ -243,6 +309,36 @@
             <span id="status">✓ Сохранено успешно!</span>
         </div>
 
+    </div>
+
+    <div id="onboarding" class="onboarding" hidden role="dialog" aria-modal="true" aria-labelledby="onboardingTitle">
+        <div class="onboarding-card">
+            <div class="onboarding-icon" aria-hidden="true">✦</div>
+            <section class="onboarding-step is-active" data-onboarding-step="0">
+                <h3 id="onboardingTitle" data-i18n="onboardingWelcome">Добро пожаловать в LexiSync</h3>
+                <p>Расширение помогает исправлять, переводить и улучшать текст прямо на странице.</p>
+                <ul class="onboarding-list"><li>Выделите текст на любом сайте</li><li>Откройте компактную панель LexiSync</li><li>Выберите нужное действие</li></ul>
+            </section>
+            <section class="onboarding-step" data-onboarding-step="1">
+                <h3>Быстрые команды</h3>
+                <p>Основные действия доступны без открытия меню.</p>
+                <ul class="onboarding-list"><li><b>Alt+R</b> — исправить ошибки</li><li><b>Alt+Y</b> — переписать текст</li><li><b>Alt+T</b> — добавить эмодзи</li><li><b>Alt+S</b> — распознать текст на экране</li></ul>
+            </section>
+            <section class="onboarding-step" data-onboarding-step="2">
+                <h3>Приватные подсказки</h3>
+                <p>LexiSync может изучать часто используемые слова локально и предлагать продолжение по Tab.</p>
+                <ul class="onboarding-list"><li>Функция включается только вами</li><li>Пароли и платёжные поля игнорируются</li><li>Языковой профиль можно очистить в любой момент</li></ul>
+            </section>
+            <section class="onboarding-step" data-onboarding-step="3">
+                <h3>Осталось добавить API-ключ</h3>
+                <p>Ключ Mistral нужен только для AI-обработки. Локальные подсказки работают без API.</p>
+                <ul class="onboarding-list"><li>Получите ключ в console.mistral.ai</li><li>Вставьте его во вкладке «Основные»</li><li>Остальные настройки сохраняются независимо от ключа</li></ul>
+            </section>
+            <div class="onboarding-actions">
+                <span id="onboardingProgress" class="onboarding-progress">1 из 4</span>
+                <div class="onboarding-buttons"><button id="onboardingSkip" class="onboarding-button secondary" type="button" data-i18n="skip">Пропустить</button><button id="onboardingNext" class="onboarding-button primary" type="button" data-i18n="next">Далее</button></div>
+            </div>
+        </div>
     </div>
     <script type="module" src="/src/options.ts"></script>
 </body>

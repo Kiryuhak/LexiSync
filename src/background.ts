@@ -1,4 +1,6 @@
 import type { RequestMode } from './types';
+import { t } from './i18n';
+import { migrateSettings } from './settings-migrations';
 
 interface MistralRequest {
     action: 'callMistral' | 'cancelMistral';
@@ -9,6 +11,8 @@ interface MistralRequest {
     pageTitle?: string;
     pageUrl?: string;
     imageUrl?: string;
+    allowPageContext?: boolean;
+    customPrompt?: string;
 }
 
 interface ChatMessage {
@@ -20,13 +24,17 @@ const API_BASE_URL = 'https://api.mistral.ai/v1';
 const REQUEST_TIMEOUT_MS = 45_000;
 const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
 
-chrome.runtime.onInstalled.addListener(() => {
+void migrateSettings();
+
+chrome.runtime.onInstalled.addListener((details) => {
+    void migrateSettings();
+    if (details.reason === 'install') void chrome.storage.local.set({ onboardingCompleted: false });
     chrome.contextMenus.removeAll(() => {
-        chrome.contextMenus.create({ id: 'spellcheck', title: 'Исправить ошибки (Alt+R)', contexts: ['selection'] });
-        chrome.contextMenus.create({ id: 'style', title: 'Переписать текст (Alt+Y)', contexts: ['selection'] });
-        chrome.contextMenus.create({ id: 'emoji', title: 'Подобрать эмодзи (Alt+T)', contexts: ['selection'] });
-        chrome.contextMenus.create({ id: 'layout', title: 'Исправить раскладку', contexts: ['selection'] });
-        chrome.contextMenus.create({ id: 'translate', title: 'Перевести', contexts: ['selection'] });
+        chrome.contextMenus.create({ id: 'spellcheck', title: `${t('fixErrors', 'Исправить ошибки')} (Alt+R)`, contexts: ['selection'] });
+        chrome.contextMenus.create({ id: 'style', title: `${t('rewriteText', 'Переписать текст')} (Alt+Y)`, contexts: ['selection'] });
+        chrome.contextMenus.create({ id: 'emoji', title: `${t('addEmoji', 'Подобрать эмодзи')} (Alt+T)`, contexts: ['selection'] });
+        chrome.contextMenus.create({ id: 'layout', title: t('fixLayout', 'Исправить раскладку'), contexts: ['selection'] });
+        chrome.contextMenus.create({ id: 'translate', title: t('translate', 'Перевести'), contexts: ['selection'] });
         chrome.contextMenus.create({ id: 'ocr', title: '📸 Распознать текст (Alt+S)', contexts: ['page', 'image', 'selection'] });
     });
 });
@@ -148,6 +156,10 @@ function buildMessages(msg: MistralRequest, selectedTone: string, sendPageContex
         systemPrompt += " Исправь текст, набранный в неправильной раскладке, например 'ghbdtn' → 'привет'. Исправленные слова оборачивай в двойные звёздочки.";
     } else if (msg.mode === 'translate') {
         systemPrompt += ` Переведи текст на ${msg.targetLang || chrome.i18n.getUILanguage() || 'русский'} язык.`;
+    } else if (msg.mode === 'custom') {
+        const customPrompt = (msg.customPrompt || '').trim().slice(0, 2000);
+        if (!customPrompt) throw new Error('Инструкция пользовательской команды пуста.');
+        systemPrompt += ` Выполни пользовательскую инструкцию: ${customPrompt}`;
     }
 
     const context = sendPageContext ? (msg.context || '').replace(/\s+/g, ' ').trim().slice(0, 2000) : '';
@@ -279,7 +291,7 @@ chrome.runtime.onConnect.addListener((port) => {
                     msg,
                     apiKey,
                     settings.selectedTone as string,
-                    settings.sendPageContext === true,
+                    settings.sendPageContext === true && msg.allowPageContext !== false,
                     Array.isArray(settings.personalDictionary) ? settings.personalDictionary.map(String) : [],
                     controller.signal,
                     (text) => port.postMessage({ status: 'chunk', text }),

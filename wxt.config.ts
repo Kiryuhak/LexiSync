@@ -18,19 +18,19 @@ export default defineConfig({
         commands: {
             spellcheck: {
                 suggested_key: { default: 'Alt+R', mac: 'Alt+R' },
-                description: 'Исправить ошибки',
+                description: '__MSG_commandSpellcheck__',
             },
             style: {
                 suggested_key: { default: 'Alt+Y', mac: 'Alt+Y' },
-                description: 'Переписать текст',
+                description: '__MSG_commandStyle__',
             },
             emoji: {
                 suggested_key: { default: 'Alt+T', mac: 'Alt+T' },
-                description: 'Подобрать эмодзи',
+                description: '__MSG_commandEmoji__',
             },
             ocr: {
                 suggested_key: { default: 'Alt+S', mac: 'Alt+S' },
-                description: 'Распознать текст на экране',
+                description: '__MSG_commandOcr__',
             },
         },
         icons: {

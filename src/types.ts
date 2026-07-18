@@ -1,5 +1,11 @@
 export type TextMode = 'spellcheck' | 'style' | 'emoji' | 'layout' | 'translate';
-export type RequestMode = TextMode | 'ocr';
+export type RequestMode = TextMode | 'ocr' | 'custom';
+
+export interface CustomCommand {
+    id: string;
+    name: string;
+    prompt: string;
+}
 
 export interface HistoryItem {
     id: number;
@@ -7,6 +13,7 @@ export interface HistoryItem {
     original: string;
     result: string;
     date: string;
+    customName?: string;
 }
 
 export interface PrivacySettings {

@@ -1,11 +1,12 @@
 import { ICONS } from './icons';
 import { getCachedText, getCacheHash, setCachedText } from './ai-cache';
 import { initializeAdaptiveSuggestions } from './adaptive-suggestions';
+import { t } from './i18n';
 import { addHistoryItem, updateHistoryItemResult } from './history-store';
-import { shouldStoreOnCurrentPage } from './privacy';
+import { isSiteDisabled, normalizeDisabledSites, shouldStoreOnCurrentPage } from './privacy';
 import { getWordCorrections, normalizeSpellcheckResult, renderSpellcheckDiff, resolveCorrections, type WordCorrection } from './spellcheck';
 import { replaceSelectedText } from './text-replacement';
-import type { HistoryItem, RequestMode, SelectionData, StreamResponse } from './types';
+import type { CustomCommand, HistoryItem, RequestMode, SelectionData, StreamResponse } from './types';
 
 initializeAdaptiveSuggestions();
 
@@ -398,6 +399,34 @@ function injectStyles(): void {
                 padding: 4px 14px 14px !important;
                 border-radius: 0 0 20px 20px;
             }
+            .lexisync-result-tools {
+                display: none;
+                flex-wrap: wrap;
+                gap: 5px;
+                padding: 0 14px 10px;
+            }
+            .lexisync-tool-chip {
+                padding: 6px 8px;
+                color: var(--text-secondary);
+                background: var(--bg-secondary);
+                border: 1px solid var(--inner-border);
+                border-radius: 8px;
+                cursor: pointer;
+                font: 600 10px/1 system-ui, sans-serif;
+            }
+            .lexisync-tool-chip:hover { color: var(--primary); background: var(--hover-bg); }
+            .lexisync-content-pane[contenteditable="true"] {
+                margin: 7px 10px 12px;
+                padding: 12px !important;
+                background: var(--bg-secondary);
+                border: 1px solid transparent;
+                border-radius: 11px;
+                outline: none;
+            }
+            .lexisync-content-pane[contenteditable="true"]:focus {
+                border-color: var(--primary);
+                box-shadow: 0 0 0 3px var(--primary-soft);
+            }
             .lexisync-corrections { padding: 0 14px 12px !important; }
             .lexisync-correction-row {
                 background: var(--bg-secondary);
@@ -697,6 +726,7 @@ function showAIMenu(x: number, y: number): void {
     popupUI = createPopupElement();
     applyThemeToPopup(popupUI);
     popupUI.dataset.surface = 'menu';
+    const menuPopup = popupUI;
 
     popupUI.addEventListener('mousedown', e => e.stopPropagation());
     popupUI.addEventListener('mouseup', e => e.stopPropagation());
@@ -706,10 +736,10 @@ function showAIMenu(x: number, y: number): void {
 
     const menuLabel = document.createElement('div');
     menuLabel.className = 'lexisync-menu-label';
-    menuLabel.textContent = 'AI-инструменты';
+    menuLabel.textContent = t('aiTools', 'AI-инструменты');
     popupUI.appendChild(menuLabel);
 
-    const createMenuBtn = (icon: string, text: string, mode: RequestMode, shortcut?: string) => {
+    const createMenuBtn = (icon: string, text: string, onClick: () => void, shortcut?: string) => {
         const btn = document.createElement('button'); btn.type = 'button'; 
         btn.className = 'lexisync-menu-button';
         btn.innerHTML = `
@@ -723,13 +753,26 @@ function showAIMenu(x: number, y: number): void {
         btn.onmousedown = (e) => e.preventDefault();
         btn.onmouseover = () => btn.style.backgroundColor = 'var(--hover-bg)';
         btn.onmouseout = () => btn.style.backgroundColor = 'transparent';
-        btn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); handleActionClick(mode); };
+        btn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); onClick(); };
         return btn;
     };
 
-    popupUI.appendChild(createMenuBtn(ICONS.spell, 'Исправить ошибки', 'spellcheck', 'Alt+R'));
-    popupUI.appendChild(createMenuBtn(ICONS.style, 'Переписать текст', 'style', 'Alt+Y'));
-    popupUI.appendChild(createMenuBtn(ICONS.emoji, 'Подобрать эмодзи', 'emoji', 'Alt+T'));
+    popupUI.appendChild(createMenuBtn(ICONS.spell, t('fixErrors', 'Исправить ошибки'), () => handleActionClick('spellcheck'), 'Alt+R'));
+    popupUI.appendChild(createMenuBtn(ICONS.style, t('rewriteText', 'Переписать текст'), () => handleActionClick('style'), 'Alt+Y'));
+    popupUI.appendChild(createMenuBtn(ICONS.emoji, t('addEmoji', 'Подобрать эмодзи'), () => handleActionClick('emoji'), 'Alt+T'));
+
+    void chrome.storage.local.get({ customCommands: [] }).then((stored) => {
+        if (popupUI !== menuPopup || !Array.isArray(stored.customCommands) || stored.customCommands.length === 0) return;
+        const customLabel = document.createElement('div');
+        customLabel.className = 'lexisync-menu-label';
+        customLabel.textContent = t('myCommands', 'Мои команды');
+        menuPopup.appendChild(customLabel);
+        for (const command of stored.customCommands.slice(0, 8) as CustomCommand[]) {
+            if (!command?.id || !command.name || !command.prompt) continue;
+            menuPopup.appendChild(createMenuBtn(ICONS.style, command.name, () => executeRequest('custom', command)));
+        }
+        adjustPopupPosition();
+    });
 
     adjustPopupPosition();
 }
@@ -769,8 +812,9 @@ function handleActionClick(mode: RequestMode): void {
     executeRequest(mode);
 }
 
-function executeRequest(mode: RequestMode): void {
+function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void {
     if (!popupUI) return;
+    const originalText = currentSelection.text;
     
     popupUI.dataset.surface = 'result';
     popupUI.style.width = '340px';
@@ -784,6 +828,7 @@ function executeRequest(mode: RequestMode): void {
     else if (mode === "layout") headerText = `<span style="display:flex; align-items:center; gap:8px;">${ICONS.keyboard} Раскладка исправлена</span>`;
     else if (mode === "translate") headerText = 'Перевод';
     else if (mode === "ocr") headerText = `<span style="display:flex; align-items:center; gap:8px;">📸 Распознанный текст</span>`; // 🔥 НОВОЕ
+    else if (mode === "custom") headerText = `<span style="display:flex; align-items:center; gap:8px;">${ICONS.style} ${customCommand?.name || 'Моя команда'}</span>`;
     
     const header = document.createElement('div');
     header.className = 'lexisync-header';
@@ -864,15 +909,21 @@ function executeRequest(mode: RequestMode): void {
     const correctionsContainer = document.createElement('div');
     correctionsContainer.className = 'lexisync-corrections';
     correctionsContainer.style.cssText = 'display:none; padding:0 16px 12px; gap:6px; flex-direction:column;';
+
+    const resultTools = document.createElement('div');
+    resultTools.className = 'lexisync-result-tools';
     
     popupUI.innerHTML = '';
     popupUI.appendChild(header);
     popupUI.appendChild(contentPane);
     popupUI.appendChild(correctionsContainer);
+    popupUI.appendChild(resultTools);
     popupUI.appendChild(actionsContainer);
     adjustPopupPosition();
 
     let fullResult = "";
+    let comparisonOriginalVisible = false;
+    let editedResultSnapshot = '';
     let streamPort: chrome.runtime.Port | null = null;
     let usePageContext = false;
     let storageAllowed = false;
@@ -887,6 +938,8 @@ function executeRequest(mode: RequestMode): void {
     }
 
     function getEffectiveResult(): string {
+        if (comparisonOriginalVisible && editedResultSnapshot) return editedResultSnapshot;
+        if (contentPane.contentEditable === 'true') return contentPane.innerText.trim();
         const clean = fullResult.replace(/\*/g, '');
         return mode === 'spellcheck'
             ? resolveCorrections(clean, wordCorrections, rejectedCorrections)
@@ -959,6 +1012,11 @@ function executeRequest(mode: RequestMode): void {
         const correction = wordCorrections.find((item) => item.tokenIndex === tokenIndex);
         if (correction) toggleCorrection(correction);
     });
+    contentPane.addEventListener('input', () => {
+        if (storageAllowed && savedHistoryId !== null && contentPane.contentEditable === 'true') {
+            void updateHistoryItemResult(savedHistoryId, getEffectiveResult());
+        }
+    });
 
     function renderLoadingControl(): void {
         loaderOrClose.innerHTML = '';
@@ -988,6 +1046,11 @@ function executeRequest(mode: RequestMode): void {
         streamPort?.disconnect();
         streamPort = null;
         fullResult = "";
+        comparisonOriginalVisible = false;
+        editedResultSnapshot = '';
+        contentPane.contentEditable = 'false';
+        contentPane.removeAttribute('contenteditable');
+        resultTools.style.display = 'none';
         contentPane.innerHTML = `
             <div class="lexisync-skeleton" role="status" aria-label="LexiSync обрабатывает текст">
                 <span class="lexisync-skeleton-line"></span>
@@ -1024,6 +1087,8 @@ function executeRequest(mode: RequestMode): void {
             targetLang: currentTargetLang, 
             pageTitle: document.title, 
             pageUrl: window.location.hostname,
+            allowPageContext: usePageContext,
+            customPrompt: customCommand?.prompt,
             imageUrl: currentSelection.imageUrl // 🔥 НОВОЕ
         });        
         streamPort.onMessage.addListener((response: StreamResponse) => {
@@ -1050,10 +1115,11 @@ function executeRequest(mode: RequestMode): void {
                     original: currentSelection.text,
                     result: getEffectiveResult(),
                     date: new Date().toISOString(),
+                    customName: customCommand?.name,
                 };
 
                 if (storageAllowed) {
-                    const cacheModeKey = mode === 'translate' ? mode + currentTargetLang : mode;
+                    const cacheModeKey = mode === 'translate' ? mode + currentTargetLang : mode === 'custom' ? `custom:${customCommand?.id || 'unknown'}` : mode;
                     void getCacheHash(cacheModeKey, getCacheSource())
                         .then((cacheKey) => setCachedText(cacheKey, fullResult))
                         .catch((error) => console.error('Ошибка сохранения кэша:', error));
@@ -1094,6 +1160,46 @@ function executeRequest(mode: RequestMode): void {
         loaderOrClose.appendChild(closeBtn);
 
         if (success && fullResult.trim().length > 0) {
+            if (mode !== 'spellcheck' && mode !== 'ocr') {
+                contentPane.contentEditable = 'true';
+                contentPane.setAttribute('aria-label', 'Результат можно редактировать');
+                resultTools.style.display = 'flex';
+                editedResultSnapshot = getEffectiveResult();
+                const createTool = (label: string, action: () => void): HTMLButtonElement => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'lexisync-tool-chip';
+                    button.textContent = label;
+                    button.onclick = action;
+                    return button;
+                };
+                const compareButton = createTool(t('beforeAfter', 'До / После'), () => {
+                    if (!comparisonOriginalVisible) {
+                        editedResultSnapshot = getEffectiveResult();
+                        contentPane.contentEditable = 'false';
+                        contentPane.textContent = originalText;
+                        compareButton.textContent = 'Показать результат';
+                    } else {
+                        contentPane.textContent = editedResultSnapshot;
+                        contentPane.contentEditable = 'true';
+                        compareButton.textContent = t('beforeAfter', 'До / После');
+                    }
+                    comparisonOriginalVisible = !comparisonOriginalVisible;
+                });
+                const refine = (name: string, prompt: string) => {
+                    const source = getEffectiveResult();
+                    currentSelection.text = source;
+                    currentSelection.context = source;
+                    executeRequest('custom', { id: `refine-${name}`, name, prompt });
+                };
+                resultTools.replaceChildren(
+                    compareButton,
+                    createTool(t('repeat', 'Повторить'), () => executeRequest(mode, customCommand)),
+                    createTool(t('shorter', 'Короче'), () => refine('Сделать короче', 'Сократи текст, сохранив ключевые факты и исходный смысл.')),
+                    createTool(t('longer', 'Подробнее'), () => refine('Сделать подробнее', 'Раскрой текст подробнее, добавив полезные пояснения без лишней воды.')),
+                    createTool(t('moreFormal', 'Формальнее'), () => refine('Сделать формальнее', 'Перепиши текст в более формальном и профессиональном стиле.')),
+                );
+            }
             actionsContainer.style.display = 'flex';
             actionsContainer.innerHTML = '';
             
@@ -1105,7 +1211,7 @@ function executeRequest(mode: RequestMode): void {
             const replaceBtn = document.createElement('button');
             replaceBtn.type = 'button'; 
             replaceBtn.className = `${btnClass} lexisync-result-button lexisync-result-button--primary`;
-            replaceBtn.innerHTML = `${replaceIcon} Заменить текст`;
+            replaceBtn.innerHTML = `${replaceIcon} ${t('replaceText', 'Заменить текст')}`;
             // ✅ НОВАЯ ЛОГИКА (ВСТАВИТЬ)
             replaceBtn.onclick = (e) => { 
                 e.preventDefault();
@@ -1159,9 +1265,10 @@ function executeRequest(mode: RequestMode): void {
     }
 
     async function checkCacheAndRun() {
-        chrome.storage.local.get(['mistralApiKey', 'sendPageContext'], async (res) => {
+        chrome.storage.local.get({ mistralApiKey: '', sendPageContext: false, contextDisabledSites: [] }, async (res) => {
             const apiKey = res.mistralApiKey as string;
-            usePageContext = res.sendPageContext === true;
+            usePageContext = res.sendPageContext === true
+                && !isSiteDisabled(location.hostname, normalizeDisabledSites(res.contextDisabledSites));
             storageAllowed = await shouldStoreOnCurrentPage();
             if (!apiKey || apiKey.trim() === '') {
                 contentPane.innerHTML = `
@@ -1199,7 +1306,7 @@ function executeRequest(mode: RequestMode): void {
                 return;
             }
 
-            const cacheModeKey = mode === 'translate' ? mode + currentTargetLang : mode;
+            const cacheModeKey = mode === 'translate' ? mode + currentTargetLang : mode === 'custom' ? `custom:${customCommand?.id || 'unknown'}` : mode;
             const cacheKey = await getCacheHash(cacheModeKey, getCacheSource());
             const cachedResult = storageAllowed ? await getCachedText(cacheKey) : null;
             if (cachedResult) {

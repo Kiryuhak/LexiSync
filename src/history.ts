@@ -1,5 +1,6 @@
 import { clearHistory, deleteHistoryItem, getHistory } from './history-store';
 import type { HistoryItem, RequestMode } from './types';
+import { t } from './i18n';
 
 const MODE_NAMES: Record<RequestMode, string> = {
     spellcheck: 'Ошибки',
@@ -8,6 +9,7 @@ const MODE_NAMES: Record<RequestMode, string> = {
     layout: 'Раскладка',
     translate: 'Перевод',
     ocr: 'OCR',
+    custom: t('commands', 'Команда'),
 };
 
 const historyList = document.getElementById('historyList');
@@ -46,7 +48,7 @@ function createHistoryCard(item: HistoryItem): HTMLElement {
     header.className = 'history-header';
     const badge = document.createElement('span');
     badge.className = 'mode-badge';
-    badge.textContent = MODE_NAMES[item.mode] || item.mode;
+    badge.textContent = item.customName || MODE_NAMES[item.mode] || item.mode;
     const date = document.createElement('span');
     date.textContent = new Date(item.date).toLocaleString('ru-RU');
     header.append(badge, date);
