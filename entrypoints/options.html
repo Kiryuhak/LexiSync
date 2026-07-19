@@ -38,7 +38,7 @@
         .container { box-sizing: border-box; width: min(600px, 100%); padding: 32px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); transition: background 0.3s, border-color 0.3s; }
         
         .header-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
-        h2 { margin: 0; color: var(--primary); font-weight: 500; font-size: 22px; }
+        h1 { margin: 0; color: var(--primary); font-weight: 500; font-size: 22px; }
         .version-badge { background: var(--badge-bg); color: var(--badge-text); padding: 4px 10px; border-radius: 100px; font-size: 12px; font-weight: 600; }
         
         p { font-size: 14px; color: var(--text-secondary); margin-bottom: 24px; line-height: 1.5; }
@@ -53,7 +53,7 @@
         .toggle-password:hover { color: var(--primary); background: transparent; }
         
         .instruction-box { background: var(--box-bg); border: 1px solid var(--box-border); border-radius: 8px; padding: 16px; margin-bottom: 24px; }
-        .instruction-box h4 { margin: 0 0 8px 0; color: var(--primary); font-size: 14px; font-weight: 600; }
+        .instruction-box h2 { margin: 0 0 8px 0; color: var(--text-main); font-size: 14px; font-weight: 600; }
         .instruction-box ol { margin: 0; padding-left: 20px; color: var(--text-secondary); font-size: 13px; line-height: 1.6; }
         .instruction-box a { color: var(--primary); text-decoration: none; font-weight: 500; }
         .instruction-box a:hover { text-decoration: underline; }
@@ -69,7 +69,7 @@
         .privacy-option label { margin: 0; color: var(--text-main); cursor: pointer; }
         .privacy-option small { display: block; margin-top: 5px; color: var(--text-secondary); line-height: 1.4; font-weight: 400; }
         .settings-section { border-top: 1px solid var(--border); padding-top: 20px; margin-top: 8px; }
-        .settings-section h3 { font-size: 16px; margin: 0 0 14px; color: var(--text-main); }
+        .settings-section h2 { font-size: 16px; margin: 0 0 14px; color: var(--text-main); }
         textarea { min-height: 80px; resize: vertical; }
 
         .appearance-panel { padding: 16px; margin: 0 0 20px; background: var(--box-bg); border: 1px solid var(--box-border); border-radius: 12px; }
@@ -98,8 +98,8 @@
         .secondary-button:hover { color: var(--primary); border-color: var(--primary); }
         .secondary-button:disabled { cursor: not-allowed; opacity: .5; }
         .privacy-option.is-disabled { opacity: .58; }
-        .settings-tabs { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin: 0 0 24px; padding: 5px; background: var(--box-bg); border: 1px solid var(--box-border); border-radius: 12px; }
-        .settings-tab { min-width: 0; padding: 9px 7px; color: var(--text-secondary); background: transparent; border: 0; border-radius: 8px; cursor: pointer; font: 600 12px system-ui, sans-serif; line-height: 1.2; overflow-wrap: anywhere; }
+        .settings-tabs { display: flex; gap: 6px; margin: 0 0 24px; padding: 5px; overflow-x: auto; overscroll-behavior-inline: contain; background: var(--box-bg); border: 1px solid var(--box-border); border-radius: 12px; scrollbar-width: thin; }
+        .settings-tab { flex: 1 0 auto; min-width: max-content; padding: 9px 7px; color: var(--text-secondary); background: transparent; border: 0; border-radius: 8px; cursor: pointer; font: 600 12px system-ui, sans-serif; line-height: 1.2; white-space: nowrap; }
         .settings-tab:hover { color: var(--text-main); background: var(--bg-card); }
         .settings-tab.is-active { color: #fff; background: var(--primary); box-shadow: 0 5px 14px color-mix(in srgb, var(--primary) 22%, transparent); }
         [data-settings-group][hidden] { display: none !important; }
@@ -118,7 +118,7 @@
         .onboarding-button { padding: 9px 14px; border: 0; border-radius: 9px; cursor: pointer; font: 600 13px system-ui,sans-serif; }
         .onboarding-button.primary { color: #fff; background: var(--primary); }
         .onboarding-button.secondary { color: var(--text-secondary); background: var(--box-bg); }
-        .commands-panel h3 { margin: 0 0 7px; }
+        .commands-panel h2 { margin: 0 0 7px; }
         .commands-panel > p { margin: 0 0 16px; }
         .command-form { padding: 15px; margin-bottom: 15px; background: var(--box-bg); border: 1px solid var(--box-border); border-radius: 11px; }
         .command-form textarea { min-height: 76px; margin-bottom: 12px; }
@@ -128,6 +128,7 @@
         .command-card { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 12px 13px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; }
         .command-card strong { display: block; margin-bottom: 3px; font-size: 13px; }
         .command-card span { display: block; overflow: hidden; color: var(--text-secondary); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+        .command-card .profile-sites { display: block; margin-top: 7px; overflow: visible; color: var(--primary); font-size: 11px; text-overflow: clip; white-space: normal; }
         .command-card-actions { display: flex; gap: 5px; }
         .command-icon-button { display: grid; width: 30px; height: 30px; place-items: center; color: var(--text-secondary); background: var(--box-bg); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
         .command-icon-button:hover { color: var(--primary); border-color: var(--primary); }
@@ -143,22 +144,18 @@
         @media (max-width: 560px) {
             body { padding: 12px; }
             .container { padding: 22px; }
-            .settings-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
             .command-form-actions { align-items: stretch; flex-direction: column-reverse; }
             .command-form-actions button { width: 100%; }
             .btn-container { align-items: stretch; flex-direction: column; }
             button#saveBtn { width: 100%; }
             #status { text-align: center; }
         }
-        @media (max-width: 370px) {
-            .settings-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        }
     </style>
 </head>
 <body>
-    <div class="container">
+    <main class="container">
         <div class="header-row">
-            <h2 data-i18n="optionsTitle">Настройки нейросети</h2>
+            <h1 data-i18n="optionsTitle">Настройки нейросети</h1>
             <span id="app-version" class="version-badge">v1.0.0</span>
         </div>
         <p data-i18n="optionsIntro">Укажите параметры доступа к API, стиль текста и тему оформления.</p>
@@ -236,7 +233,7 @@
         </div>
 
         <section class="settings-section" data-settings-group="ai" hidden>
-            <h3 data-i18n="aiModeTitle">Режим AI</h3>
+            <h2 data-i18n="aiModeTitle">Режим AI</h2>
             <label for="aiMode" data-i18n="aiModeLabel">Баланс скорости и качества</label>
             <select id="aiMode">
                 <option value="fast" data-i18n="aiModeFast">Быстро — Mistral Small</option>
@@ -248,7 +245,7 @@
         </section>
 
         <section class="settings-section" data-settings-group="ai" hidden>
-            <h3 data-i18n="styleProfilesTitle">Профили стиля</h3>
+            <h2 data-i18n="styleProfilesTitle">Профили стиля</h2>
             <p data-i18n="styleProfilesIntro">Создайте инструкции для рабочей почты, чатов или публикаций.</p>
             <div id="styleProfileList" class="command-list"></div>
             <form id="styleProfileForm" class="command-form">
@@ -257,6 +254,9 @@
                 <input id="styleProfileName" type="text" maxlength="40" placeholder="Рабочая почта" data-i18n-placeholder="profileNamePlaceholder" required>
                 <label for="styleProfileInstruction" data-i18n="profileInstruction">Инструкция по стилю</label>
                 <textarea id="styleProfileInstruction" maxlength="1000" placeholder="Пиши кратко, профессионально и без канцеляризмов." data-i18n-placeholder="profileInstructionPlaceholder" required></textarea>
+                <label for="styleProfileSites" data-i18n="profileSites">Сайты для автоматического включения</label>
+                <textarea id="styleProfileSites" maxlength="2000" placeholder="mail.example.com&#10;docs.example.org" data-i18n-placeholder="profileSitesPlaceholder"></textarea>
+                <p data-i18n="profileSitesHint">По одному домену на строку. Профиль будет выбран автоматически на домене и его поддоменах.</p>
                 <div class="command-form-actions"><button id="cancelStyleProfileEdit" class="secondary-button" type="button" data-i18n="cancel" hidden>Отмена</button><button class="onboarding-button primary" type="submit" data-i18n="saveProfile">Сохранить профиль</button></div>
             </form>
         </section>
@@ -270,7 +270,7 @@
         </div>
 
         <div class="settings-section" data-settings-group="suggestions" hidden>
-            <h3 data-i18n="suggestionsTitle">Персональные подсказки</h3>
+            <h2 data-i18n="suggestionsTitle">Персональные подсказки</h2>
             <div class="privacy-option">
                 <input type="checkbox" id="adaptiveSuggestionsEnabled" />
                 <label for="adaptiveSuggestionsEnabled">
@@ -295,7 +295,7 @@
         </div>
 
         <div class="settings-section" data-settings-group="privacy" hidden>
-            <h3 data-i18n="historyPrivacyTitle">История и приватность</h3>
+            <h2 data-i18n="historyPrivacyTitle">История и приватность</h2>
             <div class="privacy-option">
                 <input type="checkbox" id="historyEnabled" checked />
                 <label for="historyEnabled">
@@ -314,7 +314,7 @@
         </div>
 
         <div class="settings-section" data-settings-group="privacy" hidden>
-            <h3 data-i18n="portableSettingsTitle">Перенос настроек</h3>
+            <h2 data-i18n="portableSettingsTitle">Перенос настроек</h2>
             <p data-i18n="portableSettingsHint">API-ключ, история, статистика и локальная языковая модель не попадают в файл.</p>
             <div class="settings-row">
                 <button type="button" id="exportSettings" class="secondary-button" data-i18n="exportSettings">Экспортировать</button>
@@ -324,7 +324,7 @@
         </div>
 
         <div class="settings-section" data-settings-group="privacy" hidden>
-            <h3 data-i18n="usageTitle">Локальная статистика</h3>
+            <h2 data-i18n="usageTitle">Локальная статистика</h2>
             <div class="usage-summary" aria-live="polite">
                 <div class="usage-metric"><strong id="usageRequests">0</strong><span data-i18n="usageRequests">запросов</span></div>
                 <div class="usage-metric"><strong id="usageCacheHits">0</strong><span data-i18n="usageCacheHits">из кэша</span></div>
@@ -334,13 +334,13 @@
         </div>
 
         <div class="settings-section" data-settings-group="privacy" hidden>
-            <h3 data-i18n="dictionaryTitle">Личный словарь</h3>
+            <h2 data-i18n="dictionaryTitle">Личный словарь</h2>
             <label for="personalDictionary" data-i18n="dictionaryLabel">Слова, которые не нужно исправлять:</label>
             <textarea id="personalDictionary" placeholder="LexiSync&#10;Mistral"></textarea>
         </div>
 
         <section class="commands-panel" data-settings-group="commands" hidden>
-            <h3 data-i18n="customCommandsTitle">Пользовательские AI-команды</h3>
+            <h2 data-i18n="customCommandsTitle">Пользовательские AI-команды</h2>
             <p data-i18n="customCommandsIntro">Создайте собственные действия. Они появятся в меню LexiSync при выделении текста.</p>
             <div id="customCommandList" class="command-list"></div>
             <form id="customCommandForm" class="command-form">
@@ -361,7 +361,7 @@
         </section>
 
         <div class="instruction-box" data-settings-group="main">
-            <h4 data-i18n="getApiKeyTitle">Где взять API-ключ?</h4>
+            <h2 data-i18n="getApiKeyTitle">Где взять API-ключ?</h2>
             <ol>
                 <li data-i18n="getApiKeyStep1">Перейдите на console.mistral.ai.</li>
                 <li data-i18n="getApiKeyStep2">В меню слева найдите раздел API Keys.</li>
@@ -374,7 +374,7 @@
             <span id="status" data-i18n="saved">✓ Сохранено успешно!</span>
         </div>
 
-    </div>
+    </main>
 
     <div id="onboarding" class="onboarding" hidden role="dialog" aria-modal="true" aria-labelledby="onboardingTitle">
         <div class="onboarding-card">

@@ -36,7 +36,7 @@ jobs:
         run: npm run build
 
       - name: Проверить Chrome
-        run: xvfb-run -a npx playwright test tests/e2e.spec.ts
+        run: xvfb-run -a npm run test:e2e
 
       - name: Упаковать и проверить Firefox
         run: npm run test:firefox

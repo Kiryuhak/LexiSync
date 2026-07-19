@@ -23,6 +23,7 @@ export interface StyleProfile {
     name: string;
     tone: string;
     instruction: string;
+    sites?: string[];
 }
 
 export interface UsageStats {

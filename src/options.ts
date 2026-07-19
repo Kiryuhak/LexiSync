@@ -1,7 +1,8 @@
 import { localizeDocument, t } from './i18n';
-import type { StyleProfile, UsageStats } from './types';
+import type { UsageStats } from './types';
 import { clearUsageStats, EMPTY_USAGE_STATS } from './usage-stats';
 import { exportPortableSettings, importPortableSettings } from './settings-transfer';
+import { restoreStyleProfileSettings, setupStyleProfileSettings } from './style-profile-settings';
 
 type AppearanceTheme = 'auto' | 'light' | 'dark';
 
@@ -14,8 +15,6 @@ interface EditableCustomCommand {
 const systemDarkTheme = window.matchMedia('(prefers-color-scheme: dark)');
 let restoredApiKey = '';
 let customCommands: EditableCustomCommand[] = [];
-let styleProfiles: StyleProfile[] = [];
-let activeStyleProfileId = '';
 
 function clampInterfaceScale(value: number): number {
     return Math.min(110, Math.max(75, Math.round(value / 5) * 5));
@@ -116,103 +115,6 @@ function renderCustomCommands(): void {
         card.append(copy, actions);
         list.appendChild(card);
     }
-}
-
-function resetStyleProfileForm(): void {
-    const form = document.getElementById('styleProfileForm') as HTMLFormElement | null;
-    const idInput = document.getElementById('styleProfileId') as HTMLInputElement | null;
-    const cancelButton = document.getElementById('cancelStyleProfileEdit') as HTMLButtonElement | null;
-    form?.reset();
-    if (idInput) idInput.value = '';
-    if (cancelButton) cancelButton.hidden = true;
-}
-
-function renderStyleProfiles(): void {
-    const list = document.getElementById('styleProfileList');
-    if (!list) return;
-    list.replaceChildren();
-    if (!styleProfiles.length) {
-        const empty = document.createElement('p');
-        empty.textContent = t('noStyleProfiles', 'Пока нет профилей стиля.');
-        list.appendChild(empty);
-        return;
-    }
-    for (const profile of styleProfiles) {
-        const card = document.createElement('article');
-        card.className = 'command-card';
-        if (profile.id === activeStyleProfileId) card.style.borderColor = 'var(--primary)';
-        const copy = document.createElement('div');
-        const name = document.createElement('strong');
-        name.textContent = profile.name;
-        const instruction = document.createElement('span');
-        instruction.textContent = profile.instruction;
-        copy.append(name, instruction);
-        const actions = document.createElement('div');
-        actions.className = 'command-card-actions';
-        const activate = document.createElement('button');
-        activate.type = 'button';
-        activate.className = 'command-icon-button';
-        activate.textContent = profile.id === activeStyleProfileId ? '✓' : '○';
-        activate.title = t('activateProfile', 'Использовать профиль');
-        activate.setAttribute('aria-label', `${activate.title}: ${profile.name}`);
-        activate.onclick = async () => {
-            activeStyleProfileId = profile.id === activeStyleProfileId ? '' : profile.id;
-            await chrome.storage.local.set({ activeStyleProfileId });
-            renderStyleProfiles();
-        };
-        const edit = document.createElement('button');
-        edit.type = 'button'; edit.className = 'command-icon-button'; edit.title = t('edit', 'Изменить'); edit.textContent = '✎';
-        edit.setAttribute('aria-label', `${edit.title}: ${profile.name}`);
-        edit.onclick = () => {
-            (document.getElementById('styleProfileId') as HTMLInputElement).value = profile.id;
-            (document.getElementById('styleProfileName') as HTMLInputElement).value = profile.name;
-            (document.getElementById('styleProfileInstruction') as HTMLTextAreaElement).value = profile.instruction;
-            (document.getElementById('cancelStyleProfileEdit') as HTMLButtonElement).hidden = false;
-            (document.getElementById('styleProfileName') as HTMLInputElement).focus();
-        };
-        const remove = document.createElement('button');
-        remove.type = 'button'; remove.className = 'command-icon-button'; remove.title = t('delete', 'Удалить'); remove.textContent = '×';
-        remove.setAttribute('aria-label', `${remove.title}: ${profile.name}`);
-        remove.onclick = async () => {
-            styleProfiles = styleProfiles.filter((item) => item.id !== profile.id);
-            if (activeStyleProfileId === profile.id) activeStyleProfileId = '';
-            await chrome.storage.local.set({ styleProfiles, activeStyleProfileId });
-            renderStyleProfiles();
-        };
-        actions.append(activate, edit, remove);
-        card.append(copy, actions);
-        list.appendChild(card);
-    }
-}
-
-function setupStyleProfiles(): void {
-    const form = document.getElementById('styleProfileForm') as HTMLFormElement | null;
-    const idInput = document.getElementById('styleProfileId') as HTMLInputElement | null;
-    const nameInput = document.getElementById('styleProfileName') as HTMLInputElement | null;
-    const instructionInput = document.getElementById('styleProfileInstruction') as HTMLTextAreaElement | null;
-    if (!form || !idInput || !nameInput || !instructionInput) return;
-    form.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const name = nameInput.value.trim().slice(0, 40);
-        const instruction = instructionInput.value.trim().slice(0, 1000);
-        if (!name || !instruction) return;
-        if (!idInput.value && styleProfiles.length >= 8) return;
-        const existing = styleProfiles.find((profile) => profile.id === idInput.value);
-        const profile: StyleProfile = {
-            id: idInput.value || crypto.randomUUID(),
-            name,
-            tone: existing?.tone || 'custom',
-            instruction,
-        };
-        const index = styleProfiles.findIndex((item) => item.id === profile.id);
-        if (index >= 0) styleProfiles[index] = profile;
-        else styleProfiles.push(profile);
-        if (!activeStyleProfileId) activeStyleProfileId = profile.id;
-        await chrome.storage.local.set({ styleProfiles, activeStyleProfileId });
-        resetStyleProfileForm();
-        renderStyleProfiles();
-    });
-    document.getElementById('cancelStyleProfileEdit')?.addEventListener('click', resetStyleProfileForm);
 }
 
 function renderUsageStats(stats: UsageStats): void {
@@ -449,12 +351,8 @@ async function restoreOptions(): Promise<void> {
     customCommands = Array.isArray(items.customCommands)
         ? items.customCommands.filter((item: unknown): item is EditableCustomCommand => Boolean(item && typeof item === 'object' && 'id' in item && 'name' in item && 'prompt' in item)).slice(0, 8)
         : [];
-    styleProfiles = Array.isArray(items.styleProfiles)
-        ? items.styleProfiles.filter((item: unknown): item is StyleProfile => Boolean(item && typeof item === 'object' && 'id' in item && 'name' in item && 'instruction' in item)).slice(0, 8)
-        : [];
-    activeStyleProfileId = typeof items.activeStyleProfileId === 'string' ? items.activeStyleProfileId : '';
     renderCustomCommands();
-    renderStyleProfiles();
+    restoreStyleProfileSettings(items.styleProfiles, items.activeStyleProfileId);
     renderUsageStats(items.usageStats as UsageStats);
     updateAppearancePreview();
     updateAdaptiveControls();
@@ -476,7 +374,7 @@ document.addEventListener('DOMContentLoaded', () => {
     interfaceScaleInput?.addEventListener('input', updateAppearancePreview);
     adaptiveSuggestionsInput?.addEventListener('change', updateAdaptiveControls);
     setupCustomCommands();
-    setupStyleProfiles();
+    setupStyleProfileSettings();
     document.querySelectorAll<HTMLButtonElement>('.settings-tab').forEach((button) => {
         button.addEventListener('click', () => activateSettingsTab(button.dataset.tab || 'main'));
         button.addEventListener('keydown', (event) => {

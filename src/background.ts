@@ -1,27 +1,14 @@
-import type { AiMode, RequestMode, StyleProfile } from './types';
+import type { StyleProfile } from './types';
 import { t } from './i18n';
 import { migrateSettings } from './settings-migrations';
-import { buildMessages } from './prompt-builder';
 import { fixKeyboardLayout } from './keyboard-layout';
 import { recordRequest } from './usage-stats';
 import { initializeSettingsSync, restoreSyncedSettings } from './settings-transfer';
+import { processOcr, streamText, type MistralRequest } from './mistral-client';
+import { resolveStyleProfile } from './site-profiles';
+import { ensureContentScript, initializeSiteAccess, sendToTabWithInjection, syncRegisteredSiteScripts } from './site-access';
 
-interface MistralRequest {
-    action: 'callMistral' | 'cancelMistral';
-    text?: string;
-    context?: string;
-    mode?: RequestMode;
-    targetLang?: string;
-    pageTitle?: string;
-    pageUrl?: string;
-    imageUrl?: string;
-    allowPageContext?: boolean;
-    customPrompt?: string;
-}
-
-const API_BASE_URL = 'https://api.mistral.ai/v1';
 const REQUEST_TIMEOUT_MS = 45_000;
-const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
 
 function createSettingsFingerprint(value: unknown): string {
     const text = JSON.stringify(value);
@@ -35,6 +22,7 @@ function createSettingsFingerprint(value: unknown): string {
 
 const initializationPromise = restoreSyncedSettings().then(migrateSettings);
 initializeSettingsSync();
+initializeSiteAccess();
 
 chrome.runtime.onInstalled.addListener((details) => {
     if (details.reason === 'install') void chrome.storage.local.set({ onboardingCompleted: false });
@@ -48,7 +36,13 @@ chrome.runtime.onInstalled.addListener((details) => {
     });
 });
 
-function sendOcrCommand(tabId: number, windowId?: number): void {
+async function sendOcrCommand(tabId: number, windowId?: number): Promise<void> {
+    try {
+        await ensureContentScript(tabId);
+    } catch (error) {
+        console.error('Не удалось запустить LexiSync на вкладке:', error);
+        return;
+    }
     const handleCapture = (dataUrl?: string) => {
         if (chrome.runtime.lastError || !dataUrl) {
             console.error('Ошибка захвата экрана:', chrome.runtime.lastError);
@@ -67,14 +61,14 @@ function sendOcrCommand(tabId: number, windowId?: number): void {
 chrome.contextMenus.onClicked.addListener((info, tab) => {
     if (!tab?.id) return;
     if (info.menuItemId === 'ocr') {
-        sendOcrCommand(tab.id, tab.windowId);
+        void sendOcrCommand(tab.id, tab.windowId);
         return;
     }
-    chrome.tabs.sendMessage(tab.id, {
+    void sendToTabWithInjection(tab.id, {
         action: 'contextMenuClicked',
         mode: info.menuItemId,
         text: info.selectionText || '',
-    });
+    }, info.frameId).catch((error) => console.error('Не удалось выполнить команду LexiSync:', error));
 });
 
 chrome.commands.onCommand.addListener((command) => {
@@ -82,15 +76,18 @@ chrome.commands.onCommand.addListener((command) => {
         const tab = tabs[0];
         if (!tab?.id) return;
         if (command === 'ocr') {
-            sendOcrCommand(tab.id, tab.windowId);
+            void sendOcrCommand(tab.id, tab.windowId);
             return;
         }
-        chrome.tabs.sendMessage(tab.id, { action: 'hotkeyTriggered', mode: command });
+        void sendToTabWithInjection(tab.id, { action: 'hotkeyTriggered', mode: command })
+            .catch((error) => console.error('Не удалось выполнить горячую клавишу LexiSync:', error));
     });
 });
 
-chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
-    if (request.action === 'openHistory') {
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === 'requestOcrCapture' && sender.tab?.id) {
+        void sendOcrCommand(sender.tab.id, sender.tab.windowId);
+    } else if (request.action === 'openHistory') {
         chrome.tabs.create({ url: chrome.runtime.getURL('lexisync-history.html') });
     } else if (request.action === 'openOptionsPage') {
         chrome.runtime.openOptionsPage();
@@ -99,18 +96,33 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
             mistralApiKey: '', sendPageContext: false, contextDisabledSites: [], aiMode: 'quality',
             selectedTone: 'business', glossary: [], styleProfiles: [], activeStyleProfileId: '',
         }))
-            .then((settings) => sendResponse({
-                hasApiKey: typeof settings.mistralApiKey === 'string' && settings.mistralApiKey.trim().length > 0,
-                sendPageContext: settings.sendPageContext === true,
-                contextDisabledSites: settings.contextDisabledSites,
-                cacheFingerprint: createSettingsFingerprint({
-                    aiMode: settings.aiMode,
-                    selectedTone: settings.selectedTone,
-                    glossary: settings.glossary,
-                    activeStyleProfileId: settings.activeStyleProfileId,
-                    styleProfiles: settings.styleProfiles,
-                }),
-            }));
+            .then((settings) => {
+                const profiles = Array.isArray(settings.styleProfiles) ? settings.styleProfiles as StyleProfile[] : [];
+                const profile = resolveStyleProfile(profiles, String(settings.activeStyleProfileId || ''), sender.tab?.url || sender.url);
+                sendResponse({
+                    hasApiKey: typeof settings.mistralApiKey === 'string' && settings.mistralApiKey.trim().length > 0,
+                    sendPageContext: settings.sendPageContext === true,
+                    contextDisabledSites: settings.contextDisabledSites,
+                    activeStyleProfileName: profile?.name || '',
+                    cacheFingerprint: createSettingsFingerprint({
+                        aiMode: settings.aiMode,
+                        selectedTone: settings.selectedTone,
+                        glossary: settings.glossary,
+                        activeStyleProfile: profile,
+                    }),
+                });
+            });
+        return true;
+    } else if (request.action === 'siteAccessChanged' && typeof request.tabId === 'number') {
+        void syncRegisteredSiteScripts()
+            .then(async () => {
+                if (request.enabled) {
+                    await ensureContentScript(request.tabId);
+                    await chrome.tabs.sendMessage(request.tabId, { action: 'setSiteEnabled', enabled: true });
+                }
+                sendResponse({ ok: true });
+            })
+            .catch((error) => sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) }));
         return true;
     } else if (request.action === 'replayHistoryItem') {
         void chrome.tabs.query({ currentWindow: true }).then(async (tabs) => {
@@ -122,7 +134,7 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
                 return;
             }
             await chrome.tabs.update(target.id, { active: true });
-            await chrome.tabs.sendMessage(target.id, {
+            await sendToTabWithInjection(target.id, {
                 action: 'historyReplay',
                 mode: request.item?.mode,
                 text: request.item?.original,
@@ -133,137 +145,6 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
         return true;
     }
 });
-
-function wait(ms: number, signal: AbortSignal): Promise<void> {
-    return new Promise((resolve, reject) => {
-        const timer = setTimeout(resolve, ms);
-        signal.addEventListener('abort', () => {
-            clearTimeout(timer);
-            reject(new DOMException(t('requestCancelled', 'Запрос отменён.'), 'AbortError'));
-        }, { once: true });
-    });
-}
-
-async function fetchWithRetry(url: string, init: RequestInit, signal: AbortSignal): Promise<Response> {
-    const maxAttempts = 3;
-    let lastError: unknown;
-
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        try {
-            const response = await fetch(url, { ...init, signal });
-            if (!RETRYABLE_STATUSES.has(response.status) || attempt === maxAttempts - 1) return response;
-
-            const retryAfterSeconds = Number(response.headers.get('Retry-After'));
-            const delayMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
-                ? retryAfterSeconds * 1000
-                : 750 * 2 ** attempt;
-            await wait(Math.min(delayMs, 10_000), signal);
-        } catch (error) {
-            if (signal.aborted) throw error;
-            lastError = error;
-            if (attempt === maxAttempts - 1) throw error;
-            await wait(750 * 2 ** attempt, signal);
-        }
-    }
-
-    throw lastError instanceof Error ? lastError : new Error(t('requestFailed', 'Не удалось выполнить запрос.'));
-}
-
-function getApiError(status: number, details: string): string {
-    if (status === 401) return t('invalidApiKey', 'Неверный API-ключ. Проверьте настройки.');
-    if (status === 429) return t('mistralRateLimit', 'Превышен лимит запросов Mistral. Попробуйте немного позже.');
-    if (status >= 500) return t('mistralUnavailable', 'Сервис Mistral временно недоступен. Попробуйте ещё раз.');
-    return `${t('mistralApiError', 'Ошибка Mistral API')} (${status}): ${details.slice(0, 300)}`;
-}
-
-async function processOcr(msg: MistralRequest, apiKey: string, signal: AbortSignal): Promise<string> {
-    if (!msg.imageUrl) throw new Error(t('imageMissing', 'Изображение для распознавания не получено.'));
-
-    const response = await fetchWithRetry(`${API_BASE_URL}/ocr`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-            model: 'mistral-ocr-latest',
-            document: { type: 'image_url', image_url: msg.imageUrl },
-            include_image_base64: false,
-        }),
-    }, signal);
-
-    if (!response.ok) throw new Error(getApiError(response.status, await response.text()));
-    const result = await response.json() as { pages?: Array<{ markdown?: string }> };
-    const text = result.pages?.map((page) => page.markdown || '').filter(Boolean).join('\n\n').trim();
-    if (!text) throw new Error(t('ocrNoText', 'Mistral OCR не обнаружил текст в выбранной области.'));
-    return text;
-}
-
-async function streamText(
-    msg: MistralRequest,
-    apiKey: string,
-    selectedTone: string,
-    sendPageContext: boolean,
-    personalDictionary: string[],
-    glossary: string[],
-    activeStyleProfile: StyleProfile | undefined,
-    aiMode: AiMode,
-    signal: AbortSignal,
-    onChunk: (text: string) => void,
-): Promise<void> {
-    const response = await fetchWithRetry(`${API_BASE_URL}/chat/completions`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-            model: aiMode === 'fast' ? 'mistral-small-latest' : 'mistral-large-latest',
-            messages: buildMessages(msg, {
-                selectedTone,
-                sendPageContext,
-                personalDictionary,
-                glossary,
-                activeStyleProfile,
-            }),
-            stream: true,
-        }),
-    }, signal);
-
-    if (!response.ok) throw new Error(getApiError(response.status, await response.text()));
-    const reader = response.body?.getReader();
-    if (!reader) throw new Error(t('emptyStream', 'Mistral вернул пустой поток данных.'));
-
-    const decoder = new TextDecoder();
-    let buffer = '';
-    const processLine = (line: string): boolean => {
-        const trimmed = line.trimEnd();
-        if (!trimmed.startsWith('data:')) return false;
-        const payload = trimmed.slice(5).trimStart();
-        if (payload === '[DONE]') return true;
-        try {
-            const parsed = JSON.parse(payload) as { choices?: Array<{ delta?: { content?: string } }> };
-            const content = parsed.choices?.[0]?.delta?.content;
-            if (content) onChunk(content);
-        } catch (error) {
-            console.error('Не удалось разобрать часть ответа Mistral:', error);
-        }
-        return false;
-    };
-
-    while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split(/\r?\n/);
-        buffer = lines.pop() || '';
-        for (const line of lines) {
-            if (processLine(line)) return;
-        }
-    }
-    buffer += decoder.decode();
-    if (buffer) processLine(buffer);
-}
 
 chrome.runtime.onConnect.addListener((port) => {
     if (port.name !== 'mistralStream') return;
@@ -311,7 +192,11 @@ chrome.runtime.onConnect.addListener((port) => {
             if (!apiKey) throw new Error(t('apiKeyMissing', 'API-ключ не настроен'));
 
             const styleProfiles = Array.isArray(settings.styleProfiles) ? settings.styleProfiles as StyleProfile[] : [];
-            const activeStyleProfile = styleProfiles.find((profile) => profile?.id === settings.activeStyleProfileId);
+            const activeStyleProfile = resolveStyleProfile(
+                styleProfiles,
+                String(settings.activeStyleProfileId || ''),
+                port.sender?.tab?.url || port.sender?.url || msg.pageUrl,
+            );
 
             if (msg.mode === 'ocr') {
                 const text = await processOcr(msg, apiKey, controller.signal);
@@ -320,12 +205,14 @@ chrome.runtime.onConnect.addListener((port) => {
                 await streamText(
                     msg,
                     apiKey,
-                    settings.selectedTone as string,
-                    settings.sendPageContext === true && msg.allowPageContext !== false,
-                    Array.isArray(settings.personalDictionary) ? settings.personalDictionary.map(String) : [],
-                    Array.isArray(settings.glossary) ? settings.glossary.map(String) : [],
-                    activeStyleProfile,
-                    settings.aiMode === 'fast' ? 'fast' : 'quality',
+                    {
+                        selectedTone: settings.selectedTone as string,
+                        sendPageContext: settings.sendPageContext === true && msg.allowPageContext !== false,
+                        personalDictionary: Array.isArray(settings.personalDictionary) ? settings.personalDictionary.map(String) : [],
+                        glossary: Array.isArray(settings.glossary) ? settings.glossary.map(String) : [],
+                        activeStyleProfile,
+                        aiMode: settings.aiMode === 'fast' ? 'fast' : 'quality',
+                    },
                     controller.signal,
                     (text) => port.postMessage({ status: 'chunk', text }),
                 );

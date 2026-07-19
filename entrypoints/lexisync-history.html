@@ -33,11 +33,11 @@
     </style>
 </head>
 <body>
-    <div class="container">
+    <main class="container">
         <h1 data-i18n="historyTitle">История запросов</h1>
         <div class="toolbar">
             <input id="historySearch" type="search" placeholder="Поиск по истории…" data-i18n-placeholder="historySearch" />
-            <select id="modeFilter">
+            <select id="modeFilter" aria-label="Все операции" data-i18n-aria-label="allOperations">
                 <option value="all" data-i18n="allOperations">Все операции</option>
                 <option value="spellcheck" data-i18n="modeSpellcheck">Ошибки</option>
                 <option value="style" data-i18n="modeStyle">Стиль</option>
@@ -52,7 +52,7 @@
             <button id="clearBtn" class="clear-btn" data-i18n="clear">Очистить</button>
         </div>
         <div id="historyList"></div>
-    </div>
+    </main>
     <script type="module" src="/src/history.ts"></script>
 </body>
 </html>

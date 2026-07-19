@@ -1,3 +1,5 @@
+import { normalizeSitePatterns } from './site-profiles';
+
 const PORTABLE_SETTING_KEYS = [
     'selectedTone', 'selectedTheme', 'interfaceScale', 'searchEngine', 'sendPageContext',
     'historyEnabled', 'historyRetentionDays', 'disabledSites', 'contextDisabledSites', 'blockedSites',
@@ -48,7 +50,13 @@ function sanitizePortableSetting(key: typeof PORTABLE_SETTING_KEYS[number], valu
         if (!Array.isArray(value)) return [];
         return value.filter((item) => item && typeof item === 'object').slice(0, 8).map((item) => {
             const profile = item as Record<string, unknown>;
-            return { id: String(profile.id || crypto.randomUUID()).slice(0, 100), name: String(profile.name || '').slice(0, 40), tone: String(profile.tone || 'custom').slice(0, 40), instruction: String(profile.instruction || '').slice(0, 1000) };
+            return {
+                id: String(profile.id || crypto.randomUUID()).slice(0, 100),
+                name: String(profile.name || '').slice(0, 40),
+                tone: String(profile.tone || 'custom').slice(0, 40),
+                instruction: String(profile.instruction || '').slice(0, 1000),
+                sites: normalizeSitePatterns(profile.sites),
+            };
         }).filter((item) => item.name && item.instruction);
     }
     return undefined;

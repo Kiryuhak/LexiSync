@@ -4,12 +4,13 @@ import { initializeAdaptiveSuggestions } from './adaptive-suggestions';
 import { t } from './i18n';
 import { addHistoryItem, updateHistoryItemResult } from './history-store';
 import { isSiteDisabled, normalizeDisabledSites, shouldStoreOnCurrentPage } from './privacy';
-import { getWordCorrections, normalizeSpellcheckResult, renderSpellcheckDiff, resolveCorrections, type WordCorrection } from './spellcheck';
+import { getWordCorrections, normalizeSpellcheckResult, renderSpellcheckDiffFragment, resolveCorrections, type WordCorrection } from './spellcheck';
 import { replaceSelectedText } from './text-replacement';
 import type { CustomCommand, HistoryItem, RequestMode, SelectionData, StreamResponse } from './types';
 import { recordCacheHit } from './usage-stats';
-import { escapeHTML, parseMarkdownToHTML } from './markdown';
 import { captureSelection, getSelectedText, getSelectionCoords as readSelectionCoords } from './selection-state';
+import { appendIconAndText, createSvgIcon, renderMarkdown, setIcon } from './dom-rendering';
+import { initializeOcrOverlay } from './ocr-overlay';
 
 initializeAdaptiveSuggestions();
 
@@ -52,6 +53,16 @@ let lastMouseX = 0;
 let lastMouseY = 0;
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === 'lexisyncPing') {
+        sendResponse({ ok: true });
+        return;
+    }
+    if (request.action === 'setSiteEnabled') {
+        extensionEnabledOnSite = request.enabled === true;
+        if (!extensionEnabledOnSite) closePopup();
+        sendResponse({ ok: true });
+        return;
+    }
     if (!extensionEnabledOnSite) return;
     if (request.action === "contextMenuClicked") {
         saveSelectionState(request.text);
@@ -169,6 +180,11 @@ document.addEventListener('keydown', async (e: KeyboardEvent) => {
     }
     if (e.altKey && !e.ctrlKey && !e.shiftKey) {
         const key = e.key.toLowerCase();
+        if (key === 's' || key === 'ы') {
+            e.preventDefault();
+            void chrome.runtime.sendMessage({ action: 'requestOcrCapture' });
+            return;
+        }
         let mode: RequestMode | null = null;
         if (key === 'r' || key === 'к') mode = 'spellcheck';
         else if (key === 'y' || key === 'н') mode = 'style';
@@ -607,7 +623,16 @@ function showToolbarMenu(x: number, y: number): void {
     const createBtn = (icon: string, text: string, title: string, onClick: (e: MouseEvent, btn: HTMLButtonElement) => void) => {
         const btn = document.createElement('button'); btn.type = 'button'; 
         btn.className = 'lexisync-toolbar-button';
-        btn.innerHTML = `<span style="display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; flex-shrink: 0; color: var(--text-secondary); overflow: visible;">${icon}</span>${text ? `<span style="margin-left: 6px; font-weight: 500;">${escapeHTML(text)}</span>` : ''}`;
+        const iconWrap = document.createElement('span');
+        iconWrap.style.cssText = 'display:flex;align-items:center;justify-content:center;width:16px;height:16px;flex-shrink:0;color:var(--text-secondary);overflow:visible;';
+        setIcon(iconWrap, icon);
+        btn.appendChild(iconWrap);
+        if (text) {
+            const label = document.createElement('span');
+            label.style.cssText = 'margin-left:6px;font-weight:500;';
+            label.textContent = text;
+            btn.appendChild(label);
+        }
         btn.title = title;
         btn.style.cssText = `padding: 6px 8px; cursor: pointer; border-radius: 8px; display: flex; align-items: center; transition: background 0.15s; color: var(--text-primary); background: transparent; border: none; box-sizing: border-box; line-height: 1;`;
         btn.onmousedown = (e) => e.preventDefault(); 
@@ -636,7 +661,10 @@ function showToolbarMenu(x: number, y: number): void {
     popupUI.appendChild(divider());
     popupUI.appendChild(createBtn(ICONS.copy, '', t('copy', 'Копировать'), (e, btn) => {
         navigator.clipboard.writeText(currentSelection.text);
-        btn.innerHTML = `<span style="display: flex; align-items: center; justify-content: center; width:16px; height:16px;">${ICONS.check}</span>`;
+        const iconWrap = document.createElement('span');
+        iconWrap.style.cssText = 'display:flex;align-items:center;justify-content:center;width:16px;height:16px;';
+        setIcon(iconWrap, ICONS.check);
+        btn.replaceChildren(iconWrap);
         setTimeout(() => closePopup(), 1000);
     }));
     popupUI.appendChild(divider());
@@ -667,7 +695,13 @@ function showToolbarMenu(x: number, y: number): void {
     const createDropdownItem = (icon: string, text: string, onClick: () => void) => {
         const item = document.createElement('div');
         item.className = 'lexisync-dropdown-item';
-        item.innerHTML = `<span style="display:flex; align-items: center; justify-content: center; margin-right: 12px; width: 16px; height: 16px; flex-shrink: 0;">${icon}</span> <span style="font-weight: 500;">${escapeHTML(text)}</span>`;
+        const iconWrap = document.createElement('span');
+        iconWrap.style.cssText = 'display:flex;align-items:center;justify-content:center;margin-right:12px;width:16px;height:16px;flex-shrink:0;';
+        setIcon(iconWrap, icon);
+        const label = document.createElement('span');
+        label.style.fontWeight = '500';
+        label.textContent = text;
+        item.append(iconWrap, label);
         item.style.cssText = `padding: 10px 14px; font-size: 13px; cursor: pointer; display: flex; align-items: center; color: var(--text-primary); transition: background 0.15s; white-space: nowrap;`;
         item.onmousedown = (e) => e.preventDefault();
         item.onmouseover = () => item.style.backgroundColor = 'var(--hover-bg)';
@@ -712,13 +746,23 @@ function showAIMenu(x: number, y: number): void {
         const btn = document.createElement('button'); btn.type = 'button'; 
         btn.className = 'lexisync-menu-button';
         btn.setAttribute('role', 'menuitem');
-        btn.innerHTML = `
-            <div style="display: flex; align-items: center;">
-                <span class="lexisync-menu-icon" style="display: flex; align-items: center; justify-content: center; flex-shrink: 0;">${icon}</span>
-                <span style="font-weight: 600;">${escapeHTML(text)}</span>
-            </div>
-            ${shortcut ? `<span class="lexisync-shortcut">${shortcut}</span>` : ''}
-        `;
+        const main = document.createElement('div');
+        main.style.cssText = 'display:flex;align-items:center;';
+        const iconWrap = document.createElement('span');
+        iconWrap.className = 'lexisync-menu-icon';
+        iconWrap.style.cssText = 'display:flex;align-items:center;justify-content:center;flex-shrink:0;';
+        setIcon(iconWrap, icon);
+        const label = document.createElement('span');
+        label.style.fontWeight = '600';
+        label.textContent = text;
+        main.append(iconWrap, label);
+        btn.appendChild(main);
+        if (shortcut) {
+            const shortcutLabel = document.createElement('span');
+            shortcutLabel.className = 'lexisync-shortcut';
+            shortcutLabel.textContent = shortcut;
+            btn.appendChild(shortcutLabel);
+        }
         btn.style.cssText = `width: 100%; padding: 8px 12px; cursor: pointer; transition: background 0.15s; display: flex; align-items: center; justify-content: space-between; border-radius: 8px; color: var(--text-primary); background: transparent; border: none;`;
         btn.onmousedown = (e) => e.preventDefault();
         btn.onmouseover = () => btn.style.backgroundColor = 'var(--hover-bg)';
@@ -751,12 +795,19 @@ function showRateLimitTimer(seconds: number, retryCallback: () => void, containe
     let timeLeft = seconds;
     const render = () => {
         if (!container || !container.isConnected) return false;
-        container.innerHTML = `
-            <div style="padding: 16px; font-weight: 500; color: #b06000; display: flex; align-items: center; justify-content: center; gap: 10px; background: #fff8f0; border-radius: 12px; border: 1px solid #ffe8cc; margin: 4px;">
-                <span class="lexisync-hourglass">${ICONS.hourglass}</span>
-                <span>${t('rateLimitRetry', 'Лимит. Автоповтор через')} <b>${timeLeft}</b> ${t('seconds', 'сек…')}</span>
-            </div>
-        `;
+        const message = document.createElement('div');
+        message.style.cssText = 'padding:16px;font-weight:500;color:#b06000;display:flex;align-items:center;justify-content:center;gap:10px;background:#fff8f0;border-radius:12px;border:1px solid #ffe8cc;margin:4px;';
+        const icon = document.createElement('span');
+        icon.className = 'lexisync-hourglass';
+        setIcon(icon, ICONS.hourglass);
+        const copy = document.createElement('span');
+        copy.append(
+            document.createTextNode(`${t('rateLimitRetry', 'Лимит. Автоповтор через')} `),
+            Object.assign(document.createElement('b'), { textContent: String(timeLeft) }),
+            document.createTextNode(` ${t('seconds', 'сек…')}`),
+        );
+        message.append(icon, copy);
+        container.replaceChildren(message);
         adjustPopupPosition(); 
         return true;
     };
@@ -793,14 +844,16 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
     popupUI.style.padding = '0';
     popupUI.style.display = 'block';
     
-    let headerText = '';
-    if (mode === "spellcheck") headerText = `<span style="font-weight: 600;">${t('spellcheckDone', 'Ошибки исправлены')}</span>`;
-    else if (mode === "style") headerText = `<span style="display:flex; align-items:center; gap:8px;">${ICONS.style} ${t('styleChanged', 'Стиль изменён')}</span>`;
-    else if (mode === "emoji") headerText = `<span style="display:flex; align-items:center; gap:8px;">${ICONS.emoji} ${t('emojiVariants', 'Варианты с эмодзи')}</span>`;
-    else if (mode === "layout") headerText = `<span style="display:flex; align-items:center; gap:8px;">${ICONS.keyboard} ${t('layoutFixed', 'Раскладка исправлена')}</span>`;
-    else if (mode === "translate") headerText = t('translation', 'Перевод');
-    else if (mode === "ocr") headerText = `<span style="display:flex; align-items:center; gap:8px;">📸 ${t('ocrResult', 'Распознанный текст')}</span>`;
-    else if (mode === "custom") headerText = `<span style="display:flex; align-items:center; gap:8px;">${ICONS.style} ${escapeHTML(customCommand?.name || t('myCommand', 'Моя команда'))}</span>`;
+    let headerLabel = '';
+    let headerIcon = '';
+    let headerEmoji = '';
+    if (mode === 'spellcheck') headerLabel = t('spellcheckDone', 'Ошибки исправлены');
+    else if (mode === 'style') { headerIcon = ICONS.style; headerLabel = t('styleChanged', 'Стиль изменён'); }
+    else if (mode === 'emoji') { headerIcon = ICONS.emoji; headerLabel = t('emojiVariants', 'Варианты с эмодзи'); }
+    else if (mode === 'layout') { headerIcon = ICONS.keyboard; headerLabel = t('layoutFixed', 'Раскладка исправлена'); }
+    else if (mode === 'translate') headerLabel = t('translation', 'Перевод');
+    else if (mode === 'ocr') { headerEmoji = '📸'; headerLabel = t('ocrResult', 'Распознанный текст'); }
+    else if (mode === 'custom') { headerIcon = ICONS.style; headerLabel = customCommand?.name || t('myCommand', 'Моя команда'); }
     
     const header = document.createElement('div');
     header.className = 'lexisync-header';
@@ -826,7 +879,13 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
         headerTitleWrapper.style.pointerEvents = 'auto'; 
         const langWrap = document.createElement('div');
         langWrap.style.cssText = 'display: flex; align-items: center; gap: 4px; cursor: pointer; position: relative; user-select: none; padding: 6px 10px; margin-left: -10px; border-radius: 8px; transition: background 0.15s;';
-        langWrap.innerHTML = `<span id="lexisync-lang-label">${escapeHTML(currentTargetLang)}</span> <span style="margin-top:2px;">${ICONS.chevronDown}</span>`;
+        const languageLabel = document.createElement('span');
+        languageLabel.id = 'lexisync-lang-label';
+        languageLabel.textContent = currentTargetLang;
+        const chevron = document.createElement('span');
+        chevron.style.marginTop = '2px';
+        setIcon(chevron, ICONS.chevronDown);
+        langWrap.append(languageLabel, chevron);
         langWrap.onmouseover = () => langWrap.style.background = 'var(--hover-bg)';
         langWrap.onmouseout = () => langWrap.style.background = 'transparent';
         
@@ -861,11 +920,15 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
         langWrap.onclick = (e) => { e.stopPropagation(); langDropdown.style.display = langDropdown.style.display === 'flex' ? 'none' : 'flex'; };
         headerTitleWrapper.appendChild(langWrap);
     } else {
-        headerTitleWrapper.innerHTML = headerText;
+        if (headerIcon) headerTitleWrapper.appendChild(createSvgIcon(headerIcon));
+        if (headerEmoji) headerTitleWrapper.appendChild(document.createTextNode(headerEmoji));
+        headerTitleWrapper.appendChild(document.createTextNode(headerLabel));
     }
 
     const loaderOrClose = document.createElement('div');
-    loaderOrClose.innerHTML = `<div class="lexisync-loader"></div>`;
+    const initialLoader = document.createElement('div');
+    initialLoader.className = 'lexisync-loader';
+    loaderOrClose.appendChild(initialLoader);
     
     header.appendChild(headerTitleWrapper);
     header.appendChild(loaderOrClose);
@@ -885,7 +948,7 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
     const resultTools = document.createElement('div');
     resultTools.className = 'lexisync-result-tools';
     
-    popupUI.innerHTML = '';
+    popupUI.replaceChildren();
     popupUI.appendChild(header);
     popupUI.appendChild(contentPane);
     popupUI.appendChild(correctionsContainer);
@@ -921,7 +984,7 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
 
     function refreshSpellcheck(): void {
         if (mode !== 'spellcheck') return;
-        contentPane.innerHTML = renderSpellcheckDiff(currentSelection.text, fullResult, rejectedCorrections);
+        contentPane.replaceChildren(renderSpellcheckDiffFragment(currentSelection.text, fullResult, rejectedCorrections));
         renderCorrectionControls();
     }
 
@@ -992,7 +1055,7 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
     });
 
     function renderLoadingControl(): void {
-        loaderOrClose.innerHTML = '';
+        loaderOrClose.replaceChildren();
         const wrapper = document.createElement('div');
         wrapper.style.cssText = 'display:flex; align-items:center; gap:8px;';
         const loader = document.createElement('div');
@@ -1002,7 +1065,7 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
         cancelBtn.className = 'lexisync-cancel-button';
         cancelBtn.title = t('cancelRequest', 'Отменить запрос');
         cancelBtn.setAttribute('aria-label', t('cancelRequest', 'Отменить запрос'));
-        cancelBtn.innerHTML = ICONS.closeStandard;
+        setIcon(cancelBtn, ICONS.closeStandard);
         cancelBtn.style.cssText = 'display:flex; align-items:center; justify-content:center; padding:4px; border:0; border-radius:6px; background:transparent; color:var(--text-secondary); cursor:pointer;';
         cancelBtn.onclick = (event) => {
             event.preventDefault();
@@ -1024,30 +1087,37 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
         contentPane.contentEditable = 'false';
         contentPane.removeAttribute('contenteditable');
         resultTools.style.display = 'none';
-        contentPane.innerHTML = `
-            <div class="lexisync-skeleton" role="status" aria-label="${t('processing', 'LexiSync обрабатывает текст')}">
-                <span class="lexisync-skeleton-line"></span>
-                <span class="lexisync-skeleton-line"></span>
-                <span class="lexisync-skeleton-line"></span>
-            </div>`;
+        const skeleton = document.createElement('div');
+        skeleton.className = 'lexisync-skeleton';
+        skeleton.setAttribute('role', 'status');
+        skeleton.setAttribute('aria-label', t('processing', 'LexiSync обрабатывает текст'));
+        for (let index = 0; index < 3; index++) {
+            const line = document.createElement('span');
+            line.className = 'lexisync-skeleton-line';
+            skeleton.appendChild(line);
+        }
+        contentPane.replaceChildren(skeleton);
         contentPane.style.color = '';
         actionsContainer.style.display = 'none';
         renderLoadingControl();
         
         if (!navigator.onLine) {
-            contentPane.innerHTML = `<span style="color: #d32f2f;">${t('offlineError', 'Нет подключения к интернету. Проверьте сеть и попробуйте снова.')}</span>`;
+            contentPane.textContent = t('offlineError', 'Нет подключения к интернету. Проверьте сеть и попробуйте снова.');
+            contentPane.style.color = '#d32f2f';
             finishStream(false);
             return;
         }
 
         if (currentSelection.text.length > 3000) {
-            contentPane.innerHTML = `<span style="color: #d32f2f;">${t('textTooLong', 'Текст слишком длинный. Выделите не более 3000 символов за раз.')}</span>`;
+            contentPane.textContent = t('textTooLong', 'Текст слишком длинный. Выделите не более 3000 символов за раз.');
+            contentPane.style.color = '#d32f2f';
             finishStream(false);
             return;
         }
 
         if (!chrome.runtime || !chrome.runtime.connect) {
-            contentPane.innerHTML = `<span style="color: #d32f2f;">${t('reloadPage', 'Пожалуйста, обновите страницу (F5).')}</span>`;
+            contentPane.textContent = t('reloadPage', 'Пожалуйста, обновите страницу (F5).');
+            contentPane.style.color = '#d32f2f';
             return;
         }
 
@@ -1067,7 +1137,8 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
         streamPort.onMessage.addListener((response: StreamResponse) => {
             if (response.status === "chunk") {
                 fullResult += response.text;
-                contentPane.innerHTML = parseMarkdownToHTML(fullResult);
+                renderMarkdown(contentPane, fullResult);
+                contentPane.setAttribute('aria-live', 'polite');
                 contentPane.scrollTop = contentPane.scrollHeight; 
                 adjustPopupPosition();
 
@@ -1077,8 +1148,9 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
                     wordCorrections = getWordCorrections(currentSelection.text, fullResult);
                     refreshSpellcheck();
                 } else {
-                    contentPane.innerHTML = parseMarkdownToHTML(fullResult);
+                    renderMarkdown(contentPane, fullResult);
                 }
+                contentPane.removeAttribute('aria-live');
                 finishStream();
 
                 
@@ -1127,12 +1199,12 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
         closeBtn.type = 'button';
         closeBtn.className = 'lexisync-close-button';
         closeBtn.setAttribute('aria-label', t('closePanel', 'Закрыть панель'));
-        closeBtn.innerHTML = ICONS.closeStandard;
+        setIcon(closeBtn, ICONS.closeStandard);
         closeBtn.style.cssText = 'cursor: pointer; display: flex; align-items: center; margin-right: -4px; padding: 6px; border-radius: 8px; color: var(--text-secondary); transition: background 0.15s;';
         closeBtn.onmouseover = () => closeBtn.style.background = 'var(--hover-bg)';
         closeBtn.onmouseout = () => closeBtn.style.background = 'transparent';
         closeBtn.onclick = closePopup;
-        loaderOrClose.innerHTML = '';
+        loaderOrClose.replaceChildren();
         loaderOrClose.appendChild(closeBtn);
 
         if (success && fullResult.trim().length > 0) {
@@ -1177,7 +1249,7 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
                 );
             }
             actionsContainer.style.display = 'flex';
-            actionsContainer.innerHTML = '';
+            actionsContainer.replaceChildren();
             
             
             const btnClass = (mode === 'translate' || mode === 'layout') ? 'lexisync-translate-btn' : 'lexisync-btn-action';
@@ -1187,7 +1259,7 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
             const replaceBtn = document.createElement('button');
             replaceBtn.type = 'button'; 
             replaceBtn.className = `${btnClass} lexisync-result-button lexisync-result-button--primary`;
-            replaceBtn.innerHTML = `${replaceIcon} ${t('replaceText', 'Заменить текст')}`;
+            appendIconAndText(replaceBtn, replaceIcon, t('replaceText', 'Заменить текст'));
             // ✅ НОВАЯ ЛОГИКА (ВСТАВИТЬ)
             replaceBtn.onclick = (e) => { 
                 e.preventDefault();
@@ -1196,7 +1268,7 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
                 const undo = replaceSelectedText(currentSelection, getEffectiveResult());
 
                 // Делаем красивую анимацию кнопки
-                replaceBtn.innerHTML = `${ICONS.check} ${t('replaced', 'Заменено!')}`;
+                appendIconAndText(replaceBtn, ICONS.check, t('replaced', 'Заменено!'));
                 replaceBtn.classList.add('lexisync-result-button--success');
                 replaceBtn.style.backgroundColor = '#dcfce7';
                 replaceBtn.style.color = '#166534';
@@ -1212,7 +1284,7 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
                         undoBtn.remove();
                         replaceBtn.disabled = false;
                         replaceBtn.classList.remove('lexisync-result-button--success');
-                        replaceBtn.innerHTML = `${replaceIcon} ${t('replaceText', 'Заменить текст')}`;
+                        appendIconAndText(replaceBtn, replaceIcon, t('replaceText', 'Заменить текст'));
                     };
                     actionsContainer.appendChild(undoBtn);
                 }
@@ -1221,17 +1293,20 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
 
             if (mode === 'ocr') {
                 navigator.clipboard.writeText(getEffectiveResult());
-                headerTitleWrapper.innerHTML = `<span style="display:flex; align-items:center; gap:8px; color: #166534;">${ICONS.check} ${t('copied', 'Текст скопирован!')}</span>`;
+                const copied = document.createElement('span');
+                copied.style.cssText = 'display:flex;align-items:center;gap:8px;color:#166534;';
+                appendIconAndText(copied, ICONS.check, t('copied', 'Текст скопирован!'));
+                headerTitleWrapper.replaceChildren(copied);
             }
 
             const copyBtn = document.createElement('button');
             copyBtn.type = 'button'; 
             copyBtn.className = `${btnClass} lexisync-result-button icon-only`;
-            copyBtn.innerHTML = copyIcon;
+            setIcon(copyBtn, copyIcon);
             copyBtn.onclick = (e) => {
                 e.preventDefault(); e.stopPropagation(); navigator.clipboard.writeText(getEffectiveResult());
-                copyBtn.innerHTML = (mode === 'translate' || mode === 'layout') ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>` : ICONS.check;
-                setTimeout(() => copyBtn.innerHTML = copyIcon, 1500);
+                setIcon(copyBtn, ICONS.check);
+                setTimeout(() => setIcon(copyBtn, copyIcon), 1500);
             };
 
             actionsContainer.appendChild(replaceBtn);
@@ -1252,16 +1327,30 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
             cacheSettingsFingerprint = res.cacheFingerprint || 'default';
             storageAllowed = await shouldStoreOnCurrentPage();
             if (!res.hasApiKey && mode !== 'layout') {
-                contentPane.innerHTML = `
-                    <div style="text-align: center; padding: 24px 16px;">
-                        <span style="font-size: 32px; display: block; margin-bottom: 12px;">🔑</span>
-                        <div style="font-weight: 600; font-size: 16px; margin-bottom: 8px;">${t('apiKeyMissing', 'API-ключ не настроен')}</div>
-                        <div style="color: var(--text-secondary); margin-bottom: 16px; font-size: 13px;">${t('openingSettings', 'Открываем настройки через')} <span id="redirectTimer" style="font-weight:bold; color:var(--primary);">3</span>…</div>
-                        <button id="openSettingsBtn" style="background: var(--primary); color: #fff; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 500;">${t('openSettingsNow', 'Открыть сейчас')}</button>
-                    </div>`;
+                const emptyState = document.createElement('div');
+                emptyState.style.cssText = 'text-align:center;padding:24px 16px;';
+                const keyIcon = document.createElement('span');
+                keyIcon.style.cssText = 'font-size:32px;display:block;margin-bottom:12px;';
+                keyIcon.textContent = '🔑';
+                const title = document.createElement('div');
+                title.style.cssText = 'font-weight:600;font-size:16px;margin-bottom:8px;';
+                title.textContent = t('apiKeyMissing', 'API-ключ не настроен');
+                const countdown = document.createElement('div');
+                countdown.style.cssText = 'color:var(--text-secondary);margin-bottom:16px;font-size:13px;';
+                const timerSpan = document.createElement('span');
+                timerSpan.id = 'redirectTimer';
+                timerSpan.style.cssText = 'font-weight:bold;color:var(--primary);';
+                timerSpan.textContent = '3';
+                countdown.append(document.createTextNode(`${t('openingSettings', 'Открываем настройки через')} `), timerSpan, document.createTextNode('…'));
+                const openButton = document.createElement('button');
+                openButton.id = 'openSettingsBtn';
+                openButton.type = 'button';
+                openButton.style.cssText = 'background:var(--primary);color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:500;';
+                openButton.textContent = t('openSettingsNow', 'Открыть сейчас');
+                emptyState.append(keyIcon, title, countdown, openButton);
+                contentPane.replaceChildren(emptyState);
                 
                 let timeLeft = 3;
-                const timerSpan = getPopupElementById<HTMLElement>('redirectTimer');
                 const interval = setInterval(() => {
                     timeLeft--;
                     if (timerSpan) timerSpan.textContent = timeLeft.toString();
@@ -1272,13 +1361,11 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
                     }
                 }, 1000);
 
-                setTimeout(() => {
-                    getPopupElementById<HTMLButtonElement>('openSettingsBtn')?.addEventListener('click', () => {
-                        clearInterval(interval);
-                        chrome.runtime.sendMessage({ action: "openOptionsPage" });
-                        closePopup();
-                    });
-                }, 50);
+                openButton.addEventListener('click', () => {
+                    clearInterval(interval);
+                    chrome.runtime.sendMessage({ action: 'openOptionsPage' });
+                    closePopup();
+                });
                 return;
             }
 
@@ -1297,10 +1384,11 @@ function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void 
                     ? normalizeSpellcheckResult(cachedResult)
                     : cachedResult;
                 if (mode === 'spellcheck') wordCorrections = getWordCorrections(currentSelection.text, fullResult);
-                const finalHtml = mode === 'spellcheck'
-                    ? renderSpellcheckDiff(currentSelection.text, fullResult)
-                    : parseMarkdownToHTML(fullResult);
-                contentPane.innerHTML = finalHtml;
+                if (mode === 'spellcheck') {
+                    contentPane.replaceChildren(renderSpellcheckDiffFragment(currentSelection.text, fullResult));
+                } else {
+                    renderMarkdown(contentPane, fullResult);
+                }
                 renderCorrectionControls();
                 finishStream(true);
             } else {
@@ -1346,142 +1434,17 @@ function closePopup(): void {
     }
 }
 
-// ==========================================
-// 🔥 МОДУЛЬ УМНОГО OCR (НОЖНИЦЫ)
-// ==========================================
-
-let ocrOverlay: HTMLDivElement | null = null;
-let ocrSelection: HTMLDivElement | null = null;
-let ocrStartX = 0;
-let ocrStartY = 0;
-let isOcrSelecting = false;
-let capturedScreenshotDataUrl = "";
-
-// Слушаем команду на запуск OCR от background.js
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (!extensionEnabledOnSite) return;
-    if (request.action === "startOcrMode") {
-        capturedScreenshotDataUrl = request.screenshotUrl;
-        initOcrOverlay();
-    }
-});
-
-function initOcrOverlay() {
-    if (ocrOverlay) return; // Если уже открыто - игнорируем
-
-    // 1. Создаем затемняющий фон
-    ocrOverlay = document.createElement('div');
-    ocrOverlay.id = 'lexisync-ocr-overlay';
-    ocrOverlay.setAttribute('role', 'application');
-    ocrOverlay.setAttribute('aria-label', t('selectOcrArea', 'Выберите область экрана для распознавания текста'));
-    ocrOverlay.style.cssText = `
-        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-        background: rgba(0, 0, 0, 0.4); z-index: 2147483646; cursor: crosshair;
-    `;
-
-    // 2. Создаем прямоугольник выделения (светлое окно)
-    ocrSelection = document.createElement('div');
-    ocrSelection.id = 'lexisync-ocr-selection';
-    ocrSelection.style.cssText = `
-        position: fixed; border: 2px dashed #ffffff; background: rgba(255, 255, 255, 0.1);
-        display: none; z-index: 2147483647; pointer-events: none;
-        box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4); /* Эффект прорези в темном фоне */
-    `;
-    
-    // Прячем стандартный фон, так как тень от рамки сделает затемнение
-    ocrOverlay.style.background = 'transparent'; 
-
-    ocrOverlay.appendChild(ocrSelection);
-    document.body.appendChild(ocrOverlay);
-
-    // 3. Логика рисования рамки
-    ocrOverlay.addEventListener('mousedown', (e) => {
-        isOcrSelecting = true;
-        ocrStartX = e.clientX;
-        ocrStartY = e.clientY;
-        if (ocrSelection) {
-            ocrSelection.style.display = 'block';
-            ocrSelection.style.left = `${ocrStartX}px`;
-            ocrSelection.style.top = `${ocrStartY}px`;
-            ocrSelection.style.width = '0px';
-            ocrSelection.style.height = '0px';
-        }
-    });
-
-    ocrOverlay.addEventListener('mousemove', (e) => {
-        if (!isOcrSelecting || !ocrSelection) return;
-        const currentX = e.clientX;
-        const currentY = e.clientY;
-        
-        const left = Math.min(ocrStartX, currentX);
-        const top = Math.min(ocrStartY, currentY);
-        const width = Math.abs(currentX - ocrStartX);
-        const height = Math.abs(currentY - ocrStartY);
-        
-        ocrSelection.style.left = `${left}px`;
-        ocrSelection.style.top = `${top}px`;
-        ocrSelection.style.width = `${width}px`;
-        ocrSelection.style.height = `${height}px`;
-    });
-
-    ocrOverlay.addEventListener('mouseup', (e) => {
-        isOcrSelecting = false;
-        if (!ocrSelection) return;
-        
-        const rect = ocrSelection.getBoundingClientRect();
-        closeOcrOverlay();
-        
-        if (rect.width > 10 && rect.height > 10) {
-            cropAndProcessImage(rect);
-        }
-    });
-
-    // Отмена по Escape
-    document.addEventListener('keydown', function escapeListener(e) {
-        if (e.key === 'Escape' && ocrOverlay) {
-            closeOcrOverlay();
-            document.removeEventListener('keydown', escapeListener);
-        }
-    });
-}
-
-function closeOcrOverlay() {
-    if (ocrOverlay && ocrOverlay.parentNode) {
-        ocrOverlay.parentNode.removeChild(ocrOverlay);
-    }
-    ocrOverlay = null;
-    ocrSelection = null;
-}
-
-// 4. Вырезаем кусок изображения через Canvas
-function cropAndProcessImage(rect: DOMRect) {
-    const img = new Image();
-    img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        const dpr = window.devicePixelRatio || 1;
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
-        ctx.drawImage(img, rect.left * dpr, rect.top * dpr, rect.width * dpr, rect.height * dpr, 0, 0, canvas.width, canvas.height);
-
-        const croppedBase64 = canvas.toDataURL('image/jpeg', 0.9);
-        
-        currentSelection = { text: t('extractingText', 'Извлекаем текст…'), context: "", range: null, activeElement: null, start: null, end: null, isInput: false, imageUrl: croppedBase64 };
-        
+initializeOcrOverlay({
+    isEnabled: () => extensionEnabledOnSite,
+    onImage: (imageUrl, rect) => {
+        currentSelection = { text: t('extractingText', 'Извлекаем текст…'), context: '', range: null, activeElement: null, start: null, end: null, isInput: false, imageUrl };
         lastAnchorX = rect.left + rect.width / 2;
-        lastAnchorY = rect.bottom + 10; 
-        
+        lastAnchorY = rect.bottom + 10;
         closePopup();
         injectStyles();
         popupUI = createPopupElement();
         applyThemeToPopup(popupUI);
-
-        // 🔥 ИСПРАВЛЕНИЕ: ВОТ ОНА — ПОТЕРЯННАЯ СТРОКА (CSS-стили панели)
-        popupUI.style.cssText = `position: fixed !important; left: -9999px; top: -9999px; background: var(--bg-primary); z-index: 2147483647 !important; font-family: system-ui, sans-serif; font-size: 13px; color: var(--text-primary);`;
-        
-        // Поехали!
-        executeRequest('ocr'); 
-    };
-    img.src = capturedScreenshotDataUrl;
-}
+        popupUI.style.cssText = 'position:fixed!important;left:-9999px;top:-9999px;background:var(--bg-primary);z-index:2147483647!important;font-family:system-ui,sans-serif;font-size:13px;color:var(--text-primary);';
+        executeRequest('ocr');
+    },
+});

@@ -1,4 +1,7 @@
-const CURRENT_SETTINGS_SCHEMA = 3;
+import { normalizeSitePatterns } from './site-profiles';
+import type { StyleProfile } from './types';
+
+const CURRENT_SETTINGS_SCHEMA = 4;
 
 export async function migrateSettings(): Promise<void> {
     const stored = await chrome.storage.local.get(null);
@@ -37,6 +40,10 @@ export async function migrateSettings(): Promise<void> {
         if (!stored.usageStats || typeof stored.usageStats !== 'object') {
             updates.usageStats = { requests: 0, cacheHits: 0, failures: 0, totalLatencyMs: 0, byMode: {} };
         }
+    }
+    if (currentVersion < 4) {
+        const profiles = Array.isArray(stored.styleProfiles) ? stored.styleProfiles as StyleProfile[] : [];
+        updates.styleProfiles = profiles.map((profile) => ({ ...profile, sites: normalizeSitePatterns(profile.sites) })).slice(0, 8);
     }
     updates.settingsSchemaVersion = CURRENT_SETTINGS_SCHEMA;
     const migratedKeys = Object.keys(updates).filter((key) => key !== 'settingsSchemaVersion');

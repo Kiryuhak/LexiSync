@@ -10,11 +10,16 @@ export default defineConfig({
         permissions: [
             'storage',
             'activeTab',
+            'scripting',
             'contextMenus',
             'clipboardRead',
             'clipboardWrite',
         ],
-        host_permissions: ['https://api.mistral.ai/*'],
+        host_permissions: [
+            'https://api.mistral.ai/*',
+            ...(process.env.LEXISYNC_E2E_HOST_ACCESS === '1' ? ['https://example.com/*'] : []),
+        ],
+        optional_host_permissions: ['http://*/*', 'https://*/*'],
         commands: {
             spellcheck: {
                 suggested_key: { default: 'Alt+R', mac: 'Alt+R' },

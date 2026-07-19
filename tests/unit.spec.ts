@@ -2,6 +2,9 @@ import { expect, test } from '@playwright/test';
 import { detectLayoutDirection, fixKeyboardLayout } from '../src/keyboard-layout';
 import { buildMessages } from '../src/prompt-builder';
 import { escapeHTML, parseMarkdownToHTML } from '../src/markdown';
+import { readSsePayload } from '../src/mistral-client';
+import { matchesSite, normalizeSitePatterns, resolveStyleProfile } from '../src/site-profiles';
+import { getOriginPattern } from '../src/site-access';
 
 test('локально исправляет русскую и английскую раскладки', () => {
     expect(detectLayoutDirection('ghbdtn')).toBe('en-to-ru');
@@ -55,4 +58,27 @@ test('безопасно экранирует HTML в ответе модели'
 
 test('экранирует сохранённые пользовательские подписи', () => {
     expect(escapeHTML('<img src=x onerror=alert(1)>')).toBe('&lt;img src=x onerror=alert(1)&gt;');
+});
+
+test('устойчиво разбирает потоковые SSE-фрагменты Mistral', () => {
+    expect(readSsePayload('data: {"choices":[{"delta":{"content":"Привет"}}]}')).toBe('Привет');
+    expect(readSsePayload('data: {"choices":[{"delta":{"content":[{"text":"A"},{"text":"B"}]}}]}')).toBe('AB');
+    expect(readSsePayload('data: [DONE]')).toBeNull();
+    expect(readSsePayload('data: некорректный json')).toBeNull();
+});
+
+test('выбирает автоматический профиль для домена и поддоменов', () => {
+    const profiles = [
+        { id: 'default', name: 'По умолчанию', tone: 'custom', instruction: 'default', sites: [] },
+        { id: 'mail', name: 'Почта', tone: 'custom', instruction: 'mail', sites: ['example.com'] },
+    ];
+    expect(normalizeSitePatterns(['https://EXAMPLE.com/path', '*.example.com'])).toEqual(['example.com']);
+    expect(matchesSite('mail.example.com', 'example.com')).toBe(true);
+    expect(resolveStyleProfile(profiles, 'default', 'https://mail.example.com/inbox')?.id).toBe('mail');
+    expect(resolveStyleProfile(profiles, 'default', 'https://other.test')?.id).toBe('default');
+});
+
+test('ограничивает постоянные разрешения конкретным origin', () => {
+    expect(getOriginPattern('https://mail.example.com/inbox')).toBe('https://mail.example.com/*');
+    expect(getOriginPattern('chrome://settings')).toBeNull();
 });

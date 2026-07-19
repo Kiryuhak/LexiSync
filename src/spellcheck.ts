@@ -57,7 +57,7 @@ export function resolveCorrections(corrected: string, corrections: WordCorrectio
     return tokens.map((token, index) => rejected.has(index) ? originals.get(index) || token.value : token.value).join('');
 }
 
-export function renderSpellcheckDiff(original: string, corrected: string, rejected = new Set<number>()): string {
+function getSpellcheckDiffTokens(original: string, corrected: string, rejected = new Set<number>()): Array<{ value: string; tokenIndex: number; changed: boolean }> {
     const originalTokens = tokenizeText(original);
     const correctedTokens = tokenizeText(corrected);
     const originalSignificant = originalTokens.filter((token) => token.significant);
@@ -95,13 +95,33 @@ export function renderSpellcheckDiff(original: string, corrected: string, reject
         }
     }
 
-    return correctedTokens.map((token, tokenIndex) => {
-        const displayValue = rejected.has(tokenIndex)
-            ? correctionOriginals.get(tokenIndex) || token.value
-            : token.value;
-        const escaped = escapeHtml(displayValue).replace(/\n/g, '<br>');
-        return token.significant && !unchanged.has(tokenIndex) && !rejected.has(tokenIndex)
-            ? `<mark data-token-index="${tokenIndex}">${escaped}</mark>`
+    return correctedTokens.map((token, tokenIndex) => ({
+        tokenIndex,
+        value: rejected.has(tokenIndex) ? correctionOriginals.get(tokenIndex) || token.value : token.value,
+        changed: token.significant && !unchanged.has(tokenIndex) && !rejected.has(tokenIndex),
+    }));
+}
+
+export function renderSpellcheckDiff(original: string, corrected: string, rejected = new Set<number>()): string {
+    return getSpellcheckDiffTokens(original, corrected, rejected).map((token) => {
+        const escaped = escapeHtml(token.value).replace(/\n/g, '<br>');
+        return token.changed
+            ? `<mark data-token-index="${token.tokenIndex}">${escaped}</mark>`
             : escaped;
     }).join('');
+}
+
+export function renderSpellcheckDiffFragment(original: string, corrected: string, rejected = new Set<number>()): DocumentFragment {
+    const fragment = document.createDocumentFragment();
+    for (const token of getSpellcheckDiffTokens(original, corrected, rejected)) {
+        const container = token.changed ? document.createElement('mark') : document.createDocumentFragment();
+        if (token.changed) (container as HTMLElement).dataset.tokenIndex = String(token.tokenIndex);
+        const lines = token.value.split('\n');
+        lines.forEach((line, index) => {
+            container.appendChild(document.createTextNode(line));
+            if (index < lines.length - 1) container.appendChild(document.createElement('br'));
+        });
+        fragment.appendChild(container);
+    }
+    return fragment;
 }
