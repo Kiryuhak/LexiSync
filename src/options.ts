@@ -53,7 +53,7 @@ function renderAdaptiveStats(model: unknown): void {
     const stats = document.getElementById('adaptiveStats');
     const clearButton = document.getElementById('clearAdaptiveData') as HTMLButtonElement | null;
     if (!stats || !clearButton) return;
-    const candidate = model && typeof model === 'object' ? model as { words?: unknown; pairs?: unknown } : {};
+    const candidate = model && typeof model === 'object' ? (model as { words?: unknown; pairs?: unknown }) : {};
     const wordCount = candidate.words && typeof candidate.words === 'object' ? Object.keys(candidate.words).length : 0;
     const pairCount = candidate.pairs && typeof candidate.pairs === 'object' ? Object.keys(candidate.pairs).length : 0;
     const words = candidate.words && typeof candidate.words === 'object' ? Object.keys(candidate.words) : [];
@@ -95,7 +95,10 @@ function renderCustomCommands(): void {
         const actions = document.createElement('div');
         actions.className = 'command-card-actions';
         const edit = document.createElement('button');
-        edit.type = 'button'; edit.className = 'command-icon-button'; edit.title = t('edit', 'Изменить'); edit.textContent = '✎';
+        edit.type = 'button';
+        edit.className = 'command-icon-button';
+        edit.title = t('edit', 'Изменить');
+        edit.textContent = '✎';
         edit.setAttribute('aria-label', `${edit.title}: ${command.name}`);
         edit.onclick = () => {
             (document.getElementById('customCommandId') as HTMLInputElement).value = command.id;
@@ -104,7 +107,10 @@ function renderCustomCommands(): void {
             (document.getElementById('cancelCommandEdit') as HTMLButtonElement).hidden = false;
         };
         const remove = document.createElement('button');
-        remove.type = 'button'; remove.className = 'command-icon-button'; remove.title = t('delete', 'Удалить'); remove.textContent = '×';
+        remove.type = 'button';
+        remove.className = 'command-icon-button';
+        remove.title = t('delete', 'Удалить');
+        remove.textContent = '×';
         remove.setAttribute('aria-label', `${remove.title}: ${command.name}`);
         remove.onclick = async () => {
             customCommands = customCommands.filter((item) => item.id !== command.id);
@@ -123,7 +129,8 @@ function renderUsageStats(stats: UsageStats): void {
     const latency = document.getElementById('usageLatency');
     if (requests) requests.textContent = String(stats.requests);
     if (hits) hits.textContent = String(stats.cacheHits);
-    if (latency) latency.textContent = stats.requests ? `${(stats.totalLatencyMs / stats.requests / 1000).toFixed(1)} с` : '0 с';
+    if (latency)
+        latency.textContent = stats.requests ? `${(stats.totalLatencyMs / stats.requests / 1000).toFixed(1)} с` : '0 с';
 }
 
 function setupCustomCommands(): void {
@@ -139,7 +146,11 @@ function setupCustomCommands(): void {
         if (!name || !prompt) return;
         if (!idInput.value && customCommands.length >= 8) {
             const status = document.getElementById('status');
-            if (status) { status.textContent = t('commandLimit', 'Можно создать не более 8 команд.'); status.style.color = '#d97706'; status.style.display = 'block'; }
+            if (status) {
+                status.textContent = t('commandLimit', 'Можно создать не более 8 команд.');
+                status.style.color = '#d97706';
+                status.style.display = 'block';
+            }
             return;
         }
         const command: EditableCustomCommand = { id: idInput.value || crypto.randomUUID(), name, prompt };
@@ -199,7 +210,10 @@ async function setupOnboarding(): Promise<void> {
     };
     nextButton.addEventListener('click', () => {
         if (activeStep >= steps.length - 1) void complete();
-        else { activeStep++; render(); }
+        else {
+            activeStep++;
+            render();
+        }
     });
     skipButton.addEventListener('click', () => void complete());
     onboarding.addEventListener('keydown', (event) => {
@@ -209,13 +223,19 @@ async function setupOnboarding(): Promise<void> {
             return;
         }
         if (event.key !== 'Tab') return;
-        const focusable = [...onboarding.querySelectorAll<HTMLElement>('button, input, select, textarea, a[href]')]
-            .filter((element) => !element.hidden && !element.hasAttribute('disabled'));
+        const focusable = [
+            ...onboarding.querySelectorAll<HTMLElement>('button, input, select, textarea, a[href]'),
+        ].filter((element) => !element.hidden && !element.hasAttribute('disabled'));
         if (!focusable.length) return;
         const first = focusable[0];
         const last = focusable[focusable.length - 1];
-        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+        if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+        }
     });
     onboarding.hidden = false;
     render();
@@ -225,11 +245,11 @@ async function setupOnboarding(): Promise<void> {
 async function saveOptions(): Promise<void> {
     const apiKeyInput = document.getElementById('apiKey') as HTMLInputElement;
     const toneSelect = document.getElementById('toneSelect') as HTMLSelectElement;
-    const themeSelect = document.getElementById('themeSelect') as HTMLSelectElement;    
+    const themeSelect = document.getElementById('themeSelect') as HTMLSelectElement;
     const interfaceScaleInput = document.getElementById('interfaceScale') as HTMLInputElement;
     const adaptiveSuggestionsInput = document.getElementById('adaptiveSuggestionsEnabled') as HTMLInputElement;
     const adaptiveLearningInput = document.getElementById('adaptiveLearningEnabled') as HTMLInputElement;
-    const searchSelect = document.getElementById('searchEngine') as HTMLSelectElement; 
+    const searchSelect = document.getElementById('searchEngine') as HTMLSelectElement;
     const sendPageContextInput = document.getElementById('sendPageContext') as HTMLInputElement;
     const historyEnabledInput = document.getElementById('historyEnabled') as HTMLInputElement;
     const historyRetentionSelect = document.getElementById('historyRetentionDays') as HTMLSelectElement;
@@ -237,9 +257,9 @@ async function saveOptions(): Promise<void> {
     const personalDictionaryInput = document.getElementById('personalDictionary') as HTMLTextAreaElement;
     const aiModeSelect = document.getElementById('aiMode') as HTMLSelectElement;
     const glossaryInput = document.getElementById('glossary') as HTMLTextAreaElement;
-    const statusDiv = document.getElementById('status') as HTMLElement; 
+    const statusDiv = document.getElementById('status') as HTMLElement;
     const saveBtn = document.getElementById('saveBtn') as HTMLButtonElement;
-    
+
     const apiKey = apiKeyInput.value.trim();
 
     const originalBtnText = saveBtn.textContent;
@@ -257,10 +277,20 @@ async function saveOptions(): Promise<void> {
         sendPageContext: sendPageContextInput.checked,
         historyEnabled: historyEnabledInput.checked,
         historyRetentionDays: Number(historyRetentionSelect.value),
-        disabledSites: disabledSitesInput.value.split(/\r?\n/).map((site) => site.trim()).filter(Boolean),
-        personalDictionary: personalDictionaryInput.value.split(/\r?\n/).map((word) => word.trim()).filter(Boolean),
+        disabledSites: disabledSitesInput.value
+            .split(/\r?\n/)
+            .map((site) => site.trim())
+            .filter(Boolean),
+        personalDictionary: personalDictionaryInput.value
+            .split(/\r?\n/)
+            .map((word) => word.trim())
+            .filter(Boolean),
         aiMode: aiModeSelect.value === 'fast' ? 'fast' : 'quality',
-        glossary: glossaryInput.value.split(/\r?\n/).map((entry) => entry.trim()).filter(Boolean).slice(0, 200),
+        glossary: glossaryInput.value
+            .split(/\r?\n/)
+            .map((entry) => entry.trim())
+            .filter(Boolean)
+            .slice(0, 200),
     });
 
     let apiKeyStatus = '';
@@ -268,7 +298,7 @@ async function saveOptions(): Promise<void> {
         saveBtn.textContent = t('checkingKey', 'Проверка ключа…');
         try {
             const response = await fetch('https://api.mistral.ai/v1/models', {
-                headers: { 'Authorization': `Bearer ${apiKey}` }
+                headers: { Authorization: `Bearer ${apiKey}` },
             });
             if (response.ok) {
                 await chrome.storage.local.set({ mistralApiKey: apiKey });
@@ -288,7 +318,9 @@ async function saveOptions(): Promise<void> {
     statusDiv.textContent = apiKeyStatus || t('saveSuccess', '✓ Настройки успешно сохранены!');
     statusDiv.style.color = apiKeyStatus ? '#d97706' : '#10b981';
     statusDiv.style.display = 'block';
-    window.setTimeout(() => { statusDiv.style.display = 'none'; }, 3500);
+    window.setTimeout(() => {
+        statusDiv.style.display = 'none';
+    }, 3500);
     saveBtn.textContent = originalBtnText;
     saveBtn.style.opacity = '1';
     saveBtn.disabled = false;
@@ -302,7 +334,7 @@ async function restoreOptions(): Promise<void> {
     const interfaceScaleInput = document.getElementById('interfaceScale') as HTMLInputElement;
     const adaptiveSuggestionsInput = document.getElementById('adaptiveSuggestionsEnabled') as HTMLInputElement;
     const adaptiveLearningInput = document.getElementById('adaptiveLearningEnabled') as HTMLInputElement;
-    const searchSelect = document.getElementById('searchEngine') as HTMLSelectElement; 
+    const searchSelect = document.getElementById('searchEngine') as HTMLSelectElement;
     const sendPageContextInput = document.getElementById('sendPageContext') as HTMLInputElement;
     const historyEnabledInput = document.getElementById('historyEnabled') as HTMLInputElement;
     const historyRetentionSelect = document.getElementById('historyRetentionDays') as HTMLSelectElement;
@@ -310,7 +342,7 @@ async function restoreOptions(): Promise<void> {
     const personalDictionaryInput = document.getElementById('personalDictionary') as HTMLTextAreaElement;
     const aiModeSelect = document.getElementById('aiMode') as HTMLSelectElement;
     const glossaryInput = document.getElementById('glossary') as HTMLTextAreaElement;
-    
+
     const items = await chrome.storage.local.get({
         mistralApiKey: '',
         selectedTone: 'business',
@@ -332,7 +364,7 @@ async function restoreOptions(): Promise<void> {
         activeStyleProfileId: '',
         usageStats: EMPTY_USAGE_STATS,
     });
-    
+
     apiKeyInput.value = items.mistralApiKey as string;
     restoredApiKey = apiKeyInput.value;
     toneSelect.value = items.selectedTone as string;
@@ -340,7 +372,7 @@ async function restoreOptions(): Promise<void> {
     interfaceScaleInput.value = String(clampInterfaceScale(Number(items.interfaceScale) || 90));
     adaptiveSuggestionsInput.checked = items.adaptiveSuggestionsEnabled === true;
     adaptiveLearningInput.checked = items.adaptiveLearningEnabled !== false;
-    searchSelect.value = items.searchEngine as string; 
+    searchSelect.value = items.searchEngine as string;
     sendPageContextInput.checked = items.sendPageContext === true;
     historyEnabledInput.checked = items.historyEnabled !== false;
     historyRetentionSelect.value = String(items.historyRetentionDays || 30);
@@ -349,7 +381,11 @@ async function restoreOptions(): Promise<void> {
     aiModeSelect.value = items.aiMode === 'fast' ? 'fast' : 'quality';
     glossaryInput.value = Array.isArray(items.glossary) ? items.glossary.join('\n') : '';
     customCommands = Array.isArray(items.customCommands)
-        ? items.customCommands.filter((item: unknown): item is EditableCustomCommand => Boolean(item && typeof item === 'object' && 'id' in item && 'name' in item && 'prompt' in item)).slice(0, 8)
+        ? items.customCommands
+              .filter((item: unknown): item is EditableCustomCommand =>
+                  Boolean(item && typeof item === 'object' && 'id' in item && 'name' in item && 'prompt' in item),
+              )
+              .slice(0, 8)
         : [];
     renderCustomCommands();
     restoreStyleProfileSettings(items.styleProfiles, items.activeStyleProfileId);
@@ -363,7 +399,7 @@ document.addEventListener('DOMContentLoaded', () => {
     localizeDocument();
     void restoreOptions();
     void setupOnboarding();
-    
+
     const saveBtn = document.getElementById('saveBtn') as HTMLButtonElement | null;
     if (saveBtn) saveBtn.addEventListener('click', saveOptions);
 
@@ -391,10 +427,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const clearAdaptiveDataButton = document.getElementById('clearAdaptiveData') as HTMLButtonElement | null;
     clearAdaptiveDataButton?.addEventListener('click', async () => {
-        const confirmed = window.confirm(t('clearAdaptiveConfirm', 'Удалить все локально изученные слова и словосочетания?'));
+        const confirmed = window.confirm(
+            t('clearAdaptiveConfirm', 'Удалить все локально изученные слова и словосочетания?'),
+        );
         if (!confirmed) return;
         const emptyModel = { version: 2, words: {}, pairs: {}, rejections: {} };
-        await chrome.storage.local.set({ adaptiveLanguageModel: emptyModel, adaptiveBlockedWords: [] });
+        const response = await chrome.runtime.sendMessage({
+            action: 'storageMutation',
+            domain: 'adaptive',
+            mutation: 'clear',
+            payload: {},
+        });
+        if (response?.ok !== true) throw new Error(response?.error || 'ADAPTIVE_CLEAR_FAILED');
         renderAdaptiveStats(emptyModel);
     });
 
@@ -422,16 +466,23 @@ document.addEventListener('DOMContentLoaded', () => {
             await importPortableSettings(JSON.parse(await file.text()));
             await restoreOptions();
             const status = document.getElementById('status');
-            if (status) { status.textContent = t('settingsImported', 'Настройки импортированы.'); status.style.display = 'block'; }
+            if (status) {
+                status.textContent = t('settingsImported', 'Настройки импортированы.');
+                status.style.display = 'block';
+            }
         } catch (error) {
             const status = document.getElementById('status');
             const code = error instanceof Error ? error.message : '';
-            const message = code === 'INVALID_SETTINGS_FILE'
-                ? t('invalidSettingsFile', 'Некорректный файл настроек.')
-                : code === 'UNSUPPORTED_SETTINGS_FORMAT'
-                    ? t('unsupportedSettingsFormat', 'Формат файла настроек не поддерживается.')
-                    : code || t('importFailed', 'Не удалось импортировать настройки.');
-            if (status) { status.textContent = message; status.style.display = 'block'; }
+            const message =
+                code === 'INVALID_SETTINGS_FILE'
+                    ? t('invalidSettingsFile', 'Некорректный файл настроек.')
+                    : code === 'UNSUPPORTED_SETTINGS_FORMAT'
+                      ? t('unsupportedSettingsFormat', 'Формат файла настроек не поддерживается.')
+                      : code || t('importFailed', 'Не удалось импортировать настройки.');
+            if (status) {
+                status.textContent = message;
+                status.style.display = 'block';
+            }
         } finally {
             importFile.value = '';
         }
@@ -453,7 +504,7 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleBtn.addEventListener('click', () => {
             const isPassword = apiKeyInput.getAttribute('type') === 'password';
             apiKeyInput.setAttribute('type', isPassword ? 'text' : 'password');
-            
+
             // Переключаем видимость SVG-иконок
             if (isPassword) {
                 eyeOpen.style.display = 'none';

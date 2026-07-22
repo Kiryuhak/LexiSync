@@ -1,5 +1,8 @@
 import { defineConfig } from 'wxt';
 
+const includeE2eHostAccess = process.env.LEXISYNC_E2E_HOST_ACCESS === '1';
+const WEB_ORIGINS = ['http://*/*', 'https://*/*'];
+
 export default defineConfig({
     manifestVersion: 3,
     targetBrowsers: ['chrome', 'firefox'],
@@ -7,17 +10,9 @@ export default defineConfig({
         name: '__MSG_extName__',
         description: '__MSG_extDesc__',
         default_locale: 'ru',
-        permissions: [
-            'storage',
-            'activeTab',
-            'scripting',
-            'contextMenus',
-            'clipboardRead',
-            'clipboardWrite',
-        ],
-        host_permissions: [
-            'https://api.mistral.ai/*',
-        ],
+        permissions: ['storage', 'activeTab', 'scripting', 'contextMenus'],
+        host_permissions: ['https://api.mistral.ai/*', ...(includeE2eHostAccess ? WEB_ORIGINS : [])],
+        optional_host_permissions: includeE2eHostAccess ? [] : WEB_ORIGINS,
         commands: {
             spellcheck: {
                 suggested_key: { default: 'Alt+R', mac: 'Alt+R' },
@@ -49,15 +44,18 @@ export default defineConfig({
             },
             default_title: 'LexiSync',
         },
-        browser_specific_settings: browser === 'firefox' ? {
-            gecko: {
-                id: 'lexisync@kiryuhak.dev',
-                strict_min_version: '142.0',
-                data_collection_permissions: {
-                    required: ['websiteContent', 'browsingActivity'],
-                },
-            },
-        } : undefined,
+        browser_specific_settings:
+            browser === 'firefox'
+                ? {
+                      gecko: {
+                          id: 'lexisync@kiryuhak.dev',
+                          strict_min_version: '142.0',
+                          data_collection_permissions: {
+                              required: ['websiteContent', 'browsingActivity'],
+                          },
+                      },
+                  }
+                : undefined,
     }),
     zip: {
         artifactTemplate: 'LexiSync-v{{version}}-{{browser}}.zip',

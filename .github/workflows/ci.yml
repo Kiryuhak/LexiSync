@@ -1,55 +1,58 @@
 name: Проверка LexiSync
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-  workflow_dispatch:
+    push:
+        branches: [main]
+    pull_request:
+    workflow_dispatch:
 
 jobs:
-  build-and-test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - name: Получить код
-        uses: actions/checkout@v4
+    build-and-test:
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+        steps:
+            - name: Получить код
+              uses: actions/checkout@v4
 
-      - name: Установить Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
+            - name: Установить Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: npm
 
-      - name: Установить зависимости
-        run: npm ci
+            - name: Установить зависимости
+              run: npm ci
 
-      - name: Установить тестовые браузеры
-        run: npx playwright install --with-deps chromium firefox
+            - name: Установить тестовые браузеры
+              run: npx playwright install --with-deps chromium firefox
 
-      - name: Проверить типы
-        run: npm run typecheck
+            - name: Проверить типы
+              run: npm run typecheck
 
-      - name: Запустить модульные тесты
-        run: npm run test:unit
+            - name: Проверить код линтером
+              run: npm run lint
 
-      - name: Собрать Chrome и Firefox
-        run: npm run build
+            - name: Запустить модульные тесты
+              run: npm run test:coverage
 
-      - name: Проверить Chrome
-        run: xvfb-run -a npm run test:e2e
+            - name: Собрать Chrome и Firefox
+              run: npm run build
 
-      - name: Упаковать и проверить Firefox
-        run: npm run test:firefox
+            - name: Проверить Chrome
+              run: xvfb-run -a npm run test:e2e
 
-      - name: Проверить требования Firefox Add-ons
-        run: npm run lint:firefox
+            - name: Упаковать и проверить Firefox
+              run: npm run test:firefox
 
-      - name: Создать архивы расширения
-        run: npm run zip
+            - name: Проверить требования Firefox Add-ons
+              run: npm run lint:firefox
 
-      - name: Сохранить сборки
-        uses: actions/upload-artifact@v4
-        with:
-          name: lexisync-builds
-          path: .output/*.zip
-          retention-days: 14
+            - name: Создать архивы расширения
+              run: npm run zip
+
+            - name: Сохранить сборки
+              uses: actions/upload-artifact@v4
+              with:
+                  name: lexisync-builds
+                  path: .output/*.zip
+                  retention-days: 14

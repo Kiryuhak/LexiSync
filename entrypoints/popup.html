@@ -1,366 +1,593 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>LexiSync</title>
-    <style>
-        :root {
-            color-scheme: light;
-            --canvas: #eef2ff;
-            --glass: rgba(255, 255, 255, 0.68);
-            --glass-strong: rgba(255, 255, 255, 0.82);
-            --glass-hover: rgba(255, 255, 255, 0.94);
-            --text-main: #182033;
-            --text-muted: #69728a;
-            --primary: #6957d9;
-            --primary-soft: rgba(105, 87, 217, 0.12);
-            --cyan: #18a8bd;
-            --cyan-soft: rgba(24, 168, 189, 0.12);
-            --stroke: rgba(255, 255, 255, 0.76);
-            --stroke-subtle: rgba(93, 103, 138, 0.12);
-            --shadow: 0 18px 48px rgba(50, 52, 96, 0.18), 0 2px 8px rgba(47, 48, 73, 0.08);
-            --focus: rgba(105, 87, 217, 0.3);
-        }
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>LexiSync</title>
+        <style>
+            :root {
+                color-scheme: light;
+                --canvas: #eef2ff;
+                --glass: rgba(255, 255, 255, 0.68);
+                --glass-strong: rgba(255, 255, 255, 0.82);
+                --glass-hover: rgba(255, 255, 255, 0.94);
+                --text-main: #182033;
+                --text-muted: #69728a;
+                --primary: #6957d9;
+                --primary-soft: rgba(105, 87, 217, 0.12);
+                --cyan: #18a8bd;
+                --cyan-soft: rgba(24, 168, 189, 0.12);
+                --stroke: rgba(255, 255, 255, 0.76);
+                --stroke-subtle: rgba(93, 103, 138, 0.12);
+                --shadow: 0 18px 48px rgba(50, 52, 96, 0.18), 0 2px 8px rgba(47, 48, 73, 0.08);
+                --focus: rgba(105, 87, 217, 0.3);
+            }
 
-        [data-theme="dark"] {
-            color-scheme: dark;
-            --canvas: #111425;
-            --glass: rgba(29, 33, 54, 0.72);
-            --glass-strong: rgba(35, 39, 63, 0.88);
-            --glass-hover: rgba(48, 53, 82, 0.96);
-            --text-main: #f4f5fb;
-            --text-muted: #aeb6cd;
-            --primary: #b8a9ff;
-            --primary-soft: rgba(184, 169, 255, 0.15);
-            --cyan: #6dd8e6;
-            --cyan-soft: rgba(109, 216, 230, 0.14);
-            --stroke: rgba(255, 255, 255, 0.13);
-            --stroke-subtle: rgba(255, 255, 255, 0.08);
-            --shadow: 0 20px 50px rgba(0, 0, 0, 0.42), 0 2px 8px rgba(0, 0, 0, 0.24);
-            --focus: rgba(184, 169, 255, 0.38);
-        }
+            [data-theme='dark'] {
+                color-scheme: dark;
+                --canvas: #111425;
+                --glass: rgba(29, 33, 54, 0.72);
+                --glass-strong: rgba(35, 39, 63, 0.88);
+                --glass-hover: rgba(48, 53, 82, 0.96);
+                --text-main: #f4f5fb;
+                --text-muted: #aeb6cd;
+                --primary: #b8a9ff;
+                --primary-soft: rgba(184, 169, 255, 0.15);
+                --cyan: #6dd8e6;
+                --cyan-soft: rgba(109, 216, 230, 0.14);
+                --stroke: rgba(255, 255, 255, 0.13);
+                --stroke-subtle: rgba(255, 255, 255, 0.08);
+                --shadow: 0 20px 50px rgba(0, 0, 0, 0.42), 0 2px 8px rgba(0, 0, 0, 0.24);
+                --focus: rgba(184, 169, 255, 0.38);
+            }
 
-        * { box-sizing: border-box; }
+            * {
+                box-sizing: border-box;
+            }
 
-        html { background: transparent; }
+            html {
+                background: transparent;
+            }
 
-        body {
-            width: 280px;
-            margin: 0;
-            padding: 8px;
-            overflow: hidden;
-            color: var(--text-main);
-            background:
-                radial-gradient(circle at 8% 4%, rgba(125, 101, 255, 0.52), transparent 38%),
-                radial-gradient(circle at 96% 94%, rgba(45, 201, 214, 0.42), transparent 38%),
-                var(--canvas);
-            font: 14px/1.35 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        }
+            body {
+                width: 280px;
+                margin: 0;
+                padding: 8px;
+                overflow: hidden;
+                color: var(--text-main);
+                background:
+                    radial-gradient(circle at 8% 4%, rgba(125, 101, 255, 0.52), transparent 38%),
+                    radial-gradient(circle at 96% 94%, rgba(45, 201, 214, 0.42), transparent 38%), var(--canvas);
+                font:
+                    14px/1.35 Inter,
+                    ui-sans-serif,
+                    system-ui,
+                    -apple-system,
+                    BlinkMacSystemFont,
+                    'Segoe UI',
+                    sans-serif;
+            }
 
-        body::before,
-        body::after {
-            position: fixed;
-            content: "";
-            pointer-events: none;
-            border-radius: 999px;
-            filter: blur(1px);
-            opacity: 0.72;
-        }
+            body::before,
+            body::after {
+                position: fixed;
+                content: '';
+                pointer-events: none;
+                border-radius: 999px;
+                filter: blur(1px);
+                opacity: 0.72;
+            }
 
-        body::before {
-            top: -24px;
-            right: 24px;
-            width: 74px;
-            height: 74px;
-            background: rgba(255, 255, 255, 0.28);
-        }
+            body::before {
+                top: -24px;
+                right: 24px;
+                width: 74px;
+                height: 74px;
+                background: rgba(255, 255, 255, 0.28);
+            }
 
-        body::after {
-            bottom: 12px;
-            left: -22px;
-            width: 62px;
-            height: 62px;
-            background: rgba(156, 126, 255, 0.22);
-        }
+            body::after {
+                bottom: 12px;
+                left: -22px;
+                width: 62px;
+                height: 62px;
+                background: rgba(156, 126, 255, 0.22);
+            }
 
-        .glass-panel {
-            position: relative;
-            z-index: 1;
-            padding: 14px 14px 10px;
-            overflow: hidden;
-            background: var(--glass);
-            border: 1px solid var(--stroke);
-            border-radius: 22px;
-            box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.18);
-            backdrop-filter: blur(22px) saturate(145%);
-            -webkit-backdrop-filter: blur(22px) saturate(145%);
-        }
+            .glass-panel {
+                position: relative;
+                z-index: 1;
+                padding: 14px 14px 10px;
+                overflow: hidden;
+                background: var(--glass);
+                border: 1px solid var(--stroke);
+                border-radius: 22px;
+                box-shadow:
+                    var(--shadow),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+                backdrop-filter: blur(22px) saturate(145%);
+                -webkit-backdrop-filter: blur(22px) saturate(145%);
+            }
 
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 11px;
-            margin: 1px 2px 14px;
-        }
+            .brand {
+                display: flex;
+                align-items: center;
+                gap: 11px;
+                margin: 1px 2px 14px;
+            }
 
-        .brand-icon {
-            position: relative;
-            display: grid;
-            flex: 0 0 auto;
-            width: 38px;
-            height: 38px;
-            place-items: center;
-            overflow: hidden;
-            background: linear-gradient(145deg, rgba(255,255,255,.92), rgba(255,255,255,.48));
-            border: 1px solid var(--stroke);
-            border-radius: 13px;
-            box-shadow: 0 7px 18px rgba(75, 62, 157, 0.18);
-        }
+            .brand-icon {
+                position: relative;
+                display: grid;
+                flex: 0 0 auto;
+                width: 38px;
+                height: 38px;
+                place-items: center;
+                overflow: hidden;
+                background: linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.48));
+                border: 1px solid var(--stroke);
+                border-radius: 13px;
+                box-shadow: 0 7px 18px rgba(75, 62, 157, 0.18);
+            }
 
-        .brand-icon::after {
-            position: absolute;
-            inset: 1px 4px auto;
-            height: 38%;
-            content: "";
-            background: linear-gradient(rgba(255,255,255,.55), transparent);
-            border-radius: 999px;
-        }
+            .brand-icon::after {
+                position: absolute;
+                inset: 1px 4px auto;
+                height: 38%;
+                content: '';
+                background: linear-gradient(rgba(255, 255, 255, 0.55), transparent);
+                border-radius: 999px;
+            }
 
-        .brand-icon img {
-            position: relative;
-            z-index: 1;
-            display: block;
-            width: 27px;
-            height: 27px;
-            border-radius: 8px;
-        }
+            .brand-icon img {
+                position: relative;
+                z-index: 1;
+                display: block;
+                width: 27px;
+                height: 27px;
+                border-radius: 8px;
+            }
 
-        .brand-copy { min-width: 0; }
+            .brand-copy {
+                min-width: 0;
+            }
 
-        .brand-title {
-            margin: 0;
-            font-size: 15px;
-            font-weight: 730;
-            letter-spacing: -0.01em;
-        }
+            .brand-title {
+                margin: 0;
+                font-size: 15px;
+                font-weight: 730;
+                letter-spacing: -0.01em;
+            }
 
-        .brand-subtitle {
-            margin: 2px 0 0;
-            color: var(--text-muted);
-            font-size: 11.5px;
-        }
+            .brand-subtitle {
+                margin: 2px 0 0;
+                color: var(--text-muted);
+                font-size: 11.5px;
+            }
 
-        .status-dot {
-            display: inline-block;
-            width: 6px;
-            height: 6px;
-            margin-right: 5px;
-            vertical-align: 1px;
-            background: #32c98b;
-            border-radius: 50%;
-            box-shadow: 0 0 0 3px rgba(50, 201, 139, 0.13);
-        }
+            .status-dot {
+                display: inline-block;
+                width: 6px;
+                height: 6px;
+                margin-right: 5px;
+                vertical-align: 1px;
+                background: #32c98b;
+                border-radius: 50%;
+                box-shadow: 0 0 0 3px rgba(50, 201, 139, 0.13);
+            }
 
-        .actions {
-            display: grid;
-            gap: 7px;
-        }
+            .actions {
+                display: grid;
+                gap: 7px;
+            }
 
-        .action {
-            display: grid;
-            grid-template-columns: 35px 1fr 18px;
-            gap: 10px;
-            align-items: center;
-            width: 100%;
-            min-height: 52px;
-            padding: 8px 10px;
-            color: var(--text-main);
-            text-align: left;
-            background: var(--glass-strong);
-            border: 1px solid var(--stroke-subtle);
-            border-radius: 15px;
-            cursor: pointer;
-            font: inherit;
-            transition: transform 160ms ease, background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
-        }
+            .action {
+                display: grid;
+                grid-template-columns: 35px 1fr 18px;
+                gap: 10px;
+                align-items: center;
+                width: 100%;
+                min-height: 52px;
+                padding: 8px 10px;
+                color: var(--text-main);
+                text-align: left;
+                background: var(--glass-strong);
+                border: 1px solid var(--stroke-subtle);
+                border-radius: 15px;
+                cursor: pointer;
+                font: inherit;
+                transition:
+                    transform 160ms ease,
+                    background 160ms ease,
+                    border-color 160ms ease,
+                    box-shadow 160ms ease;
+            }
 
-        .action:hover {
-            background: var(--glass-hover);
-            border-color: var(--stroke);
-            box-shadow: 0 7px 18px rgba(41, 44, 75, 0.1);
-            transform: translateY(-1px);
-        }
+            .action:hover {
+                background: var(--glass-hover);
+                border-color: var(--stroke);
+                box-shadow: 0 7px 18px rgba(41, 44, 75, 0.1);
+                transform: translateY(-1px);
+            }
 
-        .action:active { transform: scale(0.985); }
+            .action:active {
+                transform: scale(0.985);
+            }
 
-        .action:focus-visible {
-            outline: 3px solid var(--focus);
-            outline-offset: 1px;
-        }
+            .action:focus-visible {
+                outline: 3px solid var(--focus);
+                outline-offset: 1px;
+            }
 
-        .action-icon {
-            display: grid;
-            width: 35px;
-            height: 35px;
-            place-items: center;
-            color: var(--primary);
-            background: var(--primary-soft);
-            border-radius: 11px;
-        }
+            .action-icon {
+                display: grid;
+                width: 35px;
+                height: 35px;
+                place-items: center;
+                color: var(--primary);
+                background: var(--primary-soft);
+                border-radius: 11px;
+            }
 
-        .action:nth-child(2) .action-icon {
-            color: var(--cyan);
-            background: var(--cyan-soft);
-        }
+            .action:nth-child(2) .action-icon {
+                color: var(--cyan);
+                background: var(--cyan-soft);
+            }
 
-        .action-copy { min-width: 0; }
+            .action-copy {
+                min-width: 0;
+            }
 
-        .action-title {
-            display: block;
-            font-size: 13px;
-            font-weight: 650;
-        }
+            .action-title {
+                display: block;
+                font-size: 13px;
+                font-weight: 650;
+            }
 
-        .action-note {
-            display: block;
-            margin-top: 2px;
-            overflow: hidden;
-            color: var(--text-muted);
-            font-size: 10.5px;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
+            .action-note {
+                display: block;
+                margin-top: 2px;
+                overflow: hidden;
+                color: var(--text-muted);
+                font-size: 10.5px;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
 
-        .chevron {
-            color: var(--text-muted);
-            opacity: 0.7;
-            transition: transform 160ms ease;
-        }
+            .chevron {
+                color: var(--text-muted);
+                opacity: 0.7;
+                transition: transform 160ms ease;
+            }
 
-        .action:hover .chevron { transform: translateX(2px); }
+            .action:hover .chevron {
+                transform: translateX(2px);
+            }
 
-        .site-card { margin-top: 8px; overflow: hidden; background: var(--glass-strong); border: 1px solid var(--stroke-subtle); border-radius: 14px; }
-        .site-card[hidden] { display: none; }
-        .site-summary { display: grid; grid-template-columns: 28px 1fr 16px; gap: 8px; align-items: center; width: 100%; padding: 7px 9px; color: var(--text-main); text-align: left; background: transparent; border: 0; cursor: pointer; font: inherit; }
-        .site-summary:hover { background: var(--glass-hover); }
-        .site-globe { display: grid; width: 28px; height: 28px; place-items: center; color: var(--cyan); background: var(--cyan-soft); border-radius: 9px; }
-        .site-copy { min-width: 0; }
-        .site-label { display: block; font-size: 11.5px; font-weight: 650; }
-        .site-domain { display: block; margin-top: 1px; overflow: hidden; color: var(--text-muted); font-size: 9.5px; text-overflow: ellipsis; white-space: nowrap; }
-        .site-card.is-open .site-chevron { transform: rotate(180deg); }
-        .site-panel { display: none; padding: 2px 9px 8px; border-top: 1px solid var(--stroke-subtle); }
-        .site-card.is-open .site-panel { display: grid; }
-        .site-toggle { display: flex; min-height: 31px; align-items: center; justify-content: space-between; gap: 10px; color: var(--text-main); cursor: pointer; font-size: 10.5px; }
-        .site-toggle input { position: absolute; width: 1px; height: 1px; opacity: 0; }
-        .switch { position: relative; width: 30px; height: 17px; flex: 0 0 auto; background: rgba(105,114,138,.28); border-radius: 999px; transition: background .16s ease; }
-        .switch::after { position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; content: ""; background: #fff; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,.2); transition: transform .16s ease; }
-        .site-toggle input:checked + .switch { background: var(--primary); }
-        .site-toggle input:checked + .switch::after { transform: translateX(13px); }
-        .site-toggle input:focus-visible + .switch { outline: 3px solid var(--focus); outline-offset: 1px; }
+            .site-card {
+                margin-top: 8px;
+                overflow: hidden;
+                background: var(--glass-strong);
+                border: 1px solid var(--stroke-subtle);
+                border-radius: 14px;
+            }
+            .site-card[hidden] {
+                display: none;
+            }
+            .site-summary {
+                display: grid;
+                grid-template-columns: 28px 1fr 16px;
+                gap: 8px;
+                align-items: center;
+                width: 100%;
+                padding: 7px 9px;
+                color: var(--text-main);
+                text-align: left;
+                background: transparent;
+                border: 0;
+                cursor: pointer;
+                font: inherit;
+            }
+            .site-summary:hover {
+                background: var(--glass-hover);
+            }
+            .site-globe {
+                display: grid;
+                width: 28px;
+                height: 28px;
+                place-items: center;
+                color: var(--cyan);
+                background: var(--cyan-soft);
+                border-radius: 9px;
+            }
+            .site-copy {
+                min-width: 0;
+            }
+            .site-label {
+                display: block;
+                font-size: 11.5px;
+                font-weight: 650;
+            }
+            .site-domain {
+                display: block;
+                margin-top: 1px;
+                overflow: hidden;
+                color: var(--text-muted);
+                font-size: 9.5px;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .site-card.is-open .site-chevron {
+                transform: rotate(180deg);
+            }
+            .site-panel {
+                display: none;
+                padding: 2px 9px 8px;
+                border-top: 1px solid var(--stroke-subtle);
+            }
+            .site-card.is-open .site-panel {
+                display: grid;
+            }
+            .site-toggle {
+                display: flex;
+                min-height: 31px;
+                align-items: center;
+                justify-content: space-between;
+                gap: 10px;
+                color: var(--text-main);
+                cursor: pointer;
+                font-size: 10.5px;
+            }
+            .site-toggle input {
+                position: absolute;
+                width: 1px;
+                height: 1px;
+                opacity: 0;
+            }
+            .switch {
+                position: relative;
+                width: 30px;
+                height: 17px;
+                flex: 0 0 auto;
+                background: rgba(105, 114, 138, 0.28);
+                border-radius: 999px;
+                transition: background 0.16s ease;
+            }
+            .switch::after {
+                position: absolute;
+                top: 2px;
+                left: 2px;
+                width: 13px;
+                height: 13px;
+                content: '';
+                background: #fff;
+                border-radius: 50%;
+                box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+                transition: transform 0.16s ease;
+            }
+            .site-toggle input:checked + .switch {
+                background: var(--primary);
+            }
+            .site-toggle input:checked + .switch::after {
+                transform: translateX(13px);
+            }
+            .site-toggle input:focus-visible + .switch {
+                outline: 3px solid var(--focus);
+                outline-offset: 1px;
+            }
 
-        .shortcuts {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-top: 8px;
-            padding: 0 2px;
-            color: var(--text-muted);
-            font-size: 10.5px;
-        }
+            .shortcuts {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-top: 8px;
+                padding: 0 2px;
+                color: var(--text-muted);
+                font-size: 10.5px;
+            }
 
-        .key-list { display: flex; gap: 4px; }
+            .key-list {
+                display: flex;
+                gap: 4px;
+            }
 
-        .shortcut-label {
-            white-space: nowrap;
-        }
+            .shortcut-label {
+                white-space: nowrap;
+            }
 
-        .key-prefix {
-            align-self: center;
-            margin-right: 1px;
-            font-size: 9.5px;
-            font-weight: 650;
-        }
+            .key-prefix {
+                align-self: center;
+                margin-right: 1px;
+                font-size: 9.5px;
+                font-weight: 650;
+            }
 
-        kbd {
-            min-width: 26px;
-            padding: 3px 5px;
-            color: var(--text-main);
-            text-align: center;
-            background: rgba(255, 255, 255, 0.24);
-            border: 1px solid var(--stroke-subtle);
-            border-radius: 6px;
-            box-shadow: inset 0 -1px 0 var(--stroke-subtle);
-            font: 600 9.5px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
-        }
+            kbd {
+                min-width: 26px;
+                padding: 3px 5px;
+                color: var(--text-main);
+                text-align: center;
+                background: rgba(255, 255, 255, 0.24);
+                border: 1px solid var(--stroke-subtle);
+                border-radius: 6px;
+                box-shadow: inset 0 -1px 0 var(--stroke-subtle);
+                font:
+                    600 9.5px/1 ui-monospace,
+                    SFMono-Regular,
+                    Consolas,
+                    monospace;
+            }
 
-        @media (prefers-reduced-motion: reduce) {
-            .action,
-            .chevron { transition: none; }
-        }
-    </style>
-</head>
-<body>
-    <main class="glass-panel">
-        <header class="brand">
-            <span class="brand-icon" aria-hidden="true">
-                <img src="/icons/icon-48.png" alt="">
-            </span>
-            <div class="brand-copy">
-                <h1 class="brand-title">LexiSync</h1>
-                <p class="brand-subtitle"><span class="status-dot"></span><span data-i18n="ready">AI-помощник готов к работе</span></p>
-            </div>
-        </header>
-
-        <nav class="actions" aria-label="Разделы LexiSync" data-i18n-aria-label="lexisyncSections">
-            <button class="action" id="btn-history" type="button">
-                <span class="action-icon" aria-hidden="true">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3.2 2"></path></svg>
+            @media (prefers-reduced-motion: reduce) {
+                .action,
+                .chevron {
+                    transition: none;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <main class="glass-panel">
+            <header class="brand">
+                <span class="brand-icon" aria-hidden="true">
+                    <img src="/icons/icon-48.png" alt="" />
                 </span>
-                <span class="action-copy">
-                    <span class="action-title" data-i18n="history">История</span>
-                    <span class="action-note" data-i18n="historyNote">Недавние запросы и результаты</span>
-                </span>
-                <svg class="chevron" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-            </button>
+                <div class="brand-copy">
+                    <h1 class="brand-title">LexiSync</h1>
+                    <p class="brand-subtitle">
+                        <span class="status-dot"></span><span data-i18n="ready">AI-помощник готов к работе</span>
+                    </p>
+                </div>
+            </header>
 
-            <button class="action" id="btn-options" type="button">
-                <span class="action-icon" aria-hidden="true">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10"></path><path d="M18 6h2"></path><path d="M4 12h2"></path><path d="M10 12h10"></path><path d="M4 18h7"></path><path d="M15 18h5"></path><circle cx="16" cy="6" r="2"></circle><circle cx="8" cy="12" r="2"></circle><circle cx="13" cy="18" r="2"></circle></svg>
-                </span>
-                <span class="action-copy">
-                    <span class="action-title" data-i18n="settings">Настройки</span>
-                    <span class="action-note" data-i18n="settingsNote">Тема, стиль текста и приватность</span>
-                </span>
-                <svg class="chevron" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-            </button>
-        </nav>
+            <nav class="actions" aria-label="Разделы LexiSync" data-i18n-aria-label="lexisyncSections">
+                <button class="action" id="btn-history" type="button">
+                    <span class="action-icon" aria-hidden="true">
+                        <svg
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <circle cx="12" cy="12" r="9"></circle>
+                            <path d="M12 7v5l3.2 2"></path>
+                        </svg>
+                    </span>
+                    <span class="action-copy">
+                        <span class="action-title" data-i18n="history">История</span>
+                        <span class="action-note" data-i18n="historyNote">Недавние запросы и результаты</span>
+                    </span>
+                    <svg
+                        class="chevron"
+                        aria-hidden="true"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <path d="m9 18 6-6-6-6"></path>
+                    </svg>
+                </button>
 
-        <section id="site-card" class="site-card" hidden>
-            <button id="site-summary" class="site-summary" type="button" aria-expanded="false" aria-controls="site-panel">
-                <span class="site-globe" aria-hidden="true">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"></path></svg>
+                <button class="action" id="btn-options" type="button">
+                    <span class="action-icon" aria-hidden="true">
+                        <svg
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <path d="M4 6h10"></path>
+                            <path d="M18 6h2"></path>
+                            <path d="M4 12h2"></path>
+                            <path d="M10 12h10"></path>
+                            <path d="M4 18h7"></path>
+                            <path d="M15 18h5"></path>
+                            <circle cx="16" cy="6" r="2"></circle>
+                            <circle cx="8" cy="12" r="2"></circle>
+                            <circle cx="13" cy="18" r="2"></circle>
+                        </svg>
+                    </span>
+                    <span class="action-copy">
+                        <span class="action-title" data-i18n="settings">Настройки</span>
+                        <span class="action-note" data-i18n="settingsNote">Тема, стиль текста и приватность</span>
+                    </span>
+                    <svg
+                        class="chevron"
+                        aria-hidden="true"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <path d="m9 18 6-6-6-6"></path>
+                    </svg>
+                </button>
+            </nav>
+
+            <section id="site-card" class="site-card" hidden>
+                <button
+                    id="site-summary"
+                    class="site-summary"
+                    type="button"
+                    aria-expanded="false"
+                    aria-controls="site-panel"
+                >
+                    <span class="site-globe" aria-hidden="true">
+                        <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                        >
+                            <circle cx="12" cy="12" r="9"></circle>
+                            <path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"></path>
+                        </svg>
+                    </span>
+                    <span class="site-copy"
+                        ><span class="site-label" data-i18n="thisSite">Этот сайт</span
+                        ><span id="site-domain" class="site-domain"></span
+                    ></span>
+                    <svg
+                        class="chevron site-chevron"
+                        aria-hidden="true"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    >
+                        <path d="m6 9 6 6 6-6"></path>
+                    </svg>
+                </button>
+                <div id="site-panel" class="site-panel">
+                    <label class="site-toggle"
+                        ><span data-i18n="enableOnSite">LexiSync включён</span
+                        ><input id="site-enabled" type="checkbox" /><span class="switch"></span
+                    ></label>
+                    <label class="site-toggle"
+                        ><span data-i18n="personalSuggestions">Персональные подсказки</span
+                        ><input id="site-suggestions" type="checkbox" /><span class="switch"></span
+                    ></label>
+                    <label class="site-toggle"
+                        ><span data-i18n="saveHistory">Сохранять историю</span
+                        ><input id="site-history" type="checkbox" /><span class="switch"></span
+                    ></label>
+                    <label class="site-toggle"
+                        ><span data-i18n="sendContext">Передавать контекст</span
+                        ><input id="site-context" type="checkbox" /><span class="switch"></span
+                    ></label>
+                </div>
+            </section>
+
+            <footer class="shortcuts" title="Горячие клавиши LexiSync" data-i18n-title="shortcutTitle">
+                <span class="shortcut-label" data-i18n="commands">Команды</span>
+                <span class="key-list" aria-label="Alt+R, Alt+Y, Alt+T, Alt+S">
+                    <span class="key-prefix" aria-hidden="true">Alt +</span>
+                    <kbd>R</kbd><kbd>Y</kbd><kbd>T</kbd><kbd>S</kbd>
                 </span>
-                <span class="site-copy"><span class="site-label" data-i18n="thisSite">Этот сайт</span><span id="site-domain" class="site-domain"></span></span>
-                <svg class="chevron site-chevron" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"></path></svg>
-            </button>
-            <div id="site-panel" class="site-panel">
-                <label class="site-toggle"><span data-i18n="enableOnSite">LexiSync включён</span><input id="site-enabled" type="checkbox"><span class="switch"></span></label>
-                <label class="site-toggle"><span data-i18n="personalSuggestions">Персональные подсказки</span><input id="site-suggestions" type="checkbox"><span class="switch"></span></label>
-                <label class="site-toggle"><span data-i18n="saveHistory">Сохранять историю</span><input id="site-history" type="checkbox"><span class="switch"></span></label>
-                <label class="site-toggle"><span data-i18n="sendContext">Передавать контекст</span><input id="site-context" type="checkbox"><span class="switch"></span></label>
-            </div>
-        </section>
+            </footer>
+        </main>
 
-        <footer class="shortcuts" title="Горячие клавиши LexiSync" data-i18n-title="shortcutTitle">
-            <span class="shortcut-label" data-i18n="commands">Команды</span>
-            <span class="key-list" aria-label="Alt+R, Alt+Y, Alt+T, Alt+S">
-                <span class="key-prefix" aria-hidden="true">Alt +</span>
-                <kbd>R</kbd><kbd>Y</kbd><kbd>T</kbd><kbd>S</kbd>
-            </span>
-        </footer>
-    </main>
-
-    <script type="module" src="/src/popup.ts"></script>
-</body>
+        <script type="module" src="/src/popup.ts"></script>
+    </body>
 </html>

@@ -5,7 +5,10 @@ import path from 'node:path';
 function waitForTemporaryInstall(process: ChildProcessWithoutNullStreams): Promise<string> {
     return new Promise((resolve, reject) => {
         let output = '';
-        const timeout = setTimeout(() => reject(new Error(`Firefox не подтвердил установку расширения.\n${output}`)), 30_000);
+        const timeout = setTimeout(
+            () => reject(new Error(`Firefox не подтвердил установку расширения.\n${output}`)),
+            30_000,
+        );
         const collect = (chunk: Buffer) => {
             output += chunk.toString();
             if (/Installed .* as a temporary add-on/i.test(output)) {
@@ -26,20 +29,26 @@ function waitForTemporaryInstall(process: ChildProcessWithoutNullStreams): Promi
 
 test('Firefox временно устанавливает собранное расширение', async () => {
     const webExtCli = path.resolve(__dirname, '../node_modules/web-ext/bin/web-ext.js');
-    const runner = spawn(process.execPath, [
-        webExtCli,
-        'run',
-        '--source-dir', path.resolve(__dirname, '../.output/firefox-mv3'),
-        '--firefox', firefox.executablePath(),
-        '--no-input',
-        '--no-reload',
-        '--arg=-headless',
-        '--start-url=https://example.com',
-        '--verbose',
-    ], {
-        cwd: path.resolve(__dirname, '..'),
-        windowsHide: true,
-    });
+    const runner = spawn(
+        process.execPath,
+        [
+            webExtCli,
+            'run',
+            '--source-dir',
+            path.resolve(__dirname, '../.output/firefox-mv3'),
+            '--firefox',
+            firefox.executablePath(),
+            '--no-input',
+            '--no-reload',
+            '--arg=-headless',
+            '--start-url=https://example.com',
+            '--verbose',
+        ],
+        {
+            cwd: path.resolve(__dirname, '..'),
+            windowsHide: true,
+        },
+    );
 
     try {
         const output = await waitForTemporaryInstall(runner);

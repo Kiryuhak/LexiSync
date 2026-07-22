@@ -2,22 +2,30 @@ import type { StyleProfile } from './types';
 import { t } from './i18n';
 import { migrateSettings } from './settings-migrations';
 import { fixKeyboardLayout } from './keyboard-layout';
-import { recordRequest } from './usage-stats';
+import { applyUsageMutation, type UsageMutation } from './usage-stats';
+import { applyHistoryMutation, type HistoryMutation } from './history-store';
+import { applyCacheMutation, type CacheMutation } from './ai-cache';
+import { applyAdaptiveMutation, type AdaptiveMutation } from './adaptive-model-store';
+import { createSettingsFingerprint } from './request-cache';
 import { initializeSettingsSync, restoreSyncedSettings } from './settings-transfer';
 import { processOcr, streamText, type MistralRequest } from './mistral-client';
 import { resolveStyleProfile } from './site-profiles';
-import { ensureContentScript, initializeSiteAccess, sendToTabWithInjection, syncRegisteredSiteScripts } from './site-access';
+import {
+    ensureContentScript,
+    initializeSiteAccess,
+    sendToTabWithInjection,
+    syncRegisteredSiteScripts,
+} from './site-access';
+import { getPrivacySettings, isSiteDisabled } from './privacy';
 
 const REQUEST_TIMEOUT_MS = 45_000;
 
-function createSettingsFingerprint(value: unknown): string {
-    const text = JSON.stringify(value);
-    let hash = 2166136261;
-    for (let index = 0; index < text.length; index++) {
-        hash ^= text.charCodeAt(index);
-        hash = Math.imul(hash, 16777619);
-    }
-    return (hash >>> 0).toString(16);
+async function canStoreForSender(sender: chrome.runtime.MessageSender): Promise<boolean> {
+    const sourceUrl = sender.tab?.url || sender.url || '';
+    if (!/^https?:/i.test(sourceUrl)) return true;
+    if (sender.tab?.incognito) return false;
+    const settings = await getPrivacySettings();
+    return settings.historyEnabled && !isSiteDisabled(new URL(sourceUrl).hostname, settings.disabledSites);
 }
 
 const initializationPromise = restoreSyncedSettings().then(migrateSettings);
@@ -27,12 +35,32 @@ initializeSiteAccess();
 chrome.runtime.onInstalled.addListener((details) => {
     if (details.reason === 'install') void chrome.storage.local.set({ onboardingCompleted: false });
     chrome.contextMenus.removeAll(() => {
-        chrome.contextMenus.create({ id: 'spellcheck', title: `${t('fixErrors', 'Исправить ошибки')} (Alt+R)`, contexts: ['selection'] });
-        chrome.contextMenus.create({ id: 'style', title: `${t('rewriteText', 'Переписать текст')} (Alt+Y)`, contexts: ['selection'] });
-        chrome.contextMenus.create({ id: 'emoji', title: `${t('addEmoji', 'Подобрать эмодзи')} (Alt+T)`, contexts: ['selection'] });
-        chrome.contextMenus.create({ id: 'layout', title: t('fixLayout', 'Исправить раскладку'), contexts: ['selection'] });
+        chrome.contextMenus.create({
+            id: 'spellcheck',
+            title: `${t('fixErrors', 'Исправить ошибки')} (Alt+R)`,
+            contexts: ['selection'],
+        });
+        chrome.contextMenus.create({
+            id: 'style',
+            title: `${t('rewriteText', 'Переписать текст')} (Alt+Y)`,
+            contexts: ['selection'],
+        });
+        chrome.contextMenus.create({
+            id: 'emoji',
+            title: `${t('addEmoji', 'Подобрать эмодзи')} (Alt+T)`,
+            contexts: ['selection'],
+        });
+        chrome.contextMenus.create({
+            id: 'layout',
+            title: t('fixLayout', 'Исправить раскладку'),
+            contexts: ['selection'],
+        });
         chrome.contextMenus.create({ id: 'translate', title: t('translate', 'Перевести'), contexts: ['selection'] });
-        chrome.contextMenus.create({ id: 'ocr', title: '📸 Распознать текст (Alt+S)', contexts: ['page', 'image', 'selection'] });
+        chrome.contextMenus.create({
+            id: 'ocr',
+            title: '📸 Распознать текст (Alt+S)',
+            contexts: ['page', 'image', 'selection'],
+        });
     });
 });
 
@@ -64,11 +92,15 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
         void sendOcrCommand(tab.id, tab.windowId);
         return;
     }
-    void sendToTabWithInjection(tab.id, {
-        action: 'contextMenuClicked',
-        mode: info.menuItemId,
-        text: info.selectionText || '',
-    }, info.frameId).catch((error) => console.error('Не удалось выполнить команду LexiSync:', error));
+    void sendToTabWithInjection(
+        tab.id,
+        {
+            action: 'contextMenuClicked',
+            mode: info.menuItemId,
+            text: info.selectionText || '',
+        },
+        info.frameId,
+    ).catch((error) => console.error('Не удалось выполнить команду LexiSync:', error));
 });
 
 chrome.commands.onCommand.addListener((command) => {
@@ -79,8 +111,9 @@ chrome.commands.onCommand.addListener((command) => {
             void sendOcrCommand(tab.id, tab.windowId);
             return;
         }
-        void sendToTabWithInjection(tab.id, { action: 'hotkeyTriggered', mode: command })
-            .catch((error) => console.error('Не удалось выполнить горячую клавишу LexiSync:', error));
+        void sendToTabWithInjection(tab.id, { action: 'hotkeyTriggered', mode: command }).catch((error) =>
+            console.error('Не удалось выполнить горячую клавишу LexiSync:', error),
+        );
     });
 });
 
@@ -92,13 +125,29 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     } else if (request.action === 'openOptionsPage') {
         chrome.runtime.openOptionsPage();
     } else if (request.action === 'getRuntimeSettings') {
-        void initializationPromise.then(() => chrome.storage.local.get({
-            mistralApiKey: '', sendPageContext: false, contextDisabledSites: [], aiMode: 'quality',
-            selectedTone: 'business', glossary: [], styleProfiles: [], activeStyleProfileId: '',
-        }))
+        void initializationPromise
+            .then(() =>
+                chrome.storage.local.get({
+                    mistralApiKey: '',
+                    sendPageContext: false,
+                    contextDisabledSites: [],
+                    aiMode: 'quality',
+                    selectedTone: 'business',
+                    personalDictionary: [],
+                    glossary: [],
+                    styleProfiles: [],
+                    activeStyleProfileId: '',
+                }),
+            )
             .then((settings) => {
-                const profiles = Array.isArray(settings.styleProfiles) ? settings.styleProfiles as StyleProfile[] : [];
-                const profile = resolveStyleProfile(profiles, String(settings.activeStyleProfileId || ''), sender.tab?.url || sender.url);
+                const profiles = Array.isArray(settings.styleProfiles)
+                    ? (settings.styleProfiles as StyleProfile[])
+                    : [];
+                const profile = resolveStyleProfile(
+                    profiles,
+                    String(settings.activeStyleProfileId || ''),
+                    sender.tab?.url || sender.url,
+                );
                 sendResponse({
                     hasApiKey: typeof settings.mistralApiKey === 'string' && settings.mistralApiKey.trim().length > 0,
                     sendPageContext: settings.sendPageContext === true,
@@ -107,11 +156,30 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     cacheFingerprint: createSettingsFingerprint({
                         aiMode: settings.aiMode,
                         selectedTone: settings.selectedTone,
+                        personalDictionary: settings.personalDictionary,
                         glossary: settings.glossary,
                         activeStyleProfile: profile,
                     }),
                 });
             });
+        return true;
+    } else if (request.action === 'storageMutation') {
+        const payload = request.payload && typeof request.payload === 'object' ? request.payload : {};
+        const needsPrivacyCheck = request.domain === 'history' || request.domain === 'cache';
+        const mutation = (needsPrivacyCheck ? canStoreForSender(sender) : Promise.resolve(true)).then((allowed) => {
+            if (!allowed) return;
+            if (request.domain === 'history') return applyHistoryMutation(request.mutation as HistoryMutation, payload);
+            if (request.domain === 'usage') return applyUsageMutation(request.mutation as UsageMutation, payload);
+            if (request.domain === 'cache') return applyCacheMutation(request.mutation as CacheMutation, payload);
+            if (request.domain === 'adaptive')
+                return applyAdaptiveMutation(request.mutation as AdaptiveMutation, payload);
+            throw new Error('UNKNOWN_STORAGE_DOMAIN');
+        });
+        void mutation
+            .then(() => sendResponse({ ok: true }))
+            .catch((error) =>
+                sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) }),
+            );
         return true;
     } else if (request.action === 'siteAccessChanged' && typeof request.tabId === 'number') {
         void syncRegisteredSiteScripts()
@@ -119,29 +187,42 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 if (request.enabled) {
                     await ensureContentScript(request.tabId);
                     await chrome.tabs.sendMessage(request.tabId, { action: 'setSiteEnabled', enabled: true });
+                } else {
+                    try {
+                        await chrome.tabs.sendMessage(request.tabId, { action: 'setSiteEnabled', enabled: false });
+                    } catch {
+                        // На вкладке могло не быть внедрённого сценария.
+                    }
                 }
                 sendResponse({ ok: true });
             })
-            .catch((error) => sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) }));
+            .catch((error) =>
+                sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) }),
+            );
         return true;
     } else if (request.action === 'replayHistoryItem') {
-        void chrome.tabs.query({ currentWindow: true }).then(async (tabs) => {
-            const target = tabs
-                .filter((tab) => tab.id && /^https?:/.test(tab.url || ''))
-                .sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0];
-            if (!target?.id) {
-                sendResponse({ ok: false, error: 'Не найдена открытая веб-страница.' });
-                return;
-            }
-            await chrome.tabs.update(target.id, { active: true });
-            await sendToTabWithInjection(target.id, {
-                action: 'historyReplay',
-                mode: request.item?.mode,
-                text: request.item?.original,
-                customName: request.item?.customName,
-            });
-            sendResponse({ ok: true });
-        }).catch((error) => sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) }));
+        void chrome.tabs
+            .query({ currentWindow: true })
+            .then(async (tabs) => {
+                const target = tabs
+                    .filter((tab) => tab.id && /^https?:/.test(tab.url || ''))
+                    .sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0];
+                if (!target?.id) {
+                    sendResponse({ ok: false, error: 'Не найдена открытая веб-страница.' });
+                    return;
+                }
+                await chrome.tabs.update(target.id, { active: true });
+                await sendToTabWithInjection(target.id, {
+                    action: 'historyReplay',
+                    mode: request.item?.mode,
+                    text: request.item?.original,
+                    customName: request.item?.customName,
+                });
+                sendResponse({ ok: true });
+            })
+            .catch((error) =>
+                sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) }),
+            );
         return true;
     }
 });
@@ -191,7 +272,9 @@ chrome.runtime.onConnect.addListener((port) => {
             const apiKey = settings.mistralApiKey as string;
             if (!apiKey) throw new Error(t('apiKeyMissing', 'API-ключ не настроен'));
 
-            const styleProfiles = Array.isArray(settings.styleProfiles) ? settings.styleProfiles as StyleProfile[] : [];
+            const styleProfiles = Array.isArray(settings.styleProfiles)
+                ? (settings.styleProfiles as StyleProfile[])
+                : [];
             const activeStyleProfile = resolveStyleProfile(
                 styleProfiles,
                 String(settings.activeStyleProfileId || ''),
@@ -208,7 +291,9 @@ chrome.runtime.onConnect.addListener((port) => {
                     {
                         selectedTone: settings.selectedTone as string,
                         sendPageContext: settings.sendPageContext === true && msg.allowPageContext !== false,
-                        personalDictionary: Array.isArray(settings.personalDictionary) ? settings.personalDictionary.map(String) : [],
+                        personalDictionary: Array.isArray(settings.personalDictionary)
+                            ? settings.personalDictionary.map(String)
+                            : [],
                         glossary: Array.isArray(settings.glossary) ? settings.glossary.map(String) : [],
                         activeStyleProfile,
                         aiMode: settings.aiMode === 'fast' ? 'fast' : 'quality',
@@ -224,15 +309,23 @@ chrome.runtime.onConnect.addListener((port) => {
             if (isAbort) {
                 port.postMessage({
                     status: cancelledByUser ? 'cancelled' : 'error',
-                    error: cancelledByUser ? t('requestCancelled', 'Запрос отменён.') : t('requestTimeout', 'Превышено время ожидания ответа (45 секунд).'),
+                    error: cancelledByUser
+                        ? t('requestCancelled', 'Запрос отменён.')
+                        : t('requestTimeout', 'Превышено время ожидания ответа (45 секунд).'),
                 });
             } else {
-                const message = error instanceof Error ? error.message : t('unknownNetworkError', 'Неизвестная ошибка сети.');
+                const message =
+                    error instanceof Error ? error.message : t('unknownNetworkError', 'Неизвестная ошибка сети.');
                 port.postMessage({ status: 'error', error: message });
             }
         } finally {
             clearTimeout(timeout);
-            if (msg.mode) void recordRequest(msg.mode, Date.now() - startedAt, completedSuccessfully);
+            if (msg.mode)
+                void applyUsageMutation('request', {
+                    mode: msg.mode,
+                    latencyMs: Date.now() - startedAt,
+                    success: completedSuccessfully,
+                });
         }
     });
 });

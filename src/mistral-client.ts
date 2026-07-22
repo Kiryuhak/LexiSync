@@ -30,10 +30,14 @@ const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
 function wait(ms: number, signal: AbortSignal): Promise<void> {
     return new Promise((resolve, reject) => {
         const timer = setTimeout(resolve, ms);
-        signal.addEventListener('abort', () => {
-            clearTimeout(timer);
-            reject(new DOMException(t('requestCancelled', 'Запрос отменён.'), 'AbortError'));
-        }, { once: true });
+        signal.addEventListener(
+            'abort',
+            () => {
+                clearTimeout(timer);
+                reject(new DOMException(t('requestCancelled', 'Запрос отменён.'), 'AbortError'));
+            },
+            { once: true },
+        );
     });
 }
 
@@ -44,9 +48,10 @@ async function fetchWithRetry(url: string, init: RequestInit, signal: AbortSigna
             const response = await fetch(url, { ...init, signal });
             if (!RETRYABLE_STATUSES.has(response.status) || attempt === 2) return response;
             const retryAfterSeconds = Number(response.headers.get('Retry-After'));
-            const delayMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
-                ? retryAfterSeconds * 1000
-                : 750 * 2 ** attempt;
+            const delayMs =
+                Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+                    ? retryAfterSeconds * 1000
+                    : 750 * 2 ** attempt;
             await wait(Math.min(delayMs, 10_000), signal);
         } catch (error) {
             if (signal.aborted) throw error;
@@ -71,7 +76,9 @@ export function readSsePayload(line: string): string | null {
     const payload = trimmed.slice(5).trimStart();
     if (!payload || payload === '[DONE]') return null;
     try {
-        const parsed = JSON.parse(payload) as { choices?: Array<{ delta?: { content?: string | Array<{ text?: string }> } }> };
+        const parsed = JSON.parse(payload) as {
+            choices?: Array<{ delta?: { content?: string | Array<{ text?: string }> } }>;
+        };
         const content = parsed.choices?.[0]?.delta?.content;
         if (typeof content === 'string') return content;
         if (Array.isArray(content)) return content.map((part) => part.text || '').join('');
@@ -83,18 +90,26 @@ export function readSsePayload(line: string): string | null {
 
 export async function processOcr(msg: MistralRequest, apiKey: string, signal: AbortSignal): Promise<string> {
     if (!msg.imageUrl) throw new Error(t('imageMissing', 'Изображение для распознавания не получено.'));
-    const response = await fetchWithRetry(`${API_BASE_URL}/ocr`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({
-            model: 'mistral-ocr-latest',
-            document: { type: 'image_url', image_url: msg.imageUrl },
-            include_image_base64: false,
-        }),
-    }, signal);
+    const response = await fetchWithRetry(
+        `${API_BASE_URL}/ocr`,
+        {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+            body: JSON.stringify({
+                model: 'mistral-ocr-latest',
+                document: { type: 'image_url', image_url: msg.imageUrl },
+                include_image_base64: false,
+            }),
+        },
+        signal,
+    );
     if (!response.ok) throw new Error(getApiError(response.status, await response.text()));
-    const result = await response.json() as { pages?: Array<{ markdown?: string }> };
-    const text = result.pages?.map((page) => page.markdown || '').filter(Boolean).join('\n\n').trim();
+    const result = (await response.json()) as { pages?: Array<{ markdown?: string }> };
+    const text = result.pages
+        ?.map((page) => page.markdown || '')
+        .filter(Boolean)
+        .join('\n\n')
+        .trim();
     if (!text) throw new Error(t('ocrNoText', 'Mistral OCR не обнаружил текст в выбранной области.'));
     return text;
 }
@@ -106,15 +121,19 @@ export async function streamText(
     signal: AbortSignal,
     onChunk: (text: string) => void,
 ): Promise<void> {
-    const response = await fetchWithRetry(`${API_BASE_URL}/chat/completions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({
-            model: settings.aiMode === 'fast' ? 'mistral-small-latest' : 'mistral-large-latest',
-            messages: buildMessages(msg, settings),
-            stream: true,
-        }),
-    }, signal);
+    const response = await fetchWithRetry(
+        `${API_BASE_URL}/chat/completions`,
+        {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+            body: JSON.stringify({
+                model: settings.aiMode === 'fast' ? 'mistral-small-latest' : 'mistral-large-latest',
+                messages: buildMessages(msg, settings),
+                stream: true,
+            }),
+        },
+        signal,
+    );
     if (!response.ok) throw new Error(getApiError(response.status, await response.text()));
     const reader = response.body?.getReader();
     if (!reader) throw new Error(t('emptyStream', 'Mistral вернул пустой поток данных.'));

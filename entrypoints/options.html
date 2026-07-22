@@ -1,410 +1,1224 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="manifest.open_in_tab" content="true">
-    <title data-i18n="optionsPageTitle">Настройки LexiSync</title>
-    <style>
-        :root {
-            --bg-main: #f8f9fa;
-            --bg-card: #ffffff;
-            --text-main: #202124;
-            --text-secondary: #5f6368;
-            --border: #e0e0e0;
-            --border-input: #dadce0;
-            --primary: #1a73e8;
-            --primary-hover: #1557b0;
-            --badge-bg: #E8F0FE;
-            --badge-text: #1967D2;
-            --box-bg: #f4f7fe;
-            --box-border: #d2e3fc;
-        }
-        [data-theme="dark"] {
-            --bg-main: #121212;
-            --bg-card: #1e1e1e;
-            --text-main: #e8eaed;
-            --text-secondary: #9aa0a6;
-            --border: #3c4043;
-            --border-input: #5f6368;
-            --primary: #8ab4f8;
-            --primary-hover: #aecbfa;
-            --badge-bg: #3c4043;
-            --badge-text: #8ab4f8;
-            --box-bg: #292a2d;
-            --box-border: #3c4043;
-        }
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="manifest.open_in_tab" content="true" />
+        <title data-i18n="optionsPageTitle">Настройки LexiSync</title>
+        <style>
+            :root {
+                --bg-main: #f8f9fa;
+                --bg-card: #ffffff;
+                --text-main: #202124;
+                --text-secondary: #5f6368;
+                --border: #e0e0e0;
+                --border-input: #dadce0;
+                --primary: #1a73e8;
+                --primary-hover: #1557b0;
+                --badge-bg: #e8f0fe;
+                --badge-text: #1967d2;
+                --box-bg: #f4f7fe;
+                --box-border: #d2e3fc;
+            }
+            [data-theme='dark'] {
+                --bg-main: #121212;
+                --bg-card: #1e1e1e;
+                --text-main: #e8eaed;
+                --text-secondary: #9aa0a6;
+                --border: #3c4043;
+                --border-input: #5f6368;
+                --primary: #8ab4f8;
+                --primary-hover: #aecbfa;
+                --badge-bg: #3c4043;
+                --badge-text: #8ab4f8;
+                --box-bg: #292a2d;
+                --box-border: #3c4043;
+            }
 
-        body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg-main); color: var(--text-main); display: flex; justify-content: center; padding: 40px 16px; margin: 0; transition: background 0.3s, color 0.3s; }
-        .container { box-sizing: border-box; width: min(600px, 100%); padding: 32px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); transition: background 0.3s, border-color 0.3s; }
-        
-        .header-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
-        h1 { margin: 0; color: var(--primary); font-weight: 500; font-size: 22px; }
-        .version-badge { background: var(--badge-bg); color: var(--badge-text); padding: 4px 10px; border-radius: 100px; font-size: 12px; font-weight: 600; }
-        
-        p { font-size: 14px; color: var(--text-secondary); margin-bottom: 24px; line-height: 1.5; }
-        label { font-weight: 500; font-size: 14px; display: block; margin-bottom: 8px; color: var(--text-secondary); }
-        input[type="password"], input[type="text"], select, textarea { width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid var(--border-input); border-radius: 8px; font-size: 14px; margin-bottom: 20px; background: var(--bg-card); color: var(--text-main); transition: border 0.2s; font-family: inherit; }
-        input[type="password"]:focus, input[type="text"]:focus, select:focus, textarea:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 1px var(--primary); }
-        
-        /* 🔥 НОВЫЕ СТИЛИ ДЛЯ ГЛАЗКА */
-        .password-wrapper { position: relative; display: flex; align-items: center; margin-bottom: 20px; }
-        .password-wrapper input { margin-bottom: 0; padding-right: 44px; }
-        .toggle-password { position: absolute; right: 12px; background: transparent; border: none; padding: 0; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; height: 100%; transition: color 0.2s; }
-        .toggle-password:hover { color: var(--primary); background: transparent; }
-        
-        .instruction-box { background: var(--box-bg); border: 1px solid var(--box-border); border-radius: 8px; padding: 16px; margin-bottom: 24px; }
-        .instruction-box h2 { margin: 0 0 8px 0; color: var(--text-main); font-size: 14px; font-weight: 600; }
-        .instruction-box ol { margin: 0; padding-left: 20px; color: var(--text-secondary); font-size: 13px; line-height: 1.6; }
-        .instruction-box a { color: var(--primary); text-decoration: none; font-weight: 500; }
-        .instruction-box a:hover { text-decoration: underline; }
+            body {
+                font-family:
+                    system-ui,
+                    -apple-system,
+                    sans-serif;
+                background: var(--bg-main);
+                color: var(--text-main);
+                display: flex;
+                justify-content: center;
+                padding: 40px 16px;
+                margin: 0;
+                transition:
+                    background 0.3s,
+                    color 0.3s;
+            }
+            .container {
+                box-sizing: border-box;
+                width: min(600px, 100%);
+                padding: 32px;
+                background: var(--bg-card);
+                border: 1px solid var(--border);
+                border-radius: 16px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+                transition:
+                    background 0.3s,
+                    border-color 0.3s;
+            }
 
-        .btn-container { display: flex; align-items: center; gap: 16px; padding-top: 20px; margin-top: 24px; border-top: 1px solid var(--border); }
-        .btn-container[hidden] { display: none; }
-        button#saveBtn { background: var(--primary); color: #fff; border: none; padding: 10px 24px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.2s; }
-        button#saveBtn:hover { background: var(--primary-hover); }
-        button#saveBtn:disabled { cursor: not-allowed; }
-        #status { font-size: 14px; color: #34A853; font-weight: 500; display: none; }
-        .privacy-option { display: flex; gap: 12px; align-items: flex-start; padding: 14px; margin-bottom: 20px; border: 1px solid var(--border); border-radius: 10px; background: var(--box-bg); }
-        .privacy-option input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--primary); }
-        .privacy-option label { margin: 0; color: var(--text-main); cursor: pointer; }
-        .privacy-option small { display: block; margin-top: 5px; color: var(--text-secondary); line-height: 1.4; font-weight: 400; }
-        .settings-section { border-top: 1px solid var(--border); padding-top: 20px; margin-top: 8px; }
-        .settings-section h2 { font-size: 16px; margin: 0 0 14px; color: var(--text-main); }
-        textarea { min-height: 80px; resize: vertical; }
+            .header-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: baseline;
+                margin-bottom: 8px;
+            }
+            h1 {
+                margin: 0;
+                color: var(--primary);
+                font-weight: 500;
+                font-size: 22px;
+            }
+            .version-badge {
+                background: var(--badge-bg);
+                color: var(--badge-text);
+                padding: 4px 10px;
+                border-radius: 100px;
+                font-size: 12px;
+                font-weight: 600;
+            }
 
-        .appearance-panel { padding: 16px; margin: 0 0 20px; background: var(--box-bg); border: 1px solid var(--box-border); border-radius: 12px; }
-        .range-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
-        .range-header label { margin: 0; color: var(--text-main); }
-        .scale-value { min-width: 48px; padding: 4px 8px; color: var(--badge-text); text-align: center; background: var(--badge-bg); border-radius: 999px; font-size: 12px; font-weight: 700; }
-        input[type="range"] { width: 100%; margin: 0; accent-color: var(--primary); cursor: pointer; }
-        .range-scale { display: flex; justify-content: space-between; margin-top: 5px; color: var(--text-secondary); font-size: 10px; }
-        .appearance-hint { margin: 9px 0 14px; font-size: 12px; line-height: 1.45; }
-        .preview-stage { position: relative; display: grid; min-height: 100px; place-items: center; overflow: hidden; background: #f6f8fc; border: 1px solid var(--border); border-radius: 11px; }
-        .preview-stage::before { position: absolute; inset: 17px 20px; content: ""; opacity: .62; background: repeating-linear-gradient(to bottom, #c7ceda 0 4px, transparent 4px 16px); }
-        .preview-toolbar { --preview-bg: rgba(248,250,255,.9); --preview-text: #20283b; --preview-muted: #68738c; position: relative; z-index: 1; display: flex; align-items: center; gap: 6px; padding: 7px 9px; color: var(--preview-text); background: var(--preview-bg); border: 1px solid rgba(255,255,255,.82); border-radius: 14px; box-shadow: 0 14px 32px rgba(38,40,72,.2); backdrop-filter: blur(16px); transform-origin: center; transition: transform .18s ease, background .2s ease; }
-        .preview-stage[data-theme="dark"] { background: #171b2b; border-color: #373d58; }
-        .preview-stage[data-theme="dark"]::before { background: repeating-linear-gradient(to bottom, #66708a 0 4px, transparent 4px 16px); }
-        .preview-stage[data-theme="dark"] .preview-toolbar { --preview-bg: rgba(30,34,54,.94); --preview-text: #f3f5fb; --preview-muted: #aab3cb; border-color: rgba(255,255,255,.14); box-shadow: 0 14px 34px rgba(0,0,0,.42); }
-        .preview-logo { display: grid; width: 22px; height: 22px; place-items: center; color: #fff; background: linear-gradient(135deg, #7564ef, #25b7c7); border-radius: 7px; font-size: 11px; font-weight: 800; }
-        .preview-action { display: flex; align-items: center; gap: 6px; padding: 4px 7px; font-size: 12px; font-weight: 600; white-space: nowrap; }
-        .preview-icon { color: var(--preview-muted); font-size: 16px; line-height: 1; }
-        .preview-divider { width: 1px; height: 19px; background: currentColor; opacity: .13; }
-        .preview-square { display: grid; width: 26px; height: 26px; place-items: center; color: var(--preview-muted); border-radius: 8px; font-size: 16px; }
-        .adaptive-stats { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 14px; margin-bottom: 20px; background: var(--box-bg); border: 1px solid var(--box-border); border-radius: 10px; }
-        .adaptive-stats-copy { min-width: 0; }
-        .adaptive-stats strong { display: block; margin-bottom: 3px; color: var(--text-main); font-size: 13px; }
-        .adaptive-stats span { color: var(--text-secondary); font-size: 12px; }
-        .secondary-button { flex: 0 0 auto; padding: 7px 11px; color: var(--text-main); background: var(--bg-card); border: 1px solid var(--border-input); border-radius: 8px; cursor: pointer; font: 600 12px system-ui, sans-serif; }
-        .secondary-button:hover { color: var(--primary); border-color: var(--primary); }
-        .secondary-button:disabled { cursor: not-allowed; opacity: .5; }
-        .privacy-option.is-disabled { opacity: .58; }
-        .settings-tabs { display: flex; gap: 6px; margin: 0 0 24px; padding: 5px; overflow-x: auto; overscroll-behavior-inline: contain; background: var(--box-bg); border: 1px solid var(--box-border); border-radius: 12px; scrollbar-width: thin; }
-        .settings-tab { flex: 1 0 auto; min-width: max-content; padding: 9px 7px; color: var(--text-secondary); background: transparent; border: 0; border-radius: 8px; cursor: pointer; font: 600 12px system-ui, sans-serif; line-height: 1.2; white-space: nowrap; }
-        .settings-tab:hover { color: var(--text-main); background: var(--bg-card); }
-        .settings-tab.is-active { color: #fff; background: var(--primary); box-shadow: 0 5px 14px color-mix(in srgb, var(--primary) 22%, transparent); }
-        [data-settings-group][hidden] { display: none !important; }
-        .onboarding { position: fixed; z-index: 100; inset: 0; display: grid; padding: 20px; place-items: center; background: rgba(15,18,32,.48); backdrop-filter: blur(12px); }
-        .onboarding[hidden] { display: none; }
-        .onboarding-card { width: min(430px,100%); padding: 25px; color: var(--text-main); background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; box-shadow: 0 24px 70px rgba(15,18,32,.28); }
-        .onboarding-icon { display: grid; width: 48px; height: 48px; margin-bottom: 18px; place-items: center; color: #fff; background: linear-gradient(135deg,#765ff0,#27b9c8); border-radius: 15px; font-size: 22px; box-shadow: 0 10px 24px rgba(109,92,231,.24); }
-        .onboarding-step { display: none; min-height: 175px; }
-        .onboarding-step.is-active { display: block; }
-        .onboarding-step h3 { margin: 0 0 9px; font-size: 21px; }
-        .onboarding-step p { margin: 0 0 14px; }
-        .onboarding-list { margin: 0; padding-left: 20px; color: var(--text-secondary); font-size: 13px; line-height: 1.8; }
-        .onboarding-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 20px; }
-        .onboarding-progress { color: var(--text-secondary); font-size: 12px; }
-        .onboarding-buttons { display: flex; gap: 8px; }
-        .onboarding-button { padding: 9px 14px; border: 0; border-radius: 9px; cursor: pointer; font: 600 13px system-ui,sans-serif; }
-        .onboarding-button.primary { color: #fff; background: var(--primary); }
-        .onboarding-button.secondary { color: var(--text-secondary); background: var(--box-bg); }
-        .commands-panel h2 { margin: 0 0 7px; }
-        .commands-panel > p { margin: 0 0 16px; }
-        .command-form { padding: 15px; margin-bottom: 15px; background: var(--box-bg); border: 1px solid var(--box-border); border-radius: 11px; }
-        .command-form textarea { min-height: 76px; margin-bottom: 12px; }
-        .command-form input { margin-bottom: 12px !important; }
-        .command-form-actions { display: flex; justify-content: flex-end; gap: 8px; }
-        .command-list { display: grid; gap: 8px; margin-bottom: 18px; }
-        .command-card { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 12px 13px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; }
-        .command-card strong { display: block; margin-bottom: 3px; font-size: 13px; }
-        .command-card span { display: block; overflow: hidden; color: var(--text-secondary); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-        .command-card .profile-sites { display: block; margin-top: 7px; overflow: visible; color: var(--primary); font-size: 11px; text-overflow: clip; white-space: normal; }
-        .command-card-actions { display: flex; gap: 5px; }
-        .command-icon-button { display: grid; width: 30px; height: 30px; place-items: center; color: var(--text-secondary); background: var(--box-bg); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
-        .command-icon-button:hover { color: var(--primary); border-color: var(--primary); }
-        .command-presets { display: flex; flex-wrap: wrap; gap: 6px; }
-        .preset-button { padding: 7px 9px; color: var(--text-secondary); background: var(--box-bg); border: 1px solid var(--box-border); border-radius: 8px; cursor: pointer; font: 600 11px system-ui,sans-serif; }
-        .preset-button:hover { color: var(--primary); border-color: var(--primary); }
-        .settings-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-        .settings-row select { flex: 1 1 220px; margin-bottom: 0; }
-        .usage-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0; }
-        .usage-metric { padding: 10px; text-align: center; background: var(--box-bg); border: 1px solid var(--box-border); border-radius: 10px; }
-        .usage-metric strong, .usage-metric span { display: block; }
-        .usage-metric span { margin-top: 3px; color: var(--text-secondary); font-size: 11px; }
-        @media (max-width: 560px) {
-            body { padding: 12px; }
-            .container { padding: 22px; }
-            .command-form-actions { align-items: stretch; flex-direction: column-reverse; }
-            .command-form-actions button { width: 100%; }
-            .btn-container { align-items: stretch; flex-direction: column; }
-            button#saveBtn { width: 100%; }
-            #status { text-align: center; }
-        }
-    </style>
-</head>
-<body>
-    <main class="container">
-        <div class="header-row">
-            <h1 data-i18n="optionsTitle">Настройки нейросети</h1>
-            <span id="app-version" class="version-badge">v1.0.0</span>
-        </div>
-        <p data-i18n="optionsIntro">Укажите параметры доступа к API, стиль текста и тему оформления.</p>
+            p {
+                font-size: 14px;
+                color: var(--text-secondary);
+                margin-bottom: 24px;
+                line-height: 1.5;
+            }
+            label {
+                font-weight: 500;
+                font-size: 14px;
+                display: block;
+                margin-bottom: 8px;
+                color: var(--text-secondary);
+            }
+            input[type='password'],
+            input[type='text'],
+            select,
+            textarea {
+                width: 100%;
+                box-sizing: border-box;
+                padding: 12px;
+                border: 1px solid var(--border-input);
+                border-radius: 8px;
+                font-size: 14px;
+                margin-bottom: 20px;
+                background: var(--bg-card);
+                color: var(--text-main);
+                transition: border 0.2s;
+                font-family: inherit;
+            }
+            input[type='password']:focus,
+            input[type='text']:focus,
+            select:focus,
+            textarea:focus {
+                border-color: var(--primary);
+                outline: none;
+                box-shadow: 0 0 0 1px var(--primary);
+            }
 
-        <nav class="settings-tabs" aria-label="Разделы настроек" data-i18n-aria-label="settingsSections" role="tablist">
-            <button class="settings-tab is-active" type="button" role="tab" data-tab="main" data-i18n="tabMain">Основные</button>
-            <button class="settings-tab" type="button" role="tab" data-tab="ai" data-i18n="tabAi">AI и стиль</button>
-            <button class="settings-tab" type="button" role="tab" data-tab="appearance" data-i18n="tabAppearance">Оформление</button>
-            <button class="settings-tab" type="button" role="tab" data-tab="suggestions" data-i18n="tabSuggestions">Подсказки</button>
-            <button class="settings-tab" type="button" role="tab" data-tab="privacy" data-i18n="tabPrivacy">Приватность</button>
-            <button class="settings-tab" type="button" role="tab" data-tab="commands" data-i18n="tabCommands">Команды</button>
-        </nav>
-        
-        <label for="apiKey" data-settings-group="main" data-i18n="apiKeyLabel">Ваш Mistral API Key:</label>
-        <div class="password-wrapper" data-settings-group="main">
-            <input type="password" id="apiKey" placeholder="Вставьте ключ..." data-i18n-placeholder="apiKeyPlaceholder" />
-            <button type="button" id="toggleApiKey" class="toggle-password" title="Показать/скрыть" aria-label="Показать или скрыть API-ключ" data-i18n-title="toggleApiKey" data-i18n-aria-label="toggleApiKey">
-                <!-- Иконка "Глаз открыт" -->
-                 <svg id="eyeOpen" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                    <circle cx="12" cy="12" r="3"></circle>
-                </svg>
-                <!-- Иконка "Глаз закрыт" (по умолчанию скрыта) -->
-                <svg id="eyeClosed" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
-                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-                    <line x1="1" y1="1" x2="23" y2="23"></line>
-                </svg>
-            </button>
-        </div>
-        
-        <label for="toneSelect" data-settings-group="main" data-i18n="toneLabel">Стиль текста (Tone of Voice):</label>
-        <select id="toneSelect" data-settings-group="main">
-            <option value="business" data-i18n="toneBusiness">💼 Деловой (строгий, вежливый)</option>
-            <option value="friendly" data-i18n="toneFriendly">👋 Дружелюбный (открытый, разговорный)</option>
-            <option value="persuasive" data-i18n="tonePersuasive">🔥 Убедительный (сильный, продающий)</option>
-            <option value="creative" data-i18n="toneCreative">✨ Креативный (живой, с метафорами)</option>
-        </select>
+            /* 🔥 НОВЫЕ СТИЛИ ДЛЯ ГЛАЗКА */
+            .password-wrapper {
+                position: relative;
+                display: flex;
+                align-items: center;
+                margin-bottom: 20px;
+            }
+            .password-wrapper input {
+                margin-bottom: 0;
+                padding-right: 44px;
+            }
+            .toggle-password {
+                position: absolute;
+                right: 12px;
+                background: transparent;
+                border: none;
+                padding: 0;
+                color: var(--text-secondary);
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                height: 100%;
+                transition: color 0.2s;
+            }
+            .toggle-password:hover {
+                color: var(--primary);
+                background: transparent;
+            }
 
-        <label for="themeSelect" data-settings-group="appearance" data-i18n="themeLabel" hidden>Тема оформления:</label>
-        <select id="themeSelect" data-settings-group="appearance" hidden>
-            <option value="auto" data-i18n="themeAuto">🖥️ Авто (как в системе)</option>
-            <option value="light" data-i18n="themeLight">☀️ Светлая</option>
-            <option value="dark" data-i18n="themeDark">🌙 Темная</option>
-        </select>
+            .instruction-box {
+                background: var(--box-bg);
+                border: 1px solid var(--box-border);
+                border-radius: 8px;
+                padding: 16px;
+                margin-bottom: 24px;
+            }
+            .instruction-box h2 {
+                margin: 0 0 8px 0;
+                color: var(--text-main);
+                font-size: 14px;
+                font-weight: 600;
+            }
+            .instruction-box ol {
+                margin: 0;
+                padding-left: 20px;
+                color: var(--text-secondary);
+                font-size: 13px;
+                line-height: 1.6;
+            }
+            .instruction-box a {
+                color: var(--primary);
+                text-decoration: none;
+                font-weight: 500;
+            }
+            .instruction-box a:hover {
+                text-decoration: underline;
+            }
 
-        <section class="appearance-panel" aria-labelledby="interfaceScaleLabel" data-settings-group="appearance" hidden>
-            <div class="range-header">
-                <label id="interfaceScaleLabel" for="interfaceScale" data-i18n="interfaceSize">Размер интерфейса расширения</label>
-                <output id="interfaceScaleValue" class="scale-value" for="interfaceScale">90%</output>
+            .btn-container {
+                display: flex;
+                align-items: center;
+                gap: 16px;
+                padding-top: 20px;
+                margin-top: 24px;
+                border-top: 1px solid var(--border);
+            }
+            .btn-container[hidden] {
+                display: none;
+            }
+            button#saveBtn {
+                background: var(--primary);
+                color: #fff;
+                border: none;
+                padding: 10px 24px;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 14px;
+                font-weight: 500;
+                transition: background 0.2s;
+            }
+            button#saveBtn:hover {
+                background: var(--primary-hover);
+            }
+            button#saveBtn:disabled {
+                cursor: not-allowed;
+            }
+            #status {
+                font-size: 14px;
+                color: #34a853;
+                font-weight: 500;
+                display: none;
+            }
+            .privacy-option {
+                display: flex;
+                gap: 12px;
+                align-items: flex-start;
+                padding: 14px;
+                margin-bottom: 20px;
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                background: var(--box-bg);
+            }
+            .privacy-option input {
+                margin-top: 3px;
+                width: 16px;
+                height: 16px;
+                accent-color: var(--primary);
+            }
+            .privacy-option label {
+                margin: 0;
+                color: var(--text-main);
+                cursor: pointer;
+            }
+            .privacy-option small {
+                display: block;
+                margin-top: 5px;
+                color: var(--text-secondary);
+                line-height: 1.4;
+                font-weight: 400;
+            }
+            .settings-section {
+                border-top: 1px solid var(--border);
+                padding-top: 20px;
+                margin-top: 8px;
+            }
+            .settings-section h2 {
+                font-size: 16px;
+                margin: 0 0 14px;
+                color: var(--text-main);
+            }
+            textarea {
+                min-height: 80px;
+                resize: vertical;
+            }
+
+            .appearance-panel {
+                padding: 16px;
+                margin: 0 0 20px;
+                background: var(--box-bg);
+                border: 1px solid var(--box-border);
+                border-radius: 12px;
+            }
+            .range-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 16px;
+                margin-bottom: 10px;
+            }
+            .range-header label {
+                margin: 0;
+                color: var(--text-main);
+            }
+            .scale-value {
+                min-width: 48px;
+                padding: 4px 8px;
+                color: var(--badge-text);
+                text-align: center;
+                background: var(--badge-bg);
+                border-radius: 999px;
+                font-size: 12px;
+                font-weight: 700;
+            }
+            input[type='range'] {
+                width: 100%;
+                margin: 0;
+                accent-color: var(--primary);
+                cursor: pointer;
+            }
+            .range-scale {
+                display: flex;
+                justify-content: space-between;
+                margin-top: 5px;
+                color: var(--text-secondary);
+                font-size: 10px;
+            }
+            .appearance-hint {
+                margin: 9px 0 14px;
+                font-size: 12px;
+                line-height: 1.45;
+            }
+            .preview-stage {
+                position: relative;
+                display: grid;
+                min-height: 100px;
+                place-items: center;
+                overflow: hidden;
+                background: #f6f8fc;
+                border: 1px solid var(--border);
+                border-radius: 11px;
+            }
+            .preview-stage::before {
+                position: absolute;
+                inset: 17px 20px;
+                content: '';
+                opacity: 0.62;
+                background: repeating-linear-gradient(to bottom, #c7ceda 0 4px, transparent 4px 16px);
+            }
+            .preview-toolbar {
+                --preview-bg: rgba(248, 250, 255, 0.9);
+                --preview-text: #20283b;
+                --preview-muted: #68738c;
+                position: relative;
+                z-index: 1;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                padding: 7px 9px;
+                color: var(--preview-text);
+                background: var(--preview-bg);
+                border: 1px solid rgba(255, 255, 255, 0.82);
+                border-radius: 14px;
+                box-shadow: 0 14px 32px rgba(38, 40, 72, 0.2);
+                backdrop-filter: blur(16px);
+                transform-origin: center;
+                transition:
+                    transform 0.18s ease,
+                    background 0.2s ease;
+            }
+            .preview-stage[data-theme='dark'] {
+                background: #171b2b;
+                border-color: #373d58;
+            }
+            .preview-stage[data-theme='dark']::before {
+                background: repeating-linear-gradient(to bottom, #66708a 0 4px, transparent 4px 16px);
+            }
+            .preview-stage[data-theme='dark'] .preview-toolbar {
+                --preview-bg: rgba(30, 34, 54, 0.94);
+                --preview-text: #f3f5fb;
+                --preview-muted: #aab3cb;
+                border-color: rgba(255, 255, 255, 0.14);
+                box-shadow: 0 14px 34px rgba(0, 0, 0, 0.42);
+            }
+            .preview-logo {
+                display: grid;
+                width: 22px;
+                height: 22px;
+                place-items: center;
+                color: #fff;
+                background: linear-gradient(135deg, #7564ef, #25b7c7);
+                border-radius: 7px;
+                font-size: 11px;
+                font-weight: 800;
+            }
+            .preview-action {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                padding: 4px 7px;
+                font-size: 12px;
+                font-weight: 600;
+                white-space: nowrap;
+            }
+            .preview-icon {
+                color: var(--preview-muted);
+                font-size: 16px;
+                line-height: 1;
+            }
+            .preview-divider {
+                width: 1px;
+                height: 19px;
+                background: currentColor;
+                opacity: 0.13;
+            }
+            .preview-square {
+                display: grid;
+                width: 26px;
+                height: 26px;
+                place-items: center;
+                color: var(--preview-muted);
+                border-radius: 8px;
+                font-size: 16px;
+            }
+            .adaptive-stats {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 14px;
+                padding: 13px 14px;
+                margin-bottom: 20px;
+                background: var(--box-bg);
+                border: 1px solid var(--box-border);
+                border-radius: 10px;
+            }
+            .adaptive-stats-copy {
+                min-width: 0;
+            }
+            .adaptive-stats strong {
+                display: block;
+                margin-bottom: 3px;
+                color: var(--text-main);
+                font-size: 13px;
+            }
+            .adaptive-stats span {
+                color: var(--text-secondary);
+                font-size: 12px;
+            }
+            .secondary-button {
+                flex: 0 0 auto;
+                padding: 7px 11px;
+                color: var(--text-main);
+                background: var(--bg-card);
+                border: 1px solid var(--border-input);
+                border-radius: 8px;
+                cursor: pointer;
+                font:
+                    600 12px system-ui,
+                    sans-serif;
+            }
+            .secondary-button:hover {
+                color: var(--primary);
+                border-color: var(--primary);
+            }
+            .secondary-button:disabled {
+                cursor: not-allowed;
+                opacity: 0.5;
+            }
+            .privacy-option.is-disabled {
+                opacity: 0.58;
+            }
+            .settings-tabs {
+                display: flex;
+                gap: 6px;
+                margin: 0 0 24px;
+                padding: 5px;
+                overflow-x: auto;
+                overscroll-behavior-inline: contain;
+                background: var(--box-bg);
+                border: 1px solid var(--box-border);
+                border-radius: 12px;
+                scrollbar-width: thin;
+            }
+            .settings-tab {
+                flex: 1 0 auto;
+                min-width: max-content;
+                padding: 9px 7px;
+                color: var(--text-secondary);
+                background: transparent;
+                border: 0;
+                border-radius: 8px;
+                cursor: pointer;
+                font:
+                    600 12px system-ui,
+                    sans-serif;
+                line-height: 1.2;
+                white-space: nowrap;
+            }
+            .settings-tab:hover {
+                color: var(--text-main);
+                background: var(--bg-card);
+            }
+            .settings-tab.is-active {
+                color: #fff;
+                background: var(--primary);
+                box-shadow: 0 5px 14px color-mix(in srgb, var(--primary) 22%, transparent);
+            }
+            [data-settings-group][hidden] {
+                display: none !important;
+            }
+            .onboarding {
+                position: fixed;
+                z-index: 100;
+                inset: 0;
+                display: grid;
+                padding: 20px;
+                place-items: center;
+                background: rgba(15, 18, 32, 0.48);
+                backdrop-filter: blur(12px);
+            }
+            .onboarding[hidden] {
+                display: none;
+            }
+            .onboarding-card {
+                width: min(430px, 100%);
+                padding: 25px;
+                color: var(--text-main);
+                background: var(--bg-card);
+                border: 1px solid var(--border);
+                border-radius: 20px;
+                box-shadow: 0 24px 70px rgba(15, 18, 32, 0.28);
+            }
+            .onboarding-icon {
+                display: grid;
+                width: 48px;
+                height: 48px;
+                margin-bottom: 18px;
+                place-items: center;
+                color: #fff;
+                background: linear-gradient(135deg, #765ff0, #27b9c8);
+                border-radius: 15px;
+                font-size: 22px;
+                box-shadow: 0 10px 24px rgba(109, 92, 231, 0.24);
+            }
+            .onboarding-step {
+                display: none;
+                min-height: 175px;
+            }
+            .onboarding-step.is-active {
+                display: block;
+            }
+            .onboarding-step h3 {
+                margin: 0 0 9px;
+                font-size: 21px;
+            }
+            .onboarding-step p {
+                margin: 0 0 14px;
+            }
+            .onboarding-list {
+                margin: 0;
+                padding-left: 20px;
+                color: var(--text-secondary);
+                font-size: 13px;
+                line-height: 1.8;
+            }
+            .onboarding-actions {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                margin-top: 20px;
+            }
+            .onboarding-progress {
+                color: var(--text-secondary);
+                font-size: 12px;
+            }
+            .onboarding-buttons {
+                display: flex;
+                gap: 8px;
+            }
+            .onboarding-button {
+                padding: 9px 14px;
+                border: 0;
+                border-radius: 9px;
+                cursor: pointer;
+                font:
+                    600 13px system-ui,
+                    sans-serif;
+            }
+            .onboarding-button.primary {
+                color: #fff;
+                background: var(--primary);
+            }
+            .onboarding-button.secondary {
+                color: var(--text-secondary);
+                background: var(--box-bg);
+            }
+            .commands-panel h2 {
+                margin: 0 0 7px;
+            }
+            .commands-panel > p {
+                margin: 0 0 16px;
+            }
+            .command-form {
+                padding: 15px;
+                margin-bottom: 15px;
+                background: var(--box-bg);
+                border: 1px solid var(--box-border);
+                border-radius: 11px;
+            }
+            .command-form textarea {
+                min-height: 76px;
+                margin-bottom: 12px;
+            }
+            .command-form input {
+                margin-bottom: 12px !important;
+            }
+            .command-form-actions {
+                display: flex;
+                justify-content: flex-end;
+                gap: 8px;
+            }
+            .command-list {
+                display: grid;
+                gap: 8px;
+                margin-bottom: 18px;
+            }
+            .command-card {
+                display: grid;
+                grid-template-columns: 1fr auto;
+                gap: 10px;
+                align-items: center;
+                padding: 12px 13px;
+                background: var(--bg-card);
+                border: 1px solid var(--border);
+                border-radius: 10px;
+            }
+            .command-card strong {
+                display: block;
+                margin-bottom: 3px;
+                font-size: 13px;
+            }
+            .command-card span {
+                display: block;
+                overflow: hidden;
+                color: var(--text-secondary);
+                font-size: 11px;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .command-card .profile-sites {
+                display: block;
+                margin-top: 7px;
+                overflow: visible;
+                color: var(--primary);
+                font-size: 11px;
+                text-overflow: clip;
+                white-space: normal;
+            }
+            .command-card-actions {
+                display: flex;
+                gap: 5px;
+            }
+            .command-icon-button {
+                display: grid;
+                width: 30px;
+                height: 30px;
+                place-items: center;
+                color: var(--text-secondary);
+                background: var(--box-bg);
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                cursor: pointer;
+            }
+            .command-icon-button:hover {
+                color: var(--primary);
+                border-color: var(--primary);
+            }
+            .command-presets {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+            }
+            .preset-button {
+                padding: 7px 9px;
+                color: var(--text-secondary);
+                background: var(--box-bg);
+                border: 1px solid var(--box-border);
+                border-radius: 8px;
+                cursor: pointer;
+                font:
+                    600 11px system-ui,
+                    sans-serif;
+            }
+            .preset-button:hover {
+                color: var(--primary);
+                border-color: var(--primary);
+            }
+            .settings-row {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                align-items: center;
+            }
+            .settings-row select {
+                flex: 1 1 220px;
+                margin-bottom: 0;
+            }
+            .usage-summary {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 8px;
+                margin: 12px 0;
+            }
+            .usage-metric {
+                padding: 10px;
+                text-align: center;
+                background: var(--box-bg);
+                border: 1px solid var(--box-border);
+                border-radius: 10px;
+            }
+            .usage-metric strong,
+            .usage-metric span {
+                display: block;
+            }
+            .usage-metric span {
+                margin-top: 3px;
+                color: var(--text-secondary);
+                font-size: 11px;
+            }
+            @media (max-width: 560px) {
+                body {
+                    padding: 12px;
+                }
+                .container {
+                    padding: 22px;
+                }
+                .command-form-actions {
+                    align-items: stretch;
+                    flex-direction: column-reverse;
+                }
+                .command-form-actions button {
+                    width: 100%;
+                }
+                .btn-container {
+                    align-items: stretch;
+                    flex-direction: column;
+                }
+                button#saveBtn {
+                    width: 100%;
+                }
+                #status {
+                    text-align: center;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <main class="container">
+            <div class="header-row">
+                <h1 data-i18n="optionsTitle">Настройки нейросети</h1>
+                <span id="app-version" class="version-badge">v1.0.0</span>
             </div>
-            <input type="range" id="interfaceScale" min="75" max="110" step="5" value="90" />
-            <div class="range-scale" aria-hidden="true"><span data-i18n="compact">Компактный</span><span data-i18n="large">Крупный</span></div>
-            <p class="appearance-hint" data-i18n="appearanceHint">Масштаб применяется к панели выделения, AI-меню и окну результата.</p>
-            <div id="interfacePreview" class="preview-stage" aria-label="Предпросмотр размера интерфейса">
-                <div id="previewToolbar" class="preview-toolbar">
-                    <span class="preview-logo">L</span>
-                    <span class="preview-divider"></span>
-                    <span class="preview-action"><span class="preview-icon">⌁</span><span data-i18n="editText">Редактировать</span></span>
-                    <span class="preview-divider"></span>
-                    <span class="preview-square">⧉</span>
-                    <span class="preview-square">⋮</span>
-                    <span class="preview-divider"></span>
-                    <span class="preview-square">×</span>
+            <p data-i18n="optionsIntro">Укажите параметры доступа к API, стиль текста и тему оформления.</p>
+
+            <nav
+                class="settings-tabs"
+                aria-label="Разделы настроек"
+                data-i18n-aria-label="settingsSections"
+                role="tablist"
+            >
+                <button class="settings-tab is-active" type="button" role="tab" data-tab="main" data-i18n="tabMain">
+                    Основные
+                </button>
+                <button class="settings-tab" type="button" role="tab" data-tab="ai" data-i18n="tabAi">
+                    AI и стиль
+                </button>
+                <button class="settings-tab" type="button" role="tab" data-tab="appearance" data-i18n="tabAppearance">
+                    Оформление
+                </button>
+                <button class="settings-tab" type="button" role="tab" data-tab="suggestions" data-i18n="tabSuggestions">
+                    Подсказки
+                </button>
+                <button class="settings-tab" type="button" role="tab" data-tab="privacy" data-i18n="tabPrivacy">
+                    Приватность
+                </button>
+                <button class="settings-tab" type="button" role="tab" data-tab="commands" data-i18n="tabCommands">
+                    Команды
+                </button>
+            </nav>
+
+            <label for="apiKey" data-settings-group="main" data-i18n="apiKeyLabel">Ваш Mistral API Key:</label>
+            <div class="password-wrapper" data-settings-group="main">
+                <input
+                    type="password"
+                    id="apiKey"
+                    placeholder="Вставьте ключ..."
+                    data-i18n-placeholder="apiKeyPlaceholder"
+                />
+                <button
+                    type="button"
+                    id="toggleApiKey"
+                    class="toggle-password"
+                    title="Показать/скрыть"
+                    aria-label="Показать или скрыть API-ключ"
+                    data-i18n-title="toggleApiKey"
+                    data-i18n-aria-label="toggleApiKey"
+                >
+                    <!-- Иконка "Глаз открыт" -->
+                    <svg
+                        id="eyeOpen"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                    <!-- Иконка "Глаз закрыт" (по умолчанию скрыта) -->
+                    <svg
+                        id="eyeClosed"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        style="display: none"
+                    >
+                        <path
+                            d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"
+                        ></path>
+                        <line x1="1" y1="1" x2="23" y2="23"></line>
+                    </svg>
+                </button>
+            </div>
+
+            <label for="toneSelect" data-settings-group="main" data-i18n="toneLabel"
+                >Стиль текста (Tone of Voice):</label
+            >
+            <select id="toneSelect" data-settings-group="main">
+                <option value="business" data-i18n="toneBusiness">💼 Деловой (строгий, вежливый)</option>
+                <option value="friendly" data-i18n="toneFriendly">👋 Дружелюбный (открытый, разговорный)</option>
+                <option value="persuasive" data-i18n="tonePersuasive">🔥 Убедительный (сильный, продающий)</option>
+                <option value="creative" data-i18n="toneCreative">✨ Креативный (живой, с метафорами)</option>
+            </select>
+
+            <label for="themeSelect" data-settings-group="appearance" data-i18n="themeLabel" hidden
+                >Тема оформления:</label
+            >
+            <select id="themeSelect" data-settings-group="appearance" hidden>
+                <option value="auto" data-i18n="themeAuto">🖥️ Авто (как в системе)</option>
+                <option value="light" data-i18n="themeLight">☀️ Светлая</option>
+                <option value="dark" data-i18n="themeDark">🌙 Темная</option>
+            </select>
+
+            <section
+                class="appearance-panel"
+                aria-labelledby="interfaceScaleLabel"
+                data-settings-group="appearance"
+                hidden
+            >
+                <div class="range-header">
+                    <label id="interfaceScaleLabel" for="interfaceScale" data-i18n="interfaceSize"
+                        >Размер интерфейса расширения</label
+                    >
+                    <output id="interfaceScaleValue" class="scale-value" for="interfaceScale">90%</output>
+                </div>
+                <input type="range" id="interfaceScale" min="75" max="110" step="5" value="90" />
+                <div class="range-scale" aria-hidden="true">
+                    <span data-i18n="compact">Компактный</span><span data-i18n="large">Крупный</span>
+                </div>
+                <p class="appearance-hint" data-i18n="appearanceHint">
+                    Масштаб применяется к панели выделения, AI-меню и окну результата.
+                </p>
+                <div id="interfacePreview" class="preview-stage" aria-label="Предпросмотр размера интерфейса">
+                    <div id="previewToolbar" class="preview-toolbar">
+                        <span class="preview-logo">L</span>
+                        <span class="preview-divider"></span>
+                        <span class="preview-action"
+                            ><span class="preview-icon">⌁</span><span data-i18n="editText">Редактировать</span></span
+                        >
+                        <span class="preview-divider"></span>
+                        <span class="preview-square">⧉</span>
+                        <span class="preview-square">⋮</span>
+                        <span class="preview-divider"></span>
+                        <span class="preview-square">×</span>
+                    </div>
+                </div>
+            </section>
+
+            <div style="margin-bottom: 20px" data-settings-group="main">
+                <label
+                    for="searchEngine"
+                    style="display: block; font-weight: 500; margin-bottom: 8px; color: var(--text-secondary)"
+                    data-i18n="searchEngineLabel"
+                    >Поисковая система:</label
+                >
+                <select
+                    id="searchEngine"
+                    style="
+                        width: 100%;
+                        padding: 10px 12px;
+                        border: 1px solid var(--border-input);
+                        border-radius: 8px;
+                        font-size: 14px;
+                        background: var(--bg-card);
+                        color: var(--text-main);
+                        outline: none;
+                        cursor: pointer;
+                    "
+                >
+                    <option value="google">Google</option>
+                    <option value="yandex">Yandex</option>
+                    <option value="duckduckgo">DuckDuckGo</option>
+                </select>
+            </div>
+
+            <section class="settings-section" data-settings-group="ai" hidden>
+                <h2 data-i18n="aiModeTitle">Режим AI</h2>
+                <label for="aiMode" data-i18n="aiModeLabel">Баланс скорости и качества</label>
+                <select id="aiMode">
+                    <option value="fast" data-i18n="aiModeFast">Быстро — Mistral Small</option>
+                    <option value="quality" data-i18n="aiModeQuality">Качественно — Mistral Large</option>
+                </select>
+                <label for="glossary" data-i18n="glossaryLabel">Глоссарий перевода</label>
+                <textarea
+                    id="glossary"
+                    placeholder="LexiSync = LexiSync&#10;workspace = рабочее пространство"
+                ></textarea>
+                <p data-i18n="glossaryHint">
+                    Одна пара «исходный термин = перевод» на строку. Глоссарий хранится локально.
+                </p>
+            </section>
+
+            <section class="settings-section" data-settings-group="ai" hidden>
+                <h2 data-i18n="styleProfilesTitle">Профили стиля</h2>
+                <p data-i18n="styleProfilesIntro">Создайте инструкции для рабочей почты, чатов или публикаций.</p>
+                <div id="styleProfileList" class="command-list"></div>
+                <form id="styleProfileForm" class="command-form">
+                    <input id="styleProfileId" type="hidden" />
+                    <label for="styleProfileName" data-i18n="profileName">Название профиля</label>
+                    <input
+                        id="styleProfileName"
+                        type="text"
+                        maxlength="40"
+                        placeholder="Рабочая почта"
+                        data-i18n-placeholder="profileNamePlaceholder"
+                        required
+                    />
+                    <label for="styleProfileInstruction" data-i18n="profileInstruction">Инструкция по стилю</label>
+                    <textarea
+                        id="styleProfileInstruction"
+                        maxlength="1000"
+                        placeholder="Пиши кратко, профессионально и без канцеляризмов."
+                        data-i18n-placeholder="profileInstructionPlaceholder"
+                        required
+                    ></textarea>
+                    <label for="styleProfileSites" data-i18n="profileSites">Сайты для автоматического включения</label>
+                    <textarea
+                        id="styleProfileSites"
+                        maxlength="2000"
+                        placeholder="mail.example.com&#10;docs.example.org"
+                        data-i18n-placeholder="profileSitesPlaceholder"
+                    ></textarea>
+                    <p data-i18n="profileSitesHint">
+                        По одному домену на строку. Профиль будет выбран автоматически на домене и его поддоменах.
+                    </p>
+                    <div class="command-form-actions">
+                        <button
+                            id="cancelStyleProfileEdit"
+                            class="secondary-button"
+                            type="button"
+                            data-i18n="cancel"
+                            hidden
+                        >
+                            Отмена</button
+                        ><button class="onboarding-button primary" type="submit" data-i18n="saveProfile">
+                            Сохранить профиль
+                        </button>
+                    </div>
+                </form>
+            </section>
+
+            <div class="privacy-option" data-settings-group="privacy" hidden>
+                <input type="checkbox" id="sendPageContext" />
+                <label for="sendPageContext">
+                    <span data-i18n="sendContextLong">Передавать контекст страницы в Mistral</span>
+                    <small data-i18n="sendContextHint"
+                        >Если включено, вместе с выделенным текстом отправляются до 2000 символов окружения, заголовок
+                        страницы и домен. По умолчанию выключено.</small
+                    >
+                </label>
+            </div>
+
+            <div class="settings-section" data-settings-group="suggestions" hidden>
+                <h2 data-i18n="suggestionsTitle">Персональные подсказки</h2>
+                <div class="privacy-option">
+                    <input type="checkbox" id="adaptiveSuggestionsEnabled" />
+                    <label for="adaptiveSuggestionsEnabled">
+                        <span data-i18n="suggestionsEnable">Предлагать продолжение текста</span>
+                        <small data-i18n="suggestionsHint"
+                            >LexiSync показывает до трёх вариантов возле поля ввода. Выбирайте вариант стрелками,
+                            принимайте клавишей Tab или Enter, закрывайте меню клавишей Esc.</small
+                        >
+                    </label>
+                </div>
+                <div id="adaptiveLearningOption" class="privacy-option">
+                    <input type="checkbox" id="adaptiveLearningEnabled" checked />
+                    <label for="adaptiveLearningEnabled">
+                        <span data-i18n="learningEnable">Изучать мой стиль письма</span>
+                        <small data-i18n="learningHint"
+                            >Слова и словосочетания сохраняются только локально. Пароли, платёжные поля, приватные окна
+                            и исключённые сайты не обрабатываются.</small
+                        >
+                    </label>
+                </div>
+                <div class="adaptive-stats">
+                    <div class="adaptive-stats-copy">
+                        <strong data-i18n="languageProfile">Локальный языковой профиль</strong>
+                        <span id="adaptiveStats">Изучено 0 слов и 0 словосочетаний</span>
+                    </div>
+                    <button type="button" id="clearAdaptiveData" class="secondary-button" data-i18n="clear" disabled>
+                        Очистить
+                    </button>
                 </div>
             </div>
-        </section>
 
-        <div style="margin-bottom: 20px;" data-settings-group="main">
-            <label for="searchEngine" style="display: block; font-weight: 500; margin-bottom: 8px; color: var(--text-secondary);" data-i18n="searchEngineLabel">Поисковая система:</label>
-            <select id="searchEngine" style="width: 100%; padding: 10px 12px; border: 1px solid var(--border-input); border-radius: 8px; font-size: 14px; background: var(--bg-card); color: var(--text-main); outline: none; cursor: pointer;">
-                <option value="google">Google</option>
-                <option value="yandex">Yandex</option>
-                <option value="duckduckgo">DuckDuckGo</option>
-            </select>
-        </div>
-
-        <section class="settings-section" data-settings-group="ai" hidden>
-            <h2 data-i18n="aiModeTitle">Режим AI</h2>
-            <label for="aiMode" data-i18n="aiModeLabel">Баланс скорости и качества</label>
-            <select id="aiMode">
-                <option value="fast" data-i18n="aiModeFast">Быстро — Mistral Small</option>
-                <option value="quality" data-i18n="aiModeQuality">Качественно — Mistral Large</option>
-            </select>
-            <label for="glossary" data-i18n="glossaryLabel">Глоссарий перевода</label>
-            <textarea id="glossary" placeholder="LexiSync = LexiSync&#10;workspace = рабочее пространство"></textarea>
-            <p data-i18n="glossaryHint">Одна пара «исходный термин = перевод» на строку. Глоссарий хранится локально.</p>
-        </section>
-
-        <section class="settings-section" data-settings-group="ai" hidden>
-            <h2 data-i18n="styleProfilesTitle">Профили стиля</h2>
-            <p data-i18n="styleProfilesIntro">Создайте инструкции для рабочей почты, чатов или публикаций.</p>
-            <div id="styleProfileList" class="command-list"></div>
-            <form id="styleProfileForm" class="command-form">
-                <input id="styleProfileId" type="hidden">
-                <label for="styleProfileName" data-i18n="profileName">Название профиля</label>
-                <input id="styleProfileName" type="text" maxlength="40" placeholder="Рабочая почта" data-i18n-placeholder="profileNamePlaceholder" required>
-                <label for="styleProfileInstruction" data-i18n="profileInstruction">Инструкция по стилю</label>
-                <textarea id="styleProfileInstruction" maxlength="1000" placeholder="Пиши кратко, профессионально и без канцеляризмов." data-i18n-placeholder="profileInstructionPlaceholder" required></textarea>
-                <label for="styleProfileSites" data-i18n="profileSites">Сайты для автоматического включения</label>
-                <textarea id="styleProfileSites" maxlength="2000" placeholder="mail.example.com&#10;docs.example.org" data-i18n-placeholder="profileSitesPlaceholder"></textarea>
-                <p data-i18n="profileSitesHint">По одному домену на строку. Профиль будет выбран автоматически на домене и его поддоменах.</p>
-                <div class="command-form-actions"><button id="cancelStyleProfileEdit" class="secondary-button" type="button" data-i18n="cancel" hidden>Отмена</button><button class="onboarding-button primary" type="submit" data-i18n="saveProfile">Сохранить профиль</button></div>
-            </form>
-        </section>
-
-        <div class="privacy-option" data-settings-group="privacy" hidden>
-            <input type="checkbox" id="sendPageContext" />
-            <label for="sendPageContext">
-                <span data-i18n="sendContextLong">Передавать контекст страницы в Mistral</span>
-                <small data-i18n="sendContextHint">Если включено, вместе с выделенным текстом отправляются до 2000 символов окружения, заголовок страницы и домен. По умолчанию выключено.</small>
-            </label>
-        </div>
-
-        <div class="settings-section" data-settings-group="suggestions" hidden>
-            <h2 data-i18n="suggestionsTitle">Персональные подсказки</h2>
-            <div class="privacy-option">
-                <input type="checkbox" id="adaptiveSuggestionsEnabled" />
-                <label for="adaptiveSuggestionsEnabled">
-                    <span data-i18n="suggestionsEnable">Предлагать продолжение текста</span>
-                    <small data-i18n="suggestionsHint">LexiSync показывает до трёх вариантов возле поля ввода. Выбирайте вариант стрелками, принимайте клавишей Tab или Enter, закрывайте меню клавишей Esc.</small>
-                </label>
-            </div>
-            <div id="adaptiveLearningOption" class="privacy-option">
-                <input type="checkbox" id="adaptiveLearningEnabled" checked />
-                <label for="adaptiveLearningEnabled">
-                    <span data-i18n="learningEnable">Изучать мой стиль письма</span>
-                    <small data-i18n="learningHint">Слова и словосочетания сохраняются только локально. Пароли, платёжные поля, приватные окна и исключённые сайты не обрабатываются.</small>
-                </label>
-            </div>
-            <div class="adaptive-stats">
-                <div class="adaptive-stats-copy">
-                    <strong data-i18n="languageProfile">Локальный языковой профиль</strong>
-                    <span id="adaptiveStats">Изучено 0 слов и 0 словосочетаний</span>
+            <div class="settings-section" data-settings-group="privacy" hidden>
+                <h2 data-i18n="historyPrivacyTitle">История и приватность</h2>
+                <div class="privacy-option">
+                    <input type="checkbox" id="historyEnabled" checked />
+                    <label for="historyEnabled">
+                        <span data-i18n="historyEnable">Сохранять историю и кэш</span>
+                        <small data-i18n="historyPrivateHint">В приватных окнах история и кэш всегда отключены.</small>
+                    </label>
                 </div>
-                <button type="button" id="clearAdaptiveData" class="secondary-button" data-i18n="clear" disabled>Очистить</button>
+                <label for="historyRetentionDays" data-i18n="retentionLabel">Срок хранения истории:</label>
+                <select id="historyRetentionDays">
+                    <option value="1" data-i18n="day1">1 день</option>
+                    <option value="7" data-i18n="days7">7 дней</option>
+                    <option value="30" data-i18n="days30" selected>30 дней</option>
+                </select>
+                <label for="disabledSites" data-i18n="disabledSitesLabel">Не сохранять данные на сайтах:</label>
+                <textarea id="disabledSites" placeholder="mail.example.com&#10;work.example.org"></textarea>
             </div>
-        </div>
 
-        <div class="settings-section" data-settings-group="privacy" hidden>
-            <h2 data-i18n="historyPrivacyTitle">История и приватность</h2>
-            <div class="privacy-option">
-                <input type="checkbox" id="historyEnabled" checked />
-                <label for="historyEnabled">
-                    <span data-i18n="historyEnable">Сохранять историю и кэш</span>
-                    <small data-i18n="historyPrivateHint">В приватных окнах история и кэш всегда отключены.</small>
-                </label>
+            <div class="settings-section" data-settings-group="privacy" hidden>
+                <h2 data-i18n="portableSettingsTitle">Перенос настроек</h2>
+                <p data-i18n="portableSettingsHint">
+                    API-ключ, история, статистика и локальная языковая модель не попадают в файл.
+                </p>
+                <div class="settings-row">
+                    <button type="button" id="exportSettings" class="secondary-button" data-i18n="exportSettings">
+                        Экспортировать
+                    </button>
+                    <button type="button" id="importSettings" class="secondary-button" data-i18n="importSettings">
+                        Импортировать
+                    </button>
+                    <input id="importSettingsFile" type="file" accept="application/json,.json" hidden />
+                </div>
             </div>
-            <label for="historyRetentionDays" data-i18n="retentionLabel">Срок хранения истории:</label>
-            <select id="historyRetentionDays">
-                <option value="1" data-i18n="day1">1 день</option>
-                <option value="7" data-i18n="days7">7 дней</option>
-                <option value="30" data-i18n="days30" selected>30 дней</option>
-            </select>
-            <label for="disabledSites" data-i18n="disabledSitesLabel">Не сохранять данные на сайтах:</label>
-            <textarea id="disabledSites" placeholder="mail.example.com&#10;work.example.org"></textarea>
-        </div>
 
-        <div class="settings-section" data-settings-group="privacy" hidden>
-            <h2 data-i18n="portableSettingsTitle">Перенос настроек</h2>
-            <p data-i18n="portableSettingsHint">API-ключ, история, статистика и локальная языковая модель не попадают в файл.</p>
-            <div class="settings-row">
-                <button type="button" id="exportSettings" class="secondary-button" data-i18n="exportSettings">Экспортировать</button>
-                <button type="button" id="importSettings" class="secondary-button" data-i18n="importSettings">Импортировать</button>
-                <input id="importSettingsFile" type="file" accept="application/json,.json" hidden>
+            <div class="settings-section" data-settings-group="privacy" hidden>
+                <h2 data-i18n="usageTitle">Локальная статистика</h2>
+                <div class="usage-summary" aria-live="polite">
+                    <div class="usage-metric">
+                        <strong id="usageRequests">0</strong><span data-i18n="usageRequests">запросов</span>
+                    </div>
+                    <div class="usage-metric">
+                        <strong id="usageCacheHits">0</strong><span data-i18n="usageCacheHits">из кэша</span>
+                    </div>
+                    <div class="usage-metric">
+                        <strong id="usageLatency">0 с</strong><span data-i18n="usageLatency">средний ответ</span>
+                    </div>
+                </div>
+                <button type="button" id="clearUsageStats" class="secondary-button" data-i18n="clearStats">
+                    Очистить статистику
+                </button>
             </div>
-        </div>
 
-        <div class="settings-section" data-settings-group="privacy" hidden>
-            <h2 data-i18n="usageTitle">Локальная статистика</h2>
-            <div class="usage-summary" aria-live="polite">
-                <div class="usage-metric"><strong id="usageRequests">0</strong><span data-i18n="usageRequests">запросов</span></div>
-                <div class="usage-metric"><strong id="usageCacheHits">0</strong><span data-i18n="usageCacheHits">из кэша</span></div>
-                <div class="usage-metric"><strong id="usageLatency">0 с</strong><span data-i18n="usageLatency">средний ответ</span></div>
+            <div class="settings-section" data-settings-group="privacy" hidden>
+                <h2 data-i18n="dictionaryTitle">Личный словарь</h2>
+                <label for="personalDictionary" data-i18n="dictionaryLabel">Слова, которые не нужно исправлять:</label>
+                <textarea id="personalDictionary" placeholder="LexiSync&#10;Mistral"></textarea>
             </div>
-            <button type="button" id="clearUsageStats" class="secondary-button" data-i18n="clearStats">Очистить статистику</button>
-        </div>
 
-        <div class="settings-section" data-settings-group="privacy" hidden>
-            <h2 data-i18n="dictionaryTitle">Личный словарь</h2>
-            <label for="personalDictionary" data-i18n="dictionaryLabel">Слова, которые не нужно исправлять:</label>
-            <textarea id="personalDictionary" placeholder="LexiSync&#10;Mistral"></textarea>
-        </div>
-
-        <section class="commands-panel" data-settings-group="commands" hidden>
-            <h2 data-i18n="customCommandsTitle">Пользовательские AI-команды</h2>
-            <p data-i18n="customCommandsIntro">Создайте собственные действия. Они появятся в меню LexiSync при выделении текста.</p>
-            <div id="customCommandList" class="command-list"></div>
-            <form id="customCommandForm" class="command-form">
-                <input id="customCommandId" type="hidden">
-                <label for="customCommandName" data-i18n="commandName">Название команды</label>
-                <input id="customCommandName" type="text" maxlength="40" placeholder="Например: Сделать короче" data-i18n-placeholder="commandNamePlaceholder" required>
-                <label for="customCommandPrompt" data-i18n="commandPrompt">Инструкция для AI</label>
-                <textarea id="customCommandPrompt" maxlength="2000" placeholder="Сократи текст, сохранив ключевые факты и исходный смысл." data-i18n-placeholder="commandPromptPlaceholder" required></textarea>
-                <div class="command-form-actions"><button id="cancelCommandEdit" class="secondary-button" type="button" data-i18n="cancel" hidden>Отмена</button><button class="onboarding-button primary" type="submit" data-i18n="saveCommand">Сохранить команду</button></div>
-            </form>
-            <label data-i18n="quickTemplates">Быстрые шаблоны</label>
-            <div class="command-presets">
-                <button class="preset-button" type="button" data-command-name-key="presetShortName" data-command-prompt-key="presetShortPrompt" data-i18n="presetShortLabel">Короче</button>
-                <button class="preset-button" type="button" data-command-name-key="presetSimpleName" data-command-prompt-key="presetSimplePrompt" data-i18n="presetSimpleLabel">Проще</button>
-                <button class="preset-button" type="button" data-command-name-key="presetListName" data-command-prompt-key="presetListPrompt" data-i18n="presetListLabel">В список</button>
-                <button class="preset-button" type="button" data-command-name-key="presetClientName" data-command-prompt-key="presetClientPrompt" data-i18n="presetClientLabel">Ответ клиенту</button>
-            </div>
-        </section>
-
-        <div class="instruction-box" data-settings-group="main">
-            <h2 data-i18n="getApiKeyTitle">Где взять API-ключ?</h2>
-            <ol>
-                <li data-i18n="getApiKeyStep1">Перейдите на console.mistral.ai.</li>
-                <li data-i18n="getApiKeyStep2">В меню слева найдите раздел API Keys.</li>
-                <li data-i18n="getApiKeyStep3">Нажмите Create new key и скопируйте его.</li>
-            </ol>
-        </div>
-
-        <div class="btn-container" id="saveActions">
-            <button id="saveBtn" data-i18n="save">Сохранить</button>
-            <span id="status" data-i18n="saved">✓ Сохранено успешно!</span>
-        </div>
-
-    </main>
-
-    <div id="onboarding" class="onboarding" hidden role="dialog" aria-modal="true" aria-labelledby="onboardingTitle">
-        <div class="onboarding-card">
-            <div class="onboarding-icon" aria-hidden="true">✦</div>
-            <section class="onboarding-step is-active" data-onboarding-step="0">
-                <h3 id="onboardingTitle" data-i18n="onboardingWelcome">Добро пожаловать в LexiSync</h3>
-                <p data-i18n="onboardingIntro">Расширение помогает исправлять, переводить и улучшать текст прямо на странице.</p>
-                <ul class="onboarding-list"><li data-i18n="onboardingSelect">Выделите текст на любом сайте</li><li data-i18n="onboardingOpen">Откройте компактную панель LexiSync</li><li data-i18n="onboardingChoose">Выберите нужное действие</li></ul>
+            <section class="commands-panel" data-settings-group="commands" hidden>
+                <h2 data-i18n="customCommandsTitle">Пользовательские AI-команды</h2>
+                <p data-i18n="customCommandsIntro">
+                    Создайте собственные действия. Они появятся в меню LexiSync при выделении текста.
+                </p>
+                <div id="customCommandList" class="command-list"></div>
+                <form id="customCommandForm" class="command-form">
+                    <input id="customCommandId" type="hidden" />
+                    <label for="customCommandName" data-i18n="commandName">Название команды</label>
+                    <input
+                        id="customCommandName"
+                        type="text"
+                        maxlength="40"
+                        placeholder="Например: Сделать короче"
+                        data-i18n-placeholder="commandNamePlaceholder"
+                        required
+                    />
+                    <label for="customCommandPrompt" data-i18n="commandPrompt">Инструкция для AI</label>
+                    <textarea
+                        id="customCommandPrompt"
+                        maxlength="2000"
+                        placeholder="Сократи текст, сохранив ключевые факты и исходный смысл."
+                        data-i18n-placeholder="commandPromptPlaceholder"
+                        required
+                    ></textarea>
+                    <div class="command-form-actions">
+                        <button id="cancelCommandEdit" class="secondary-button" type="button" data-i18n="cancel" hidden>
+                            Отмена</button
+                        ><button class="onboarding-button primary" type="submit" data-i18n="saveCommand">
+                            Сохранить команду
+                        </button>
+                    </div>
+                </form>
+                <label data-i18n="quickTemplates">Быстрые шаблоны</label>
+                <div class="command-presets">
+                    <button
+                        class="preset-button"
+                        type="button"
+                        data-command-name-key="presetShortName"
+                        data-command-prompt-key="presetShortPrompt"
+                        data-i18n="presetShortLabel"
+                    >
+                        Короче
+                    </button>
+                    <button
+                        class="preset-button"
+                        type="button"
+                        data-command-name-key="presetSimpleName"
+                        data-command-prompt-key="presetSimplePrompt"
+                        data-i18n="presetSimpleLabel"
+                    >
+                        Проще
+                    </button>
+                    <button
+                        class="preset-button"
+                        type="button"
+                        data-command-name-key="presetListName"
+                        data-command-prompt-key="presetListPrompt"
+                        data-i18n="presetListLabel"
+                    >
+                        В список
+                    </button>
+                    <button
+                        class="preset-button"
+                        type="button"
+                        data-command-name-key="presetClientName"
+                        data-command-prompt-key="presetClientPrompt"
+                        data-i18n="presetClientLabel"
+                    >
+                        Ответ клиенту
+                    </button>
+                </div>
             </section>
-            <section class="onboarding-step" data-onboarding-step="1">
-                <h3 data-i18n="onboardingShortcuts">Быстрые команды</h3>
-                <p data-i18n="onboardingShortcutsHint">Основные действия доступны без открытия меню.</p>
-                <ul class="onboarding-list"><li data-i18n="shortcutSpellcheck">Alt+R — исправить ошибки</li><li data-i18n="shortcutStyle">Alt+Y — переписать текст</li><li data-i18n="shortcutEmoji">Alt+T — добавить эмодзи</li><li data-i18n="shortcutOcr">Alt+S — распознать текст на экране</li></ul>
-            </section>
-            <section class="onboarding-step" data-onboarding-step="2">
-                <h3 data-i18n="onboardingPrivacy">Приватные подсказки</h3>
-                <p data-i18n="onboardingPrivacyHint">LexiSync может изучать часто используемые слова локально и предлагать продолжение по Tab.</p>
-                <ul class="onboarding-list"><li data-i18n="privacyOptIn">Функция включается только вами</li><li data-i18n="privacySensitive">Пароли и платёжные поля игнорируются</li><li data-i18n="privacyClear">Языковой профиль можно очистить в любой момент</li></ul>
-            </section>
-            <section class="onboarding-step" data-onboarding-step="3">
-                <h3 data-i18n="onboardingApi">Осталось добавить API-ключ</h3>
-                <p data-i18n="onboardingApiHint">Ключ Mistral нужен только для AI-обработки. Локальные подсказки работают без API.</p>
-                <ul class="onboarding-list"><li data-i18n="apiStepGet">Получите ключ в console.mistral.ai</li><li data-i18n="apiStepPaste">Вставьте его во вкладке «Основные»</li><li data-i18n="apiStepIndependent">Остальные настройки сохраняются независимо от ключа</li></ul>
-            </section>
-            <div class="onboarding-actions">
-                <span id="onboardingProgress" class="onboarding-progress">1 из 4</span>
-                <div class="onboarding-buttons"><button id="onboardingSkip" class="onboarding-button secondary" type="button" data-i18n="skip">Пропустить</button><button id="onboardingNext" class="onboarding-button primary" type="button" data-i18n="next">Далее</button></div>
+
+            <div class="instruction-box" data-settings-group="main">
+                <h2 data-i18n="getApiKeyTitle">Где взять API-ключ?</h2>
+                <ol>
+                    <li data-i18n="getApiKeyStep1">Перейдите на console.mistral.ai.</li>
+                    <li data-i18n="getApiKeyStep2">В меню слева найдите раздел API Keys.</li>
+                    <li data-i18n="getApiKeyStep3">Нажмите Create new key и скопируйте его.</li>
+                </ol>
+            </div>
+
+            <div class="btn-container" id="saveActions">
+                <button id="saveBtn" data-i18n="save">Сохранить</button>
+                <span id="status" data-i18n="saved">✓ Сохранено успешно!</span>
+            </div>
+        </main>
+
+        <div
+            id="onboarding"
+            class="onboarding"
+            hidden
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="onboardingTitle"
+        >
+            <div class="onboarding-card">
+                <div class="onboarding-icon" aria-hidden="true">✦</div>
+                <section class="onboarding-step is-active" data-onboarding-step="0">
+                    <h3 id="onboardingTitle" data-i18n="onboardingWelcome">Добро пожаловать в LexiSync</h3>
+                    <p data-i18n="onboardingIntro">
+                        Расширение помогает исправлять, переводить и улучшать текст прямо на странице.
+                    </p>
+                    <ul class="onboarding-list">
+                        <li data-i18n="onboardingSelect">Выделите текст на любом сайте</li>
+                        <li data-i18n="onboardingOpen">Откройте компактную панель LexiSync</li>
+                        <li data-i18n="onboardingChoose">Выберите нужное действие</li>
+                    </ul>
+                </section>
+                <section class="onboarding-step" data-onboarding-step="1">
+                    <h3 data-i18n="onboardingShortcuts">Быстрые команды</h3>
+                    <p data-i18n="onboardingShortcutsHint">Основные действия доступны без открытия меню.</p>
+                    <ul class="onboarding-list">
+                        <li data-i18n="shortcutSpellcheck">Alt+R — исправить ошибки</li>
+                        <li data-i18n="shortcutStyle">Alt+Y — переписать текст</li>
+                        <li data-i18n="shortcutEmoji">Alt+T — добавить эмодзи</li>
+                        <li data-i18n="shortcutOcr">Alt+S — распознать текст на экране</li>
+                    </ul>
+                </section>
+                <section class="onboarding-step" data-onboarding-step="2">
+                    <h3 data-i18n="onboardingPrivacy">Приватные подсказки</h3>
+                    <p data-i18n="onboardingPrivacyHint">
+                        LexiSync может изучать часто используемые слова локально и предлагать продолжение по Tab.
+                    </p>
+                    <ul class="onboarding-list">
+                        <li data-i18n="privacyOptIn">Функция включается только вами</li>
+                        <li data-i18n="privacySensitive">Пароли и платёжные поля игнорируются</li>
+                        <li data-i18n="privacyClear">Языковой профиль можно очистить в любой момент</li>
+                    </ul>
+                </section>
+                <section class="onboarding-step" data-onboarding-step="3">
+                    <h3 data-i18n="onboardingApi">Осталось добавить API-ключ</h3>
+                    <p data-i18n="onboardingApiHint">
+                        Ключ Mistral нужен только для AI-обработки. Локальные подсказки работают без API.
+                    </p>
+                    <ul class="onboarding-list">
+                        <li data-i18n="apiStepGet">Получите ключ в console.mistral.ai</li>
+                        <li data-i18n="apiStepPaste">Вставьте его во вкладке «Основные»</li>
+                        <li data-i18n="apiStepIndependent">Остальные настройки сохраняются независимо от ключа</li>
+                    </ul>
+                </section>
+                <div class="onboarding-actions">
+                    <span id="onboardingProgress" class="onboarding-progress">1 из 4</span>
+                    <div class="onboarding-buttons">
+                        <button id="onboardingSkip" class="onboarding-button secondary" type="button" data-i18n="skip">
+                            Пропустить</button
+                        ><button id="onboardingNext" class="onboarding-button primary" type="button" data-i18n="next">
+                            Далее
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
-    <script type="module" src="/src/options.ts"></script>
-</body>
+        <script type="module" src="/src/options.ts"></script>
+    </body>
 </html>

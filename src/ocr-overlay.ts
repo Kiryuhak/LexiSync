@@ -28,7 +28,17 @@ export function initializeOcrOverlay(options: OcrOverlayOptions): void {
             const dpr = window.devicePixelRatio || 1;
             canvas.width = rect.width * dpr;
             canvas.height = rect.height * dpr;
-            context.drawImage(image, rect.left * dpr, rect.top * dpr, rect.width * dpr, rect.height * dpr, 0, 0, canvas.width, canvas.height);
+            context.drawImage(
+                image,
+                rect.left * dpr,
+                rect.top * dpr,
+                rect.width * dpr,
+                rect.height * dpr,
+                0,
+                0,
+                canvas.width,
+                canvas.height,
+            );
             options.onImage(canvas.toDataURL('image/jpeg', 0.9), rect);
         };
         image.src = screenshotDataUrl;
@@ -40,11 +50,13 @@ export function initializeOcrOverlay(options: OcrOverlayOptions): void {
         overlay.id = 'lexisync-ocr-overlay';
         overlay.setAttribute('role', 'application');
         overlay.setAttribute('aria-label', t('selectOcrArea', 'Выберите область экрана для распознавания текста'));
-        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:transparent;z-index:2147483646;cursor:crosshair;';
+        overlay.style.cssText =
+            'position:fixed;top:0;left:0;width:100vw;height:100vh;background:transparent;z-index:2147483646;cursor:crosshair;';
 
         selection = document.createElement('div');
         selection.id = 'lexisync-ocr-selection';
-        selection.style.cssText = 'position:fixed;border:2px dashed #fff;background:rgba(255,255,255,.1);display:none;z-index:2147483647;pointer-events:none;box-shadow:0 0 0 9999px rgba(0,0,0,.4);';
+        selection.style.cssText =
+            'position:fixed;border:2px dashed #fff;background:rgba(255,255,255,.1);display:none;z-index:2147483647;pointer-events:none;box-shadow:0 0 0 9999px rgba(0,0,0,.4);';
         overlay.appendChild(selection);
         document.body.appendChild(overlay);
 

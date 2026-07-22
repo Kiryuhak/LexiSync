@@ -21,7 +21,15 @@ export function getSelectedText(): string {
 export function captureSelection(fallbackText = ''): SelectionData {
     const activeElement = document.activeElement;
     const browserSelection = window.getSelection();
-    const result: SelectionData = { text: '', context: '', range: null, activeElement: null, start: null, end: null, isInput: false };
+    const result: SelectionData = {
+        text: '',
+        context: '',
+        range: null,
+        activeElement: null,
+        start: null,
+        end: null,
+        isInput: false,
+    };
 
     if (isTextInput(activeElement)) {
         result.isInput = true;
@@ -36,7 +44,10 @@ export function captureSelection(fallbackText = ''): SelectionData {
         if (!result.text) result.text = fallbackText;
         const start = result.start || 0;
         const end = result.end || 0;
-        result.context = activeElement.value.substring(Math.max(0, start - 1000), Math.min(activeElement.value.length, end + 1000));
+        result.context = activeElement.value.substring(
+            Math.max(0, start - 1000),
+            Math.min(activeElement.value.length, end + 1000),
+        );
         return result;
     }
 
@@ -55,9 +66,13 @@ export function captureSelection(fallbackText = ''): SelectionData {
     }
     if (blockText.length > 2000) {
         const index = blockText.indexOf(result.text);
-        result.context = index >= 0
-            ? blockText.substring(Math.max(0, index - 1000), Math.min(blockText.length, index + result.text.length + 1000))
-            : result.text;
+        result.context =
+            index >= 0
+                ? blockText.substring(
+                      Math.max(0, index - 1000),
+                      Math.min(blockText.length, index + result.text.length + 1000),
+                  )
+                : result.text;
     } else {
         result.context = blockText;
     }

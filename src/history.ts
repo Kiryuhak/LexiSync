@@ -59,11 +59,17 @@ function createHistoryCard(item: HistoryItem): HTMLElement {
     const actions = document.createElement('div');
     actions.className = 'card-actions';
     actions.append(
-        createButton(item.favorite ? `★ ${t('removeFavorite', 'Убрать из избранного')}` : `☆ ${t('addFavorite', 'Добавить в избранное')}`, 'secondary-btn', async () => {
-            item.favorite = !item.favorite;
-            await setHistoryItemFavorite(item.id, item.favorite);
-            renderHistory();
-        }),
+        createButton(
+            item.favorite
+                ? `★ ${t('removeFavorite', 'Убрать из избранного')}`
+                : `☆ ${t('addFavorite', 'Добавить в избранное')}`,
+            'secondary-btn',
+            async () => {
+                item.favorite = !item.favorite;
+                await setHistoryItemFavorite(item.id, item.favorite);
+                renderHistory();
+            },
+        ),
         createButton(t('copyResult', 'Копировать результат'), 'secondary-btn', async () => {
             await navigator.clipboard.writeText(item.result);
         }),
@@ -72,14 +78,20 @@ function createHistoryCard(item: HistoryItem): HTMLElement {
         }),
         createButton(t('saveAsCommand', 'Сохранить как команду'), 'secondary-btn', async () => {
             const stored = await chrome.storage.local.get({ customCommands: [] });
-            const commands = Array.isArray(stored.customCommands) ? stored.customCommands as CustomCommand[] : [];
+            const commands = Array.isArray(stored.customCommands) ? (stored.customCommands as CustomCommand[]) : [];
             if (commands.length >= 8) return;
             const promptByMode: Record<RequestMode, string> = {
-                spellcheck: t('historyPromptSpellcheck', 'Исправь орфографические, грамматические и пунктуационные ошибки, сохранив формулировки.'),
+                spellcheck: t(
+                    'historyPromptSpellcheck',
+                    'Исправь орфографические, грамматические и пунктуационные ошибки, сохранив формулировки.',
+                ),
                 style: `${t('historyPromptStyle', 'Перепиши текст в стиле этого примера результата:')} ${item.result.slice(0, 500)}`,
                 emoji: t('historyPromptEmoji', 'Добавь подходящие по смыслу эмодзи, не перегружая текст.'),
                 layout: t('historyPromptLayout', 'Исправь текст, набранный в неправильной раскладке.'),
-                translate: t('historyPromptTranslate', 'Переведи текст, сохранив смысл, терминологию и форматирование.'),
+                translate: t(
+                    'historyPromptTranslate',
+                    'Переведи текст, сохранив смысл, терминологию и форматирование.',
+                ),
                 ocr: t('historyPromptOcr', 'Приведи распознанный текст в аккуратный читаемый вид.'),
                 custom: `${t('historyPromptCustom', 'Обработай текст по аналогии с этим результатом:')} ${item.result.slice(0, 500)}`,
             };
@@ -127,9 +139,10 @@ function renderHistory(): void {
     if (filtered.length === 0) {
         const empty = document.createElement('div');
         empty.className = 'empty';
-        empty.textContent = history.length === 0
-            ? t('historyEmpty', 'История пуста. Успешные результаты появятся здесь.')
-            : t('historyNoMatches', 'По вашему запросу ничего не найдено.');
+        empty.textContent =
+            history.length === 0
+                ? t('historyEmpty', 'История пуста. Успешные результаты появятся здесь.')
+                : t('historyNoMatches', 'По вашему запросу ничего не найдено.');
         historyList.appendChild(empty);
         return;
     }
@@ -139,7 +152,9 @@ function renderHistory(): void {
 async function initialize(): Promise<void> {
     localizeDocument();
     const theme = await chrome.storage.local.get({ selectedTheme: 'auto' });
-    const dark = theme.selectedTheme === 'dark' || (theme.selectedTheme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+    const dark =
+        theme.selectedTheme === 'dark' ||
+        (theme.selectedTheme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
     document.documentElement.toggleAttribute('data-theme', dark);
     history = await getHistory();
     renderHistory();

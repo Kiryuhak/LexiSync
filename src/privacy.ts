@@ -8,7 +8,10 @@ const DEFAULT_SETTINGS: PrivacySettings = {
 
 export function normalizeDisabledSites(value: unknown): string[] {
     if (Array.isArray(value)) {
-        return value.map(String).map((site) => site.trim().toLowerCase()).filter(Boolean);
+        return value
+            .map(String)
+            .map((site) => site.trim().toLowerCase())
+            .filter(Boolean);
     }
     return String(value || '')
         .split(/[\n,]/)

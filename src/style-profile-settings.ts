@@ -54,16 +54,22 @@ function render(): void {
         const actions = document.createElement('div');
         actions.className = 'command-card-actions';
         actions.append(
-            iconButton(`${t('activateProfile', 'Использовать профиль')}: ${profile.name}`, profile.id === activeProfileId ? '✓' : '○', async () => {
-                activeProfileId = profile.id === activeProfileId ? '' : profile.id;
-                await chrome.storage.local.set({ activeStyleProfileId: activeProfileId });
-                render();
-            }),
+            iconButton(
+                `${t('activateProfile', 'Использовать профиль')}: ${profile.name}`,
+                profile.id === activeProfileId ? '✓' : '○',
+                async () => {
+                    activeProfileId = profile.id === activeProfileId ? '' : profile.id;
+                    await chrome.storage.local.set({ activeStyleProfileId: activeProfileId });
+                    render();
+                },
+            ),
             iconButton(`${t('edit', 'Изменить')}: ${profile.name}`, '✎', () => {
                 (document.getElementById('styleProfileId') as HTMLInputElement).value = profile.id;
                 (document.getElementById('styleProfileName') as HTMLInputElement).value = profile.name;
                 (document.getElementById('styleProfileInstruction') as HTMLTextAreaElement).value = profile.instruction;
-                (document.getElementById('styleProfileSites') as HTMLTextAreaElement).value = normalizeSitePatterns(profile.sites).join('\n');
+                (document.getElementById('styleProfileSites') as HTMLTextAreaElement).value = normalizeSitePatterns(
+                    profile.sites,
+                ).join('\n');
                 (document.getElementById('cancelStyleProfileEdit') as HTMLButtonElement).hidden = false;
                 (document.getElementById('styleProfileName') as HTMLInputElement).focus();
             }),
@@ -81,9 +87,12 @@ function render(): void {
 
 export function restoreStyleProfileSettings(value: unknown, activeId: unknown): void {
     profiles = Array.isArray(value)
-        ? value.filter((item: unknown): item is StyleProfile => Boolean(item && typeof item === 'object' && 'id' in item && 'name' in item && 'instruction' in item))
-            .slice(0, 8)
-            .map((profile) => ({ ...profile, sites: normalizeSitePatterns(profile.sites) }))
+        ? value
+              .filter((item: unknown): item is StyleProfile =>
+                  Boolean(item && typeof item === 'object' && 'id' in item && 'name' in item && 'instruction' in item),
+              )
+              .slice(0, 8)
+              .map((profile) => ({ ...profile, sites: normalizeSitePatterns(profile.sites) }))
         : [];
     activeProfileId = typeof activeId === 'string' ? activeId : '';
     render();

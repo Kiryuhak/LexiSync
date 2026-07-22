@@ -51,14 +51,20 @@ async function initializeSiteControls(): Promise<void> {
     const [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true });
     const candidates = await chrome.tabs.query({ currentWindow: true });
     const requestedTabId = Number(new URLSearchParams(location.search).get('tabId'));
-    const requestedTab = Number.isInteger(requestedTabId) ? candidates.find((tab) => tab.id === requestedTabId) : undefined;
+    const requestedTab = Number.isInteger(requestedTabId)
+        ? candidates.find((tab) => tab.id === requestedTabId)
+        : undefined;
     const requestedUrl = new URLSearchParams(location.search).get('targetUrl') || '';
-    const requestedTarget = requestedTab && /^https?:/.test(requestedUrl) ? { ...requestedTab, url: requestedUrl } : requestedTab;
-    const activeTab = requestedTarget?.url && /^https?:/.test(requestedTarget.url)
-        ? requestedTarget
-        : currentTab?.url && /^https?:/.test(currentTab.url)
-        ? currentTab
-        : candidates.filter((tab) => tab.url && /^https?:/.test(tab.url)).sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0];
+    const requestedTarget =
+        requestedTab && /^https?:/.test(requestedUrl) ? { ...requestedTab, url: requestedUrl } : requestedTab;
+    const activeTab =
+        requestedTarget?.url && /^https?:/.test(requestedTarget.url)
+            ? requestedTarget
+            : currentTab?.url && /^https?:/.test(currentTab.url)
+              ? currentTab
+              : candidates
+                    .filter((tab) => tab.url && /^https?:/.test(tab.url))
+                    .sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0];
     if (!activeTab?.url) return;
     let url: URL;
     try {
@@ -69,6 +75,7 @@ async function initializeSiteControls(): Promise<void> {
     if (!['http:', 'https:'].includes(url.protocol)) return;
 
     const hostname = url.hostname.toLowerCase();
+    const originPattern = `${url.origin}/*`;
     const siteCard = document.getElementById('site-card');
     const siteSummary = document.getElementById('site-summary') as HTMLButtonElement | null;
     const domainLabel = document.getElementById('site-domain');
@@ -76,7 +83,16 @@ async function initializeSiteControls(): Promise<void> {
     const enabledInput = document.getElementById('site-enabled') as HTMLInputElement | null;
     const historyInput = document.getElementById('site-history') as HTMLInputElement | null;
     const contextInput = document.getElementById('site-context') as HTMLInputElement | null;
-    if (!siteCard || !siteSummary || !domainLabel || !enabledInput || !suggestionsInput || !historyInput || !contextInput) return;
+    if (
+        !siteCard ||
+        !siteSummary ||
+        !domainLabel ||
+        !enabledInput ||
+        !suggestionsInput ||
+        !historyInput ||
+        !contextInput
+    )
+        return;
 
     const stored = await chrome.storage.local.get({
         adaptiveSuggestionsEnabled: false,
@@ -87,12 +103,19 @@ async function initializeSiteControls(): Promise<void> {
         blockedSites: [],
     });
     domainLabel.textContent = hostname;
-    enabledInput.checked = !isSiteDisabled(hostname, normalizeDisabledSites(stored.blockedSites));
-    suggestionsInput.checked = stored.adaptiveSuggestionsEnabled === true
-        && !isSiteDisabled(hostname, normalizeDisabledSites(stored.adaptiveDisabledSites));
+    const hasSiteAccess = await chrome.permissions.contains({ origins: [originPattern] });
+    enabledInput.checked = hasSiteAccess && !isSiteDisabled(hostname, normalizeDisabledSites(stored.blockedSites));
+    suggestionsInput.checked =
+        stored.adaptiveSuggestionsEnabled === true &&
+        !isSiteDisabled(hostname, normalizeDisabledSites(stored.adaptiveDisabledSites));
     historyInput.checked = !isSiteDisabled(hostname, normalizeDisabledSites(stored.disabledSites));
-    contextInput.checked = stored.sendPageContext === true
-        && !isSiteDisabled(hostname, normalizeDisabledSites(stored.contextDisabledSites));
+    contextInput.checked =
+        stored.sendPageContext === true &&
+        !isSiteDisabled(hostname, normalizeDisabledSites(stored.contextDisabledSites));
+    const updateDependentControls = () => {
+        for (const input of [suggestionsInput, historyInput, contextInput]) input.disabled = !enabledInput.checked;
+    };
+    updateDependentControls();
     siteCard.hidden = false;
 
     siteSummary.addEventListener('click', () => {
@@ -101,12 +124,41 @@ async function initializeSiteControls(): Promise<void> {
     });
 
     enabledInput.addEventListener('change', async () => {
+        const requestedState = enabledInput.checked;
+        if (requestedState) {
+            const granted = await chrome.permissions.request({ origins: [originPattern] });
+            if (!granted) {
+                enabledInput.checked = false;
+                updateDependentControls();
+                return;
+            }
+        }
         const current = await chrome.storage.local.get({ blockedSites: [] });
-        await chrome.storage.local.set({ blockedSites: updateSiteList(current.blockedSites, hostname, enabledInput.checked) });
+        await chrome.storage.local.set({
+            blockedSites: updateSiteList(current.blockedSites, hostname, requestedState),
+        });
+        if (!requestedState) {
+            await chrome.runtime.sendMessage({ action: 'siteAccessChanged', tabId: activeTab.id, enabled: false });
+            await chrome.permissions.remove({ origins: [originPattern] });
+        } else {
+            const response = await chrome.runtime.sendMessage({
+                action: 'siteAccessChanged',
+                tabId: activeTab.id,
+                enabled: true,
+            });
+            if (response?.ok !== true) {
+                enabledInput.checked = false;
+                await chrome.permissions.remove({ origins: [originPattern] });
+            }
+        }
+        updateDependentControls();
     });
 
     suggestionsInput.addEventListener('change', async () => {
-        const current = await chrome.storage.local.get({ adaptiveSuggestionsEnabled: false, adaptiveDisabledSites: [] });
+        const current = await chrome.storage.local.get({
+            adaptiveSuggestionsEnabled: false,
+            adaptiveDisabledSites: [],
+        });
         await chrome.storage.local.set({
             adaptiveSuggestionsEnabled: suggestionsInput.checked ? true : current.adaptiveSuggestionsEnabled,
             adaptiveDisabledSites: updateSiteList(current.adaptiveDisabledSites, hostname, suggestionsInput.checked),

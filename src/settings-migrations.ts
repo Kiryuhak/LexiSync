@@ -22,12 +22,19 @@ export async function migrateSettings(): Promise<void> {
         if (!stored.adaptiveLanguageModel || typeof stored.adaptiveLanguageModel !== 'object') {
             updates.adaptiveLanguageModel = { version: 2, words: {}, pairs: {}, rejections: {} };
         } else {
-            const languageModel = stored.adaptiveLanguageModel as { words?: unknown; pairs?: unknown; rejections?: unknown };
+            const languageModel = stored.adaptiveLanguageModel as {
+                words?: unknown;
+                pairs?: unknown;
+                rejections?: unknown;
+            };
             updates.adaptiveLanguageModel = {
                 version: 2,
                 words: languageModel.words && typeof languageModel.words === 'object' ? languageModel.words : {},
                 pairs: languageModel.pairs && typeof languageModel.pairs === 'object' ? languageModel.pairs : {},
-                rejections: languageModel.rejections && typeof languageModel.rejections === 'object' ? languageModel.rejections : {},
+                rejections:
+                    languageModel.rejections && typeof languageModel.rejections === 'object'
+                        ? languageModel.rejections
+                        : {},
             };
         }
     }
@@ -42,8 +49,10 @@ export async function migrateSettings(): Promise<void> {
         }
     }
     if (currentVersion < 4) {
-        const profiles = Array.isArray(stored.styleProfiles) ? stored.styleProfiles as StyleProfile[] : [];
-        updates.styleProfiles = profiles.map((profile) => ({ ...profile, sites: normalizeSitePatterns(profile.sites) })).slice(0, 8);
+        const profiles = Array.isArray(stored.styleProfiles) ? (stored.styleProfiles as StyleProfile[]) : [];
+        updates.styleProfiles = profiles
+            .map((profile) => ({ ...profile, sites: normalizeSitePatterns(profile.sites) }))
+            .slice(0, 8);
     }
     updates.settingsSchemaVersion = CURRENT_SETTINGS_SCHEMA;
     const migratedKeys = Object.keys(updates).filter((key) => key !== 'settingsSchemaVersion');

@@ -1,0 +1,6 @@
+.output
+.wxt
+coverage
+node_modules
+test-results
+package-lock.json

@@ -1,49 +1,60 @@
 {
-  "name": "lexisync-extension",
-  "version": "2.15.1",
-  "description": "Умный помощник для работы с текстом на базе Mistral AI",
-  "scripts": {
-    "dev": "wxt",
-    "dev:firefox": "wxt -b firefox",
-    "build": "npm run build:chrome && npm run build:firefox",
-    "build:chrome": "wxt build -b chrome",
-    "build:firefox": "wxt build -b firefox",
-    "zip": "npm run zip:chrome && npm run zip:firefox",
-    "zip:chrome": "wxt zip -b chrome",
-    "zip:firefox": "wxt zip -b firefox",
-    "typecheck": "tsc --noEmit",
-    "test:unit": "playwright test tests/unit.spec.ts",
-    "pretest:e2e": "node scripts/build-e2e.mjs",
-    "test:e2e": "playwright test tests/e2e.spec.ts",
-    "pretest:firefox": "node scripts/build-firefox-e2e.mjs",
-    "test:firefox": "playwright test tests/firefox.spec.ts",
-    "lint:firefox": "web-ext lint --source-dir .output/firefox-mv3",
-    "test:all": "npm run test:unit && npm run test:e2e && npm run test:firefox",
-    "postinstall": "wxt prepare"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Kiryuhak/LexiSync.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "bugs": {
-    "url": "https://github.com/Kiryuhak/LexiSync/issues"
-  },
-  "homepage": "https://github.com/Kiryuhak/LexiSync#readme",
-  "overrides": {
-    "shell-quote": "^1.8.4",
-    "tmp": "^0.2.6"
-  },
-  "devDependencies": {
-    "@axe-core/playwright": "^4.12.1",
-    "@playwright/test": "^1.61.1",
-    "@types/chrome": "^0.2.0",
-    "@types/node": "^26.1.0",
-    "typescript": "^6.0.3",
-    "web-ext": "^10.3.0",
-    "wxt": "^0.20.27"
-  }
+    "name": "lexisync-extension",
+    "version": "2.16.0",
+    "description": "Умный помощник для работы с текстом на базе Mistral AI",
+    "scripts": {
+        "dev": "wxt",
+        "dev:firefox": "wxt -b firefox",
+        "build": "npm run build:chrome && npm run build:firefox",
+        "build:chrome": "wxt build -b chrome",
+        "build:firefox": "wxt build -b firefox",
+        "zip": "npm run zip:chrome && npm run zip:firefox",
+        "zip:chrome": "wxt zip -b chrome",
+        "zip:firefox": "wxt zip -b firefox",
+        "typecheck": "tsc --noEmit",
+        "lint": "eslint .",
+        "format": "prettier --write .",
+        "format:check": "prettier --check .",
+        "test:unit": "vitest run",
+        "test:coverage": "vitest run --coverage",
+        "pretest:e2e": "node scripts/build-e2e.mjs",
+        "test:e2e": "playwright test tests/e2e.spec.ts",
+        "pretest:firefox": "node scripts/build-firefox-e2e.mjs",
+        "test:firefox": "playwright test tests/firefox.spec.ts",
+        "lint:firefox": "web-ext lint --source-dir .output/firefox-mv3",
+        "test:all": "npm run lint && npm run typecheck && npm run test:coverage && npm run test:e2e && npm run test:firefox",
+        "postinstall": "wxt prepare"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/Kiryuhak/LexiSync.git"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "type": "commonjs",
+    "bugs": {
+        "url": "https://github.com/Kiryuhak/LexiSync/issues"
+    },
+    "homepage": "https://github.com/Kiryuhak/LexiSync#readme",
+    "overrides": {
+        "shell-quote": "^1.8.4",
+        "tmp": "^0.2.6"
+    },
+    "devDependencies": {
+        "@axe-core/playwright": "^4.12.1",
+        "@eslint/js": "^9.39.4",
+        "@playwright/test": "^1.61.1",
+        "@types/chrome": "^0.2.0",
+        "@types/node": "^26.1.0",
+        "@vitest/coverage-v8": "^3.2.6",
+        "eslint": "^9.39.4",
+        "globals": "^16.4.0",
+        "prettier": "^3.6.2",
+        "typescript": "^6.0.3",
+        "typescript-eslint": "^8.46.0",
+        "vitest": "^3.2.6",
+        "web-ext": "^10.3.0",
+        "wxt": "^0.20.27"
+    }
 }

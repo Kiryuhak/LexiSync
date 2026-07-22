@@ -1,23 +1,15 @@
 import { isSiteDisabled, normalizeDisabledSites } from './privacy';
 import { t } from './i18n';
+import {
+    ADAPTIVE_MODEL_STORAGE_KEY as MODEL_STORAGE_KEY,
+    ADAPTIVE_PAIR_SEPARATOR as PAIR_SEPARATOR,
+    EMPTY_ADAPTIVE_MODEL as EMPTY_MODEL,
+    parseAdaptiveModel,
+    type AdaptiveLanguageModel,
+    type AdaptiveMutation,
+} from './adaptive-model-store';
 
-interface WordStat {
-    count: number;
-    lastUsed: number;
-    value: string;
-}
-
-interface PairStat {
-    count: number;
-    lastUsed: number;
-}
-
-export interface AdaptiveLanguageModel {
-    version: 2;
-    words: Record<string, WordStat>;
-    pairs: Record<string, PairStat>;
-    rejections: Record<string, number>;
-}
+export type { AdaptiveLanguageModel } from './adaptive-model-store';
 
 interface AdaptiveSettings {
     enabled: boolean;
@@ -32,13 +24,8 @@ interface AdaptiveSettings {
 
 type EditableElement = HTMLInputElement | HTMLTextAreaElement | HTMLElement;
 
-const MODEL_STORAGE_KEY = 'adaptiveLanguageModel';
-const PAIR_SEPARATOR = '\u0001';
 const MAX_WORDS = 1600;
 const MAX_PAIRS = 2600;
-const SAVE_DELAY = 800;
-
-const EMPTY_MODEL: AdaptiveLanguageModel = { version: 2, words: {}, pairs: {}, rejections: {} };
 
 let settings: AdaptiveSettings = {
     enabled: false,
@@ -57,7 +44,6 @@ let activeEditable: EditableElement | null = null;
 let activePrefix = '';
 let activeSuggestions: string[] = [];
 let activeSuggestionIndex = 0;
-let saveTimer: number | null = null;
 let initialized = false;
 let stateReady: Promise<void> = Promise.resolve();
 const learnedTail = new WeakMap<EditableElement, string>();
@@ -68,19 +54,8 @@ function normalizeScale(value: unknown): number {
     return Math.min(110, Math.max(75, Math.round(numericValue / 5) * 5));
 }
 
-function parseModel(value: unknown): AdaptiveLanguageModel {
-    if (!value || typeof value !== 'object') return structuredClone(EMPTY_MODEL);
-    const candidate = value as Partial<AdaptiveLanguageModel>;
-    return {
-        version: 2,
-        words: candidate.words && typeof candidate.words === 'object' ? candidate.words : {},
-        pairs: candidate.pairs && typeof candidate.pairs === 'object' ? candidate.pairs : {},
-        rejections: candidate.rejections && typeof candidate.rejections === 'object' ? candidate.rejections : {},
-    };
-}
-
 function tokenize(text: string): string[] {
-    return text.match(/[\p{L}][\p{L}'’\-]{1,31}/gu) || [];
+    return text.match(/[\p{L}][\p{L}'’-]{1,31}/gu) || [];
 }
 
 function normalizeWord(word: string): string {
@@ -88,7 +63,7 @@ function normalizeWord(word: string): string {
 }
 
 function isUsefulWord(word: string): boolean {
-    return word.length >= 2 && word.length <= 32 && /^[\p{L}][\p{L}'’\-]+$/u.test(word);
+    return word.length >= 2 && word.length <= 32 && /^[\p{L}][\p{L}'’-]+$/u.test(word);
 }
 
 function isEditableElement(target: EventTarget | null): target is EditableElement {
@@ -106,14 +81,19 @@ function isSensitiveField(target: EditableElement): boolean {
         const autocomplete = target.autocomplete.toLowerCase();
         if (/password|cc-|one-time-code|transaction|webauthn/.test(autocomplete)) return true;
     }
-    const fieldIdentity = `${target.getAttribute('name') || ''} ${target.id} ${target.getAttribute('aria-label') || ''}`.toLowerCase();
-    return /password|парол|passwd|credit.?card|bank.?card|cvv|cvc|otp|one.?time|secret|token|пин|pin.?code/.test(fieldIdentity);
+    const fieldIdentity =
+        `${target.getAttribute('name') || ''} ${target.id} ${target.getAttribute('aria-label') || ''}`.toLowerCase();
+    return /password|парол|passwd|credit.?card|bank.?card|cvv|cvc|otp|one.?time|secret|token|пин|pin.?code/.test(
+        fieldIdentity,
+    );
 }
 
 function isAllowedOnCurrentPage(): boolean {
-    return !chrome.extension.inIncognitoContext
-        && !isSiteDisabled(location.hostname, settings.blockedSites)
-        && !isSiteDisabled(location.hostname, settings.adaptiveDisabledSites);
+    return (
+        !chrome.extension.inIncognitoContext &&
+        !isSiteDisabled(location.hostname, settings.blockedSites) &&
+        !isSiteDisabled(location.hostname, settings.adaptiveDisabledSites)
+    );
 }
 
 function getWordScript(word: string): 'cyrillic' | 'latin' | 'other' {
@@ -170,7 +150,7 @@ function recordWord(word: string, previous?: string, weight = 1): void {
         };
     }
     pruneModel();
-    scheduleSave();
+    void requestAdaptiveMutation('record', { word, previous, weight });
 }
 
 function pruneRecord<T extends { count: number; lastUsed: number }>(record: Record<string, T>, limit: number): void {
@@ -189,12 +169,17 @@ function pruneModel(): void {
     pruneRecord(model.pairs, MAX_PAIRS);
 }
 
-function scheduleSave(): void {
-    if (saveTimer !== null) window.clearTimeout(saveTimer);
-    saveTimer = window.setTimeout(() => {
-        saveTimer = null;
-        void chrome.storage.local.set({ [MODEL_STORAGE_KEY]: model });
-    }, SAVE_DELAY);
+async function requestAdaptiveMutation(
+    mutation: AdaptiveMutation,
+    payload: { word?: string; previous?: string; weight?: number },
+): Promise<void> {
+    const response = await chrome.runtime.sendMessage({
+        action: 'storageMutation',
+        domain: 'adaptive',
+        mutation,
+        payload,
+    });
+    if (response?.ok !== true) throw new Error(response?.error || 'ADAPTIVE_MUTATION_FAILED');
 }
 
 function matchCase(candidate: string, prefix: string): string {
@@ -205,7 +190,7 @@ function matchCase(candidate: string, prefix: string): string {
 }
 
 function getSuggestions(context: string): { prefix: string; suggestions: string[] } {
-    const prefixMatch = context.match(/[\p{L}'’\-]+$/u);
+    const prefixMatch = context.match(/[\p{L}'’-]+$/u);
     const prefix = prefixMatch?.[0] || '';
     const normalizedPrefix = normalizeWord(prefix);
     const beforePrefix = prefix ? context.slice(0, -prefix.length) : context;
@@ -217,17 +202,26 @@ function getSuggestions(context: string): { prefix: string; suggestions: string[
 
     for (const [word, stat] of Object.entries(model.words)) {
         if (blockedWords.has(word) || (expectedScript !== 'other' && getWordScript(word) !== expectedScript)) continue;
-        if (stat.count < 2 || word === normalizedPrefix || (normalizedPrefix && !word.startsWith(normalizedPrefix))) continue;
+        if (stat.count < 2 || word === normalizedPrefix || (normalizedPrefix && !word.startsWith(normalizedPrefix)))
+            continue;
         const recency = Math.max(0, 14 - (now - stat.lastUsed) / 86_400_000) * 0.08;
         const pair = previous ? model.pairs[`${previous}${PAIR_SEPARATOR}${word}`] : undefined;
         if (!normalizedPrefix && (!pair || pair.count < 2)) continue;
-        scores.set(word, Math.log2(stat.count + 1) + (pair ? pair.count * 2.4 : 0) + recency - (model.rejections[word] || 0) * 1.2);
+        scores.set(
+            word,
+            Math.log2(stat.count + 1) + (pair ? pair.count * 2.4 : 0) + recency - (model.rejections[word] || 0) * 1.2,
+        );
     }
 
     for (const dictionaryWord of settings.personalDictionary) {
         const word = normalizeWord(dictionaryWord);
         if (blockedWords.has(word) || (expectedScript !== 'other' && getWordScript(word) !== expectedScript)) continue;
-        if (!isUsefulWord(word) || word === normalizedPrefix || (normalizedPrefix && !word.startsWith(normalizedPrefix))) continue;
+        if (
+            !isUsefulWord(word) ||
+            word === normalizedPrefix ||
+            (normalizedPrefix && !word.startsWith(normalizedPrefix))
+        )
+            continue;
         if (!normalizedPrefix) {
             const pair = previous ? model.pairs[`${previous}${PAIR_SEPARATOR}${word}`] : undefined;
             if (!pair || pair.count < 2) continue;
@@ -247,7 +241,8 @@ function ensureSuggestionUi(): void {
     if (suggestionHost && suggestionBar) return;
     suggestionHost = document.createElement('div');
     suggestionHost.id = 'lexisync-adaptive-suggestions-host';
-    suggestionHost.style.cssText = 'all:initial!important;position:fixed!important;inset:0!important;width:0!important;height:0!important;z-index:2147483646!important;pointer-events:none!important;';
+    suggestionHost.style.cssText =
+        'all:initial!important;position:fixed!important;inset:0!important;width:0!important;height:0!important;z-index:2147483646!important;pointer-events:none!important;';
     const shadow = suggestionHost.attachShadow({ mode: 'open' });
     const style = document.createElement('style');
     style.textContent = `
@@ -272,8 +267,10 @@ function ensureSuggestionUi(): void {
 }
 
 function useDarkTheme(): boolean {
-    return settings.theme === 'dark'
-        || (settings.theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    return (
+        settings.theme === 'dark' ||
+        (settings.theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+    );
 }
 
 function positionSuggestionBar(target: EditableElement): void {
@@ -287,7 +284,7 @@ function positionSuggestionBar(target: EditableElement): void {
         }
     }
     const barRect = suggestionBar.getBoundingClientRect();
-    let left = Math.max(10, Math.min(anchor.left, window.innerWidth - barRect.width - 10));
+    const left = Math.max(10, Math.min(anchor.left, window.innerWidth - barRect.width - 10));
     let top = anchor.bottom + 7;
     if (top + barRect.height > window.innerHeight - 10) top = anchor.top - barRect.height - 7;
     suggestionBar.style.left = `${left}px`;
@@ -307,7 +304,7 @@ function rejectSelectedSuggestion(): void {
     if (!suggestion) return;
     const word = normalizeWord(suggestion);
     model.rejections[word] = Math.min(20, (model.rejections[word] || 0) + 1);
-    scheduleSave();
+    void requestAdaptiveMutation('reject', { word });
 }
 
 function updateSelectedSuggestion(): void {
@@ -400,7 +397,9 @@ function acceptSuggestion(index: number): void {
     if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
         const caret = target.selectionStart ?? target.value.length;
         target.setRangeText(insertion, Math.max(0, caret - activePrefix.length), caret, 'end');
-        target.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertReplacementText', data: insertion }));
+        target.dispatchEvent(
+            new InputEvent('input', { bubbles: true, inputType: 'insertReplacementText', data: insertion }),
+        );
     } else {
         insertIntoContentEditable(target, insertion, activePrefix.length);
     }
@@ -408,6 +407,7 @@ function acceptSuggestion(index: number): void {
     const normalizedSuggestion = normalizeWord(suggestion);
     if (model.rejections[normalizedSuggestion]) {
         model.rejections[normalizedSuggestion] = Math.max(0, model.rejections[normalizedSuggestion] - 1);
+        void requestAdaptiveMutation('accept', { word: normalizedSuggestion });
     }
     hideSuggestions();
 }
@@ -446,7 +446,7 @@ async function loadState(): Promise<void> {
         blockedWords: Array.isArray(stored.adaptiveBlockedWords) ? stored.adaptiveBlockedWords.map(String) : [],
         adaptiveDisabledSites: normalizeDisabledSites(stored.adaptiveDisabledSites),
     };
-    model = parseModel(stored[MODEL_STORAGE_KEY]);
+    model = parseAdaptiveModel(stored[MODEL_STORAGE_KEY]);
 }
 
 export function initializeAdaptiveSuggestions(): void {
@@ -454,28 +454,49 @@ export function initializeAdaptiveSuggestions(): void {
     initialized = true;
     stateReady = loadState();
 
-    document.addEventListener('input', (event) => {
-        if (isEditableElement(event.target)) void evaluateEditable(event.target);
-    }, true);
+    document.addEventListener(
+        'input',
+        (event) => {
+            if (isEditableElement(event.target)) void evaluateEditable(event.target);
+        },
+        true,
+    );
 
-    document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && activeSuggestions.length) {
-            rejectSelectedSuggestion();
-            hideSuggestions();
-        } else if (['ArrowRight', 'ArrowDown'].includes(event.key) && activeSuggestions.length && activeEditable === event.target) {
-            event.preventDefault();
-            activeSuggestionIndex = (activeSuggestionIndex + 1) % activeSuggestions.length;
-            updateSelectedSuggestion();
-        } else if (['ArrowLeft', 'ArrowUp'].includes(event.key) && activeSuggestions.length && activeEditable === event.target) {
-            event.preventDefault();
-            activeSuggestionIndex = (activeSuggestionIndex - 1 + activeSuggestions.length) % activeSuggestions.length;
-            updateSelectedSuggestion();
-        } else if (['Tab', 'Enter'].includes(event.key) && activeSuggestions.length && activeEditable === event.target) {
-            event.preventDefault();
-            event.stopPropagation();
-            acceptSuggestion(activeSuggestionIndex);
-        }
-    }, true);
+    document.addEventListener(
+        'keydown',
+        (event) => {
+            if (event.key === 'Escape' && activeSuggestions.length) {
+                rejectSelectedSuggestion();
+                hideSuggestions();
+            } else if (
+                ['ArrowRight', 'ArrowDown'].includes(event.key) &&
+                activeSuggestions.length &&
+                activeEditable === event.target
+            ) {
+                event.preventDefault();
+                activeSuggestionIndex = (activeSuggestionIndex + 1) % activeSuggestions.length;
+                updateSelectedSuggestion();
+            } else if (
+                ['ArrowLeft', 'ArrowUp'].includes(event.key) &&
+                activeSuggestions.length &&
+                activeEditable === event.target
+            ) {
+                event.preventDefault();
+                activeSuggestionIndex =
+                    (activeSuggestionIndex - 1 + activeSuggestions.length) % activeSuggestions.length;
+                updateSelectedSuggestion();
+            } else if (
+                ['Tab', 'Enter'].includes(event.key) &&
+                activeSuggestions.length &&
+                activeEditable === event.target
+            ) {
+                event.preventDefault();
+                event.stopPropagation();
+                acceptSuggestion(activeSuggestionIndex);
+            }
+        },
+        true,
+    );
 
     document.addEventListener('focusout', () => window.setTimeout(hideSuggestions, 120), true);
     window.addEventListener('scroll', hideSuggestions, true);
@@ -488,10 +509,17 @@ export function initializeAdaptiveSuggestions(): void {
         if (changes.selectedTheme) settings.theme = String(changes.selectedTheme.newValue || 'auto');
         if (changes.interfaceScale) settings.interfaceScale = normalizeScale(changes.interfaceScale.newValue);
         if (changes.blockedSites) settings.blockedSites = normalizeDisabledSites(changes.blockedSites.newValue);
-        if (changes.personalDictionary) settings.personalDictionary = Array.isArray(changes.personalDictionary.newValue) ? changes.personalDictionary.newValue.map(String) : [];
-        if (changes.adaptiveBlockedWords) settings.blockedWords = Array.isArray(changes.adaptiveBlockedWords.newValue) ? changes.adaptiveBlockedWords.newValue.map(String) : [];
-        if (changes.adaptiveDisabledSites) settings.adaptiveDisabledSites = normalizeDisabledSites(changes.adaptiveDisabledSites.newValue);
-        if (changes[MODEL_STORAGE_KEY]) model = parseModel(changes[MODEL_STORAGE_KEY].newValue);
+        if (changes.personalDictionary)
+            settings.personalDictionary = Array.isArray(changes.personalDictionary.newValue)
+                ? changes.personalDictionary.newValue.map(String)
+                : [];
+        if (changes.adaptiveBlockedWords)
+            settings.blockedWords = Array.isArray(changes.adaptiveBlockedWords.newValue)
+                ? changes.adaptiveBlockedWords.newValue.map(String)
+                : [];
+        if (changes.adaptiveDisabledSites)
+            settings.adaptiveDisabledSites = normalizeDisabledSites(changes.adaptiveDisabledSites.newValue);
+        if (changes[MODEL_STORAGE_KEY]) model = parseAdaptiveModel(changes[MODEL_STORAGE_KEY].newValue);
         if (!settings.enabled) hideSuggestions();
     });
 }

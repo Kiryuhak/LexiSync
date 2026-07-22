@@ -6,7 +6,8 @@ function dispatchValueEvents(element: HTMLInputElement | HTMLTextAreaElement): v
 }
 
 function setNativeValue(element: HTMLInputElement | HTMLTextAreaElement, value: string): void {
-    const prototype = element.tagName === 'INPUT' ? window.HTMLInputElement.prototype : window.HTMLTextAreaElement.prototype;
+    const prototype =
+        element.tagName === 'INPUT' ? window.HTMLInputElement.prototype : window.HTMLTextAreaElement.prototype;
     const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
     if (setter) setter.call(element, value);
     else element.value = value;
