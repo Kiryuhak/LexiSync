@@ -9,6 +9,7 @@ import {
     type AdaptiveMutation,
 } from './adaptive-model-store';
 import { addAdaptiveBlockedWord } from './settings-store';
+import { normalizeAppearanceStyle, type AppearanceStyle } from './appearance-style';
 
 export type { AdaptiveLanguageModel } from './adaptive-model-store';
 
@@ -16,6 +17,7 @@ interface AdaptiveSettings {
     enabled: boolean;
     learn: boolean;
     theme: string;
+    visualStyle: AppearanceStyle;
     interfaceScale: number;
     blockedSites: string[];
     personalDictionary: string[];
@@ -32,6 +34,7 @@ let settings: AdaptiveSettings = {
     enabled: false,
     learn: true,
     theme: 'auto',
+    visualStyle: 'liquid-glass',
     interfaceScale: 90,
     blockedSites: [],
     personalDictionary: [],
@@ -250,6 +253,18 @@ function ensureSuggestionUi(): void {
         :host { all: initial; }
         .bar { --bg:rgba(248,250,255,.94); --text:#20283b; --muted:#6e7890; --border:rgba(255,255,255,.82); position:fixed; display:none; align-items:center; gap:5px; max-width:min(420px,calc(100vw - 20px)); padding:5px; color:var(--text); background:var(--bg); border:1px solid var(--border); border-radius:13px; box-shadow:0 14px 36px rgba(36,39,70,.22),inset 0 1px 0 rgba(255,255,255,.5); backdrop-filter:blur(24px) saturate(135%); font:12px/1.2 system-ui,-apple-system,sans-serif; pointer-events:auto; animation:show .16s ease-out; }
         .bar.dark { --bg:rgba(27,30,49,.95); --text:#f5f6fc; --muted:#abb4ce; --border:rgba(255,255,255,.14); box-shadow:0 16px 38px rgba(0,0,0,.44),inset 0 1px 0 rgba(255,255,255,.08); }
+        .bar[data-ui-style="material-3"] { --bg:#fff; --border:#c8cdd4; border-radius:20px; box-shadow:0 3px 8px rgba(29,35,43,.16); backdrop-filter:none; }
+        .bar[data-ui-style="material-3"].dark { --bg:#1d2024; --border:#454b54; }
+        .bar[data-ui-style="material-3"] .spark { background:#6750a4; border-radius:12px; }
+        .bar[data-ui-style="material-3"] button { border-radius:14px; }
+        .bar[data-ui-style="flutter"] { --bg:#fff; --border:#d9e2ec; border-radius:10px; box-shadow:0 5px 14px rgba(32,73,105,.2); backdrop-filter:none; }
+        .bar[data-ui-style="flutter"].dark { --bg:#20252b; --border:#44515d; }
+        .bar[data-ui-style="flutter"] .spark { background:#1976d2; border-radius:7px; }
+        .bar[data-ui-style="flutter"] button { border-radius:7px; }
+        .bar[data-ui-style="bento"] { --bg:#fff; --border:#2d3648; border-width:2px; border-radius:18px; box-shadow:5px 5px 0 rgba(45,54,72,.16); backdrop-filter:none; }
+        .bar[data-ui-style="bento"].dark { --bg:#20242b; --border:#d7dde8; }
+        .bar[data-ui-style="bento"] .spark { background:linear-gradient(135deg,#6d5ce7,#20a6a0); border-radius:9px; }
+        .bar[data-ui-style="bento"] button { border-radius:10px; }
         .spark { display:grid; width:25px; height:25px; flex:0 0 auto; place-items:center; color:#fff; background:linear-gradient(135deg,#765ff0,#24b8c6); border-radius:8px; font-size:12px; }
         button { max-width:145px; padding:7px 10px; overflow:hidden; color:var(--text); background:rgba(255,255,255,.42); border:1px solid rgba(93,103,138,.1); border-radius:9px; cursor:pointer; font:600 12px/1 system-ui,-apple-system,sans-serif; text-overflow:ellipsis; white-space:nowrap; }
         .dark button { background:rgba(63,69,103,.58); border-color:rgba(255,255,255,.08); }
@@ -337,6 +352,7 @@ function renderSuggestions(target: EditableElement, prefix: string, suggestions:
     activeSuggestionIndex = 0;
     suggestionBar.replaceChildren();
     suggestionBar.className = `bar${useDarkTheme() ? ' dark' : ''}`;
+    suggestionBar.dataset.uiStyle = settings.visualStyle;
     suggestionBar.style.setProperty('zoom', String(settings.interfaceScale / 100));
     const spark = document.createElement('span');
     spark.className = 'spark';
@@ -429,6 +445,7 @@ async function loadState(): Promise<void> {
         adaptiveSuggestionsEnabled: false,
         adaptiveLearningEnabled: true,
         selectedTheme: 'auto',
+        visualStyle: 'liquid-glass',
         interfaceScale: 90,
         blockedSites: [],
         personalDictionary: [],
@@ -440,6 +457,7 @@ async function loadState(): Promise<void> {
         enabled: stored.adaptiveSuggestionsEnabled === true,
         learn: stored.adaptiveLearningEnabled !== false,
         theme: String(stored.selectedTheme || 'auto'),
+        visualStyle: normalizeAppearanceStyle(stored.visualStyle),
         interfaceScale: normalizeScale(stored.interfaceScale),
         blockedSites: normalizeDisabledSites(stored.blockedSites),
         personalDictionary: Array.isArray(stored.personalDictionary) ? stored.personalDictionary.map(String) : [],
@@ -507,6 +525,7 @@ export function initializeAdaptiveSuggestions(): void {
         if (changes.adaptiveSuggestionsEnabled) settings.enabled = changes.adaptiveSuggestionsEnabled.newValue === true;
         if (changes.adaptiveLearningEnabled) settings.learn = changes.adaptiveLearningEnabled.newValue !== false;
         if (changes.selectedTheme) settings.theme = String(changes.selectedTheme.newValue || 'auto');
+        if (changes.visualStyle) settings.visualStyle = normalizeAppearanceStyle(changes.visualStyle.newValue);
         if (changes.interfaceScale) settings.interfaceScale = normalizeScale(changes.interfaceScale.newValue);
         if (changes.blockedSites) settings.blockedSites = normalizeDisabledSites(changes.blockedSites.newValue);
         if (changes.personalDictionary)

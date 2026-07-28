@@ -100,7 +100,7 @@ test('атомарно добавляет и удаляет пользовате
 });
 
 test('миграция не читает всё хранилище при актуальной схеме', async () => {
-    storage.settingsSchemaVersion = 6;
+    storage.settingsSchemaVersion = 7;
 
     await migrateSettings();
 
@@ -119,7 +119,7 @@ test.each([
     await migrateSettings();
 
     expect(storage.resultDisplayMode).toBe(expected);
-    expect(storage.settingsSchemaVersion).toBe(6);
+    expect(storage.settingsSchemaVersion).toBe(7);
 });
 
 test('не затирает настройку, изменённую параллельно с миграцией', async () => {
@@ -136,7 +136,16 @@ test('не затирает настройку, изменённую парал�
     await migrateSettings();
 
     expect(storage.resultDisplayMode).toBe('compact');
-    expect(storage.settingsSchemaVersion).toBe(6);
+    expect(storage.settingsSchemaVersion).toBe(7);
+});
+
+test('добавляет Liquid Glass как безопасный стиль по умолчанию', async () => {
+    storage.settingsSchemaVersion = 6;
+
+    await migrateSettings();
+
+    expect(storage.visualStyle).toBe('liquid-glass');
+    expect(storage.settingsSchemaVersion).toBe(7);
 });
 
 test('пакетирует частые записи адаптивной модели в одно чтение и запись', async () => {

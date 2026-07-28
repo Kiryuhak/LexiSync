@@ -418,6 +418,177 @@
                     monospace;
             }
 
+            [data-ui-style='material-3'] {
+                --canvas: #f4f6f8;
+                --glass: #ffffff;
+                --glass-strong: #f1f3f6;
+                --glass-hover: #e9edf2;
+                --text-main: #1d1b20;
+                --text-muted: #49454f;
+                --primary: #6750a4;
+                --primary-soft: #eee9ff;
+                --cyan: #386a6f;
+                --cyan-soft: #e8f3f5;
+                --stroke: #c8cdd4;
+                --stroke-subtle: #d9dde3;
+                --shadow: 0 3px 8px rgba(29, 35, 43, 0.16);
+                --focus: rgba(103, 80, 164, 0.32);
+            }
+
+            [data-ui-style='material-3'][data-theme='dark'] {
+                --canvas: #15171a;
+                --glass: #1d2024;
+                --glass-strong: #272b30;
+                --glass-hover: #31363c;
+                --text-main: #f2f4f7;
+                --text-muted: #c5cad1;
+                --primary: #c7b8ff;
+                --primary-soft: #493b78;
+                --cyan: #b0cccc;
+                --cyan-soft: #294b4f;
+                --stroke: #454b54;
+                --stroke-subtle: #3b4149;
+                --shadow: 0 5px 14px rgba(0, 0, 0, 0.42);
+            }
+
+            [data-ui-style='flutter'] {
+                --canvas: #eef5fb;
+                --glass: #ffffff;
+                --glass-strong: #f1f6fb;
+                --glass-hover: #e7f1fa;
+                --text-main: #17212b;
+                --text-muted: #607080;
+                --primary: #1976d2;
+                --primary-soft: #e3f2fd;
+                --cyan: #00838f;
+                --cyan-soft: #e0f7fa;
+                --stroke: #d7e0e8;
+                --stroke-subtle: #dfe7ee;
+                --shadow: 0 8px 22px rgba(32, 73, 105, 0.2);
+                --focus: rgba(25, 118, 210, 0.3);
+            }
+
+            [data-ui-style='flutter'][data-theme='dark'] {
+                --canvas: #161b20;
+                --glass: #20252b;
+                --glass-strong: #2b333b;
+                --glass-hover: #35414c;
+                --text-main: #f3f6f9;
+                --text-muted: #aebbc7;
+                --primary: #64b5f6;
+                --primary-soft: #163b58;
+                --cyan: #4dd0e1;
+                --cyan-soft: #16444a;
+                --stroke: #43505c;
+                --stroke-subtle: #3b4650;
+                --shadow: 0 8px 22px rgba(0, 0, 0, 0.44);
+            }
+
+            [data-ui-style='bento'] {
+                --canvas: #f3f5f8;
+                --glass: #ffffff;
+                --glass-strong: #f5f7fa;
+                --glass-hover: #edf2f7;
+                --text-main: #20242c;
+                --text-muted: #667085;
+                --primary: #6d5ce7;
+                --primary-soft: #ecebff;
+                --cyan: #168f88;
+                --cyan-soft: #e7f7f5;
+                --stroke: #2d3648;
+                --stroke-subtle: rgba(45, 54, 72, 0.16);
+                --shadow: 7px 7px 0 rgba(45, 54, 72, 0.16);
+                --focus: rgba(109, 92, 231, 0.34);
+            }
+
+            [data-ui-style='bento'][data-theme='dark'] {
+                --canvas: #171a1f;
+                --glass: #20242b;
+                --glass-strong: #303640;
+                --glass-hover: #39414c;
+                --text-main: #f7f9fc;
+                --text-muted: #c4cbd6;
+                --primary: #b7abff;
+                --primary-soft: #413a70;
+                --cyan: #76d6cc;
+                --cyan-soft: #294e4d;
+                --stroke: #d7dde8;
+                --stroke-subtle: rgba(215, 221, 232, 0.18);
+                --shadow: 7px 7px 0 rgba(0, 0, 0, 0.45);
+            }
+
+            [data-ui-style='material-3'] body,
+            [data-ui-style='flutter'] body {
+                background: var(--canvas);
+            }
+
+            [data-ui-style='material-3'] body::before,
+            [data-ui-style='material-3'] body::after,
+            [data-ui-style='flutter'] body::before,
+            [data-ui-style='flutter'] body::after,
+            [data-ui-style='bento'] body::before,
+            [data-ui-style='bento'] body::after {
+                display: none;
+            }
+
+            [data-ui-style='material-3'] .glass-panel {
+                border-radius: 28px;
+                box-shadow: var(--shadow);
+                backdrop-filter: none;
+            }
+
+            [data-ui-style='material-3'] .action,
+            [data-ui-style='material-3'] .site-card {
+                border-radius: 18px;
+            }
+
+            [data-ui-style='material-3'] .action-icon,
+            [data-ui-style='material-3'] .brand-icon {
+                border-radius: 14px;
+                box-shadow: none;
+            }
+
+            [data-ui-style='flutter'] .glass-panel {
+                border-radius: 14px;
+                box-shadow: var(--shadow);
+                backdrop-filter: none;
+            }
+
+            [data-ui-style='flutter'] .action,
+            [data-ui-style='flutter'] .site-card {
+                border-radius: 9px;
+            }
+
+            [data-ui-style='flutter'] .action-icon,
+            [data-ui-style='flutter'] .brand-icon {
+                border-radius: 8px;
+                box-shadow: none;
+            }
+
+            [data-ui-style='bento'] body {
+                background: var(--canvas);
+            }
+
+            [data-ui-style='bento'] .glass-panel {
+                border-width: 2px;
+                border-radius: 22px;
+                box-shadow: var(--shadow);
+                backdrop-filter: none;
+            }
+
+            [data-ui-style='bento'] .action,
+            [data-ui-style='bento'] .site-card {
+                border-width: 2px;
+                border-radius: 14px;
+            }
+
+            [data-ui-style='bento'] .brand-icon,
+            [data-ui-style='bento'] .action-icon {
+                border: 2px solid var(--stroke);
+                border-radius: 11px;
+                box-shadow: 3px 3px 0 var(--stroke-subtle);
+            }
+
             @media (prefers-reduced-motion: reduce) {
                 .action,
                 .chevron {

@@ -2,6 +2,7 @@ import { clearHistory, deleteHistoryItem, getHistory, setHistoryItemFavorite } f
 import type { HistoryItem, RequestMode } from './types';
 import { localizeDocument, t } from './i18n';
 import { upsertCustomCommand } from './settings-store';
+import { applyAppearanceStyle } from './appearance-style';
 
 const MODE_NAMES: Record<RequestMode, string> = {
     spellcheck: t('modeSpellcheck', 'Ошибки'),
@@ -148,11 +149,12 @@ function renderHistory(): void {
 
 async function initialize(): Promise<void> {
     localizeDocument();
-    const theme = await chrome.storage.local.get({ selectedTheme: 'auto' });
+    const theme = await chrome.storage.local.get({ selectedTheme: 'auto', visualStyle: 'liquid-glass' });
     const dark =
         theme.selectedTheme === 'dark' ||
         (theme.selectedTheme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
     document.documentElement.toggleAttribute('data-theme', dark);
+    applyAppearanceStyle(document.documentElement, theme.visualStyle);
     history = await getHistory();
     renderHistory();
 }

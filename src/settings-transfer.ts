@@ -4,6 +4,7 @@ import { normalizeDisabledSites } from './privacy';
 const PORTABLE_SETTING_KEYS = [
     'selectedTone',
     'selectedTheme',
+    'visualStyle',
     'interfaceScale',
     'resultDisplayMode',
     'compactResultMode',
@@ -29,6 +30,7 @@ const PORTABLE_SETTING_KEYS = [
 const SYNC_SETTING_KEYS = [
     'selectedTone',
     'selectedTheme',
+    'visualStyle',
     'interfaceScale',
     'resultDisplayMode',
     'compactResultMode',
@@ -71,6 +73,8 @@ function sanitizePortableSetting(key: (typeof PORTABLE_SETTING_KEYS)[number], va
     if (key === 'selectedTone')
         return ['business', 'friendly', 'persuasive', 'creative'].includes(String(value)) ? value : 'business';
     if (key === 'selectedTheme') return ['auto', 'light', 'dark'].includes(String(value)) ? value : 'auto';
+    if (key === 'visualStyle')
+        return ['liquid-glass', 'material-3', 'flutter', 'bento'].includes(String(value)) ? value : 'liquid-glass';
     if (key === 'resultDisplayMode') return ['auto', 'compact', 'detailed'].includes(String(value)) ? value : 'compact';
     if (key === 'searchEngine') return ['google', 'yandex', 'duckduckgo'].includes(String(value)) ? value : 'google';
     if (key === 'aiMode') return value === 'fast' ? 'fast' : 'quality';

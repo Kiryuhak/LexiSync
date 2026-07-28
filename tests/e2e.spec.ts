@@ -24,7 +24,7 @@ const test = base.extend({
                     return settings.settingsSchemaVersion;
                 }),
             )
-            .toBe(6);
+            .toBe(7);
         await use(context);
         await context.close();
     },
@@ -490,7 +490,7 @@ test('Персональная подсказка дополняет изуче�
     if (!background) background = await context.waitForEvent('serviceworker');
     await background.evaluate(() =>
         chrome.storage.local.set({
-            settingsSchemaVersion: 6,
+            settingsSchemaVersion: 7,
             adaptiveSuggestionsEnabled: true,
             adaptiveLearningEnabled: true,
             adaptiveLanguageModel: {
@@ -597,15 +597,23 @@ test('Компактный режим настраивается и показы
     await page.locator('[data-tab="appearance"]').click();
     const compactPreview = page.locator('#compactResultPreviewStage');
     await expect(compactPreview).toBeVisible();
+    await page.locator('#visualStyleSelect').selectOption('material-3');
+    await expect(compactPreview).toHaveAttribute('data-ui-style', 'material-3');
+    await expect(page.locator('html')).toHaveAttribute('data-ui-style', 'material-3');
     await expect(compactPreview.locator('mark')).toContainText('ошибок');
     await page.locator('#resultDisplayMode').selectOption('compact');
     await expect(compactPreview).toHaveAttribute('data-mode', 'compact');
     await page.locator('#saveBtn').click();
     await expect
-        .poll(() => background.evaluate(() => chrome.storage.local.get(['resultDisplayMode', 'compactResultMode'])))
+        .poll(() =>
+            background.evaluate(() =>
+                chrome.storage.local.get(['resultDisplayMode', 'compactResultMode', 'visualStyle']),
+            ),
+        )
         .toEqual({
             compactResultMode: true,
             resultDisplayMode: 'compact',
+            visualStyle: 'material-3',
         });
 
     await context.route('https://api.mistral.ai/v1/chat/completions', async (route) => {
@@ -621,6 +629,7 @@ test('Компактный режим настраивается и показы
     await page.keyboard.press('Alt+r');
 
     const panel = page.locator('#lexisync-extension-ui');
+    await expect(panel).toHaveAttribute('data-ui-style', 'material-3');
     await expect(panel.locator('.lexisync-content-pane')).toHaveText('Sample Domai');
     await expect(panel.locator('.lexisync-result-button')).toHaveCount(2);
     await expect(panel.locator('.lexisync-corrections')).toBeHidden();
@@ -889,7 +898,7 @@ test('Профиль стиля автоматически выбирается 
     if (!background) background = await context.waitForEvent('serviceworker');
     await background.evaluate(() =>
         chrome.storage.local.set({
-            settingsSchemaVersion: 6,
+            settingsSchemaVersion: 7,
             mistralApiKey: 'mock-test-key-123',
             styleProfiles: [
                 { id: 'default', name: 'Обычный', tone: 'custom', instruction: 'Используй обычный стиль.', sites: [] },

@@ -14,6 +14,7 @@ import {
     type ContentRequestContext,
 } from './content-request-panel';
 import { ensureOptionalContentFeature, OCR_IMAGE_EVENT, OCR_START_EVENT } from './optional-content-features';
+import { applyAppearanceStyle, normalizeAppearanceStyle, type AppearanceStyle } from './appearance-style';
 
 const contentRuntime = globalThis as typeof globalThis & { __lexisyncContentInitialized?: boolean };
 if (!contentRuntime.__lexisyncContentInitialized) {
@@ -76,6 +77,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
 
     let currentTargetLang: string = getLanguageName('en');
     let currentTheme: string = 'auto';
+    let currentVisualStyle: AppearanceStyle = 'liquid-glass';
     let currentSearchEngine: string = 'google';
     let currentInterfaceScale: number = 90;
 
@@ -313,17 +315,25 @@ if (!contentRuntime.__lexisyncContentInitialized) {
         return Math.min(110, Math.max(75, Math.round(numericValue / 5) * 5));
     }
 
-    chrome.storage.local.get({ selectedTheme: 'auto', searchEngine: 'google', interfaceScale: 90 }, (res) => {
-        if (res.selectedTheme) currentTheme = res.selectedTheme as string;
-        if (res.searchEngine) currentSearchEngine = res.searchEngine as string;
-        currentInterfaceScale = normalizeInterfaceScale(res.interfaceScale);
-    });
+    chrome.storage.local.get(
+        { selectedTheme: 'auto', visualStyle: 'liquid-glass', searchEngine: 'google', interfaceScale: 90 },
+        (res) => {
+            if (res.selectedTheme) currentTheme = res.selectedTheme as string;
+            currentVisualStyle = normalizeAppearanceStyle(res.visualStyle);
+            if (res.searchEngine) currentSearchEngine = res.searchEngine as string;
+            currentInterfaceScale = normalizeInterfaceScale(res.interfaceScale);
+        },
+    );
 
     chrome.storage.onChanged.addListener((changes, area) => {
         if (area === 'local') {
             if (changes.selectedTheme) {
                 currentTheme = changes.selectedTheme.newValue as string;
                 if (popupUI) applyThemeToPopup(popupUI);
+            }
+            if (changes.visualStyle) {
+                currentVisualStyle = normalizeAppearanceStyle(changes.visualStyle.newValue);
+                if (popupUI) applyAppearanceStyle(popupUI, currentVisualStyle);
             }
             if (changes.searchEngine) currentSearchEngine = changes.searchEngine.newValue as string;
             if (changes.interfaceScale) {
@@ -364,6 +374,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
 
         const popup = document.createElement('div');
         popup.id = 'lexisync-extension-ui';
+        applyAppearanceStyle(popup, currentVisualStyle);
         popup.style.pointerEvents = 'auto';
         popup.style.setProperty('zoom', String(currentInterfaceScale / 100));
         popupShadow.appendChild(popup);

@@ -10,6 +10,7 @@ import { createSettingsFingerprint, serializeCacheSource } from '../src/request-
 import { normalizeDisabledSites, normalizeSiteEntries } from '../src/privacy';
 import { validateMistralRequest } from '../src/request-validation';
 import { normalizeResultDisplayMode, shouldUseCompactResult } from '../src/result-display-mode';
+import { normalizeAppearanceStyle } from '../src/appearance-style';
 
 test('локально исправляет русскую и английскую раскладки', () => {
     expect(detectLayoutDirection('ghbdtn')).toBe('en-to-ru');
@@ -139,6 +140,14 @@ test('выбирает компактность результата автом�
     expect(shouldUseCompactResult('auto', 'translate')).toBe(true);
     expect(shouldUseCompactResult('auto', 'style')).toBe(false);
     expect(shouldUseCompactResult('compact', 'style')).toBe(true);
+});
+
+test('нормализует поддерживаемые стили интерфейса', () => {
+    expect(normalizeAppearanceStyle('liquid-glass')).toBe('liquid-glass');
+    expect(normalizeAppearanceStyle('material-3')).toBe('material-3');
+    expect(normalizeAppearanceStyle('flutter')).toBe('flutter');
+    expect(normalizeAppearanceStyle('bento')).toBe('bento');
+    expect(normalizeAppearanceStyle('неизвестный')).toBe('liquid-glass');
 });
 
 test('выбирает автоматический профиль для домена и поддоменов', () => {

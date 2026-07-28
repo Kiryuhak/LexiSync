@@ -19,6 +19,55 @@ export const POPUP_STYLE_TEXT = `
                 --border-color: rgba(255,255,255,0.14); --inner-border: rgba(255,255,255,0.08);
                 --hover-bg: rgba(64, 70, 104, 0.9); --shadow-color: rgba(0,0,0,0.48);
             }
+            #lexisync-extension-ui[data-ui-style="material-3"] {
+                --bg-primary: #ffffff; --bg-solid: #ffffff; --bg-elevated: #f7f8fa; --bg-secondary: #f1f3f6;
+                --text-primary: #1d1b20; --text-secondary: #49454f; --primary: #6750a4; --primary-strong: #4f378b;
+                --primary-soft: #eee9ff; --cyan-soft: #e8f3f5; --border-color: #c8cdd4; --inner-border: #d9dde3;
+                --hover-bg: #e9edf2; --shadow-color: rgba(29, 35, 43, 0.18);
+                border-radius: 28px;
+                box-shadow: 0 3px 8px var(--shadow-color), 0 1px 3px rgba(29,25,43,.14);
+                backdrop-filter: none;
+                -webkit-backdrop-filter: none;
+            }
+            #lexisync-extension-ui[data-ui-style="material-3"][data-theme="dark"] {
+                --bg-primary: #1d2024; --bg-solid: #1d2024; --bg-elevated: #272b30; --bg-secondary: #272b30;
+                --text-primary: #f2f4f7; --text-secondary: #c5cad1; --primary: #c7b8ff; --primary-strong: #ad99ff;
+                --primary-soft: #493b78; --cyan-soft: #29454b; --border-color: #454b54; --inner-border: #3b4149;
+                --hover-bg: #31363c; --shadow-color: rgba(0,0,0,.48);
+            }
+            #lexisync-extension-ui[data-ui-style="flutter"] {
+                --bg-primary: #ffffff; --bg-solid: #ffffff; --bg-elevated: #ffffff; --bg-secondary: #f1f6fb;
+                --text-primary: #17212b; --text-secondary: #607080; --primary: #1976d2; --primary-strong: #0d5ca8;
+                --primary-soft: #e3f2fd; --cyan-soft: #e0f7fa; --border-color: #d7e0e8; --inner-border: #dfe7ee;
+                --hover-bg: #eaf3fb; --shadow-color: rgba(32,73,105,.2);
+                border-radius: 14px;
+                box-shadow: 0 8px 22px var(--shadow-color), 0 2px 5px rgba(32,73,105,.12);
+                backdrop-filter: none;
+                -webkit-backdrop-filter: none;
+            }
+            #lexisync-extension-ui[data-ui-style="flutter"][data-theme="dark"] {
+                --bg-primary: #20252b; --bg-solid: #20252b; --bg-elevated: #272d34; --bg-secondary: #2b333b;
+                --text-primary: #f3f6f9; --text-secondary: #aebbc7; --primary: #64b5f6; --primary-strong: #42a5f5;
+                --primary-soft: #163b58; --cyan-soft: #16444a; --border-color: #43505c; --inner-border: #3b4650;
+                --hover-bg: #35414c; --shadow-color: rgba(0,0,0,.44);
+            }
+            #lexisync-extension-ui[data-ui-style="bento"] {
+                --bg-primary: #ffffff; --bg-solid: #ffffff; --bg-elevated: #ffffff; --bg-secondary: #f5f7fa;
+                --text-primary: #20242c; --text-secondary: #667085; --primary: #6d5ce7; --primary-strong: #5746cf;
+                --primary-soft: #ecebff; --cyan-soft: #e7f7f5; --border-color: #2d3648; --inner-border: rgba(45,54,72,.16);
+                --hover-bg: #edf2f7; --shadow-color: rgba(45,54,72,.16);
+                border: 2px solid var(--border-color);
+                border-radius: 22px;
+                box-shadow: 7px 7px 0 var(--shadow-color);
+                backdrop-filter: none;
+                -webkit-backdrop-filter: none;
+            }
+            #lexisync-extension-ui[data-ui-style="bento"][data-theme="dark"] {
+                --bg-primary: #20242b; --bg-solid: #20242b; --bg-elevated: #282d35; --bg-secondary: #303640;
+                --text-primary: #f7f9fc; --text-secondary: #c4cbd6; --primary: #b7abff; --primary-strong: #9d8fff;
+                --primary-soft: #413a70; --cyan-soft: #294b4c; --border-color: #d7dde8; --inner-border: rgba(215,221,232,.18);
+                --hover-bg: #39414c; --shadow-color: rgba(0,0,0,.46);
+            }
             #lexisync-extension-ui span { flex-shrink: 0 !important; }
             #lexisync-extension-ui svg { width: 16px !important; height: 16px !important; min-width: 16px !important; min-height: 16px !important; max-width: 16px !important; max-height: 16px !important; flex-shrink: 0 !important; display: block !important; }
             @keyframes lexisync-spin { to { transform: rotate(360deg); } }
@@ -167,11 +216,29 @@ export const POPUP_STYLE_TEXT = `
                 background: var(--bg-primary) !important;
                 border-radius: 20px;
             }
+            #lexisync-extension-ui[data-ui-style="material-3"][data-surface="result"],
+            #lexisync-extension-ui[data-ui-style="material-3"][data-surface="menu"] { border-radius: 28px; }
+            #lexisync-extension-ui[data-ui-style="flutter"][data-surface="result"],
+            #lexisync-extension-ui[data-ui-style="flutter"][data-surface="menu"] { border-radius: 14px; }
+            #lexisync-extension-ui[data-ui-style="bento"][data-surface="result"],
+            #lexisync-extension-ui[data-ui-style="bento"][data-surface="menu"] { border-radius: 22px; }
             .lexisync-header {
                 min-height: 50px;
                 padding: 11px 14px !important;
                 background: linear-gradient(135deg, var(--primary-soft), transparent 62%) !important;
                 border-bottom-color: var(--inner-border) !important;
+                border-radius: 20px 20px 0 0 !important;
+            }
+            #lexisync-extension-ui[data-ui-style="material-3"] .lexisync-header {
+                background: var(--primary-soft) !important;
+                border-radius: 27px 27px 0 0 !important;
+            }
+            #lexisync-extension-ui[data-ui-style="flutter"] .lexisync-header {
+                background: var(--bg-secondary) !important;
+                border-radius: 13px 13px 0 0 !important;
+            }
+            #lexisync-extension-ui[data-ui-style="bento"] .lexisync-header {
+                background: linear-gradient(135deg, var(--primary-soft), var(--cyan-soft)) !important;
                 border-radius: 20px 20px 0 0 !important;
             }
             .lexisync-header-title {
@@ -292,6 +359,27 @@ export const POPUP_STYLE_TEXT = `
                 background: linear-gradient(135deg, var(--primary), var(--primary-strong)) !important;
                 border-color: transparent !important;
                 box-shadow: 0 8px 18px color-mix(in srgb, var(--primary) 25%, transparent) !important;
+            }
+            #lexisync-extension-ui[data-ui-style="material-3"] .lexisync-result-button {
+                border-radius: 999px !important;
+                box-shadow: none;
+            }
+            #lexisync-extension-ui[data-ui-style="flutter"] .lexisync-result-button,
+            #lexisync-extension-ui[data-ui-style="flutter"] .lexisync-correction-row {
+                border-radius: 8px !important;
+            }
+            #lexisync-extension-ui[data-ui-style="flutter"] .lexisync-result-button--primary {
+                background: var(--primary) !important;
+                box-shadow: 0 4px 10px color-mix(in srgb, var(--primary) 28%, transparent) !important;
+            }
+            #lexisync-extension-ui[data-ui-style="bento"] .lexisync-result-button {
+                border: 2px solid var(--border-color) !important;
+                border-radius: 12px !important;
+                box-shadow: 3px 3px 0 var(--shadow-color);
+            }
+            #lexisync-extension-ui[data-ui-style="bento"] .lexisync-result-button--primary {
+                border-color: var(--border-color) !important;
+                background: var(--primary) !important;
             }
             .lexisync-result-button--primary:hover {
                 filter: brightness(1.06);

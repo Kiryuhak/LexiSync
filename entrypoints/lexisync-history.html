@@ -14,6 +14,7 @@
                 --soft: #f1f3f4;
                 --result: #e6f4ea;
                 --result-text: #137333;
+                --accent: #1a73e8;
             }
             [data-theme='dark'] {
                 color-scheme: dark;
@@ -25,6 +26,7 @@
                 --soft: #282b38;
                 --result: #18382a;
                 --result-text: #81d6a9;
+                --accent: #8ab4f8;
             }
             body {
                 font-family: system-ui, sans-serif;
@@ -38,7 +40,7 @@
                 margin: 0 auto;
             }
             h1 {
-                color: #1a73e8;
+                color: var(--accent);
                 font-size: 24px;
                 margin-bottom: 16px;
             }
@@ -155,6 +157,86 @@
             }
             .hidden {
                 display: none !important;
+            }
+            [data-ui-style='material-3'] {
+                --bg: #f4f6f8;
+                --card: #fff;
+                --text: #1d1b20;
+                --muted: #49454f;
+                --border: #c8cdd4;
+                --soft: #f1f3f6;
+                --accent: #6750a4;
+            }
+            [data-ui-style='material-3'][data-theme='dark'] {
+                --bg: #15171a;
+                --card: #1d2024;
+                --text: #f2f4f7;
+                --muted: #c5cad1;
+                --border: #454b54;
+                --soft: #272b30;
+                --accent: #c7b8ff;
+            }
+            [data-ui-style='material-3'] .history-card {
+                border-radius: 24px;
+                box-shadow: 0 3px 8px rgba(29, 25, 43, 0.14);
+            }
+            [data-ui-style='material-3'] button,
+            [data-ui-style='material-3'] input,
+            [data-ui-style='material-3'] select,
+            [data-ui-style='material-3'] .content {
+                border-radius: 16px;
+            }
+            [data-ui-style='flutter'] {
+                --bg: #eef5fb;
+                --card: #fff;
+                --text: #17212b;
+                --muted: #607080;
+                --border: #d7e0e8;
+                --soft: #f1f6fb;
+                --accent: #1976d2;
+            }
+            [data-ui-style='flutter'][data-theme='dark'] {
+                --bg: #161b20;
+                --card: #20252b;
+                --text: #f3f6f9;
+                --muted: #aebbc7;
+                --border: #43505c;
+                --soft: #2b333b;
+                --accent: #64b5f6;
+            }
+            [data-ui-style='flutter'] .history-card {
+                border-radius: 10px;
+                box-shadow: 0 7px 18px rgba(32, 73, 105, 0.12);
+            }
+            [data-ui-style='bento'] {
+                --bg: #f3f5f8;
+                --card: #fff;
+                --text: #20242c;
+                --muted: #667085;
+                --border: #2d3648;
+                --soft: #f5f7fa;
+                --accent: #6d5ce7;
+            }
+            [data-ui-style='bento'][data-theme='dark'] {
+                --bg: #171a1f;
+                --card: #20242b;
+                --text: #f7f9fc;
+                --muted: #c4cbd6;
+                --border: #d7dde8;
+                --soft: #303640;
+                --accent: #b7abff;
+            }
+            [data-ui-style='bento'] .history-card {
+                border-width: 2px;
+                border-radius: 18px;
+                box-shadow: 6px 6px 0 rgba(43, 38, 51, 0.16);
+            }
+            [data-ui-style='bento'] button,
+            [data-ui-style='bento'] input,
+            [data-ui-style='bento'] select,
+            [data-ui-style='bento'] .content {
+                border-width: 2px;
+                border-radius: 11px;
             }
             @media (max-width: 720px) {
                 body {

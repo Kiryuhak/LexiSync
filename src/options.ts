@@ -6,6 +6,7 @@ import { restoreStyleProfileSettings, setupStyleProfileSettings } from './style-
 import { restoreCustomCommandSettings, setupCustomCommandSettings } from './custom-command-settings';
 import { normalizeResultDisplayMode } from './result-display-mode';
 import { normalizeSiteEntries } from './privacy';
+import { applyAppearanceStyle, normalizeAppearanceStyle } from './appearance-style';
 
 type AppearanceTheme = 'auto' | 'light' | 'dark';
 
@@ -18,6 +19,7 @@ const SAVED_OPTION_IDS = [
     'apiKey',
     'toneSelect',
     'themeSelect',
+    'visualStyleSelect',
     'interfaceScale',
     'resultDisplayMode',
     'adaptiveSuggestionsEnabled',
@@ -67,6 +69,7 @@ function clampInterfaceScale(value: number): number {
 
 function updateAppearancePreview(): void {
     const themeSelect = document.getElementById('themeSelect') as HTMLSelectElement | null;
+    const visualStyleSelect = document.getElementById('visualStyleSelect') as HTMLSelectElement | null;
     const scaleInput = document.getElementById('interfaceScale') as HTMLInputElement | null;
     const scaleValue = document.getElementById('interfaceScaleValue') as HTMLOutputElement | null;
     const previewStage = document.getElementById('interfacePreview');
@@ -76,6 +79,7 @@ function updateAppearancePreview(): void {
     const compactResultPreview = document.getElementById('compactResultPreview');
     if (
         !themeSelect ||
+        !visualStyleSelect ||
         !scaleInput ||
         !scaleValue ||
         !previewStage ||
@@ -99,6 +103,9 @@ function updateAppearancePreview(): void {
     compactPreviewStage.dataset.theme = isDark ? 'dark' : 'light';
     compactPreviewStage.dataset.mode = normalizeResultDisplayMode(resultDisplayModeSelect.value);
     document.documentElement.toggleAttribute('data-theme', isDark);
+    const visualStyle = applyAppearanceStyle(document.documentElement, visualStyleSelect.value);
+    previewStage.dataset.uiStyle = visualStyle;
+    compactPreviewStage.dataset.uiStyle = visualStyle;
 }
 
 function updateAdaptiveControls(): void {
@@ -208,6 +215,7 @@ async function saveOptions(): Promise<void> {
     const apiKeyInput = document.getElementById('apiKey') as HTMLInputElement;
     const toneSelect = document.getElementById('toneSelect') as HTMLSelectElement;
     const themeSelect = document.getElementById('themeSelect') as HTMLSelectElement;
+    const visualStyleSelect = document.getElementById('visualStyleSelect') as HTMLSelectElement;
     const interfaceScaleInput = document.getElementById('interfaceScale') as HTMLInputElement;
     const resultDisplayModeSelect = document.getElementById('resultDisplayMode') as HTMLSelectElement;
     const adaptiveSuggestionsInput = document.getElementById('adaptiveSuggestionsEnabled') as HTMLInputElement;
@@ -238,6 +246,7 @@ async function saveOptions(): Promise<void> {
         await chrome.storage.local.set({
             selectedTone: toneSelect.value,
             selectedTheme: themeSelect.value,
+            visualStyle: normalizeAppearanceStyle(visualStyleSelect.value),
             interfaceScale: clampInterfaceScale(Number(interfaceScaleInput.value) || 90),
             resultDisplayMode: normalizeResultDisplayMode(resultDisplayModeSelect.value),
             compactResultMode: resultDisplayModeSelect.value === 'compact',
@@ -308,6 +317,7 @@ async function restoreOptions(): Promise<void> {
     const apiKeyInput = document.getElementById('apiKey') as HTMLInputElement;
     const toneSelect = document.getElementById('toneSelect') as HTMLSelectElement;
     const themeSelect = document.getElementById('themeSelect') as HTMLSelectElement;
+    const visualStyleSelect = document.getElementById('visualStyleSelect') as HTMLSelectElement;
     const interfaceScaleInput = document.getElementById('interfaceScale') as HTMLInputElement;
     const resultDisplayModeSelect = document.getElementById('resultDisplayMode') as HTMLSelectElement;
     const adaptiveSuggestionsInput = document.getElementById('adaptiveSuggestionsEnabled') as HTMLInputElement;
@@ -325,6 +335,7 @@ async function restoreOptions(): Promise<void> {
         mistralApiKey: '',
         selectedTone: 'business',
         selectedTheme: 'auto',
+        visualStyle: 'liquid-glass',
         interfaceScale: 90,
         resultDisplayMode: 'compact',
         compactResultMode: true,
@@ -349,6 +360,7 @@ async function restoreOptions(): Promise<void> {
     restoredApiKey = apiKeyInput.value;
     toneSelect.value = items.selectedTone as string;
     themeSelect.value = items.selectedTheme as string;
+    visualStyleSelect.value = normalizeAppearanceStyle(items.visualStyle);
     interfaceScaleInput.value = String(clampInterfaceScale(Number(items.interfaceScale) || 90));
     resultDisplayModeSelect.value = normalizeResultDisplayMode(items.resultDisplayMode, items.compactResultMode);
     adaptiveSuggestionsInput.checked = items.adaptiveSuggestionsEnabled === true;
@@ -389,10 +401,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const themeSelect = document.getElementById('themeSelect');
+    const visualStyleSelect = document.getElementById('visualStyleSelect');
     const interfaceScaleInput = document.getElementById('interfaceScale');
     const resultDisplayModeSelect = document.getElementById('resultDisplayMode');
     const adaptiveSuggestionsInput = document.getElementById('adaptiveSuggestionsEnabled');
     themeSelect?.addEventListener('change', updateAppearancePreview);
+    visualStyleSelect?.addEventListener('change', updateAppearancePreview);
     interfaceScaleInput?.addEventListener('input', updateAppearancePreview);
     resultDisplayModeSelect?.addEventListener('change', updateAppearancePreview);
     adaptiveSuggestionsInput?.addEventListener('change', updateAdaptiveControls);

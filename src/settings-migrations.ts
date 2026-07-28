@@ -1,7 +1,7 @@
 import { normalizeSitePatterns } from './site-profiles';
 import type { StyleProfile } from './types';
 
-const CURRENT_SETTINGS_SCHEMA = 6;
+const CURRENT_SETTINGS_SCHEMA = 7;
 
 function getSchemaVersion(value: unknown): number {
     return Math.max(0, Number(value) || 0);
@@ -76,6 +76,12 @@ export async function migrateSettings(): Promise<void> {
                     ? 'compact'
                     : 'detailed'
                 : 'compact';
+    }
+    if (
+        currentVersion < 7 &&
+        !['liquid-glass', 'material-3', 'flutter', 'bento'].includes(String(stored.visualStyle))
+    ) {
+        updates.visualStyle = 'liquid-glass';
     }
     updates.settingsSchemaVersion = CURRENT_SETTINGS_SCHEMA;
     const migratedKeys = Object.keys(updates).filter((key) => key !== 'settingsSchemaVersion');

@@ -1,11 +1,13 @@
 import { isSiteDisabled, normalizeDisabledSites } from './privacy';
 import { localizeDocument, t } from './i18n';
 import { setSitePreference, type SitePreference } from './settings-store';
+import { applyAppearanceStyle, normalizeAppearanceStyle, type AppearanceStyle } from './appearance-style';
 
 type Theme = 'auto' | 'light' | 'dark';
 
 const systemTheme = window.matchMedia('(prefers-color-scheme: dark)');
 let selectedTheme: Theme = 'auto';
+let visualStyle: AppearanceStyle = 'liquid-glass';
 
 function applyTheme(theme: Theme): void {
     const useDarkTheme = theme === 'dark' || (theme === 'auto' && systemTheme.matches);
@@ -13,9 +15,11 @@ function applyTheme(theme: Theme): void {
 }
 
 async function initializeTheme(): Promise<void> {
-    const result = await chrome.storage.local.get({ selectedTheme: 'auto' });
+    const result = await chrome.storage.local.get({ selectedTheme: 'auto', visualStyle: 'liquid-glass' });
     selectedTheme = result.selectedTheme as Theme;
+    visualStyle = normalizeAppearanceStyle(result.visualStyle);
     applyTheme(selectedTheme);
+    applyAppearanceStyle(document.documentElement, visualStyle);
 }
 
 void initializeTheme();
@@ -26,9 +30,15 @@ systemTheme.addEventListener('change', () => {
 });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName !== 'local' || !changes.selectedTheme) return;
-    selectedTheme = (changes.selectedTheme.newValue || 'auto') as Theme;
-    applyTheme(selectedTheme);
+    if (areaName !== 'local') return;
+    if (changes.selectedTheme) {
+        selectedTheme = (changes.selectedTheme.newValue || 'auto') as Theme;
+        applyTheme(selectedTheme);
+    }
+    if (changes.visualStyle) {
+        visualStyle = normalizeAppearanceStyle(changes.visualStyle.newValue);
+        applyAppearanceStyle(document.documentElement, visualStyle);
+    }
 });
 
 // --- Обработчики кнопок ---

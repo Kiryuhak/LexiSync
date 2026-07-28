@@ -863,6 +863,210 @@ input[type='range'] {
     color: var(--text-secondary);
     font-size: 11px;
 }
+
+.visual-style-option {
+    align-items: center;
+    justify-content: space-between;
+}
+.visual-style-option label {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+.visual-style-option select {
+    width: min(190px, 46%);
+    margin: 0;
+    flex: 0 0 auto;
+}
+
+[data-ui-style='material-3'] {
+    --bg-main: #f4f6f8;
+    --bg-card: #ffffff;
+    --text-main: #1d1b20;
+    --text-secondary: #49454f;
+    --border: #c8cdd4;
+    --border-input: #7b828c;
+    --primary: #6750a4;
+    --primary-hover: #4f378b;
+    --badge-bg: #eee9ff;
+    --badge-text: #4f378b;
+    --box-bg: #f1f3f6;
+    --box-border: #d9dde3;
+}
+[data-ui-style='material-3'][data-theme='dark'] {
+    --bg-main: #15171a;
+    --bg-card: #1d2024;
+    --text-main: #f2f4f7;
+    --text-secondary: #c5cad1;
+    --border: #454b54;
+    --border-input: #828a95;
+    --primary: #c7b8ff;
+    --primary-hover: #ded6ff;
+    --badge-bg: #493b78;
+    --badge-text: #eee9ff;
+    --box-bg: #272b30;
+    --box-border: #3b4149;
+}
+[data-ui-style='material-3'] .container {
+    border-radius: 28px;
+    box-shadow: 0 3px 8px rgba(29, 25, 43, 0.14);
+}
+[data-ui-style='material-3'] button,
+[data-ui-style='material-3'] select,
+[data-ui-style='material-3'] input,
+[data-ui-style='material-3'] textarea,
+[data-ui-style='material-3'] .privacy-option,
+[data-ui-style='material-3'] .appearance-panel,
+[data-ui-style='material-3'] .compact-preview-panel {
+    border-radius: 18px;
+}
+[data-ui-style='material-3'] button#saveBtn,
+[data-ui-style='material-3'] .settings-tab {
+    border-radius: 999px;
+}
+
+[data-ui-style='flutter'] {
+    --bg-main: #eef5fb;
+    --bg-card: #ffffff;
+    --text-main: #17212b;
+    --text-secondary: #607080;
+    --border: #d7e0e8;
+    --border-input: #a9b8c5;
+    --primary: #1976d2;
+    --primary-hover: #0d5ca8;
+    --badge-bg: #e3f2fd;
+    --badge-text: #1565c0;
+    --box-bg: #f1f6fb;
+    --box-border: #d7e0e8;
+}
+[data-ui-style='flutter'][data-theme='dark'] {
+    --bg-main: #161b20;
+    --bg-card: #20252b;
+    --text-main: #f3f6f9;
+    --text-secondary: #aebbc7;
+    --border: #43505c;
+    --border-input: #687784;
+    --primary: #64b5f6;
+    --primary-hover: #90caf9;
+    --badge-bg: #163b58;
+    --badge-text: #90caf9;
+    --box-bg: #2b333b;
+    --box-border: #43505c;
+}
+[data-ui-style='flutter'] .container {
+    border-radius: 14px;
+    box-shadow: 0 8px 22px rgba(32, 73, 105, 0.14);
+}
+[data-ui-style='flutter'] button,
+[data-ui-style='flutter'] select,
+[data-ui-style='flutter'] input,
+[data-ui-style='flutter'] textarea,
+[data-ui-style='flutter'] .privacy-option,
+[data-ui-style='flutter'] .appearance-panel,
+[data-ui-style='flutter'] .compact-preview-panel {
+    border-radius: 8px;
+}
+
+[data-ui-style='bento'] {
+    --bg-main: #f3f5f8;
+    --bg-card: #ffffff;
+    --text-main: #20242c;
+    --text-secondary: #667085;
+    --border: #2d3648;
+    --border-input: #667085;
+    --primary: #6d5ce7;
+    --primary-hover: #5746cf;
+    --badge-bg: #ecebff;
+    --badge-text: #5746cf;
+    --box-bg: #f5f7fa;
+    --box-border: #2d3648;
+}
+[data-ui-style='bento'][data-theme='dark'] {
+    --bg-main: #171a1f;
+    --bg-card: #20242b;
+    --text-main: #f7f9fc;
+    --text-secondary: #c4cbd6;
+    --border: #d7dde8;
+    --border-input: #aeb7c5;
+    --primary: #b7abff;
+    --primary-hover: #d2cbff;
+    --badge-bg: #413a70;
+    --badge-text: #e9e5ff;
+    --box-bg: #303640;
+    --box-border: #d7dde8;
+}
+[data-ui-style='bento'] body {
+    background: var(--bg-main);
+}
+[data-ui-style='bento'] .container {
+    border-width: 2px;
+    border-radius: 22px;
+    box-shadow: 8px 8px 0 rgba(43, 38, 51, 0.16);
+}
+[data-ui-style='bento'] button,
+[data-ui-style='bento'] select,
+[data-ui-style='bento'] input,
+[data-ui-style='bento'] textarea,
+[data-ui-style='bento'] .privacy-option,
+[data-ui-style='bento'] .appearance-panel,
+[data-ui-style='bento'] .compact-preview-panel {
+    border-width: 2px;
+    border-radius: 12px;
+}
+
+.preview-stage[data-ui-style='material-3'] .preview-toolbar,
+.compact-result-preview-stage[data-ui-style='material-3'] .compact-result-preview-card {
+    background: var(--bg-card);
+    border-color: var(--border);
+    border-radius: 24px;
+    box-shadow: 0 3px 8px rgba(29, 25, 43, 0.2);
+    backdrop-filter: none;
+}
+.compact-result-preview-stage[data-ui-style='material-3'] .compact-result-preview-header {
+    background: var(--badge-bg);
+    border-radius: 23px 23px 0 0;
+}
+.compact-result-preview-stage[data-ui-style='material-3'] .compact-result-preview-replace {
+    border-radius: 999px;
+    background: var(--primary);
+    box-shadow: none;
+}
+
+.preview-stage[data-ui-style='flutter'] .preview-toolbar,
+.compact-result-preview-stage[data-ui-style='flutter'] .compact-result-preview-card {
+    background: var(--bg-card);
+    border-color: var(--border);
+    border-radius: 11px;
+    box-shadow: 0 7px 18px rgba(32, 73, 105, 0.2);
+    backdrop-filter: none;
+}
+.compact-result-preview-stage[data-ui-style='flutter'] .compact-result-preview-header {
+    background: var(--box-bg);
+    border-radius: 10px 10px 0 0;
+}
+.compact-result-preview-stage[data-ui-style='flutter'] .compact-result-preview-replace {
+    border-radius: 7px;
+    background: var(--primary);
+}
+
+.preview-stage[data-ui-style='bento'] .preview-toolbar,
+.compact-result-preview-stage[data-ui-style='bento'] .compact-result-preview-card {
+    background: var(--bg-card);
+    border: 2px solid var(--border);
+    border-radius: 16px;
+    box-shadow: 5px 5px 0 rgba(43, 38, 51, 0.16);
+    backdrop-filter: none;
+}
+.compact-result-preview-stage[data-ui-style='bento'] .compact-result-preview-header {
+    background: linear-gradient(135deg, var(--badge-bg), var(--box-bg));
+    border-radius: 14px 14px 0 0;
+}
+.compact-result-preview-stage[data-ui-style='bento'] .compact-result-preview-replace {
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    background: var(--primary);
+    box-shadow: 3px 3px 0 rgba(43, 38, 51, 0.18);
+}
+
 @media (max-width: 560px) {
     body {
         padding: 12px;
@@ -870,11 +1074,13 @@ input[type='range'] {
     .container {
         padding: 22px;
     }
-    .result-display-option {
+    .result-display-option,
+    .visual-style-option {
         align-items: stretch;
         flex-direction: column;
     }
-    .result-display-option select {
+    .result-display-option select,
+    .visual-style-option select {
         width: 100%;
     }
     .command-form-actions {
