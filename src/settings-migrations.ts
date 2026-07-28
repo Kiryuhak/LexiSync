@@ -3,7 +3,7 @@ import type { StyleProfile } from './types';
 import { DEFAULT_WORKFLOWS } from './workflows';
 import { DEFAULT_THEME_CUSTOMIZATION } from './theme-customization';
 
-const CURRENT_SETTINGS_SCHEMA = 8;
+const CURRENT_SETTINGS_SCHEMA = 9;
 const MIGRATION_SETTING_KEYS = [
     'settingsSchemaVersion',
     'disabledSites',
@@ -31,6 +31,7 @@ const MIGRATION_SETTING_KEYS = [
     'monthlyTokenLimit',
     'warnLargeText',
     'autoFastMode',
+    'liveProofreadDisabledSites',
 ] as const;
 
 function getSchemaVersion(value: unknown): number {
@@ -126,6 +127,9 @@ export async function migrateSettings(): Promise<void> {
             updates.monthlyTokenLimit = 0;
         if (typeof stored.warnLargeText !== 'boolean') updates.warnLargeText = true;
         if (typeof stored.autoFastMode !== 'boolean') updates.autoFastMode = true;
+    }
+    if (currentVersion < 9 && !Array.isArray(stored.liveProofreadDisabledSites)) {
+        updates.liveProofreadDisabledSites = [];
     }
     updates.settingsSchemaVersion = CURRENT_SETTINGS_SCHEMA;
     const migratedKeys = Object.keys(updates).filter((key) => key !== 'settingsSchemaVersion');

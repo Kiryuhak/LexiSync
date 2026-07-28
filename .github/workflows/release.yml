@@ -1,0 +1,107 @@
+name: Релиз LexiSync
+
+on:
+    push:
+        tags: ['v*']
+    workflow_dispatch:
+        inputs:
+            publish_stores:
+                description: Отправить сборки в Chrome Web Store и Firefox Add-ons
+                type: boolean
+                default: false
+
+permissions:
+    contents: write
+
+concurrency:
+    group: release-${{ github.ref }}
+    cancel-in-progress: false
+
+jobs:
+    verify-and-release:
+        runs-on: ubuntu-latest
+        timeout-minutes: 35
+        outputs:
+            tag: ${{ steps.release_meta.outputs.tag }}
+            version: ${{ steps.release_meta.outputs.version }}
+        steps:
+            - name: Получить код
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+            - name: Установить Node.js
+              uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+              with:
+                  node-version: 24
+                  cache: npm
+
+            - name: Установить зависимости
+              run: npm ci
+
+            - name: Установить браузеры
+              run: npx playwright install --with-deps chromium firefox
+
+            - name: Полностью проверить релиз
+              run: xvfb-run -a npm run test:all
+
+            - name: Определить тег релиза
+              id: release_meta
+              shell: bash
+              run: |
+                  VERSION="$(node -p "require('./package.json').version")"
+                  TAG="v${VERSION}"
+                  if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" != "${TAG}" ]]; then
+                    echo "Тег ${GITHUB_REF_NAME} не совпадает с версией ${VERSION}" >&2
+                    exit 1
+                  fi
+                  echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+                  echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+            - name: Создать GitHub Release
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  RELEASE_TAG: ${{ steps.release_meta.outputs.tag }}
+              run: |
+                  gh release view "$RELEASE_TAG" >/dev/null 2>&1 || \
+                    gh release create "$RELEASE_TAG" --target "$GITHUB_SHA" --generate-notes --title "LexiSync ${RELEASE_TAG#v}"
+                  gh release upload "$RELEASE_TAG" .output/release/*.zip --clobber
+
+    publish-stores:
+        needs: verify-and-release
+        if: ${{ vars.PUBLISH_EXTENSION_STORES == 'true' || inputs.publish_stores == true }}
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+        steps:
+            - name: Получить код
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+            - name: Установить Node.js
+              uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+              with:
+                  node-version: 24
+                  cache: npm
+
+            - name: Установить зависимости и собрать архивы
+              run: npm ci && npm run zip
+
+            - name: Отправить расширение в магазины
+              env:
+                  CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+                  CHROME_PUBLISHER_ID: ${{ secrets.CHROME_PUBLISHER_ID }}
+                  CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL: ${{ secrets.CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL }}
+                  CHROME_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CHROME_SERVICE_ACCOUNT_PRIVATE_KEY }}
+                  FIREFOX_EXTENSION_ID: ${{ secrets.FIREFOX_EXTENSION_ID }}
+                  FIREFOX_JWT_ISSUER: ${{ secrets.FIREFOX_JWT_ISSUER }}
+                  FIREFOX_JWT_SECRET: ${{ secrets.FIREFOX_JWT_SECRET }}
+              run: >
+                  npx wxt submit
+                  --chrome-api-version v2
+                  --chrome-extension-id "$CHROME_EXTENSION_ID"
+                  --chrome-publisher-id "$CHROME_PUBLISHER_ID"
+                  --chrome-service-account-client-email "$CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL"
+                  --chrome-service-account-private-key "$CHROME_SERVICE_ACCOUNT_PRIVATE_KEY"
+                  --chrome-zip ".output/release/LexiSync-v${{ needs.verify-and-release.outputs.version }}-chrome.zip"
+                  --firefox-extension-id "$FIREFOX_EXTENSION_ID"
+                  --firefox-jwt-issuer "$FIREFOX_JWT_ISSUER"
+                  --firefox-jwt-secret "$FIREFOX_JWT_SECRET"
+                  --firefox-zip ".output/release/LexiSync-v${{ needs.verify-and-release.outputs.version }}-firefox.zip"
+                  --firefox-sources-zip ".output/release/lexisync-extension-${{ needs.verify-and-release.outputs.version }}-sources.zip"

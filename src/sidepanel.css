@@ -305,6 +305,23 @@ select:focus {
     font-size: 12px;
 }
 
+.batch-controls,
+.batch-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.batch-controls {
+    margin-top: 6px;
+}
+
+.batch-actions a {
+    color: var(--accent);
+}
+
 .batch-item span {
     overflow: hidden;
     text-overflow: ellipsis;

@@ -14,6 +14,8 @@ import { normalizeAppearanceStyle } from '../src/appearance-style';
 import { estimateTokens, getBudgetBlockReason, getMonthUsage } from '../src/budget';
 import { normalizeThemeCustomization } from '../src/theme-customization';
 import { normalizeWorkflows } from '../src/workflows';
+import { splitTextIntoChunks } from '../src/text-chunker';
+import { createBatchJob, getBatchFileResult, normalizeBatchJob } from '../src/batch-jobs';
 
 test('локально исправляет русскую и английскую раскладки', () => {
     expect(detectLayoutDirection('ghbdtn')).toBe('en-to-ru');
@@ -251,7 +253,7 @@ test('проверяет режим, размеры и OCR data URL до обр�
         validateMistralRequest({ action: 'callMistral', mode: 'ocr', imageUrl: 'data:image/png;base64,YQ==' }),
     ).not.toThrow();
 });
-test('нормализует настройки рабочего пространства 4.0', () => {
+test('нормализует настройки рабочего пространства 4.1', () => {
     expect(normalizeThemeCustomization({ accent: 'red', radius: 100, density: 20 })).toMatchObject({
         accent: '#6750a4',
         radius: 28,
@@ -293,4 +295,24 @@ test('оценивает токены и блокирует превышение
             date,
         ),
     ).toBe('monthly');
+});
+
+test('делит длинный текст без потери символов и разрыва суррогатных пар', () => {
+    const source = `${'а'.repeat(7_000)}\r\n\r\n${'🙂'.repeat(3_500)}\n\n\`\`\`ts\n${'x'.repeat(7_000)}\n\`\`\``;
+    const chunks = splitTextIntoChunks(source, 6_000);
+    expect(chunks.length).toBeGreaterThan(2);
+    expect(chunks.every((chunk) => chunk.length <= 6_000)).toBe(true);
+    expect(chunks.join('')).toBe(source);
+    expect(chunks.every((chunk) => !/[\uD800-\uDBFF]$/u.test(chunk))).toBe(true);
+    expect(splitTextIntoChunks('', 6_000)).toEqual([]);
+});
+
+test('пакетное задание сохраняет границы и уже обработанный результат', () => {
+    const source = `${'a'.repeat(7_000)}\n\n${'b'.repeat(5_000)}`;
+    const job = createBatchJob([{ name: 'long.md', type: 'text/markdown', source }], 'spellcheck');
+    expect(job.files[0].chunks.join('')).toBe(source);
+    job.files[0].processedChunks = ['Первая часть', 'Вторая часть'];
+    expect(getBatchFileResult(job.files[0])).toBe('Первая частьВторая часть');
+    expect(normalizeBatchJob(job)?.files[0].source).toBe(source);
+    expect(normalizeBatchJob({})).toBeNull();
 });

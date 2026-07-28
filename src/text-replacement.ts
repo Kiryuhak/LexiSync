@@ -1,11 +1,11 @@
 import type { SelectionData } from './types';
 
-function dispatchValueEvents(element: HTMLInputElement | HTMLTextAreaElement): void {
+export function dispatchValueEvents(element: HTMLInputElement | HTMLTextAreaElement): void {
     element.dispatchEvent(new Event('input', { bubbles: true }));
     element.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
-function setNativeValue(element: HTMLInputElement | HTMLTextAreaElement, value: string): void {
+export function setNativeValue(element: HTMLInputElement | HTMLTextAreaElement, value: string): void {
     const prototype =
         element.tagName === 'INPUT' ? window.HTMLInputElement.prototype : window.HTMLTextAreaElement.prototype;
     const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;

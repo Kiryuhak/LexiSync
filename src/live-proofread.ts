@@ -1,5 +1,7 @@
-import { getWordCorrections, renderSpellcheckDiffFragment } from './spellcheck';
-import type { StreamResponse } from './types';
+import { normalizeDisabledSites, isSiteDisabled } from './privacy';
+import { getWordCorrections, renderSpellcheckDiffFragment, resolveCorrections } from './spellcheck';
+import { startTextRequest, type CancellableTextRequest } from './stream-request-client';
+import { dispatchValueEvents, setNativeValue } from './text-replacement';
 
 const ALLOWED_INPUT_TYPES = new Set(['text', 'search', 'email', 'url']);
 
@@ -11,30 +13,14 @@ function isSafeEditor(value: EventTarget | null): value is HTMLInputElement | HT
     return !/(?:password|cc-|one-time-code)/.test(autocomplete);
 }
 
-function requestProofread(text: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const port = chrome.runtime.connect({ name: 'mistralStream' });
-        let result = '';
-        port.onMessage.addListener((message: StreamResponse) => {
-            if (message.status === 'chunk') result += message.text || '';
-            if (message.status === 'done') {
-                port.disconnect();
-                resolve(result.trim());
-            } else if (message.status === 'error' || message.status === 'cancelled') {
-                port.disconnect();
-                reject(new Error(message.error || 'Не удалось проверить текст.'));
-            }
-        });
-        port.postMessage({ action: 'callMistral', mode: 'spellcheck', text, allowPageContext: false });
-    });
-}
-
 export function startLiveProofread(): () => void {
     let enabled = false;
     let delay = 900;
     let timer = 0;
     let host: HTMLElement | null = null;
     let requestVersion = 0;
+    let activeRequest: CancellableTextRequest | null = null;
+    let disabledSites: string[] = [];
 
     const close = () => {
         host?.remove();
@@ -45,6 +31,7 @@ export function startLiveProofread(): () => void {
         close();
         const corrections = getWordCorrections(original, corrected);
         if (!corrections.length || editor.value !== original) return;
+        const rejected = new Set<number>();
         host = document.createElement('div');
         host.dataset.lexisyncLiveProof = '';
         host.style.cssText = 'all:initial;position:fixed;z-index:2147483646;';
@@ -52,8 +39,8 @@ export function startLiveProofread(): () => void {
         const style = document.createElement('style');
         style.textContent = `
             .card{width:min(340px,calc(100vw - 24px));padding:10px;border:1px solid #dfe5df;border-radius:14px;background:#fff;color:#202523;box-shadow:0 12px 34px #17211b2b;font:13px/1.45 system-ui,sans-serif}
-            .head,.actions{display:flex;align-items:center;justify-content:space-between;gap:8px}.head strong{color:#176b3a}.preview{max-height:110px;overflow:auto;margin:9px 0;padding:9px;border-radius:9px;background:#f7faf7;white-space:pre-wrap}.preview mark{padding:1px 2px;border-radius:4px;color:#176b3a;background:#d9f8e5}
-            button{padding:7px 10px;border:0;border-radius:8px;font:inherit;cursor:pointer}.apply{color:#fff;background:#247a47}.close{color:#58615b;background:#eef2ef}
+            .head,.actions{display:flex;align-items:center;justify-content:space-between;gap:8px}.head strong{color:#176b3a}.preview{max-height:110px;overflow:auto;margin:9px 0;padding:9px;border-radius:9px;background:#f7faf7;white-space:pre-wrap}.preview mark{padding:1px 2px;border-radius:4px;color:#176b3a;background:#d9f8e5;cursor:pointer}.preview mark:focus{outline:2px solid #247a47}
+            button{padding:7px 10px;border:0;border-radius:8px;font:inherit;cursor:pointer}.apply{color:#fff;background:#247a47}.close,.exclude{color:#58615b;background:#eef2ef}.note{display:grid;gap:2px;color:#58615b;font-size:11px}
         `;
         const card = document.createElement('div');
         card.className = 'card';
@@ -70,21 +57,52 @@ export function startLiveProofread(): () => void {
         head.append(title, dismiss);
         const preview = document.createElement('div');
         preview.className = 'preview';
-        preview.append(renderSpellcheckDiffFragment(original, corrected, new Set(), { corrections }));
+        const renderPreview = () => {
+            preview.replaceChildren(renderSpellcheckDiffFragment(original, corrected, rejected, { corrections }));
+            for (const mark of preview.querySelectorAll<HTMLElement>('mark[data-token-index]')) {
+                const tokenIndex = Number(mark.dataset.tokenIndex);
+                mark.tabIndex = 0;
+                mark.setAttribute('role', 'button');
+                mark.setAttribute('aria-label', 'Отклонить это исправление');
+                const toggle = () => {
+                    rejected.add(tokenIndex);
+                    renderPreview();
+                };
+                mark.onclick = toggle;
+                mark.onkeydown = (event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        toggle();
+                    }
+                };
+            }
+        };
+        renderPreview();
         const actions = document.createElement('div');
         actions.className = 'actions';
-        const note = document.createElement('span');
-        note.textContent = 'Изменения выделены зелёным';
+        const note = document.createElement('div');
+        note.className = 'note';
+        const noteText = document.createElement('span');
+        noteText.textContent = 'Нажмите на зелёное, чтобы отклонить';
+        const exclude = document.createElement('button');
+        exclude.className = 'exclude';
+        exclude.type = 'button';
+        exclude.textContent = 'Не проверять сайт';
+        exclude.onclick = () => {
+            disabledSites = [...new Set([...disabledSites, location.hostname])].sort();
+            void chrome.storage.local.set({ liveProofreadDisabledSites: disabledSites });
+            close();
+        };
+        note.append(noteText, exclude);
         const apply = document.createElement('button');
         apply.className = 'apply';
         apply.type = 'button';
         apply.textContent = 'Применить';
         apply.onclick = () => {
             if (editor.value !== original) return close();
-            editor.value = corrected;
-            editor.dispatchEvent(
-                new InputEvent('input', { bubbles: true, inputType: 'insertReplacementText', data: corrected }),
-            );
+            const resolved = resolveCorrections(corrected, corrections, rejected);
+            setNativeValue(editor, resolved);
+            dispatchValueEvents(editor);
             close();
         };
         actions.append(note, apply);
@@ -100,40 +118,70 @@ export function startLiveProofread(): () => void {
 
     const onInput = (event: Event) => {
         if (!enabled || !isSafeEditor(event.target)) return;
+        if (isSiteDisabled(location.hostname, disabledSites)) return;
         const editor = event.target;
         const original = editor.value;
         window.clearTimeout(timer);
+        activeRequest?.cancel();
+        activeRequest = null;
         close();
         if (original.trim().length < 12 || original.length > 5000) return;
         const version = ++requestVersion;
         timer = window.setTimeout(async () => {
             try {
-                const corrected = await requestProofread(original);
+                const request = startTextRequest({
+                    mode: 'spellcheck',
+                    text: original,
+                    allowPageContext: false,
+                });
+                activeRequest = request;
+                const corrected = await request.promise;
                 if (version === requestVersion) showSuggestion(editor, original, corrected);
-            } catch {
-                // Фоновая проверка не должна мешать вводу.
+            } catch (error) {
+                if (!(error instanceof DOMException && error.name === 'AbortError')) {
+                    // Фоновая проверка не должна мешать вводу.
+                }
+            } finally {
+                activeRequest = null;
             }
         }, delay);
     };
 
     const updateSettings = async () => {
-        const stored = await chrome.storage.local.get({ liveProofreadEnabled: false, liveProofreadDelay: 900 });
+        const stored = await chrome.storage.local.get({
+            liveProofreadEnabled: false,
+            liveProofreadDelay: 900,
+            liveProofreadDisabledSites: [],
+        });
         enabled = stored.liveProofreadEnabled === true;
+        disabledSites = normalizeDisabledSites(stored.liveProofreadDisabledSites);
         delay = [600, 900, 1500, 2500].includes(Number(stored.liveProofreadDelay))
             ? Number(stored.liveProofreadDelay)
             : 900;
-        if (!enabled) close();
+        if (!enabled || isSiteDisabled(location.hostname, disabledSites)) {
+            activeRequest?.cancel();
+            activeRequest = null;
+            close();
+        }
     };
     const onStorage = (changes: Record<string, chrome.storage.StorageChange>, areaName: chrome.storage.AreaName) => {
-        if (areaName === 'local' && (changes.liveProofreadEnabled || changes.liveProofreadDelay)) void updateSettings();
+        if (
+            areaName === 'local' &&
+            (changes.liveProofreadEnabled || changes.liveProofreadDelay || changes.liveProofreadDisabledSites)
+        )
+            void updateSettings();
     };
+    const onPageHide = () => activeRequest?.cancel();
     void updateSettings();
     document.addEventListener('input', onInput, true);
+    window.addEventListener('pagehide', onPageHide);
     chrome.storage.onChanged.addListener(onStorage);
     return () => {
         document.removeEventListener('input', onInput, true);
         chrome.storage.onChanged.removeListener(onStorage);
+        window.removeEventListener('pagehide', onPageHide);
         window.clearTimeout(timer);
+        activeRequest?.cancel();
         close();
     };
 }

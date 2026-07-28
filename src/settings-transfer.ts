@@ -33,6 +33,7 @@ const PORTABLE_SETTING_KEYS = [
     'monthlyTokenLimit',
     'warnLargeText',
     'autoFastMode',
+    'liveProofreadDisabledSites',
 ] as const;
 
 const SYNC_SETTING_KEYS = [
@@ -101,7 +102,15 @@ function sanitizePortableSetting(key: (typeof PORTABLE_SETTING_KEYS)[number], va
     if (key === 'liveProofreadDelay') return [600, 900, 1500, 2500].includes(Number(value)) ? Number(value) : 900;
     if (key === 'dailyRequestLimit') return Math.min(10_000, Math.max(0, Math.trunc(Number(value) || 0)));
     if (key === 'monthlyTokenLimit') return Math.min(100_000_000, Math.max(0, Math.trunc(Number(value) || 0)));
-    if (['disabledSites', 'contextDisabledSites', 'blockedSites', 'adaptiveDisabledSites'].includes(key))
+    if (
+        [
+            'disabledSites',
+            'contextDisabledSites',
+            'blockedSites',
+            'adaptiveDisabledSites',
+            'liveProofreadDisabledSites',
+        ].includes(key)
+    )
         return normalizeDisabledSites(stringList(value, 500, 2_048));
     if (key === 'adaptiveBlockedWords' || key === 'personalDictionary') return stringList(value, 2000, 120);
     if (key === 'glossary') return stringList(value, 200, 240);

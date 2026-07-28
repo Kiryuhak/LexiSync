@@ -3,6 +3,7 @@ import { enqueueStorageMutation } from './storage-queue';
 import { getLocalDayKey } from './budget';
 
 const STORAGE_KEY = 'usageStats';
+export const USAGE_MUTATION_QUEUE = 'usage-budget';
 const MAX_RECORDED_LATENCY_MS = 5 * 60 * 1000;
 const REQUEST_MODES = new Set<RequestMode>(['spellcheck', 'style', 'emoji', 'layout', 'translate', 'ocr', 'custom']);
 
@@ -75,7 +76,7 @@ export async function clearUsageStats(): Promise<void> {
 
 export type UsageMutation = 'request' | 'cacheHit' | 'clear';
 
-interface UsageMutationPayload {
+export interface UsageMutationPayload {
     mode?: RequestMode;
     latencyMs?: number;
     success?: boolean;
@@ -93,34 +94,36 @@ async function requestUsageMutation(mutation: UsageMutation, payload: UsageMutat
     if (response?.ok !== true) throw new Error(response?.error || 'USAGE_MUTATION_FAILED');
 }
 
+export async function applyUsageMutationNow(mutation: UsageMutation, payload: UsageMutationPayload): Promise<void> {
+    if (mutation === 'clear') {
+        await chrome.storage.local.set({ [STORAGE_KEY]: EMPTY_USAGE_STATS });
+        return;
+    }
+    const stats = await getUsageStats();
+    if (mutation === 'cacheHit') {
+        stats.cacheHits++;
+    } else if (mutation === 'request' && payload.mode && REQUEST_MODES.has(payload.mode)) {
+        stats.requests++;
+        stats.totalLatencyMs += Math.min(MAX_RECORDED_LATENCY_MS, Math.max(0, Number(payload.latencyMs) || 0));
+        if (payload.success !== true) stats.failures++;
+        stats.byMode[payload.mode] = (stats.byMode[payload.mode] || 0) + 1;
+        const inputTokens = Math.max(0, Math.trunc(Number(payload.inputTokens) || 0));
+        const outputTokens = Math.max(0, Math.trunc(Number(payload.outputTokens) || 0));
+        stats.estimatedInputTokens = (stats.estimatedInputTokens || 0) + inputTokens;
+        stats.estimatedOutputTokens = (stats.estimatedOutputTokens || 0) + outputTokens;
+        const day = getLocalDayKey();
+        const daily = stats.daily || {};
+        daily[day] = {
+            requests: (daily[day]?.requests || 0) + 1,
+            tokens: (daily[day]?.tokens || 0) + inputTokens + outputTokens,
+        };
+        stats.daily = Object.fromEntries(Object.entries(daily).sort().slice(-62));
+    } else {
+        throw new Error('INVALID_USAGE_MUTATION');
+    }
+    await chrome.storage.local.set({ [STORAGE_KEY]: stats });
+}
+
 export function applyUsageMutation(mutation: UsageMutation, payload: UsageMutationPayload): Promise<void> {
-    return enqueueStorageMutation(async () => {
-        if (mutation === 'clear') {
-            await chrome.storage.local.set({ [STORAGE_KEY]: EMPTY_USAGE_STATS });
-            return;
-        }
-        const stats = await getUsageStats();
-        if (mutation === 'cacheHit') {
-            stats.cacheHits++;
-        } else if (mutation === 'request' && payload.mode && REQUEST_MODES.has(payload.mode)) {
-            stats.requests++;
-            stats.totalLatencyMs += Math.min(MAX_RECORDED_LATENCY_MS, Math.max(0, Number(payload.latencyMs) || 0));
-            if (payload.success !== true) stats.failures++;
-            stats.byMode[payload.mode] = (stats.byMode[payload.mode] || 0) + 1;
-            const inputTokens = Math.max(0, Math.trunc(Number(payload.inputTokens) || 0));
-            const outputTokens = Math.max(0, Math.trunc(Number(payload.outputTokens) || 0));
-            stats.estimatedInputTokens = (stats.estimatedInputTokens || 0) + inputTokens;
-            stats.estimatedOutputTokens = (stats.estimatedOutputTokens || 0) + outputTokens;
-            const day = getLocalDayKey();
-            const daily = stats.daily || {};
-            daily[day] = {
-                requests: (daily[day]?.requests || 0) + 1,
-                tokens: (daily[day]?.tokens || 0) + inputTokens + outputTokens,
-            };
-            stats.daily = Object.fromEntries(Object.entries(daily).sort().slice(-62));
-        } else {
-            throw new Error('INVALID_USAGE_MUTATION');
-        }
-        await chrome.storage.local.set({ [STORAGE_KEY]: stats });
-    });
+    return enqueueStorageMutation(() => applyUsageMutationNow(mutation, payload), USAGE_MUTATION_QUEUE);
 }

@@ -6,6 +6,7 @@ import { applyAdaptiveMutation, flushAdaptiveMutations } from '../src/adaptive-m
 import { migrateSettings } from '../src/settings-migrations';
 import { enqueueStorageMutation } from '../src/storage-queue';
 import { applyCacheMutation } from '../src/ai-cache';
+import { finalizeBudgetReservation, getActiveBudgetReservationCount, reserveBudget } from '../src/budget-reservations';
 
 let storage: Record<string, unknown>;
 let storageGetCalls: unknown[];
@@ -80,6 +81,29 @@ test('не теряет статистику при параллельных з�
     expect(storage.usageStats).toMatchObject({ requests: 25, totalLatencyMs: 250, byMode: { style: 25 } });
 });
 
+test('атомарно резервирует бюджет для параллельных запросов', async () => {
+    const settings = { dailyRequestLimit: 2, monthlyTokenLimit: 0, warnLargeText: true, autoFastMode: true };
+    const reservations = await Promise.all([
+        reserveBudget(settings, 100),
+        reserveBudget(settings, 100),
+        reserveBudget(settings, 100),
+    ]);
+    expect(reservations.filter((reservation) => reservation.id)).toHaveLength(2);
+    expect(reservations[2].reason).toBe('daily');
+    for (const reservation of reservations) {
+        if (!reservation.id) continue;
+        await finalizeBudgetReservation(reservation.id, {
+            mode: 'style',
+            latencyMs: 10,
+            success: true,
+            inputTokens: 100,
+            outputTokens: 20,
+        });
+    }
+    expect(getActiveBudgetReservationCount()).toBe(0);
+    expect(storage.usageStats).toMatchObject({ requests: 2 });
+});
+
 test('отклоняет неизвестный режим статистики и чрезмерно большой результат истории', async () => {
     await expect(
         applyUsageMutation('request', { mode: 'unknown' as 'style', latencyMs: 10, success: true }),
@@ -114,7 +138,7 @@ test('атомарно добавляет и удаляет пользовате
 });
 
 test('миграция не читает всё хранилище при актуальной схеме', async () => {
-    storage.settingsSchemaVersion = 8;
+    storage.settingsSchemaVersion = 9;
 
     await migrateSettings();
 
@@ -133,7 +157,7 @@ test.each([
     await migrateSettings();
 
     expect(storage.resultDisplayMode).toBe(expected);
-    expect(storage.settingsSchemaVersion).toBe(8);
+    expect(storage.settingsSchemaVersion).toBe(9);
     expect(storageGetCalls).not.toContain(null);
 });
 
@@ -178,7 +202,7 @@ test('не затирает настройку, изменённую парал�
     await migrateSettings();
 
     expect(storage.resultDisplayMode).toBe('compact');
-    expect(storage.settingsSchemaVersion).toBe(8);
+    expect(storage.settingsSchemaVersion).toBe(9);
 });
 
 test('добавляет Liquid Glass как безопасный стиль по умолчанию', async () => {
@@ -187,7 +211,14 @@ test('добавляет Liquid Glass как безопасный стиль п�
     await migrateSettings();
 
     expect(storage.visualStyle).toBe('liquid-glass');
-    expect(storage.settingsSchemaVersion).toBe(8);
+    expect(storage.settingsSchemaVersion).toBe(9);
+});
+
+test('добавляет список исключений автопроверки при переходе на схему 9', async () => {
+    storage.settingsSchemaVersion = 8;
+    await migrateSettings();
+    expect(storage.liveProofreadDisabledSites).toEqual([]);
+    expect(storage.settingsSchemaVersion).toBe(9);
 });
 
 test('пакетирует частые записи адаптивной модели в одно чтение и запись', async () => {

@@ -1,6 +1,6 @@
 {
     "name": "lexisync-extension",
-    "version": "4.0.0",
+    "version": "4.1.0",
     "description": "Умный помощник для работы с текстом на базе Mistral AI",
     "scripts": {
         "dev": "wxt",
@@ -11,7 +11,8 @@
         "zip": "npm run zip:chrome && npm run zip:firefox",
         "zip:chrome": "wxt zip -c scripts/wxt-release.config.ts -b chrome",
         "zip:firefox": "wxt zip -c scripts/wxt-release.config.ts -b firefox",
-        "typecheck": "tsc --noEmit",
+        "typecheck": "node node_modules/@typescript/native/bin/tsc --noEmit",
+        "typecheck:legacy": "tsc6 --noEmit",
         "lint": "eslint .",
         "format": "prettier --write .",
         "format:check": "prettier --check .",
@@ -29,7 +30,7 @@
         "test:firefox": "npm run build:e2e:firefox && npm run test:firefox:only",
         "test:runtime": "npm run build:e2e && npm run test:e2e:only && npm run test:firefox:only",
         "lint:firefox": "web-ext lint --source-dir .output/release/firefox-mv3",
-        "check:static": "npm run format:check && npm run lint && npm run typecheck && npm run check:i18n",
+        "check:static": "npm run format:check && npm run lint && npm run typecheck && npm run typecheck:legacy && npm run check:i18n",
         "verify:release": "npm run zip && npm run verify:artifacts && npm run lint:firefox",
         "verify": "npm run check:static && npm run audit:dependencies && npm run test:coverage && npm run verify:release",
         "test:all": "npm run verify && npm run test:runtime",
@@ -70,15 +71,16 @@
         "@eslint/js": "^10.0.1",
         "@playwright/test": "^1.62.0",
         "@types/chrome": "^0.2.2",
-        "@types/node": "^26.1.2",
+        "@types/node": "^24.0.0",
+        "@typescript/native": "npm:typescript@^7.0.2",
         "@vitest/coverage-v8": "^4.1.10",
         "eslint": "^10.8.0",
         "globals": "^17.8.0",
         "prettier": "^3.9.6",
-        "typescript": "^6.0.3",
+        "typescript": "npm:@typescript/typescript6@^6.0.2",
         "typescript-eslint": "^8.65.0",
         "vitest": "^4.1.10",
         "web-ext": "^10.3.0",
-        "wxt": "^0.21.1"
+        "wxt": "^0.21.2"
     }
 }

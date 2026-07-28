@@ -24,7 +24,7 @@ const test = base.extend({
                     return settings.settingsSchemaVersion;
                 }),
             )
-            .toBe(8);
+            .toBe(9);
         await use(context);
         await context.close();
     },
@@ -36,9 +36,13 @@ const test = base.extend({
 async function setFakeApiKey(context: BrowserContext) {
     let [background] = context.serviceWorkers();
     if (!background) background = await context.waitForEvent('serviceworker');
-    await background.evaluate(() => {
-        chrome.storage.local.set({
-            mistralApiKey: 'mock-test-key-123',
+    const extensionId = new URL(background.url()).host;
+    const extensionPage = await context.newPage();
+    await extensionPage.goto(`chrome-extension://${extensionId}/options.html`);
+    await extensionPage.evaluate(() => chrome.runtime.sendMessage({ action: 'setApiKey', value: 'mock-test-key-123' }));
+    await extensionPage.close();
+    await background.evaluate(async () => {
+        await chrome.storage.local.set({
             selectedTone: 'business',
             sendPageContext: false,
             compactResultMode: false,
@@ -50,9 +54,11 @@ async function setFakeApiKey(context: BrowserContext) {
 async function clearApiKey(context: BrowserContext) {
     let [background] = context.serviceWorkers();
     if (!background) background = await context.waitForEvent('serviceworker');
-    await background.evaluate(() => {
-        chrome.storage.local.remove('mistralApiKey');
-    });
+    const extensionId = new URL(background.url()).host;
+    const extensionPage = await context.newPage();
+    await extensionPage.goto(`chrome-extension://${extensionId}/options.html`);
+    await extensionPage.evaluate(() => chrome.runtime.sendMessage({ action: 'setApiKey', value: '' }));
+    await extensionPage.close();
 }
 
 async function selectTextOnPage(page: Page, selector: string = 'p') {
@@ -273,11 +279,11 @@ test('Контекст страницы не отправляется без я�
 });
 
 test('Личный словарь передаётся в инструкцию проверки', async ({ page, context }) => {
+    await setFakeApiKey(context);
     let [background] = context.serviceWorkers();
     if (!background) background = await context.waitForEvent('serviceworker');
     await background.evaluate(() =>
         chrome.storage.local.set({
-            mistralApiKey: 'mock-test-key-123',
             personalDictionary: ['LexiSync'],
         }),
     );
@@ -303,11 +309,11 @@ test('Личный словарь передаётся в инструкцию �
 });
 
 test('На исключённом сайте история и кэш не сохраняются', async ({ page, context }) => {
+    await setFakeApiKey(context);
     let [background] = context.serviceWorkers();
     if (!background) background = await context.waitForEvent('serviceworker');
     await background.evaluate(() =>
         chrome.storage.local.set({
-            mistralApiKey: 'mock-test-key-123',
             disabledSites: ['example.com'],
             historyEnabled: true,
             aiHistory: [],
@@ -743,11 +749,11 @@ test('Горячая клавиша работает внутри iframe', async
 });
 
 test('Пользовательская AI-команда передаёт собственную инструкцию', async ({ page, context }) => {
+    await setFakeApiKey(context);
     let [background] = context.serviceWorkers();
     if (!background) background = await context.waitForEvent('serviceworker');
     await background.evaluate(() =>
         chrome.storage.local.set({
-            mistralApiKey: 'mock-test-key-123',
             customCommands: [{ id: 'test-command', name: 'Сделать тезисы', prompt: 'Преобразуй текст в тезисы.' }],
         }),
     );
@@ -776,11 +782,11 @@ test('Пользовательская AI-команда передаёт соб
 });
 
 test('Исключение сайта запрещает передачу контекста при глобальном разрешении', async ({ page, context }) => {
+    await setFakeApiKey(context);
     let [background] = context.serviceWorkers();
     if (!background) background = await context.waitForEvent('serviceworker');
     await background.evaluate(() =>
         chrome.storage.local.set({
-            mistralApiKey: 'mock-test-key-123',
             sendPageContext: true,
             contextDisabledSites: ['example.com'],
         }),
@@ -804,11 +810,10 @@ test('Исключение сайта запрещает передачу кон
 });
 
 test('Контекст страницы изолирован от системной инструкции', async ({ page, context }) => {
+    await setFakeApiKey(context);
     let [background] = context.serviceWorkers();
     if (!background) background = await context.waitForEvent('serviceworker');
-    await background.evaluate(() =>
-        chrome.storage.local.set({ mistralApiKey: 'mock-test-key-123', sendPageContext: true }),
-    );
+    await background.evaluate(() => chrome.storage.local.set({ sendPageContext: true }));
     await page.goto('https://example.com');
     await grantSiteAccess(context, page);
     await page.evaluate(() => {
@@ -861,11 +866,11 @@ test('Раскладка исправляется без API-ключа и се�
 });
 
 test('Быстрый режим и профиль стиля влияют на AI-запрос', async ({ page, context }) => {
+    await setFakeApiKey(context);
     let [background] = context.serviceWorkers();
     if (!background) background = await context.waitForEvent('serviceworker');
     await background.evaluate(() =>
         chrome.storage.local.set({
-            mistralApiKey: 'mock-test-key-123',
             aiMode: 'fast',
             styleProfiles: [
                 { id: 'mail', name: 'Почта', tone: 'custom', instruction: 'Пиши короткими деловыми предложениями.' },
@@ -895,12 +900,12 @@ test('Быстрый режим и профиль стиля влияют на A
 });
 
 test('Профиль стиля автоматически выбирается по домену', async ({ page, context }) => {
+    await setFakeApiKey(context);
     let [background] = context.serviceWorkers();
     if (!background) background = await context.waitForEvent('serviceworker');
     await background.evaluate(() =>
         chrome.storage.local.set({
             settingsSchemaVersion: 7,
-            mistralApiKey: 'mock-test-key-123',
             styleProfiles: [
                 { id: 'default', name: 'Обычный', tone: 'custom', instruction: 'Используй обычный стиль.', sites: [] },
                 {
@@ -944,7 +949,7 @@ test('Полное отключение сайта подавляет интер
     await page.waitForTimeout(200);
     await expect(page.locator('#lexisync-shadow-host')).toHaveCount(0);
 });
-test('рабочая панель 4.0 показывает команды, цепочки и локальную статистику', async ({ page, context }) => {
+test('рабочая панель 4.1 показывает команды, цепочки и локальную статистику', async ({ page, context }) => {
     let [background] = context.serviceWorkers();
     if (!background) background = await context.waitForEvent('serviceworker');
     const extensionId = new URL(background.url()).host;
@@ -972,7 +977,7 @@ test('рабочая панель 4.0 показывает команды, це�
     await expect(page.locator('#usageToday')).toContainText('2');
 });
 
-test('настройки 4.0 сохраняют лимиты, автопроверку, тему и новую цепочку', async ({ page, context }) => {
+test('настройки 4.1 сохраняют лимиты, автопроверку, тему и новую цепочку', async ({ page, context }) => {
     let [background] = context.serviceWorkers();
     if (!background) background = await context.waitForEvent('serviceworker');
     await background.evaluate(() => chrome.storage.local.set({ onboardingCompleted: true }));
@@ -1047,4 +1052,145 @@ test('проверка при вводе показывает зелёные и�
     await expect(suggestion.locator('mark')).toBeVisible();
     await suggestion.locator('button.apply').click();
     await expect(page.locator('#live-editor')).toHaveValue('Это исправленный длинный текст.');
+});
+
+test('API-ключ хранится вне доступного content scripts storage.local', async ({ context }) => {
+    await setFakeApiKey(context);
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    const extensionId = new URL(background.url()).host;
+    const extensionPage = await context.newPage();
+    await extensionPage.goto(`chrome-extension://${extensionId}/options.html`);
+    const secret = await extensionPage.evaluate(() => chrome.runtime.sendMessage({ action: 'getApiKey' }));
+    await extensionPage.close();
+    const local = await background.evaluate(() => chrome.storage.local.get('mistralApiKey'));
+    const state = { local: local.mistralApiKey, secret };
+    expect(state.local).toBeUndefined();
+    expect(state.secret).toMatchObject({ ok: true, value: 'mock-test-key-123' });
+});
+
+test('автопроверка позволяет отклонить отдельное исправление', async ({ page, context }) => {
+    await setFakeApiKey(context);
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() => chrome.storage.local.set({ liveProofreadEnabled: true, liveProofreadDelay: 600 }));
+    await context.route('https://api.mistral.ai/v1/chat/completions', async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: 'text/event-stream',
+            body: 'data: {"choices":[{"delta":{"content":"Это исправленный длинный текст."}}]}\n\ndata: [DONE]\n\n',
+        });
+    });
+    await page.goto('https://example.com');
+    await grantSiteAccess(context, page);
+    await page.evaluate(() => {
+        const textarea = document.createElement('textarea');
+        textarea.id = 'reject-editor';
+        document.body.append(textarea);
+    });
+    const original = 'Это неправельный длинный текст.';
+    await page.locator('#reject-editor').fill(original);
+    const suggestion = page.locator('[data-lexisync-live-proof]');
+    await expect(suggestion.locator('mark')).toBeVisible();
+    await suggestion.locator('mark').click();
+    await suggestion.locator('button.apply').click();
+    await expect(page.locator('#reject-editor')).toHaveValue(original);
+});
+
+test('автопроверку можно отключить для текущего сайта из подсказки', async ({ page, context }) => {
+    await setFakeApiKey(context);
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() =>
+        chrome.storage.local.set({
+            liveProofreadEnabled: true,
+            liveProofreadDelay: 600,
+            liveProofreadDisabledSites: [],
+        }),
+    );
+    await context.route('https://api.mistral.ai/v1/chat/completions', async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: 'text/event-stream',
+            body: 'data: {"choices":[{"delta":{"content":"Исправленный достаточно длинный текст."}}]}\n\ndata: [DONE]\n\n',
+        });
+    });
+    await page.goto('https://example.com');
+    await grantSiteAccess(context, page);
+    await page.evaluate(() => {
+        const textarea = document.createElement('textarea');
+        textarea.id = 'excluded-editor';
+        document.body.append(textarea);
+    });
+    await page.locator('#excluded-editor').fill('Неправельный достаточно длинный текст.');
+    const suggestion = page.locator('[data-lexisync-live-proof]');
+    await expect(suggestion).toBeVisible();
+    await suggestion.getByRole('button', { name: 'Не проверять сайт' }).click();
+    await expect(suggestion).toHaveCount(0);
+    await expect
+        .poll(() => background.evaluate(() => chrome.storage.local.get('liveProofreadDisabledSites')))
+        .toMatchObject({ liveProofreadDisabledSites: ['example.com'] });
+});
+
+test('замену из рабочей панели можно отменить на странице', async ({ page, context }) => {
+    await page.goto('https://example.com');
+    const tabId = await grantSiteAccess(context, page);
+    await page.evaluate(() => {
+        const textarea = document.createElement('textarea');
+        textarea.id = 'sidepanel-editor';
+        textarea.value = 'Исходный текст';
+        document.body.append(textarea);
+        textarea.focus();
+        textarea.select();
+    });
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    const extensionId = new URL(background.url()).host;
+    const extensionPage = await context.newPage();
+    await extensionPage.goto(`chrome-extension://${extensionId}/sidepanel.html`);
+    const applied = await extensionPage.evaluate(
+        async ({ tabId }) => chrome.runtime.sendMessage({ action: 'sidepanelApplyResult', tabId, text: 'Новый текст' }),
+        { tabId },
+    );
+    expect(applied).toMatchObject({ ok: true });
+    await expect(page.locator('#sidepanel-editor')).toHaveValue('Новый текст');
+    const undone = await extensionPage.evaluate(
+        async ({ tabId }) => chrome.runtime.sendMessage({ action: 'sidepanelUndoResult', tabId }),
+        { tabId },
+    );
+    await extensionPage.close();
+    expect(undone).toMatchObject({ ok: true });
+    await expect(page.locator('#sidepanel-editor')).toHaveValue('Исходный текст');
+});
+
+test('пакетное задание продолжается после повторного открытия панели', async ({ page, context }) => {
+    await setFakeApiKey(context);
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    const extensionId = new URL(background.url()).host;
+    let requestCount = 0;
+    await context.route('https://api.mistral.ai/v1/chat/completions', async (route) => {
+        requestCount++;
+        if (requestCount === 1) await new Promise((resolve) => setTimeout(resolve, 500));
+        await route.fulfill({
+            status: 200,
+            contentType: 'text/event-stream',
+            body: 'data: {"choices":[{"delta":{"content":"Обработанная часть"}}]}\n\ndata: [DONE]\n\n',
+        });
+    });
+    await page.goto(`chrome-extension://${extensionId}/sidepanel.html`);
+    await page.locator('#batchFiles').setInputFiles({
+        name: 'large.md',
+        mimeType: 'text/markdown',
+        buffer: Buffer.from('а'.repeat(7_000)),
+    });
+    await page.locator('#runBatch').click();
+    await expect(page.locator('#pauseBatch')).toBeVisible();
+    await page.locator('#pauseBatch').click();
+    await expect(page.locator('#resumeBatch')).toBeVisible();
+    await page.reload();
+    await expect(page.locator('#resumeBatch')).toBeVisible();
+    await page.locator('#resumeBatch').click();
+    await expect(page.locator('#batchList')).toContainText('готово', { timeout: 10_000 });
+    await expect(page.locator('#batchList a')).toHaveAttribute('download', 'large-lexisync.md');
 });

@@ -2,7 +2,7 @@ import type { StyleProfile } from './types';
 import { t } from './i18n';
 import { migrateSettings } from './settings-migrations';
 import { fixKeyboardLayout } from './keyboard-layout';
-import { applyUsageMutation, getUsageStats, type UsageMutation } from './usage-stats';
+import { applyUsageMutation, type UsageMutation } from './usage-stats';
 import { applyHistoryMutation, type HistoryMutation } from './history-store';
 import { applyCacheMutation, type CacheMutation } from './ai-cache';
 import { applyAdaptiveMutation, type AdaptiveMutation } from './adaptive-model-store';
@@ -20,7 +20,9 @@ import {
     syncRegisteredSiteScripts,
 } from './site-access';
 import { getPrivacySettings, isSiteDisabled, normalizeDisabledSites } from './privacy';
-import { DEFAULT_BUDGET_SETTINGS, estimateTokens, getBudgetBlockReason } from './budget';
+import { DEFAULT_BUDGET_SETTINGS, estimateTokens } from './budget';
+import { finalizeBudgetReservation, reserveBudget } from './budget-reservations';
+import { getStoredApiKey, migrateApiKeyToSecretStore, setStoredApiKey } from './secret-store';
 
 const REQUEST_TIMEOUT_MS = 45_000;
 
@@ -52,7 +54,7 @@ async function canMutateAdaptiveForSender(sender: chrome.runtime.MessageSender):
     }
 }
 
-const initializationPromise = restoreSyncedSettings().then(migrateSettings);
+const initializationPromise = restoreSyncedSettings().then(migrateSettings).then(migrateApiKeyToSecretStore);
 initializeSettingsSync();
 initializeSiteAccess();
 
@@ -149,6 +151,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     } else if (request.action === 'openOptionsPage') {
         chrome.runtime.openOptionsPage();
     } else if (
+        (request.action === 'sidepanelApplyResult' || request.action === 'sidepanelUndoResult') &&
+        typeof request.tabId === 'number'
+    ) {
+        const directAction = request.action === 'sidepanelApplyResult' ? 'sidepanelApplyDirect' : 'sidepanelUndoDirect';
+        void ensureContentScript(request.tabId)
+            .then(() =>
+                chrome.tabs.sendMessage(request.tabId, {
+                    action: directAction,
+                    text: request.action === 'sidepanelApplyResult' ? request.text : undefined,
+                }),
+            )
+            .then((response) => sendResponse(response || { ok: false }))
+            .catch((error) =>
+                sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) }),
+            );
+        return true;
+    } else if (
         request.action === 'ensureOptionalContentFeature' &&
         sender.tab?.id &&
         (request.feature === 'adaptive' || request.feature === 'ocr')
@@ -159,24 +178,45 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) }),
             );
         return true;
+    } else if (request.action === 'getApiKey' || request.action === 'setApiKey') {
+        const trustedSender = Boolean(sender.url?.startsWith(chrome.runtime.getURL('')));
+        if (!trustedSender) {
+            sendResponse({ ok: false, error: 'UNTRUSTED_SECRET_REQUEST' });
+            return;
+        }
+        const operation =
+            request.action === 'getApiKey'
+                ? initializationPromise.then(getStoredApiKey).then((value) => ({ value }))
+                : initializationPromise
+                      .then(() => setStoredApiKey(typeof request.value === 'string' ? request.value : ''))
+                      .then(() => ({ value: '' }));
+        void operation
+            .then((data) => sendResponse({ ok: true, ...data }))
+            .catch((error) =>
+                sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) }),
+            );
+        return true;
     } else if (request.action === 'getRuntimeSettings') {
         void initializationPromise
-            .then(() =>
-                chrome.storage.local.get({
-                    mistralApiKey: '',
-                    sendPageContext: false,
-                    contextDisabledSites: [],
-                    aiMode: 'quality',
-                    selectedTone: 'business',
-                    personalDictionary: [],
-                    glossary: [],
-                    styleProfiles: [],
-                    activeStyleProfileId: '',
-                    compactResultMode: null,
-                    resultDisplayMode: '',
-                }),
-            )
-            .then((settings) => {
+            .then(async () => {
+                const [settings, apiKey] = await Promise.all([
+                    chrome.storage.local.get({
+                        sendPageContext: false,
+                        contextDisabledSites: [],
+                        aiMode: 'quality',
+                        selectedTone: 'business',
+                        personalDictionary: [],
+                        glossary: [],
+                        styleProfiles: [],
+                        activeStyleProfileId: '',
+                        compactResultMode: null,
+                        resultDisplayMode: '',
+                    }),
+                    getStoredApiKey(),
+                ]);
+                return { settings, apiKey };
+            })
+            .then(({ settings, apiKey }) => {
                 const profiles = Array.isArray(settings.styleProfiles)
                     ? (settings.styleProfiles as StyleProfile[])
                     : [];
@@ -186,7 +226,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     sender.tab?.url || sender.url,
                 );
                 sendResponse({
-                    hasApiKey: typeof settings.mistralApiKey === 'string' && settings.mistralApiKey.trim().length > 0,
+                    hasApiKey: apiKey.length > 0,
                     sendPageContext: settings.sendPageContext === true,
                     contextDisabledSites: settings.contextDisabledSites,
                     compactResultMode: settings.compactResultMode === true,
@@ -333,13 +373,13 @@ chrome.runtime.onConnect.addListener((port) => {
         const startedAt = Date.now();
         let completedSuccessfully = false;
         let budgetRejected = false;
+        let budgetReservationId = '';
         const inputTokens = estimateTokens(msg.text || msg.imageUrl || '');
         let outputText = '';
 
         try {
             await initializationPromise;
             const settings = await chrome.storage.local.get({
-                mistralApiKey: '',
                 selectedTone: 'business',
                 sendPageContext: false,
                 personalDictionary: [],
@@ -360,27 +400,27 @@ chrome.runtime.onConnect.addListener((port) => {
                 completedSuccessfully = true;
                 return;
             }
-            const apiKey = settings.mistralApiKey as string;
+            const apiKey = await getStoredApiKey();
             if (!apiKey) throw new Error(t('apiKeyMissing', 'API-ключ не настроен'));
 
-            const budgetReason = getBudgetBlockReason(
+            const budgetReservation = await reserveBudget(
                 {
                     dailyRequestLimit: Math.max(0, Number(settings.dailyRequestLimit) || 0),
                     monthlyTokenLimit: Math.max(0, Number(settings.monthlyTokenLimit) || 0),
                     warnLargeText: settings.warnLargeText !== false,
                     autoFastMode: settings.autoFastMode !== false,
                 },
-                await getUsageStats(),
                 inputTokens,
             );
-            if (budgetReason === 'daily') {
+            if (budgetReservation.reason === 'daily') {
                 budgetRejected = true;
                 throw new Error(t('dailyBudgetReached', 'Достигнут дневной лимит запросов.'));
             }
-            if (budgetReason === 'monthly') {
+            if (budgetReservation.reason === 'monthly') {
                 budgetRejected = true;
                 throw new Error(t('monthlyBudgetReached', 'Достигнут месячный лимит токенов.'));
             }
+            budgetReservationId = budgetReservation.id || '';
 
             const styleProfiles = Array.isArray(settings.styleProfiles)
                 ? (settings.styleProfiles as StyleProfile[])
@@ -452,14 +492,17 @@ chrome.runtime.onConnect.addListener((port) => {
         } finally {
             clearTimeout(timeout);
             if (activeController === requestController) activeController = null;
-            if (msg.mode && !budgetRejected)
-                void applyUsageMutation('request', {
+            if (msg.mode && !budgetRejected) {
+                const usage = {
                     mode: msg.mode,
                     latencyMs: Date.now() - startedAt,
                     success: completedSuccessfully,
                     inputTokens,
                     outputTokens: estimateTokens(outputText),
-                });
+                };
+                if (budgetReservationId) void finalizeBudgetReservation(budgetReservationId, usage);
+                else void applyUsageMutation('request', usage);
+            }
         }
     });
 });

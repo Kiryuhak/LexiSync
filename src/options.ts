@@ -17,6 +17,17 @@ let restoredApiKey = '';
 let savedOptionsState = '';
 let saveInProgress = false;
 
+async function readPrivateApiKey(): Promise<string> {
+    const response = await chrome.runtime.sendMessage({ action: 'getApiKey' });
+    if (response?.ok !== true) throw new Error(response?.error || 'Не удалось прочитать API-ключ.');
+    return typeof response.value === 'string' ? response.value : '';
+}
+
+async function writePrivateApiKey(value: string): Promise<void> {
+    const response = await chrome.runtime.sendMessage({ action: 'setApiKey', value });
+    if (response?.ok !== true) throw new Error(response?.error || 'Не удалось сохранить API-ключ.');
+}
+
 const SAVED_OPTION_IDS = [
     'apiKey',
     'toneSelect',
@@ -293,7 +304,7 @@ async function saveOptions(): Promise<void> {
                     signal: AbortSignal.timeout(10_000),
                 });
                 if (response.ok) {
-                    await chrome.storage.local.set({ mistralApiKey: apiKey });
+                    await writePrivateApiKey(apiKey);
                     restoredApiKey = apiKey;
                 } else {
                     apiKeyStatus = t('invalidKey', 'Настройки сохранены, но новый API-ключ не прошёл проверку.');
@@ -305,7 +316,7 @@ async function saveOptions(): Promise<void> {
                 apiKeyInput.value = restoredApiKey;
             }
         } else if (!apiKey && restoredApiKey) {
-            await chrome.storage.local.set({ mistralApiKey: '' });
+            await writePrivateApiKey('');
             restoredApiKey = '';
         }
 
@@ -348,32 +359,34 @@ async function restoreOptions(): Promise<void> {
     const aiModeSelect = document.getElementById('aiMode') as HTMLSelectElement;
     const glossaryInput = document.getElementById('glossary') as HTMLTextAreaElement;
 
-    const items = await chrome.storage.local.get({
-        mistralApiKey: '',
-        selectedTone: 'business',
-        selectedTheme: 'auto',
-        visualStyle: 'liquid-glass',
-        interfaceScale: 90,
-        resultDisplayMode: 'compact',
-        compactResultMode: true,
-        adaptiveSuggestionsEnabled: false,
-        adaptiveLearningEnabled: true,
-        adaptiveLanguageModel: { version: 2, words: {}, pairs: {}, rejections: {} },
-        searchEngine: 'google',
-        sendPageContext: false,
-        historyEnabled: true,
-        historyRetentionDays: 30,
-        disabledSites: [],
-        personalDictionary: [],
-        customCommands: [],
-        aiMode: 'quality',
-        glossary: [],
-        styleProfiles: [],
-        activeStyleProfileId: '',
-        usageStats: EMPTY_USAGE_STATS,
-    });
+    const [items, privateApiKey] = await Promise.all([
+        chrome.storage.local.get({
+            selectedTone: 'business',
+            selectedTheme: 'auto',
+            visualStyle: 'liquid-glass',
+            interfaceScale: 90,
+            resultDisplayMode: 'compact',
+            compactResultMode: true,
+            adaptiveSuggestionsEnabled: false,
+            adaptiveLearningEnabled: true,
+            adaptiveLanguageModel: { version: 2, words: {}, pairs: {}, rejections: {} },
+            searchEngine: 'google',
+            sendPageContext: false,
+            historyEnabled: true,
+            historyRetentionDays: 30,
+            disabledSites: [],
+            personalDictionary: [],
+            customCommands: [],
+            aiMode: 'quality',
+            glossary: [],
+            styleProfiles: [],
+            activeStyleProfileId: '',
+            usageStats: EMPTY_USAGE_STATS,
+        }),
+        readPrivateApiKey(),
+    ]);
 
-    apiKeyInput.value = items.mistralApiKey as string;
+    apiKeyInput.value = privateApiKey;
     restoredApiKey = apiKeyInput.value;
     toneSelect.value = items.selectedTone as string;
     themeSelect.value = items.selectedTheme as string;

@@ -3,6 +3,8 @@ import { DEFAULT_THEME_CUSTOMIZATION, normalizeThemeCustomization } from './them
 import type { TextWorkflow, ThemeCustomization } from './types';
 import { DEFAULT_WORKFLOWS, normalizeWorkflows } from './workflows';
 import { openWorkspacePanel } from './workspace-panel';
+import { normalizeSiteEntries } from './privacy';
+import { downloadDiagnosticReport } from './diagnostics';
 
 function byId<T extends HTMLElement>(id: string): T {
     return document.getElementById(id) as T;
@@ -78,6 +80,7 @@ export async function setupV4Settings(): Promise<void> {
         themeCustomization: DEFAULT_THEME_CUSTOMIZATION,
         liveProofreadEnabled: false,
         liveProofreadDelay: 900,
+        liveProofreadDisabledSites: [],
         ...DEFAULT_BUDGET_SETTINGS,
     });
     let workflows = normalizeWorkflows(stored.workflows);
@@ -89,6 +92,9 @@ export async function setupV4Settings(): Promise<void> {
     )
         ? String(stored.liveProofreadDelay)
         : '900';
+    byId<HTMLTextAreaElement>('liveProofreadDisabledSites').value = Array.isArray(stored.liveProofreadDisabledSites)
+        ? stored.liveProofreadDisabledSites.join('\n')
+        : '';
     byId<HTMLInputElement>('dailyRequestLimit').value = String(clampInteger(stored.dailyRequestLimit, 0, 10_000));
     byId<HTMLInputElement>('monthlyTokenLimit').value = String(clampInteger(stored.monthlyTokenLimit, 0, 100_000_000));
     byId<HTMLInputElement>('warnLargeText').checked = stored.warnLargeText !== false;
@@ -100,6 +106,12 @@ export async function setupV4Settings(): Promise<void> {
     });
     byId<HTMLSelectElement>('liveProofreadDelay').addEventListener('change', (event) => {
         void chrome.storage.local.set({ liveProofreadDelay: Number((event.target as HTMLSelectElement).value) });
+    });
+    byId<HTMLTextAreaElement>('liveProofreadDisabledSites').addEventListener('change', (event) => {
+        const input = event.target as HTMLTextAreaElement;
+        const normalized = normalizeSiteEntries(input.value);
+        input.value = normalized.valid.join('\n');
+        void chrome.storage.local.set({ liveProofreadDisabledSites: normalized.valid });
     });
     byId<HTMLInputElement>('dailyRequestLimit').addEventListener('change', (event) => {
         const value = clampInteger((event.target as HTMLInputElement).value, 0, 10_000);
@@ -161,5 +173,8 @@ export async function setupV4Settings(): Promise<void> {
     });
     byId<HTMLButtonElement>('openSidepanel').addEventListener('click', async () => {
         await openWorkspacePanel();
+    });
+    byId<HTMLButtonElement>('downloadDiagnostics').addEventListener('click', () => {
+        void downloadDiagnosticReport();
     });
 }

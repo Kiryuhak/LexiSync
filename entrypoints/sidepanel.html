@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="manifest.default_title" content="LexiSync 4.0" />
+        <meta name="manifest.default_title" content="LexiSync 4.1" />
         <title>LexiSync — рабочая панель</title>
         <link rel="stylesheet" href="/src/sidepanel.css" />
     </head>
@@ -11,7 +11,7 @@
         <header class="app-header">
             <div>
                 <strong>LexiSync</strong>
-                <span>Рабочая панель 4.0</span>
+                <span>Рабочая панель 4.1</span>
             </div>
             <button id="openOptions" class="icon-button" type="button" title="Настройки" aria-label="Настройки">
                 ⚙
@@ -60,6 +60,9 @@
                     <button id="applyResult" class="primary-button" type="button">↵ Заменить на странице</button>
                     <button id="copyResult" class="secondary-button" type="button">Копировать</button>
                 </div>
+                <button id="undoResult" class="wide-text-button danger" type="button" hidden>
+                    Отменить последнюю замену
+                </button>
                 <button id="makeVariants" class="wide-text-button" type="button">Создать 3 варианта</button>
                 <div id="variantList" class="variant-list"></div>
             </section>
@@ -90,6 +93,11 @@
                     <option value="custom">Сделать короче</option>
                 </select>
                 <button id="runBatch" class="secondary-button full" type="button">Обработать файлы</button>
+                <div class="batch-controls">
+                    <button id="pauseBatch" class="text-button danger" type="button" hidden>Приостановить</button>
+                    <button id="resumeBatch" class="text-button" type="button" hidden>Продолжить</button>
+                    <button id="clearBatch" class="text-button danger" type="button" hidden>Очистить задание</button>
+                </div>
                 <div id="batchList" class="batch-list"></div>
             </section>
 
