@@ -1,7 +1,16 @@
 import fs from 'node:fs/promises';
 
 const REQUIRED_PERMISSIONS = ['storage', 'activeTab', 'scripting', 'contextMenus'];
+const REQUIRED_ORIGINS = ['https://api.mistral.ai/*'];
 const OPTIONAL_WEB_ORIGINS = ['http://*/*', 'https://*/*'];
+const packageJson = JSON.parse(await fs.readFile(new URL('../package.json', import.meta.url), 'utf8'));
+
+function sameValues(actual, expected) {
+    return (
+        actual.length === expected.length &&
+        [...actual].sort().every((value, index) => value === [...expected].sort()[index])
+    );
+}
 
 for (const browser of ['chrome', 'firefox']) {
     const manifest = JSON.parse(
@@ -10,19 +19,27 @@ for (const browser of ['chrome', 'firefox']) {
     const permissions = manifest.permissions || [];
     const requiredOrigins = manifest.host_permissions || [];
     const optionalOrigins = manifest.optional_host_permissions || [];
-    if (!REQUIRED_PERMISSIONS.every((permission) => permissions.includes(permission))) {
-        throw new Error(`${browser}: отсутствует обязательное разрешение`);
-    }
-    if (permissions.includes('clipboardRead') || permissions.includes('clipboardWrite')) {
-        throw new Error(`${browser}: обнаружено лишнее разрешение буфера обмена`);
-    }
+    if (manifest.manifest_version !== 3) throw new Error(`${browser}: требуется Manifest V3`);
+    if (manifest.version !== packageJson.version)
+        throw new Error(`${browser}: версия манифеста не совпадает с package.json`);
+    if (!sameValues(permissions, REQUIRED_PERMISSIONS))
+        throw new Error(`${browser}: набор обязательных разрешений изменён`);
+    if (!sameValues(requiredOrigins, REQUIRED_ORIGINS))
+        throw new Error(`${browser}: обязательный доступ разрешён только для Mistral API`);
     if (manifest.content_scripts) throw new Error(`${browser}: content script не должен быть статическим`);
-    if (requiredOrigins.some((origin) => OPTIONAL_WEB_ORIGINS.includes(origin))) {
-        throw new Error(`${browser}: доступ ко всем сайтам не должен быть обязательным`);
-    }
-    if (!OPTIONAL_WEB_ORIGINS.every((origin) => optionalOrigins.includes(origin))) {
-        throw new Error(`${browser}: отсутствует опциональный доступ к веб-сайтам`);
+    if (!sameValues(optionalOrigins, OPTIONAL_WEB_ORIGINS))
+        throw new Error(`${browser}: изменён опциональный доступ к веб-сайтам`);
+    if (browser === 'chrome' && typeof manifest.background?.service_worker !== 'string')
+        throw new Error('chrome: фоновая логика MV3 должна запускаться в service worker');
+    if (browser === 'firefox' && !Array.isArray(manifest.background?.scripts))
+        throw new Error('firefox: отсутствует фоновый сценарий MV3');
+    const csp = String(manifest.content_security_policy?.extension_pages || '');
+    if (/\bunsafe-eval\b/i.test(csp)) throw new Error(`${browser}: CSP разрешает unsafe-eval`);
+    if (browser === 'firefox') {
+        const collected = manifest.browser_specific_settings?.gecko?.data_collection_permissions?.required || [];
+        if (!sameValues(collected, ['websiteContent', 'browsingActivity']))
+            throw new Error('firefox: декларация собираемых данных изменилась');
     }
 }
 
-console.log('Production-манифесты Chrome и Firefox соответствуют политике разрешений.');
+console.log('Production-манифесты Chrome и Firefox соответствуют MV3 и политике минимальных разрешений.');

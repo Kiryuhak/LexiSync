@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 import { detectLayoutDirection, fixKeyboardLayout } from '../src/keyboard-layout';
 import { buildMessages } from '../src/prompt-builder';
 import { escapeHTML, parseMarkdownToHTML } from '../src/markdown';
-import { readSsePayload, streamText } from '../src/mistral-client';
+import { parseRetryAfterMs, readSsePayload, streamText } from '../src/mistral-client';
 import { matchesSite, normalizeSitePatterns, resolveStyleProfile } from '../src/site-profiles';
 import { getOriginPattern } from '../src/site-access';
 import { getWordCorrections, resolveCorrections } from '../src/spellcheck';
@@ -192,6 +192,23 @@ test('раздельно отклоняет замены, вставки и уд
 
     const deletion = getWordCorrections('очень добрый день', 'добрый день');
     expect(resolveCorrections('добрый день', deletion, new Set([deletion[0].tokenIndex]))).toBe('очень добрый день');
+});
+
+test('ограничивает сложность сравнения очень длинного текста', () => {
+    const original = Array.from({ length: 1_500 }, (_, index) => `слово${index}`).join(' ');
+    const corrected = original.replace('слово750', 'исправление');
+    const corrections = getWordCorrections(original, corrected);
+
+    expect(corrections).toHaveLength(1);
+    expect(corrections[0]).toMatchObject({ original: 'слово750', corrected: 'исправление' });
+    expect(resolveCorrections(corrected, corrections, new Set([0]))).toBe(original);
+});
+
+test('понимает Retry-After в секундах и формате HTTP-date', () => {
+    const now = Date.parse('2026-07-28T12:00:00.000Z');
+    expect(parseRetryAfterMs('2.5', now)).toBe(2_500);
+    expect(parseRetryAfterMs('Tue, 28 Jul 2026 12:00:04 GMT', now)).toBe(4_000);
+    expect(parseRetryAfterMs('неверно', now)).toBeNull();
 });
 
 test('инвалидирует кеш при изменении любого параметра запроса', () => {

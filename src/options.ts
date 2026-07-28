@@ -243,31 +243,42 @@ async function saveOptions(): Promise<void> {
                 `${t('invalidSiteEntries', 'Исправьте некорректные адреса сайтов:')} ${normalizedDisabledSites.invalid.join(', ')}`,
             );
         }
-        await chrome.storage.local.set({
-            selectedTone: toneSelect.value,
-            selectedTheme: themeSelect.value,
-            visualStyle: normalizeAppearanceStyle(visualStyleSelect.value),
-            interfaceScale: clampInterfaceScale(Number(interfaceScaleInput.value) || 90),
-            resultDisplayMode: normalizeResultDisplayMode(resultDisplayModeSelect.value),
-            compactResultMode: resultDisplayModeSelect.value === 'compact',
-            adaptiveSuggestionsEnabled: adaptiveSuggestionsInput.checked,
-            adaptiveLearningEnabled: adaptiveLearningInput.checked,
-            searchEngine: searchSelect.value,
-            sendPageContext: sendPageContextInput.checked,
-            historyEnabled: historyEnabledInput.checked,
-            historyRetentionDays: Number(historyRetentionSelect.value),
-            disabledSites: normalizedDisabledSites.valid,
-            personalDictionary: personalDictionaryInput.value
+        const savedValues = new Map<string, string | boolean>(
+            savedOptionsState ? (JSON.parse(savedOptionsState) as Array<[string, string | boolean]>) : [],
+        );
+        const changed = (id: (typeof SAVED_OPTION_IDS)[number]) => savedValues.get(id) !== readOptionValue(id);
+        const updates: Record<string, unknown> = {};
+        if (changed('toneSelect')) updates.selectedTone = toneSelect.value;
+        if (changed('themeSelect')) updates.selectedTheme = themeSelect.value;
+        if (changed('visualStyleSelect')) updates.visualStyle = normalizeAppearanceStyle(visualStyleSelect.value);
+        if (changed('interfaceScale'))
+            updates.interfaceScale = clampInterfaceScale(Number(interfaceScaleInput.value) || 90);
+        if (changed('resultDisplayMode')) {
+            updates.resultDisplayMode = normalizeResultDisplayMode(resultDisplayModeSelect.value);
+            updates.compactResultMode = resultDisplayModeSelect.value === 'compact';
+        }
+        if (changed('adaptiveSuggestionsEnabled'))
+            updates.adaptiveSuggestionsEnabled = adaptiveSuggestionsInput.checked;
+        if (changed('adaptiveLearningEnabled')) updates.adaptiveLearningEnabled = adaptiveLearningInput.checked;
+        if (changed('searchEngine')) updates.searchEngine = searchSelect.value;
+        if (changed('sendPageContext')) updates.sendPageContext = sendPageContextInput.checked;
+        if (changed('historyEnabled')) updates.historyEnabled = historyEnabledInput.checked;
+        if (changed('historyRetentionDays')) updates.historyRetentionDays = Number(historyRetentionSelect.value);
+        if (changed('disabledSites')) updates.disabledSites = normalizedDisabledSites.valid;
+        if (changed('personalDictionary'))
+            updates.personalDictionary = personalDictionaryInput.value
                 .split(/\r?\n/)
                 .map((word) => word.trim())
-                .filter(Boolean),
-            aiMode: aiModeSelect.value === 'fast' ? 'fast' : 'quality',
-            glossary: glossaryInput.value
+                .filter(Boolean)
+                .slice(0, 500);
+        if (changed('aiMode')) updates.aiMode = aiModeSelect.value === 'fast' ? 'fast' : 'quality';
+        if (changed('glossary'))
+            updates.glossary = glossaryInput.value
                 .split(/\r?\n/)
                 .map((entry) => entry.trim())
                 .filter(Boolean)
-                .slice(0, 200),
-        });
+                .slice(0, 200);
+        if (Object.keys(updates).length) await chrome.storage.local.set(updates);
         disabledSitesInput.value = normalizedDisabledSites.valid.join('\n');
 
         let apiKeyStatus = '';
@@ -276,16 +287,20 @@ async function saveOptions(): Promise<void> {
             try {
                 const response = await fetch('https://api.mistral.ai/v1/models', {
                     headers: { Authorization: `Bearer ${apiKey}` },
+                    cache: 'no-store',
+                    signal: AbortSignal.timeout(10_000),
                 });
                 if (response.ok) {
                     await chrome.storage.local.set({ mistralApiKey: apiKey });
                     restoredApiKey = apiKey;
                 } else {
                     apiKeyStatus = t('invalidKey', 'Настройки сохранены, но новый API-ключ не прошёл проверку.');
+                    apiKeyInput.value = restoredApiKey;
                 }
             } catch (error) {
                 console.error('Ошибка сети при проверке ключа', error);
                 apiKeyStatus = t('keyCheckUnavailable', 'Настройки сохранены. Проверить API-ключ сейчас не удалось.');
+                apiKeyInput.value = restoredApiKey;
             }
         } else if (!apiKey && restoredApiKey) {
             await chrome.storage.local.set({ mistralApiKey: '' });

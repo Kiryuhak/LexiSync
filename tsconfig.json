@@ -2,6 +2,12 @@
     "extends": "./.wxt/tsconfig.json",
     "compilerOptions": {
         "strict": true,
+        "noImplicitReturns": true,
+        "noUncheckedIndexedAccess": false,
+        "noFallthroughCasesInSwitch": true,
+        "noUncheckedSideEffectImports": true,
+        "allowUnreachableCode": false,
+        "allowUnusedLabels": false,
         "esModuleInterop": true,
         "skipLibCheck": true,
         "forceConsistentCasingInFileNames": true,

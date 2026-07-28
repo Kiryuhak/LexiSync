@@ -27,6 +27,14 @@ export interface MistralSettings {
 const API_BASE_URL = 'https://api.mistral.ai/v1';
 const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
 
+export function parseRetryAfterMs(value: string | null, now = Date.now()): number | null {
+    if (!value) return null;
+    const seconds = Number(value);
+    if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
+    const date = Date.parse(value);
+    return Number.isFinite(date) ? Math.max(0, date - now) : null;
+}
+
 function wait(ms: number, signal: AbortSignal): Promise<void> {
     return new Promise((resolve, reject) => {
         const onAbort = () => {
@@ -48,11 +56,8 @@ async function fetchWithRetry(url: string, init: RequestInit, signal: AbortSigna
         try {
             const response = await fetch(url, { ...init, signal });
             if (!RETRYABLE_STATUSES.has(response.status) || attempt === 2) return response;
-            const retryAfterSeconds = Number(response.headers.get('Retry-After'));
-            const delayMs =
-                Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
-                    ? retryAfterSeconds * 1000
-                    : 750 * 2 ** attempt;
+            const delayMs = parseRetryAfterMs(response.headers.get('Retry-After')) ?? 750 * 2 ** attempt;
+            await response.body?.cancel();
             await wait(Math.min(delayMs, 10_000), signal);
         } catch (error) {
             if (signal.aborted) throw error;
@@ -160,12 +165,14 @@ export async function streamText(
         for (const line of lines) {
             if (!processLine(line)) continue;
             if (!receivedContent) throw new Error(t('emptyStream', 'Mistral вернул пустой поток данных.'));
+            await reader.cancel();
             return;
         }
     }
     buffer += decoder.decode();
     if (buffer && processLine(buffer)) {
         if (!receivedContent) throw new Error(t('emptyStream', 'Mistral вернул пустой поток данных.'));
+        await reader.cancel();
         return;
     }
     if (!receivedContent) throw new Error(t('emptyStream', 'Mistral вернул пустой поток данных.'));

@@ -10,10 +10,7 @@ const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const OCR_DATA_URL = /^data:image\/(?:jpeg|png|webp);base64,([a-z\d+/]+={0,2})$/i;
 
 type ValidationLengthError =
-    | 'requestTextTooLong'
-    | 'requestContextTooLong'
-    | 'requestCustomPromptTooLong'
-    | 'requestPageDataTooLong';
+    'requestTextTooLong' | 'requestContextTooLong' | 'requestCustomPromptTooLong' | 'requestPageDataTooLong';
 
 function getLengthError(key: ValidationLengthError): string {
     if (key === 'requestTextTooLong') return t('requestTextTooLong', 'Выбранный текст слишком длинный.');

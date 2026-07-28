@@ -28,11 +28,13 @@
 - **⭐ Расширенная история:** Избранное, повтор операции и создание пользовательской команды из результата.
 - **📦 Перенос настроек:** Безопасный экспорт, импорт и синхронизация несекретных предпочтений.
 - **📊 Локальная статистика:** Количество запросов, попадания в кэш и средняя задержка без внешней телеметрии.
+- **🪟 Гибкое отображение:** Компактный результат включён по умолчанию; доступны автоматический и подробный режимы.
+- **🎨 Варианты интерфейса:** Liquid Glass, Material Design 3, Flutter Clean и Bento Soft со светлой, тёмной и системной темами.
 
 ## 🛠 Технологии и Архитектура
 
-- **Язык:** TypeScript (Strict Mode)
-- **Сборка:** WXT + Vite
+- **Язык:** TypeScript 6 (Strict Mode)
+- **Сборка:** WXT 0.21 + Vite
 - **API:** WebExtensions Manifest V3, Mistral AI API
 - **UI/UX:** Vanilla DOM, CSS Variables, SVG Icons (без использования тяжелых внешних библиотек)
 
@@ -45,14 +47,14 @@
 - **Edge Cases при работе с DOM:** Безопасная вставка и замена текста в различных типах узлов (`<input>`, `<textarea>`, `contenteditable`), включая сохранение фокуса и позиции каретки.
 - **Безопасность данных:** Строгая типизация данных при записи и чтении из асинхронного `chrome.storage.local`.
 - **Приватное хранение:** История и кэш отключены в приватных окнах и могут быть запрещены для выбранных доменов.
-- **Автоматическая проверка:** GitHub Actions проверяет форматирование, ESLint, TypeScript, production-зависимости и манифесты, запускает модульные тесты с покрытием, функциональные сценарии Chrome и runtime-проверку Firefox.
+- **Автоматическая проверка:** GitHub Actions на Node.js 24 проверяет форматирование, ESLint, TypeScript, все зависимости, требования Manifest V3 и целостность ZIP, запускает модульные тесты с покрытием, функциональные сценарии Chrome и runtime-проверку Firefox.
 - **Доступность и адаптивность:** Автоматический axe-аудит страниц расширения и визуальные контракты для ширины 320, 625 и 1000 пикселей.
 - **Редакторы и фреймы:** E2E-проверки замены в `contenteditable` и работы горячих клавиш внутри iframe.
 
 ## ⚙️ Разработка и сборка
 
 ```bash
-npm install
+npm ci                   # воспроизводимая установка из package-lock.json
 npm run dev              # Chrome с hot reload
 npm run dev:firefox      # Firefox с hot reload
 npm run build            # production-сборки обоих браузеров
@@ -65,12 +67,13 @@ npm run test:coverage    # модульные тесты с порогами п�
 npm run test:e2e         # функциональные тесты Chrome
 npm run test:firefox     # временная установка сборки в Firefox через web-ext
 npm run verify:manifests # проверка разрешений production-манифестов
+npm run verify:release   # финальные ZIP, MV3, целостность и Firefox Add-ons
 npm run test:all         # полный набор автоматических проверок
 ```
 
-Готовые распакованные сборки создаются в `.output/chrome-mv3` и `.output/firefox-mv3`. Команды `npm run zip:chrome` и `npm run zip:firefox` создают отдельные архивы для магазинов.
+Для разработки рекомендуется Node.js 24; минимальная поддерживаемая версия — 22.15. Готовые релизные сборки создаются в `.output/release/chrome-mv3` и `.output/release/firefox-mv3`. Команды `npm run zip:chrome` и `npm run zip:firefox` создают отдельные архивы для магазинов.
 
-Для ручной установки Chrome откройте `chrome://extensions/`, включите режим разработчика и выберите `.output/chrome-mv3`. Для временной установки Firefox откройте `about:debugging#/runtime/this-firefox` и выберите `manifest.json` из `.output/firefox-mv3`.
+Для ручной установки Chrome откройте `chrome://extensions/`, включите режим разработчика и выберите `.output/release/chrome-mv3`. Для временной установки Firefox откройте `about:debugging#/runtime/this-firefox` и выберите `manifest.json` из `.output/release/firefox-mv3`.
 
 🔑 Начало работы
 

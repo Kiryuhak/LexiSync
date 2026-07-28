@@ -279,19 +279,35 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             );
         return true;
     }
+    return false;
 });
 
 chrome.runtime.onConnect.addListener((port) => {
     if (port.name !== 'mistralStream') return;
 
-    let controller: AbortController | null = null;
-    let cancelledByUser = false;
+    let activeController: AbortController | null = null;
+    let activeRequestId = 0;
+    let disconnected = false;
+    const cancelledControllers = new WeakSet<AbortController>();
+    const safePostMessage = (message: object) => {
+        if (disconnected) return;
+        try {
+            port.postMessage(message);
+        } catch {
+            disconnected = true;
+        }
+    };
 
-    port.onDisconnect.addListener(() => controller?.abort());
+    port.onDisconnect.addListener(() => {
+        disconnected = true;
+        activeController?.abort();
+    });
     port.onMessage.addListener(async (message: unknown) => {
         if (message && typeof message === 'object' && (message as Partial<MistralRequest>).action === 'cancelMistral') {
-            cancelledByUser = true;
-            controller?.abort();
+            if (activeController) {
+                cancelledControllers.add(activeController);
+                activeController.abort();
+            }
             return;
         }
         if (!message || typeof message !== 'object' || (message as Partial<MistralRequest>).action !== 'callMistral')
@@ -299,7 +315,7 @@ chrome.runtime.onConnect.addListener((port) => {
         try {
             validateMistralRequest(message);
         } catch (error) {
-            port.postMessage({
+            safePostMessage({
                 status: 'error',
                 error: error instanceof Error ? error.message : t('requestInvalid', 'Некорректный запрос.'),
             });
@@ -307,10 +323,12 @@ chrome.runtime.onConnect.addListener((port) => {
         }
         const msg = message;
 
-        controller?.abort();
-        controller = new AbortController();
-        cancelledByUser = false;
-        const timeout = setTimeout(() => controller?.abort(), REQUEST_TIMEOUT_MS);
+        activeController?.abort();
+        const requestController = new AbortController();
+        activeController = requestController;
+        const requestId = ++activeRequestId;
+        const isCurrentRequest = () => activeRequestId === requestId && !disconnected;
+        const timeout = setTimeout(() => requestController.abort(), REQUEST_TIMEOUT_MS);
         const startedAt = Date.now();
         let completedSuccessfully = false;
 
@@ -330,8 +348,10 @@ chrome.runtime.onConnect.addListener((port) => {
             if (!msg.mode) throw new Error(t('modeMissing', 'Режим обработки не указан.'));
             if (msg.mode === 'layout') {
                 const result = fixKeyboardLayout(msg.text || '');
-                port.postMessage({ status: 'chunk', text: result });
-                port.postMessage({ status: 'done' });
+                if (isCurrentRequest()) {
+                    safePostMessage({ status: 'chunk', text: result });
+                    safePostMessage({ status: 'done' });
+                }
                 completedSuccessfully = true;
                 return;
             }
@@ -360,8 +380,8 @@ chrome.runtime.onConnect.addListener((port) => {
             }
 
             if (msg.mode === 'ocr') {
-                const text = await processOcr(msg, apiKey, controller.signal);
-                port.postMessage({ status: 'chunk', text });
+                const text = await processOcr(msg, apiKey, requestController.signal);
+                if (isCurrentRequest()) safePostMessage({ status: 'chunk', text });
             } else {
                 await streamText(
                     msg,
@@ -377,16 +397,20 @@ chrome.runtime.onConnect.addListener((port) => {
                         activeStyleProfile,
                         aiMode: settings.aiMode === 'fast' ? 'fast' : 'quality',
                     },
-                    controller.signal,
-                    (text) => port.postMessage({ status: 'chunk', text }),
+                    requestController.signal,
+                    (text) => {
+                        if (isCurrentRequest()) safePostMessage({ status: 'chunk', text });
+                    },
                 );
             }
-            port.postMessage({ status: 'done' });
+            if (isCurrentRequest()) safePostMessage({ status: 'done' });
             completedSuccessfully = true;
         } catch (error) {
+            if (!isCurrentRequest()) return;
             const isAbort = error instanceof DOMException && error.name === 'AbortError';
             if (isAbort) {
-                port.postMessage({
+                const cancelledByUser = cancelledControllers.has(requestController);
+                safePostMessage({
                     status: cancelledByUser ? 'cancelled' : 'error',
                     error: cancelledByUser
                         ? t('requestCancelled', 'Запрос отменён.')
@@ -395,10 +419,11 @@ chrome.runtime.onConnect.addListener((port) => {
             } else {
                 const message =
                     error instanceof Error ? error.message : t('unknownNetworkError', 'Неизвестная ошибка сети.');
-                port.postMessage({ status: 'error', error: message });
+                safePostMessage({ status: 'error', error: message });
             }
         } finally {
             clearTimeout(timeout);
+            if (activeController === requestController) activeController = null;
             if (msg.mode)
                 void applyUsageMutation('request', {
                     mode: msg.mode,

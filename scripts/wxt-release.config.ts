@@ -6,6 +6,19 @@ export default defineConfig({
     outDir: '.output/release',
     zip: {
         ...baseConfig.zip,
-        excludeSources: ['coverage/**', 'test-results/**', 'playwright-report/**'],
+        dotSources: true,
+        excludeSources: [
+            '.agents/**',
+            '.codex/**',
+            '.git/**',
+            '.idea/**',
+            '.output/**',
+            '.vscode/**',
+            '.wxt/**',
+            '.env*',
+            'coverage/**',
+            'test-results/**',
+            'playwright-report/**',
+        ],
     },
 });

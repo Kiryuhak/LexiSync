@@ -2,6 +2,26 @@ import { normalizeSitePatterns } from './site-profiles';
 import type { StyleProfile } from './types';
 
 const CURRENT_SETTINGS_SCHEMA = 7;
+const MIGRATION_SETTING_KEYS = [
+    'settingsSchemaVersion',
+    'disabledSites',
+    'personalDictionary',
+    'interfaceScale',
+    'adaptiveDisabledSites',
+    'contextDisabledSites',
+    'adaptiveBlockedWords',
+    'customCommands',
+    'adaptiveLanguageModel',
+    'blockedSites',
+    'aiMode',
+    'glossary',
+    'styleProfiles',
+    'activeStyleProfileId',
+    'usageStats',
+    'compactResultMode',
+    'resultDisplayMode',
+    'visualStyle',
+] as const;
 
 function getSchemaVersion(value: unknown): number {
     return Math.max(0, Number(value) || 0);
@@ -11,7 +31,8 @@ export async function migrateSettings(): Promise<void> {
     const schema = await chrome.storage.local.get('settingsSchemaVersion');
     if (getSchemaVersion(schema.settingsSchemaVersion) >= CURRENT_SETTINGS_SCHEMA) return;
 
-    const stored = await chrome.storage.local.get(null);
+    // История, кэш и API-ключ могут быть объёмными и не участвуют в миграциях.
+    const stored = await chrome.storage.local.get([...MIGRATION_SETTING_KEYS]);
     const currentVersion = getSchemaVersion(stored.settingsSchemaVersion);
     if (currentVersion >= CURRENT_SETTINGS_SCHEMA) return;
 

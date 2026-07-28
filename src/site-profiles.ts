@@ -30,8 +30,8 @@ export function matchesSite(hostname: string, pattern: string): boolean {
     const normalizedPattern = normalizeSitePatterns([pattern])[0] || '';
     return Boolean(
         normalizedHost &&
-            normalizedPattern &&
-            (normalizedHost === normalizedPattern || normalizedHost.endsWith(`.${normalizedPattern}`)),
+        normalizedPattern &&
+        (normalizedHost === normalizedPattern || normalizedHost.endsWith(`.${normalizedPattern}`)),
     );
 }
 

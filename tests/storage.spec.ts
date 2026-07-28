@@ -5,6 +5,7 @@ import { applySettingsMutation } from '../src/settings-store';
 import { applyAdaptiveMutation, flushAdaptiveMutations } from '../src/adaptive-model-store';
 import { migrateSettings } from '../src/settings-migrations';
 import { enqueueStorageMutation } from '../src/storage-queue';
+import { applyCacheMutation } from '../src/ai-cache';
 
 let storage: Record<string, unknown>;
 let storageGetCalls: unknown[];
@@ -34,6 +35,10 @@ beforeEach(() => {
                     await Promise.resolve();
                     storageSetCalls.push(structuredClone(updates));
                     Object.assign(storage, structuredClone(updates));
+                },
+                async remove(keys: string | string[]) {
+                    await Promise.resolve();
+                    for (const key of Array.isArray(keys) ? keys : [keys]) delete storage[key];
                 },
             },
         },
@@ -73,6 +78,15 @@ test('не теряет статистику при параллельных з�
         ),
     );
     expect(storage.usageStats).toMatchObject({ requests: 25, totalLatencyMs: 250, byMode: { style: 25 } });
+});
+
+test('отклоняет неизвестный режим статистики и чрезмерно большой результат истории', async () => {
+    await expect(
+        applyUsageMutation('request', { mode: 'unknown' as 'style', latencyMs: 10, success: true }),
+    ).rejects.toThrow('INVALID_USAGE_MUTATION');
+    await expect(applyHistoryMutation('updateResult', { id: 1, result: 'x'.repeat(50_001) })).rejects.toThrow(
+        'INVALID_HISTORY_MUTATION',
+    );
 });
 
 test('не теряет слова словаря при параллельном добавлении', async () => {
@@ -120,6 +134,34 @@ test.each([
 
     expect(storage.resultDisplayMode).toBe(expected);
     expect(storage.settingsSchemaVersion).toBe(7);
+    expect(storageGetCalls).not.toContain(null);
+});
+
+test('не позволяет кэшу изменять произвольные ключи хранилища', async () => {
+    await expect(applyCacheMutation('set', { key: 'mistralApiKey', value: 'чужое значение' })).rejects.toThrow(
+        'INVALID_CACHE_MUTATION',
+    );
+    expect(storage).not.toHaveProperty('mistralApiKey');
+});
+
+test('ограничивает размер значения кэша', async () => {
+    const key = `ai_cache_${'a'.repeat(64)}`;
+    await expect(applyCacheMutation('set', { key, value: 'x'.repeat(50_001) })).rejects.toThrow(
+        'INVALID_CACHE_MUTATION',
+    );
+    expect(storage).not.toHaveProperty(key);
+});
+
+test('атомарно сохраняет и очищает только допустимые записи кэша', async () => {
+    const key = `ai_cache_${'b'.repeat(64)}`;
+    await applyCacheMutation('set', { key, value: 'готовый текст' });
+
+    expect(storage[key]).toMatchObject({ value: 'готовый текст' });
+    expect(storage.ai_cache_index).toEqual([expect.objectContaining({ key })]);
+
+    await applyCacheMutation('clear', {});
+    expect(storage).not.toHaveProperty(key);
+    expect(storage).not.toHaveProperty('ai_cache_index');
 });
 
 test('не затирает настройку, изменённую параллельно с миграцией', async () => {

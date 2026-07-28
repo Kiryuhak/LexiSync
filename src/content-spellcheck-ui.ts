@@ -35,8 +35,12 @@ export function createSpellcheckUi(options: SpellcheckUiOptions): SpellcheckUiCo
             const correction = corrections.find((item) => item.tokenIndex === Number(mark.dataset.tokenIndex));
             if (!correction) continue;
             const description = `${correction.original.trim() || '∅'} → ${correction.corrected.trim() || '∅'}`;
-            mark.title = description;
-            mark.setAttribute('aria-label', `${t('correctionDetails', 'Исправление')}: ${description}`);
+            if (mark.title) {
+                mark.setAttribute('aria-label', mark.title);
+            } else {
+                mark.title = description;
+                mark.setAttribute('aria-label', `${t('correctionDetails', 'Исправление')}: ${description}`);
+            }
             mark.setAttribute('role', 'button');
             mark.tabIndex = 0;
         }

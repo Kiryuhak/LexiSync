@@ -3,6 +3,8 @@ import { enqueueStorageMutation } from './storage-queue';
 import type { HistoryItem } from './types';
 
 const HISTORY_LIMIT = 100;
+const HISTORY_TEXT_MAX_LENGTH = 50_000;
+const HISTORY_NAME_MAX_LENGTH = 80;
 const HISTORY_MODES = new Set(['spellcheck', 'style', 'emoji', 'layout', 'translate', 'ocr', 'custom']);
 
 function isHistoryItem(value: unknown): value is HistoryItem {
@@ -10,11 +12,18 @@ function isHistoryItem(value: unknown): value is HistoryItem {
     const item = value as Partial<HistoryItem>;
     return (
         typeof item.id === 'number' &&
+        Number.isFinite(item.id) &&
         typeof item.mode === 'string' &&
         HISTORY_MODES.has(item.mode) &&
         typeof item.original === 'string' &&
+        item.original.length <= HISTORY_TEXT_MAX_LENGTH &&
         typeof item.result === 'string' &&
-        typeof item.date === 'string'
+        item.result.length <= HISTORY_TEXT_MAX_LENGTH &&
+        typeof item.date === 'string' &&
+        Number.isFinite(new Date(item.date).getTime()) &&
+        (item.customName === undefined ||
+            (typeof item.customName === 'string' && item.customName.length <= HISTORY_NAME_MAX_LENGTH)) &&
+        (item.favorite === undefined || typeof item.favorite === 'boolean')
     );
 }
 
@@ -79,12 +88,14 @@ export function applyHistoryMutation(mutation: HistoryMutation, payload: History
         const history = await getHistory();
         if (mutation === 'add' && payload.item && isHistoryItem(payload.item)) {
             await chrome.storage.local.set({ aiHistory: [payload.item, ...history].slice(0, HISTORY_LIMIT) });
-        } else if (mutation === 'delete' && typeof payload.id === 'number') {
+        } else if (mutation === 'delete' && typeof payload.id === 'number' && Number.isFinite(payload.id)) {
             await chrome.storage.local.set({ aiHistory: history.filter((item) => item.id !== payload.id) });
         } else if (
             mutation === 'updateResult' &&
             typeof payload.id === 'number' &&
-            typeof payload.result === 'string'
+            Number.isFinite(payload.id) &&
+            typeof payload.result === 'string' &&
+            payload.result.length <= HISTORY_TEXT_MAX_LENGTH
         ) {
             await chrome.storage.local.set({
                 aiHistory: history.map((item) => (item.id === payload.id ? { ...item, result: payload.result } : item)),
@@ -92,6 +103,7 @@ export function applyHistoryMutation(mutation: HistoryMutation, payload: History
         } else if (
             mutation === 'setFavorite' &&
             typeof payload.id === 'number' &&
+            Number.isFinite(payload.id) &&
             typeof payload.favorite === 'boolean'
         ) {
             await chrome.storage.local.set({

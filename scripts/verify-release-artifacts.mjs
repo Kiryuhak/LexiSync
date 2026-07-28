@@ -7,6 +7,22 @@ import zlib from 'node:zlib';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const releaseRoot = path.join(root, '.output', 'release');
 const packageJson = JSON.parse(await fs.readFile(path.join(root, 'package.json'), 'utf8'));
+const MAX_ZIP_ENTRIES = 10_000;
+const MAX_UNCOMPRESSED_BYTES = 100 * 1024 * 1024;
+
+function assertSafeArchivePath(filename) {
+    const normalized = filename.replaceAll('\\', '/');
+    const parts = normalized.split('/');
+    if (
+        !normalized ||
+        normalized.startsWith('/') ||
+        /^[a-z]:/i.test(normalized) ||
+        parts.some((part) => part === '..' || part === '.' || part.includes('\0'))
+    ) {
+        throw new Error(`ZIP: небезопасный путь ${JSON.stringify(filename)}`);
+    }
+    return normalized;
+}
 
 function findEndOfCentralDirectory(buffer) {
     const minimumOffset = Math.max(0, buffer.length - 65_557);
@@ -19,32 +35,50 @@ function findEndOfCentralDirectory(buffer) {
 function readZip(buffer) {
     const endOffset = findEndOfCentralDirectory(buffer);
     const entryCount = buffer.readUInt16LE(endOffset + 10);
+    if (entryCount > MAX_ZIP_ENTRIES) throw new Error(`ZIP: слишком много файлов (${entryCount})`);
     let offset = buffer.readUInt32LE(endOffset + 16);
     const entries = new Map();
+    let totalUncompressedBytes = 0;
 
     for (let index = 0; index < entryCount; index += 1) {
+        if (offset < 0 || offset + 46 > endOffset) throw new Error('ZIP: центральная директория выходит за границы');
         if (buffer.readUInt32LE(offset) !== 0x02014b50) throw new Error('ZIP: повреждена центральная директория');
         const flags = buffer.readUInt16LE(offset + 8);
         const method = buffer.readUInt16LE(offset + 10);
+        const expectedCrc = buffer.readUInt32LE(offset + 16);
         const compressedSize = buffer.readUInt32LE(offset + 20);
         const uncompressedSize = buffer.readUInt32LE(offset + 24);
         const filenameLength = buffer.readUInt16LE(offset + 28);
         const extraLength = buffer.readUInt16LE(offset + 30);
         const commentLength = buffer.readUInt16LE(offset + 32);
         const localOffset = buffer.readUInt32LE(offset + 42);
-        const filename = buffer.subarray(offset + 46, offset + 46 + filenameLength).toString('utf8');
+        const filename = assertSafeArchivePath(
+            buffer.subarray(offset + 46, offset + 46 + filenameLength).toString('utf8'),
+        );
+        totalUncompressedBytes += uncompressedSize;
+        if (totalUncompressedBytes > MAX_UNCOMPRESSED_BYTES) throw new Error('ZIP: превышен допустимый размер');
+        if (entries.has(filename)) throw new Error(`${filename}: повторяющееся имя файла в ZIP`);
 
         if ((flags & 1) !== 0) throw new Error(`${filename}: зашифрованные ZIP-файлы не поддерживаются`);
+        if (localOffset < 0 || localOffset + 30 > buffer.length)
+            throw new Error(`${filename}: локальный заголовок выходит за границы`);
         if (buffer.readUInt32LE(localOffset) !== 0x04034b50)
             throw new Error(`${filename}: повреждён локальный заголовок`);
         const localFilenameLength = buffer.readUInt16LE(localOffset + 26);
         const localExtraLength = buffer.readUInt16LE(localOffset + 28);
+        const localFilename = assertSafeArchivePath(
+            buffer.subarray(localOffset + 30, localOffset + 30 + localFilenameLength).toString('utf8'),
+        );
+        if (localFilename !== filename) throw new Error(`${filename}: имена в заголовках ZIP не совпадают`);
         const dataOffset = localOffset + 30 + localFilenameLength + localExtraLength;
+        if (dataOffset < 0 || dataOffset + compressedSize > buffer.length)
+            throw new Error(`${filename}: сжатые данные выходят за границы ZIP`);
         const compressed = buffer.subarray(dataOffset, dataOffset + compressedSize);
         const content = method === 0 ? compressed : method === 8 ? zlib.inflateRawSync(compressed) : null;
         if (!content) throw new Error(`${filename}: неподдерживаемый метод сжатия ${method}`);
         if (content.length !== uncompressedSize) throw new Error(`${filename}: неверный размер распакованного файла`);
-        entries.set(filename.replaceAll('\\', '/'), content);
+        if (zlib.crc32(content) !== expectedCrc) throw new Error(`${filename}: контрольная сумма CRC32 не совпадает`);
+        entries.set(filename, content);
         offset += 46 + filenameLength + extraLength + commentLength;
     }
     return entries;
@@ -83,6 +117,18 @@ for (const browser of ['chrome', 'firefox']) {
         if (digest(buildFiles.get(filename)) !== digest(archiveFiles.get(filename))) {
             throw new Error(`${browser}: файл ${filename} в ZIP отличается от production-сборки`);
         }
+        if (/\.(?:html|js)$/i.test(filename)) {
+            const source = buildFiles.get(filename).toString('utf8');
+            if (
+                /\beval\s*\(/u.test(source) ||
+                /\bnew\s+Function\s*\(/u.test(source) ||
+                /\bimportScripts\s*\(\s*['"]https?:/iu.test(source) ||
+                /\bimport\s*\(\s*['"]https?:/iu.test(source) ||
+                /<script\b[^>]*\bsrc\s*=\s*['"]https?:/iu.test(source)
+            ) {
+                throw new Error(`${browser}: ${filename} содержит удалённый или строковый исполняемый код`);
+            }
+        }
     }
     console.log(`${browser}: ZIP проверен (${buildNames.length} файлов, точное совпадение с production-сборкой).`);
 }
@@ -90,7 +136,15 @@ for (const browser of ['chrome', 'firefox']) {
 const sourcesArchivePath = path.join(releaseRoot, `${packageJson.name}-${packageJson.version}-sources.zip`);
 const sourceFiles = readZip(await fs.readFile(sourcesArchivePath));
 const sourceNames = [...sourceFiles.keys()].filter((name) => !name.endsWith('/'));
-const requiredSources = ['package.json', 'package-lock.json', 'wxt.config.ts', 'src/background.ts'];
+const requiredSources = [
+    '.github/workflows/ci.yml',
+    '.npmrc',
+    '.nvmrc',
+    'package.json',
+    'package-lock.json',
+    'wxt.config.ts',
+    'src/background.ts',
+];
 const forbiddenSourcePath = /(^|\/)(?:node_modules|\.git|\.output|coverage|test-results|playwright-report)(?:\/|$)/;
 
 for (const filename of requiredSources) {

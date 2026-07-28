@@ -20,6 +20,8 @@ export default defineConfig({
                 'src/site-access.ts',
                 'src/spellcheck.ts',
                 'src/request-cache.ts',
+                'src/ai-cache.ts',
+                'src/appearance-style.ts',
                 'src/history-store.ts',
                 'src/usage-stats.ts',
                 'src/settings-store.ts',
@@ -32,7 +34,7 @@ export default defineConfig({
                 'src/settings-migrations.ts',
                 'src/storage-queue.ts',
             ],
-            thresholds: { lines: 45, functions: 45, statements: 45, branches: 35 },
+            thresholds: { lines: 65, functions: 55, statements: 60, branches: 50 },
         },
     },
 });

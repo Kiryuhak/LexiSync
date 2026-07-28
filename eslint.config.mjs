@@ -20,9 +20,16 @@ export default tseslint.config(
             },
         },
         rules: {
-            '@typescript-eslint/no-explicit-any': 'off',
+            '@typescript-eslint/no-explicit-any': 'error',
             '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+            eqeqeq: ['error', 'always'],
             'no-undef': 'off',
+        },
+    },
+    {
+        files: ['src/**/*.ts'],
+        rules: {
+            'no-console': ['error', { allow: ['warn', 'error'] }],
         },
     },
 );

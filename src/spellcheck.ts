@@ -15,6 +15,36 @@ export interface WordCorrection {
     end: number;
 }
 
+const MAX_LCS_CELLS = 1_000_000;
+
+function getSegmentCorrection(
+    original: string,
+    corrected: string,
+    correctedOffset = 0,
+    tokenIndex = 0,
+): WordCorrection | null {
+    if (original === corrected) return null;
+    let commonPrefix = 0;
+    const prefixLimit = Math.min(original.length, corrected.length);
+    while (commonPrefix < prefixLimit && original[commonPrefix] === corrected[commonPrefix]) commonPrefix++;
+
+    let commonSuffix = 0;
+    const suffixLimit = Math.min(original.length - commonPrefix, corrected.length - commonPrefix);
+    while (
+        commonSuffix < suffixLimit &&
+        original[original.length - commonSuffix - 1] === corrected[corrected.length - commonSuffix - 1]
+    )
+        commonSuffix++;
+
+    return {
+        tokenIndex,
+        original: original.slice(commonPrefix, original.length - commonSuffix),
+        corrected: corrected.slice(commonPrefix, corrected.length - commonSuffix),
+        start: correctedOffset + commonPrefix,
+        end: correctedOffset + corrected.length - commonSuffix,
+    };
+}
+
 function escapeHtml(value: string): string {
     return value
         .replace(/&/g, '&amp;')
@@ -41,6 +71,10 @@ export function normalizeSpellcheckResult(text: string): string {
 export function getWordCorrections(original: string, corrected: string): WordCorrection[] {
     const originalTokens = tokenizeText(original).filter((token) => token.significant);
     const correctedTokens = tokenizeText(corrected).filter((token) => token.significant);
+    if ((originalTokens.length + 1) * (correctedTokens.length + 1) > MAX_LCS_CELLS) {
+        const correction = getSegmentCorrection(original, corrected);
+        return correction ? [correction] : [];
+    }
     const rows = Array.from({ length: originalTokens.length + 1 }, () => new Uint16Array(correctedTokens.length + 1));
 
     for (let originalIndex = 1; originalIndex <= originalTokens.length; originalIndex++) {
@@ -78,27 +112,8 @@ export function getWordCorrections(original: string, corrected: string): WordCor
         const correctedEnd = anchor?.corrected.start ?? corrected.length;
         const originalSegment = original.slice(originalCursor, originalEnd);
         const correctedSegment = corrected.slice(correctedCursor, correctedEnd);
-        if (originalSegment !== correctedSegment) {
-            let commonPrefix = 0;
-            const prefixLimit = Math.min(originalSegment.length, correctedSegment.length);
-            while (commonPrefix < prefixLimit && originalSegment[commonPrefix] === correctedSegment[commonPrefix])
-                commonPrefix++;
-            let commonSuffix = 0;
-            const suffixLimit = Math.min(originalSegment.length - commonPrefix, correctedSegment.length - commonPrefix);
-            while (
-                commonSuffix < suffixLimit &&
-                originalSegment[originalSegment.length - commonSuffix - 1] ===
-                    correctedSegment[correctedSegment.length - commonSuffix - 1]
-            )
-                commonSuffix++;
-            corrections.push({
-                tokenIndex: corrections.length,
-                original: originalSegment.slice(commonPrefix, originalSegment.length - commonSuffix),
-                corrected: correctedSegment.slice(commonPrefix, correctedSegment.length - commonSuffix),
-                start: correctedCursor + commonPrefix,
-                end: correctedEnd - commonSuffix,
-            });
-        }
+        const correction = getSegmentCorrection(originalSegment, correctedSegment, correctedCursor, corrections.length);
+        if (correction) corrections.push(correction);
         if (anchor) {
             originalCursor = anchor.original.end;
             correctedCursor = anchor.corrected.end;
