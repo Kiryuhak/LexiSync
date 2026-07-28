@@ -32,6 +32,37 @@ export interface UsageStats {
     failures: number;
     totalLatencyMs: number;
     byMode: Partial<Record<RequestMode, number>>;
+    estimatedInputTokens?: number;
+    estimatedOutputTokens?: number;
+    daily?: Record<string, { requests: number; tokens: number }>;
+}
+
+export interface WorkflowStep {
+    id: string;
+    name: string;
+    mode: Exclude<RequestMode, 'ocr' | 'layout'>;
+    prompt?: string;
+}
+
+export interface TextWorkflow {
+    id: string;
+    name: string;
+    steps: WorkflowStep[];
+}
+
+export interface BudgetSettings {
+    dailyRequestLimit: number;
+    monthlyTokenLimit: number;
+    warnLargeText: boolean;
+    autoFastMode: boolean;
+}
+
+export interface ThemeCustomization {
+    accent: string;
+    radius: number;
+    density: number;
+    transparency: number;
+    fontScale: number;
 }
 
 export interface PrivacySettings {

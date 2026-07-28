@@ -7,6 +7,8 @@ import { restoreCustomCommandSettings, setupCustomCommandSettings } from './cust
 import { normalizeResultDisplayMode } from './result-display-mode';
 import { normalizeSiteEntries } from './privacy';
 import { applyAppearanceStyle, normalizeAppearanceStyle } from './appearance-style';
+import { setupV4Settings } from './v4-settings';
+import { applyThemeCustomization } from './theme-customization';
 
 type AppearanceTheme = 'auto' | 'light' | 'dark';
 
@@ -401,6 +403,10 @@ async function restoreOptions(): Promise<void> {
 document.addEventListener('DOMContentLoaded', () => {
     localizeDocument();
     void restoreOptions();
+    void setupV4Settings();
+    void chrome.storage.local
+        .get({ themeCustomization: {} })
+        .then((stored) => applyThemeCustomization(document.documentElement, stored.themeCustomization));
     void setupOnboarding();
 
     const saveBtn = document.getElementById('saveBtn') as HTMLButtonElement | null;
@@ -545,4 +551,6 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== 'local') return;
     if (changes.adaptiveLanguageModel) renderAdaptiveStats(changes.adaptiveLanguageModel.newValue);
     if (changes.usageStats) renderUsageStats(changes.usageStats.newValue as UsageStats);
+    if (changes.themeCustomization)
+        applyThemeCustomization(document.documentElement, changes.themeCustomization.newValue);
 });

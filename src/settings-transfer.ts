@@ -25,6 +25,14 @@ const PORTABLE_SETTING_KEYS = [
     'glossary',
     'styleProfiles',
     'activeStyleProfileId',
+    'workflows',
+    'themeCustomization',
+    'liveProofreadEnabled',
+    'liveProofreadDelay',
+    'dailyRequestLimit',
+    'monthlyTokenLimit',
+    'warnLargeText',
+    'autoFastMode',
 ] as const;
 
 const SYNC_SETTING_KEYS = [
@@ -40,6 +48,13 @@ const SYNC_SETTING_KEYS = [
     'adaptiveSuggestionsEnabled',
     'adaptiveLearningEnabled',
     'aiMode',
+    'themeCustomization',
+    'liveProofreadEnabled',
+    'liveProofreadDelay',
+    'dailyRequestLimit',
+    'monthlyTokenLimit',
+    'warnLargeText',
+    'autoFastMode',
 ] as const;
 
 export interface PortableSettings {
@@ -67,6 +82,9 @@ function sanitizePortableSetting(key: (typeof PORTABLE_SETTING_KEYS)[number], va
             'historyEnabled',
             'adaptiveSuggestionsEnabled',
             'adaptiveLearningEnabled',
+            'liveProofreadEnabled',
+            'warnLargeText',
+            'autoFastMode',
         ].includes(key)
     )
         return value === true;
@@ -80,6 +98,9 @@ function sanitizePortableSetting(key: (typeof PORTABLE_SETTING_KEYS)[number], va
     if (key === 'aiMode') return value === 'fast' ? 'fast' : 'quality';
     if (key === 'interfaceScale') return Math.min(110, Math.max(75, Number(value) || 90));
     if (key === 'historyRetentionDays') return [1, 7, 30].includes(Number(value)) ? Number(value) : 30;
+    if (key === 'liveProofreadDelay') return [600, 900, 1500, 2500].includes(Number(value)) ? Number(value) : 900;
+    if (key === 'dailyRequestLimit') return Math.min(10_000, Math.max(0, Math.trunc(Number(value) || 0)));
+    if (key === 'monthlyTokenLimit') return Math.min(100_000_000, Math.max(0, Math.trunc(Number(value) || 0)));
     if (['disabledSites', 'contextDisabledSites', 'blockedSites', 'adaptiveDisabledSites'].includes(key))
         return normalizeDisabledSites(stringList(value, 500, 2_048));
     if (key === 'adaptiveBlockedWords' || key === 'personalDictionary') return stringList(value, 2000, 120);
@@ -116,6 +137,51 @@ function sanitizePortableSetting(key: (typeof PORTABLE_SETTING_KEYS)[number], va
                 };
             })
             .filter((item) => item.name && item.instruction);
+    }
+    if (key === 'themeCustomization') {
+        if (!value || typeof value !== 'object') return undefined;
+        const theme = value as Record<string, unknown>;
+        return {
+            accent: /^#[0-9a-f]{6}$/i.test(String(theme.accent)) ? String(theme.accent) : '#6750a4',
+            radius: Math.min(28, Math.max(4, Number(theme.radius) || 16)),
+            density: Math.min(115, Math.max(80, Number(theme.density) || 100)),
+            transparency: Math.min(100, Math.max(70, Number(theme.transparency) || 90)),
+            fontScale: Math.min(120, Math.max(85, Number(theme.fontScale) || 100)),
+        };
+    }
+    if (key === 'workflows') {
+        if (!Array.isArray(value)) return [];
+        return value
+            .filter((workflow) => workflow && typeof workflow === 'object')
+            .slice(0, 12)
+            .map((workflow) => {
+                const item = workflow as Record<string, unknown>;
+                return {
+                    id: String(item.id || crypto.randomUUID()).slice(0, 100),
+                    name: String(item.name || '')
+                        .trim()
+                        .slice(0, 60),
+                    steps: Array.isArray(item.steps)
+                        ? item.steps
+                              .filter((step) => step && typeof step === 'object')
+                              .slice(0, 8)
+                              .map((step, index) => {
+                                  const candidate = step as Record<string, unknown>;
+                                  return {
+                                      id: String(candidate.id || `step-${index}`).slice(0, 100),
+                                      name: String(candidate.name || 'Шаг').slice(0, 60),
+                                      mode: ['spellcheck', 'style', 'emoji', 'translate', 'custom'].includes(
+                                          String(candidate.mode),
+                                      )
+                                          ? candidate.mode
+                                          : 'custom',
+                                      prompt: String(candidate.prompt || '').slice(0, 2000),
+                                  };
+                              })
+                        : [],
+                };
+            })
+            .filter((workflow) => workflow.name && workflow.steps.length);
     }
     return undefined;
 }

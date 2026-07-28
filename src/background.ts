@@ -2,7 +2,7 @@ import type { StyleProfile } from './types';
 import { t } from './i18n';
 import { migrateSettings } from './settings-migrations';
 import { fixKeyboardLayout } from './keyboard-layout';
-import { applyUsageMutation, type UsageMutation } from './usage-stats';
+import { applyUsageMutation, getUsageStats, type UsageMutation } from './usage-stats';
 import { applyHistoryMutation, type HistoryMutation } from './history-store';
 import { applyCacheMutation, type CacheMutation } from './ai-cache';
 import { applyAdaptiveMutation, type AdaptiveMutation } from './adaptive-model-store';
@@ -20,6 +20,7 @@ import {
     syncRegisteredSiteScripts,
 } from './site-access';
 import { getPrivacySettings, isSiteDisabled, normalizeDisabledSites } from './privacy';
+import { DEFAULT_BUDGET_SETTINGS, estimateTokens, getBudgetBlockReason } from './budget';
 
 const REQUEST_TIMEOUT_MS = 45_000;
 
@@ -331,6 +332,9 @@ chrome.runtime.onConnect.addListener((port) => {
         const timeout = setTimeout(() => requestController.abort(), REQUEST_TIMEOUT_MS);
         const startedAt = Date.now();
         let completedSuccessfully = false;
+        let budgetRejected = false;
+        const inputTokens = estimateTokens(msg.text || msg.imageUrl || '');
+        let outputText = '';
 
         try {
             await initializationPromise;
@@ -344,6 +348,7 @@ chrome.runtime.onConnect.addListener((port) => {
                 activeStyleProfileId: '',
                 aiMode: 'quality',
                 contextDisabledSites: [],
+                ...DEFAULT_BUDGET_SETTINGS,
             });
             if (!msg.mode) throw new Error(t('modeMissing', 'Режим обработки не указан.'));
             if (msg.mode === 'layout') {
@@ -357,6 +362,25 @@ chrome.runtime.onConnect.addListener((port) => {
             }
             const apiKey = settings.mistralApiKey as string;
             if (!apiKey) throw new Error(t('apiKeyMissing', 'API-ключ не настроен'));
+
+            const budgetReason = getBudgetBlockReason(
+                {
+                    dailyRequestLimit: Math.max(0, Number(settings.dailyRequestLimit) || 0),
+                    monthlyTokenLimit: Math.max(0, Number(settings.monthlyTokenLimit) || 0),
+                    warnLargeText: settings.warnLargeText !== false,
+                    autoFastMode: settings.autoFastMode !== false,
+                },
+                await getUsageStats(),
+                inputTokens,
+            );
+            if (budgetReason === 'daily') {
+                budgetRejected = true;
+                throw new Error(t('dailyBudgetReached', 'Достигнут дневной лимит запросов.'));
+            }
+            if (budgetReason === 'monthly') {
+                budgetRejected = true;
+                throw new Error(t('monthlyBudgetReached', 'Достигнут месячный лимит токенов.'));
+            }
 
             const styleProfiles = Array.isArray(settings.styleProfiles)
                 ? (settings.styleProfiles as StyleProfile[])
@@ -395,10 +419,14 @@ chrome.runtime.onConnect.addListener((port) => {
                             : [],
                         glossary: Array.isArray(settings.glossary) ? settings.glossary.map(String) : [],
                         activeStyleProfile,
-                        aiMode: settings.aiMode === 'fast' ? 'fast' : 'quality',
+                        aiMode:
+                            settings.aiMode === 'fast' || (settings.autoFastMode !== false && inputTokens > 2500)
+                                ? 'fast'
+                                : 'quality',
                     },
                     requestController.signal,
                     (text) => {
+                        outputText += text;
                         if (isCurrentRequest()) safePostMessage({ status: 'chunk', text });
                     },
                 );
@@ -424,11 +452,13 @@ chrome.runtime.onConnect.addListener((port) => {
         } finally {
             clearTimeout(timeout);
             if (activeController === requestController) activeController = null;
-            if (msg.mode)
+            if (msg.mode && !budgetRejected)
                 void applyUsageMutation('request', {
                     mode: msg.mode,
                     latencyMs: Date.now() - startedAt,
                     success: completedSuccessfully,
+                    inputTokens,
+                    outputTokens: estimateTokens(outputText),
                 });
         }
     });

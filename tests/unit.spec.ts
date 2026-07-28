@@ -11,6 +11,9 @@ import { normalizeDisabledSites, normalizeSiteEntries } from '../src/privacy';
 import { validateMistralRequest } from '../src/request-validation';
 import { normalizeResultDisplayMode, shouldUseCompactResult } from '../src/result-display-mode';
 import { normalizeAppearanceStyle } from '../src/appearance-style';
+import { estimateTokens, getBudgetBlockReason, getMonthUsage } from '../src/budget';
+import { normalizeThemeCustomization } from '../src/theme-customization';
+import { normalizeWorkflows } from '../src/workflows';
 
 test('локально исправляет русскую и английскую раскладки', () => {
     expect(detectLayoutDirection('ghbdtn')).toBe('en-to-ru');
@@ -247,4 +250,47 @@ test('проверяет режим, размеры и OCR data URL до обр�
     expect(() =>
         validateMistralRequest({ action: 'callMistral', mode: 'ocr', imageUrl: 'data:image/png;base64,YQ==' }),
     ).not.toThrow();
+});
+test('нормализует настройки рабочего пространства 4.0', () => {
+    expect(normalizeThemeCustomization({ accent: 'red', radius: 100, density: 20 })).toMatchObject({
+        accent: '#6750a4',
+        radius: 28,
+        density: 80,
+    });
+    expect(
+        normalizeWorkflows([
+            { id: 'x', name: 'Тест', steps: [{ id: 's', name: 'Шаг', mode: 'custom', prompt: 'Сделай' }] },
+        ]),
+    ).toHaveLength(1);
+    expect(normalizeWorkflows([{ name: '', steps: [] }])).not.toHaveLength(0);
+});
+
+test('оценивает токены и блокирует превышение бюджета', () => {
+    const date = new Date(2026, 6, 28);
+    const stats = {
+        requests: 3,
+        cacheHits: 0,
+        failures: 0,
+        totalLatencyMs: 0,
+        byMode: {},
+        daily: { '2026-07-28': { requests: 3, tokens: 900 } },
+    };
+    expect(estimateTokens('а'.repeat(32))).toBe(10);
+    expect(getMonthUsage(stats, date)).toEqual({ requests: 3, tokens: 900 });
+    expect(
+        getBudgetBlockReason(
+            { dailyRequestLimit: 3, monthlyTokenLimit: 0, warnLargeText: true, autoFastMode: true },
+            stats,
+            10,
+            date,
+        ),
+    ).toBe('daily');
+    expect(
+        getBudgetBlockReason(
+            { dailyRequestLimit: 0, monthlyTokenLimit: 905, warnLargeText: true, autoFastMode: true },
+            stats,
+            10,
+            date,
+        ),
+    ).toBe('monthly');
 });

@@ -2,6 +2,8 @@ import { isSiteDisabled, normalizeDisabledSites } from './privacy';
 import { localizeDocument, t } from './i18n';
 import { setSitePreference, type SitePreference } from './settings-store';
 import { applyAppearanceStyle, normalizeAppearanceStyle, type AppearanceStyle } from './appearance-style';
+import { applyThemeCustomization } from './theme-customization';
+import { openWorkspacePanel } from './workspace-panel';
 
 type Theme = 'auto' | 'light' | 'dark';
 
@@ -15,11 +17,16 @@ function applyTheme(theme: Theme): void {
 }
 
 async function initializeTheme(): Promise<void> {
-    const result = await chrome.storage.local.get({ selectedTheme: 'auto', visualStyle: 'liquid-glass' });
+    const result = await chrome.storage.local.get({
+        selectedTheme: 'auto',
+        visualStyle: 'liquid-glass',
+        themeCustomization: {},
+    });
     selectedTheme = result.selectedTheme as Theme;
     visualStyle = normalizeAppearanceStyle(result.visualStyle);
     applyTheme(selectedTheme);
     applyAppearanceStyle(document.documentElement, visualStyle);
+    applyThemeCustomization(document.documentElement, result.themeCustomization);
 }
 
 void initializeTheme();
@@ -39,9 +46,16 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
         visualStyle = normalizeAppearanceStyle(changes.visualStyle.newValue);
         applyAppearanceStyle(document.documentElement, visualStyle);
     }
+    if (changes.themeCustomization)
+        applyThemeCustomization(document.documentElement, changes.themeCustomization.newValue);
 });
 
 // --- Обработчики кнопок ---
+document.getElementById('btn-workspace')!.addEventListener('click', async () => {
+    await openWorkspacePanel();
+    window.close();
+});
+
 document.getElementById('btn-history')!.addEventListener('click', () => {
     chrome.tabs.create({ url: chrome.runtime.getURL('lexisync-history.html') });
     window.close();

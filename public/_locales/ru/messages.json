@@ -344,5 +344,7 @@
     "requestCustomPromptMissing": { "message": "Инструкция пользовательской команды пуста." },
     "ocrImageInvalid": { "message": "Некорректное изображение для распознавания." },
     "ocrImageTooLarge": { "message": "Изображение для распознавания слишком большое." },
+    "dailyBudgetReached": { "message": "Достигнут дневной лимит запросов." },
+    "monthlyBudgetReached": { "message": "Достигнут месячный лимит токенов." },
     "deletedCorrection": { "message": "Удалено" }
 }

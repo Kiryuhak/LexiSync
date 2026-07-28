@@ -1101,3 +1101,82 @@ input[type='range'] {
         text-align: center;
     }
 }
+
+.v4-heading,
+.v4-settings .command-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.v4-heading p,
+.v4-settings h2 + p {
+    margin: 5px 0 0;
+}
+
+.v4-grid,
+.theme-editor-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(180px, 1fr);
+    gap: 12px 20px;
+    align-items: center;
+}
+
+.v4-grid label,
+.theme-editor-grid label {
+    margin: 0;
+}
+
+.v4-grid small,
+.v4-settings .command-item small {
+    display: block;
+    margin-top: 4px;
+    color: var(--text-secondary);
+}
+
+.inline-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.inline-check input {
+    width: auto;
+}
+
+.theme-editor-preview {
+    display: grid;
+    gap: calc(7px * var(--editor-density, 1));
+    margin: 18px 0;
+    padding: calc(18px * var(--editor-density, 1));
+    border: 1px solid color-mix(in srgb, var(--editor-accent) 30%, var(--border));
+    border-radius: var(--editor-radius);
+    background: color-mix(in srgb, var(--bg-card) calc(var(--editor-opacity) * 100%), transparent);
+    font-size: calc(14px * var(--editor-font-scale, 1));
+}
+
+.theme-editor-preview span {
+    color: var(--text-secondary);
+}
+
+.theme-editor-preview button {
+    justify-self: start;
+    padding: 8px 14px;
+    border: 0;
+    border-radius: calc(var(--editor-radius) * 0.65);
+    color: white;
+    background: var(--editor-accent);
+}
+
+@media (max-width: 560px) {
+    .v4-heading {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .v4-grid,
+    .theme-editor-grid {
+        grid-template-columns: 1fr;
+    }
+}

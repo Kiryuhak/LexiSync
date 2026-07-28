@@ -35,6 +35,7 @@
                 <button class="settings-tab" type="button" role="tab" data-tab="privacy" data-i18n="tabPrivacy">
                     Приватность
                 </button>
+                <button class="settings-tab" type="button" role="tab" data-tab="workspace">Рабочая панель</button>
                 <button class="settings-tab" type="button" role="tab" data-tab="commands" data-i18n="tabCommands">
                     Команды
                 </button>
@@ -485,6 +486,104 @@
                         Ответ клиенту
                     </button>
                 </div>
+            </section>
+
+            <section class="settings-section v4-settings" data-settings-group="workspace" hidden>
+                <div class="v4-heading">
+                    <div>
+                        <h2>Рабочая панель LexiSync 4.0</h2>
+                        <p>Цепочки обработки, варианты результата, TXT/MD-файлы и история в одном окне.</p>
+                    </div>
+                    <button id="openSidepanel" class="secondary-button" type="button">Открыть панель</button>
+                </div>
+            </section>
+
+            <section class="settings-section v4-settings" data-settings-group="workspace" hidden>
+                <h2>Проверка при вводе</h2>
+                <div class="privacy-option">
+                    <label for="liveProofreadEnabled">
+                        <span>Автоматически проверять текст</span>
+                        <small>После короткой паузы показывает исправленный вариант в рабочей панели.</small>
+                    </label>
+                    <input id="liveProofreadEnabled" type="checkbox" />
+                </div>
+                <label for="liveProofreadDelay">Задержка после ввода</label>
+                <select id="liveProofreadDelay">
+                    <option value="600">0,6 секунды</option>
+                    <option value="900">0,9 секунды</option>
+                    <option value="1500">1,5 секунды</option>
+                    <option value="2500">2,5 секунды</option>
+                </select>
+            </section>
+
+            <section class="settings-section v4-settings" data-settings-group="workspace" hidden>
+                <h2>Лимиты и экономия</h2>
+                <div class="v4-grid">
+                    <label for="dailyRequestLimit">Запросов в день <small>0 — без лимита</small></label>
+                    <input id="dailyRequestLimit" type="number" min="0" max="10000" step="1" />
+                    <label for="monthlyTokenLimit">Токенов в месяц <small>0 — без лимита</small></label>
+                    <input id="monthlyTokenLimit" type="number" min="0" max="100000000" step="1000" />
+                </div>
+                <div class="privacy-option">
+                    <label for="warnLargeText"><span>Предупреждать о большом тексте</span></label>
+                    <input id="warnLargeText" type="checkbox" />
+                </div>
+                <div class="privacy-option">
+                    <label for="autoFastMode">
+                        <span>Экономить на больших запросах</span>
+                        <small>Автоматически использовать Mistral Small для текста длиннее ≈ 2500 токенов.</small>
+                    </label>
+                    <input id="autoFastMode" type="checkbox" />
+                </div>
+            </section>
+
+            <section class="settings-section v4-settings" data-settings-group="workspace" hidden>
+                <div class="v4-heading">
+                    <div>
+                        <h2>Цепочки обработки</h2>
+                        <p>Готовые последовательности отображаются в боковой панели.</p>
+                    </div>
+                    <button id="resetWorkflows" class="secondary-button" type="button">Вернуть стандартные</button>
+                </div>
+                <div id="workflowSettingsList" class="command-list"></div>
+                <form id="workflowForm" class="command-form">
+                    <label for="workflowName">Название цепочки</label>
+                    <input id="workflowName" maxlength="60" placeholder="Например: Ответ клиенту" required />
+                    <label for="workflowPrompt">Финальная AI-инструкция</label>
+                    <textarea
+                        id="workflowPrompt"
+                        maxlength="2000"
+                        placeholder="Что нужно сделать после исправления ошибок?"
+                        required
+                    ></textarea>
+                    <label class="inline-check"
+                        ><input id="workflowSpellcheck" type="checkbox" checked /> Сначала исправить ошибки</label
+                    >
+                    <button class="onboarding-button primary" type="submit">Добавить цепочку</button>
+                </form>
+            </section>
+
+            <section class="settings-section v4-settings" data-settings-group="appearance" hidden>
+                <h2>Редактор темы</h2>
+                <p>Тонкая настройка применяется к рабочей панели и новым элементам интерфейса.</p>
+                <div class="theme-editor-grid">
+                    <label for="themeAccent">Акцент</label>
+                    <input id="themeAccent" type="color" value="#6750a4" />
+                    <label for="themeRadius">Скругление <output id="themeRadiusValue">16 px</output></label>
+                    <input id="themeRadius" type="range" min="4" max="28" value="16" />
+                    <label for="themeDensity">Плотность <output id="themeDensityValue">100%</output></label>
+                    <input id="themeDensity" type="range" min="80" max="115" value="100" />
+                    <label for="themeTransparency">Прозрачность <output id="themeTransparencyValue">90%</output></label>
+                    <input id="themeTransparency" type="range" min="70" max="100" value="90" />
+                    <label for="themeFontScale">Размер текста <output id="themeFontScaleValue">100%</output></label>
+                    <input id="themeFontScale" type="range" min="85" max="120" value="100" />
+                </div>
+                <div id="themeEditorPreview" class="theme-editor-preview">
+                    <strong>Готовый текст</strong>
+                    <span>Так будет выглядеть поверхность и основной цвет.</span>
+                    <button type="button">Применить</button>
+                </div>
+                <button id="resetThemeEditor" class="secondary-button" type="button">Сбросить тонкую настройку</button>
             </section>
 
             <div class="instruction-box" data-settings-group="main">

@@ -344,5 +344,7 @@
     "requestCustomPromptMissing": { "message": "The custom command instruction is empty." },
     "ocrImageInvalid": { "message": "The image for text recognition is invalid." },
     "ocrImageTooLarge": { "message": "The image for text recognition is too large." },
+    "dailyBudgetReached": { "message": "The daily request limit has been reached." },
+    "monthlyBudgetReached": { "message": "The monthly token limit has been reached." },
     "deletedCorrection": { "message": "Deleted" }
 }

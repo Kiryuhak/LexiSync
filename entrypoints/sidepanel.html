@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ru">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="manifest.default_title" content="LexiSync 4.0" />
+        <title>LexiSync — рабочая панель</title>
+        <link rel="stylesheet" href="/src/sidepanel.css" />
+    </head>
+    <body>
+        <header class="app-header">
+            <div>
+                <strong>LexiSync</strong>
+                <span>Рабочая панель 4.0</span>
+            </div>
+            <button id="openOptions" class="icon-button" type="button" title="Настройки" aria-label="Настройки">
+                ⚙
+            </button>
+        </header>
+
+        <main>
+            <section class="composer card" aria-labelledby="editorTitle">
+                <div class="section-heading">
+                    <h1 id="editorTitle">Текст</h1>
+                    <button id="takeSelection" class="text-button" type="button">Взять выделение</button>
+                </div>
+                <textarea
+                    id="sourceText"
+                    placeholder="Введите текст или возьмите выделение со страницы…"
+                    maxlength="50000"
+                ></textarea>
+                <div class="composer-meta">
+                    <label class="inline-toggle">
+                        <input id="liveProofread" type="checkbox" />
+                        Проверять при вводе
+                    </label>
+                    <span id="sourceCount">0</span>
+                </div>
+                <div id="commandPalette" class="command-palette" role="group" aria-label="Команды">
+                    <input id="commandSearch" type="search" placeholder="Найти команду…" aria-label="Найти команду" />
+                    <div id="commandList" class="command-grid"></div>
+                </div>
+            </section>
+
+            <section id="progressCard" class="card progress-card" hidden>
+                <div class="section-heading">
+                    <strong id="progressLabel">Обработка…</strong>
+                    <button id="cancelRequest" class="text-button danger" type="button">Отменить</button>
+                </div>
+                <progress id="progress" max="100"></progress>
+            </section>
+
+            <section id="resultCard" class="card result-card" aria-labelledby="resultTitle" hidden>
+                <div class="section-heading">
+                    <h2 id="resultTitle">Готовый текст</h2>
+                    <span id="resultMode" class="badge"></span>
+                </div>
+                <textarea id="resultText" aria-label="Результат"></textarea>
+                <div class="action-row">
+                    <button id="applyResult" class="primary-button" type="button">↵ Заменить на странице</button>
+                    <button id="copyResult" class="secondary-button" type="button">Копировать</button>
+                </div>
+                <button id="makeVariants" class="wide-text-button" type="button">Создать 3 варианта</button>
+                <div id="variantList" class="variant-list"></div>
+            </section>
+
+            <section class="card" aria-labelledby="workflowTitle">
+                <div class="section-heading">
+                    <h2 id="workflowTitle">Цепочки</h2>
+                    <span class="hint">несколько шагов подряд</span>
+                </div>
+                <div id="workflowList" class="stack-list"></div>
+            </section>
+
+            <section class="card" aria-labelledby="batchTitle">
+                <div class="section-heading">
+                    <h2 id="batchTitle">Пакетная обработка</h2>
+                    <span class="hint">TXT и MD</span>
+                </div>
+                <input
+                    id="batchFiles"
+                    type="file"
+                    accept=".txt,.md,text/plain,text/markdown"
+                    aria-label="Файлы TXT и Markdown"
+                    multiple
+                />
+                <select id="batchMode" aria-label="Действие с файлами">
+                    <option value="spellcheck">Исправить ошибки</option>
+                    <option value="style">Улучшить стиль</option>
+                    <option value="custom">Сделать короче</option>
+                </select>
+                <button id="runBatch" class="secondary-button full" type="button">Обработать файлы</button>
+                <div id="batchList" class="batch-list"></div>
+            </section>
+
+            <section class="card split-card">
+                <div>
+                    <h2>Использование</h2>
+                    <strong id="usageToday">0 запросов сегодня</strong>
+                    <span id="usageMonth">0 токенов за месяц</span>
+                </div>
+                <button id="openBudget" class="text-button" type="button">Лимиты</button>
+            </section>
+
+            <section class="card" aria-labelledby="historyTitle">
+                <div class="section-heading">
+                    <h2 id="historyTitle">Недавнее и избранное</h2>
+                    <button id="openHistory" class="text-button" type="button">Вся история</button>
+                </div>
+                <div id="historyList" class="stack-list"></div>
+            </section>
+        </main>
+
+        <div id="status" class="toast" role="status" aria-live="polite" hidden></div>
+        <script type="module" src="/src/sidepanel.ts"></script>
+    </body>
+</html>

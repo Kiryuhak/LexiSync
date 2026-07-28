@@ -15,10 +15,14 @@ import {
 } from './content-request-panel';
 import { ensureOptionalContentFeature, OCR_IMAGE_EVENT, OCR_START_EVENT } from './optional-content-features';
 import { applyAppearanceStyle, normalizeAppearanceStyle, type AppearanceStyle } from './appearance-style';
+import { startLiveProofread } from './live-proofread';
+import { applyThemeCustomization, DEFAULT_THEME_CUSTOMIZATION } from './theme-customization';
+import type { ThemeCustomization } from './types';
 
 const contentRuntime = globalThis as typeof globalThis & { __lexisyncContentInitialized?: boolean };
 if (!contentRuntime.__lexisyncContentInitialized) {
     contentRuntime.__lexisyncContentInitialized = true;
+    startLiveProofread();
 
     let adaptiveSuggestionsInitialized = false;
     const ensureAdaptiveSuggestions = async () => {
@@ -78,6 +82,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
     let currentTargetLang: string = getLanguageName('en');
     let currentTheme: string = 'auto';
     let currentVisualStyle: AppearanceStyle = 'liquid-glass';
+    let currentThemeCustomization: ThemeCustomization = DEFAULT_THEME_CUSTOMIZATION;
     let currentSearchEngine: string = 'google';
     let currentInterfaceScale: number = 90;
 
@@ -316,10 +321,17 @@ if (!contentRuntime.__lexisyncContentInitialized) {
     }
 
     chrome.storage.local.get(
-        { selectedTheme: 'auto', visualStyle: 'liquid-glass', searchEngine: 'google', interfaceScale: 90 },
+        {
+            selectedTheme: 'auto',
+            visualStyle: 'liquid-glass',
+            searchEngine: 'google',
+            interfaceScale: 90,
+            themeCustomization: DEFAULT_THEME_CUSTOMIZATION,
+        },
         (res) => {
             if (res.selectedTheme) currentTheme = res.selectedTheme as string;
             currentVisualStyle = normalizeAppearanceStyle(res.visualStyle);
+            currentThemeCustomization = applyThemeCustomization(document.documentElement, res.themeCustomization);
             if (res.searchEngine) currentSearchEngine = res.searchEngine as string;
             currentInterfaceScale = normalizeInterfaceScale(res.interfaceScale);
         },
@@ -334,6 +346,13 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             if (changes.visualStyle) {
                 currentVisualStyle = normalizeAppearanceStyle(changes.visualStyle.newValue);
                 if (popupUI) applyAppearanceStyle(popupUI, currentVisualStyle);
+            }
+            if (changes.themeCustomization) {
+                currentThemeCustomization = applyThemeCustomization(
+                    document.documentElement,
+                    changes.themeCustomization.newValue,
+                );
+                if (popupUI) applyThemeCustomization(popupUI, currentThemeCustomization);
             }
             if (changes.searchEngine) currentSearchEngine = changes.searchEngine.newValue as string;
             if (changes.interfaceScale) {
@@ -375,6 +394,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
         const popup = document.createElement('div');
         popup.id = 'lexisync-extension-ui';
         applyAppearanceStyle(popup, currentVisualStyle);
+        applyThemeCustomization(popup, currentThemeCustomization);
         popup.style.pointerEvents = 'auto';
         popup.style.setProperty('zoom', String(currentInterfaceScale / 100));
         popupShadow.appendChild(popup);

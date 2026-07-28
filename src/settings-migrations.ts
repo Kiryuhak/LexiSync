@@ -1,7 +1,9 @@
 import { normalizeSitePatterns } from './site-profiles';
 import type { StyleProfile } from './types';
+import { DEFAULT_WORKFLOWS } from './workflows';
+import { DEFAULT_THEME_CUSTOMIZATION } from './theme-customization';
 
-const CURRENT_SETTINGS_SCHEMA = 7;
+const CURRENT_SETTINGS_SCHEMA = 8;
 const MIGRATION_SETTING_KEYS = [
     'settingsSchemaVersion',
     'disabledSites',
@@ -21,6 +23,14 @@ const MIGRATION_SETTING_KEYS = [
     'compactResultMode',
     'resultDisplayMode',
     'visualStyle',
+    'workflows',
+    'themeCustomization',
+    'liveProofreadEnabled',
+    'liveProofreadDelay',
+    'dailyRequestLimit',
+    'monthlyTokenLimit',
+    'warnLargeText',
+    'autoFastMode',
 ] as const;
 
 function getSchemaVersion(value: unknown): number {
@@ -103,6 +113,19 @@ export async function migrateSettings(): Promise<void> {
         !['liquid-glass', 'material-3', 'flutter', 'bento'].includes(String(stored.visualStyle))
     ) {
         updates.visualStyle = 'liquid-glass';
+    }
+    if (currentVersion < 8) {
+        if (!Array.isArray(stored.workflows)) updates.workflows = DEFAULT_WORKFLOWS;
+        if (!stored.themeCustomization || typeof stored.themeCustomization !== 'object')
+            updates.themeCustomization = DEFAULT_THEME_CUSTOMIZATION;
+        if (typeof stored.liveProofreadEnabled !== 'boolean') updates.liveProofreadEnabled = false;
+        if (![600, 900, 1500, 2500].includes(Number(stored.liveProofreadDelay))) updates.liveProofreadDelay = 900;
+        if (!Number.isFinite(Number(stored.dailyRequestLimit)) || Number(stored.dailyRequestLimit) < 0)
+            updates.dailyRequestLimit = 0;
+        if (!Number.isFinite(Number(stored.monthlyTokenLimit)) || Number(stored.monthlyTokenLimit) < 0)
+            updates.monthlyTokenLimit = 0;
+        if (typeof stored.warnLargeText !== 'boolean') updates.warnLargeText = true;
+        if (typeof stored.autoFastMode !== 'boolean') updates.autoFastMode = true;
     }
     updates.settingsSchemaVersion = CURRENT_SETTINGS_SCHEMA;
     const migratedKeys = Object.keys(updates).filter((key) => key !== 'settingsSchemaVersion');

@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 
-const REQUIRED_PERMISSIONS = ['storage', 'activeTab', 'scripting', 'contextMenus'];
+const BASE_PERMISSIONS = ['storage', 'activeTab', 'scripting', 'contextMenus'];
 const REQUIRED_ORIGINS = ['https://api.mistral.ai/*'];
 const OPTIONAL_WEB_ORIGINS = ['http://*/*', 'https://*/*'];
 const packageJson = JSON.parse(await fs.readFile(new URL('../package.json', import.meta.url), 'utf8'));
@@ -22,8 +22,13 @@ for (const browser of ['chrome', 'firefox']) {
     if (manifest.manifest_version !== 3) throw new Error(`${browser}: требуется Manifest V3`);
     if (manifest.version !== packageJson.version)
         throw new Error(`${browser}: версия манифеста не совпадает с package.json`);
-    if (!sameValues(permissions, REQUIRED_PERMISSIONS))
+    const requiredPermissions = browser === 'chrome' ? [...BASE_PERMISSIONS, 'sidePanel'] : BASE_PERMISSIONS;
+    if (!sameValues(permissions, requiredPermissions))
         throw new Error(`${browser}: набор обязательных разрешений изменён`);
+    if (browser === 'chrome' && manifest.side_panel?.default_path !== 'sidepanel.html')
+        throw new Error('chrome: side panel is not configured');
+    if (browser === 'firefox' && manifest.sidebar_action?.default_panel !== 'sidepanel.html')
+        throw new Error('firefox: sidebar is not configured');
     if (!sameValues(requiredOrigins, REQUIRED_ORIGINS))
         throw new Error(`${browser}: обязательный доступ разрешён только для Mistral API`);
     if (manifest.content_scripts) throw new Error(`${browser}: content script не должен быть статическим`);

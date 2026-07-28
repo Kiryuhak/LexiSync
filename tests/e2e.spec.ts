@@ -24,7 +24,7 @@ const test = base.extend({
                     return settings.settingsSchemaVersion;
                 }),
             )
-            .toBe(7);
+            .toBe(8);
         await use(context);
         await context.close();
     },
@@ -557,7 +557,8 @@ test('Названия вкладок настроек не переносятс
         }),
     );
 
-    expect(lineCounts).toEqual([1, 1, 1, 1, 1, 1]);
+    expect(lineCounts).toHaveLength(7);
+    expect(lineCounts.every((count) => count === 1)).toBe(true);
 });
 
 test('Настройки сохраняют визуальный контракт на узких экранах', async ({ page, context }) => {
@@ -671,7 +672,7 @@ test('Страницы расширения проходят автоматич�
     if (!background) background = await context.waitForEvent('serviceworker');
     await background.evaluate(() => chrome.storage.local.set({ onboardingCompleted: true }));
     const extensionId = new URL(background.url()).host;
-    for (const pathName of ['options.html', 'popup.html', 'lexisync-history.html']) {
+    for (const pathName of ['options.html', 'popup.html', 'lexisync-history.html', 'sidepanel.html']) {
         await page.goto(`chrome-extension://${extensionId}/${pathName}`);
         const results = await new AxeBuilder({ page }).analyze();
         expect(
@@ -942,4 +943,108 @@ test('Полное отключение сайта подавляет интер
     await page.keyboard.press('Alt+r');
     await page.waitForTimeout(200);
     await expect(page.locator('#lexisync-shadow-host')).toHaveCount(0);
+});
+test('рабочая панель 4.0 показывает команды, цепочки и локальную статистику', async ({ page, context }) => {
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    const extensionId = new URL(background.url()).host;
+    await background.evaluate(() =>
+        chrome.storage.local.set({
+            onboardingCompleted: true,
+            usageStats: {
+                requests: 2,
+                cacheHits: 0,
+                failures: 0,
+                totalLatencyMs: 0,
+                byMode: { spellcheck: 2 },
+                daily: { [new Date().toLocaleDateString('en-CA')]: { requests: 2, tokens: 120 } },
+            },
+        }),
+    );
+
+    await page.goto(`chrome-extension://${extensionId}/sidepanel.html`);
+    await expect(page.locator('#commandList .command')).toHaveCount(6);
+    await expect(page.locator('#workflowList .workflow')).toHaveCount(3);
+    await page.locator('#sourceText').fill('Текст для рабочей панели');
+    await expect(page.locator('#sourceCount')).toContainText('24');
+    await page.keyboard.press('Control+k');
+    await expect(page.locator('#commandSearch')).toBeFocused();
+    await expect(page.locator('#usageToday')).toContainText('2');
+});
+
+test('настройки 4.0 сохраняют лимиты, автопроверку, тему и новую цепочку', async ({ page, context }) => {
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() => chrome.storage.local.set({ onboardingCompleted: true }));
+    const extensionId = new URL(background.url()).host;
+    await page.goto(`chrome-extension://${extensionId}/options.html`);
+
+    await page.locator('[data-tab="workspace"]').click();
+    await page.locator('#liveProofreadEnabled').check();
+    await page.locator('#dailyRequestLimit').fill('20');
+    await page.locator('#dailyRequestLimit').blur();
+    await page.locator('#monthlyTokenLimit').fill('50000');
+    await page.locator('#monthlyTokenLimit').blur();
+    await page.locator('#workflowName').fill('Ответ клиенту');
+    await page.locator('#workflowPrompt').fill('Сделай ответ вежливым и коротким.');
+    await page.locator('#workflowForm button[type="submit"]').click();
+    await expect(page.locator('#workflowSettingsList .command-item')).toHaveCount(4);
+
+    await page.locator('[data-tab="appearance"]').click();
+    await page.locator('#themeAccent').evaluate((element: HTMLInputElement) => {
+        element.value = '#006c4c';
+        element.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await expect
+        .poll(() =>
+            background.evaluate(() =>
+                chrome.storage.local.get([
+                    'liveProofreadEnabled',
+                    'dailyRequestLimit',
+                    'monthlyTokenLimit',
+                    'themeCustomization',
+                    'workflows',
+                ]),
+            ),
+        )
+        .toMatchObject({
+            liveProofreadEnabled: true,
+            dailyRequestLimit: 20,
+            monthlyTokenLimit: 50_000,
+            themeCustomization: { accent: '#006c4c' },
+            workflows: expect.arrayContaining([expect.objectContaining({ name: 'Ответ клиенту' })]),
+        });
+});
+
+test('проверка при вводе показывает зелёные исправления и применяет результат', async ({ page, context }) => {
+    await setFakeApiKey(context);
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() =>
+        chrome.storage.local.set({
+            liveProofreadEnabled: true,
+            liveProofreadDelay: 600,
+            onboardingCompleted: true,
+        }),
+    );
+    await context.route('https://api.mistral.ai/v1/chat/completions', async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: 'text/event-stream',
+            body: 'data: {"choices":[{"delta":{"content":"Это исправленный длинный текст."}}]}\n\ndata: [DONE]\n\n',
+        });
+    });
+    await page.goto('https://example.com');
+    await grantSiteAccess(context, page);
+    await page.evaluate(() => {
+        const textarea = document.createElement('textarea');
+        textarea.id = 'live-editor';
+        document.body.append(textarea);
+    });
+    await page.locator('#live-editor').fill('Это неправельный длинный текст.');
+    const suggestion = page.locator('[data-lexisync-live-proof]');
+    await expect(suggestion).toBeVisible();
+    await expect(suggestion.locator('mark')).toBeVisible();
+    await suggestion.locator('button.apply').click();
+    await expect(page.locator('#live-editor')).toHaveValue('Это исправленный длинный текст.');
 });

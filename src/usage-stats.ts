@@ -1,5 +1,6 @@
 import type { RequestMode, UsageStats } from './types';
 import { enqueueStorageMutation } from './storage-queue';
+import { getLocalDayKey } from './budget';
 
 const STORAGE_KEY = 'usageStats';
 const MAX_RECORDED_LATENCY_MS = 5 * 60 * 1000;
@@ -11,6 +12,9 @@ export const EMPTY_USAGE_STATS: UsageStats = {
     failures: 0,
     totalLatencyMs: 0,
     byMode: {},
+    estimatedInputTokens: 0,
+    estimatedOutputTokens: 0,
+    daily: {},
 };
 
 function normalizeStats(value: unknown): UsageStats {
@@ -26,6 +30,23 @@ function normalizeStats(value: unknown): UsageStats {
         failures: Math.max(0, Math.trunc(Number(candidate.failures) || 0)),
         totalLatencyMs: Math.max(0, Math.trunc(Number(candidate.totalLatencyMs) || 0)),
         byMode,
+        estimatedInputTokens: Math.max(0, Math.trunc(Number(candidate.estimatedInputTokens) || 0)),
+        estimatedOutputTokens: Math.max(0, Math.trunc(Number(candidate.estimatedOutputTokens) || 0)),
+        daily: Object.fromEntries(
+            Object.entries(candidate.daily && typeof candidate.daily === 'object' ? candidate.daily : {})
+                .filter(([day]) => /^\d{4}-\d{2}-\d{2}$/.test(day))
+                .slice(-62)
+                .map(([day, usage]) => {
+                    const value = usage && typeof usage === 'object' ? usage : { requests: 0, tokens: 0 };
+                    return [
+                        day,
+                        {
+                            requests: Math.max(0, Math.trunc(Number(value.requests) || 0)),
+                            tokens: Math.max(0, Math.trunc(Number(value.tokens) || 0)),
+                        },
+                    ];
+                }),
+        ),
     };
 }
 
@@ -34,8 +55,14 @@ export async function getUsageStats(): Promise<UsageStats> {
     return normalizeStats(stored[STORAGE_KEY]);
 }
 
-export async function recordRequest(mode: RequestMode, latencyMs: number, success: boolean): Promise<void> {
-    await requestUsageMutation('request', { mode, latencyMs, success });
+export async function recordRequest(
+    mode: RequestMode,
+    latencyMs: number,
+    success: boolean,
+    inputTokens = 0,
+    outputTokens = 0,
+): Promise<void> {
+    await requestUsageMutation('request', { mode, latencyMs, success, inputTokens, outputTokens });
 }
 
 export async function recordCacheHit(): Promise<void> {
@@ -52,6 +79,8 @@ interface UsageMutationPayload {
     mode?: RequestMode;
     latencyMs?: number;
     success?: boolean;
+    inputTokens?: number;
+    outputTokens?: number;
 }
 
 async function requestUsageMutation(mutation: UsageMutation, payload: UsageMutationPayload): Promise<void> {
@@ -78,6 +107,17 @@ export function applyUsageMutation(mutation: UsageMutation, payload: UsageMutati
             stats.totalLatencyMs += Math.min(MAX_RECORDED_LATENCY_MS, Math.max(0, Number(payload.latencyMs) || 0));
             if (payload.success !== true) stats.failures++;
             stats.byMode[payload.mode] = (stats.byMode[payload.mode] || 0) + 1;
+            const inputTokens = Math.max(0, Math.trunc(Number(payload.inputTokens) || 0));
+            const outputTokens = Math.max(0, Math.trunc(Number(payload.outputTokens) || 0));
+            stats.estimatedInputTokens = (stats.estimatedInputTokens || 0) + inputTokens;
+            stats.estimatedOutputTokens = (stats.estimatedOutputTokens || 0) + outputTokens;
+            const day = getLocalDayKey();
+            const daily = stats.daily || {};
+            daily[day] = {
+                requests: (daily[day]?.requests || 0) + 1,
+                tokens: (daily[day]?.tokens || 0) + inputTokens + outputTokens,
+            };
+            stats.daily = Object.fromEntries(Object.entries(daily).sort().slice(-62));
         } else {
             throw new Error('INVALID_USAGE_MUTATION');
         }
