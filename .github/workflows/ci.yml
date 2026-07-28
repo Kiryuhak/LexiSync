@@ -6,16 +6,23 @@ on:
     pull_request:
     workflow_dispatch:
 
+permissions:
+    contents: read
+
+concurrency:
+    group: ci-${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
 jobs:
     build-and-test:
         runs-on: ubuntu-latest
-        timeout-minutes: 20
+        timeout-minutes: 25
         steps:
             - name: Получить код
-              uses: actions/checkout@v4
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
             - name: Установить Node.js
-              uses: actions/setup-node@v4
+              uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
               with:
                   node-version: 22
                   cache: npm
@@ -23,52 +30,48 @@ jobs:
             - name: Установить зависимости
               run: npm ci
 
-            - name: Установить тестовые браузеры
-              run: npx playwright install --with-deps chromium firefox
+            - name: Проверить код, типы, форматирование и локализацию
+              run: npm run check:static
 
-            - name: Проверить типы
-              run: npm run typecheck
-
-            - name: Проверить код линтером
-              run: npm run lint
-
-            - name: Проверить форматирование
-              run: npm run format:check
-
-            - name: Проверить production-зависимости
-              run: npm audit --omit=dev
+            - name: Проверить все зависимости, включая инструменты разработки
+              run: npm run audit:dependencies
 
             - name: Запустить модульные тесты
               run: npm run test:coverage
 
-            - name: Собрать Chrome и Firefox
-              run: npm run build
-
-            - name: Проверить разрешения production-манифестов
-              run: npm run verify:manifests
-
-            - name: Проверить Chrome
-              run: xvfb-run -a npm run test:e2e
-
-            - name: Упаковать и проверить Firefox
-              run: npm run test:firefox
-
-            - name: Проверить требования Firefox Add-ons
-              run: npm run lint:firefox
-
-            - name: Создать архивы расширения
+            - name: Собрать финальные production-архивы
               run: npm run zip
 
+            - name: Проверить манифесты и содержимое production-архивов
+              run: npm run verify:artifacts
+
+            - name: Проверить финальную Firefox-сборку для Add-ons
+              run: npm run lint:firefox
+
+            - name: Установить тестовые браузеры
+              run: npx playwright install --with-deps chromium firefox
+
+            - name: Собрать изолированные E2E-артефакты
+              run: npm run build:e2e
+
+            - name: Проверить Chrome
+              run: xvfb-run -a npm run test:e2e:only
+
+            - name: Проверить Firefox
+              run: npm run test:firefox:only
+
             - name: Сохранить сборки
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
               with:
                   name: lexisync-builds
-                  path: .output/*.zip
+                  path: .output/release/*.zip
                   retention-days: 14
 
             - name: Сохранить отчёт покрытия
-              uses: actions/upload-artifact@v4
+              if: always()
+              uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
               with:
                   name: coverage-summary
                   path: coverage/coverage-summary.json
                   retention-days: 14
+                  if-no-files-found: ignore

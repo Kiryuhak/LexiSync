@@ -3,20 +3,17 @@ import { getCachedText, getCacheHash, setCachedText } from './ai-cache';
 import { t } from './i18n';
 import { addHistoryItem, updateHistoryItemResult } from './history-store';
 import { isSiteDisabled, normalizeDisabledSites, shouldStoreOnCurrentPage } from './privacy';
-import {
-    getWordCorrections,
-    normalizeSpellcheckResult,
-    renderSpellcheckDiffFragment,
-    resolveCorrections,
-    type WordCorrection,
-} from './spellcheck';
-import { replaceSelectedText } from './text-replacement';
+import { normalizeSpellcheckResult } from './spellcheck';
 import type { CustomCommand, HistoryItem, RequestMode, SelectionData, StreamResponse } from './types';
 import { recordCacheHit } from './usage-stats';
-import { appendIconAndText, createSvgIcon, renderMarkdown, setIcon } from './dom-rendering';
+import { createSvgIcon, renderMarkdown, setIcon } from './dom-rendering';
 import { REQUEST_CACHE_VERSION, serializeCacheSource } from './request-cache';
-import { addPersonalDictionaryWord } from './settings-store';
 import { createRequestLifecycle } from './request-lifecycle';
+import { createBatchedUiUpdater, type BatchedUiUpdater } from './content-stream-renderer';
+import { activateDialogKeyboard } from './content-dialog-accessibility';
+import { normalizeResultDisplayMode, shouldUseCompactResult } from './result-display-mode';
+import { createSpellcheckUi } from './content-spellcheck-ui';
+import { renderPrimaryResultActions } from './content-result-actions';
 
 export interface ContentRequestContext {
     getPopup: () => HTMLElement | null;
@@ -55,7 +52,11 @@ export function executeRequest(
     const { getLanguageName, getPopupElementById, adjustPopupPosition, closePopup } = context;
     const originalText = currentSelection.text;
     let streamPort: chrome.runtime.Port | null = null;
+    let streamUiUpdater: BatchedUiUpdater | null = null;
+    let deactivateDialogKeyboard: (() => void) | null = null;
     const lifecycle = createRequestLifecycle(() => {
+        streamUiUpdater?.cancel();
+        deactivateDialogKeyboard?.();
         streamPort?.disconnect();
         streamPort = null;
     });
@@ -97,6 +98,7 @@ export function executeRequest(
     popupUI.dataset.surface = 'result';
     delete popupUI.dataset.compactResult;
     popupUI.setAttribute('role', 'dialog');
+    popupUI.setAttribute('aria-modal', 'true');
     popupUI.setAttribute('aria-label', t('resultDialog', 'Результат обработки текста'));
     popupUI.style.width = '340px';
     popupUI.style.padding = '0';
@@ -132,6 +134,7 @@ export function executeRequest(
     header.onmousedown = (e) => {
         const target = e.target as HTMLElement;
         if (
+            target.closest('button') ||
             target.closest('svg') ||
             target.closest('div[style*="cursor: pointer"]') ||
             target.closest('#lexisync-lang-label')
@@ -152,28 +155,40 @@ export function executeRequest(
         headerTitleWrapper.style.pointerEvents = 'auto';
         const langWrap = document.createElement('div');
         langWrap.style.cssText =
-            'display: flex; align-items: center; gap: 4px; cursor: pointer; position: relative; user-select: none; padding: 6px 10px; margin-left: -10px; border-radius: 8px; transition: background 0.15s;';
+            'display: flex; align-items: center; position: relative; user-select: none; margin-left: -10px;';
+        const langTrigger = document.createElement('button');
+        langTrigger.type = 'button';
+        langTrigger.setAttribute('aria-haspopup', 'listbox');
+        langTrigger.setAttribute('aria-expanded', 'false');
+        langTrigger.setAttribute('aria-label', t('selectTranslationLanguage', 'Выбрать язык перевода'));
+        langTrigger.style.cssText =
+            'display:flex;align-items:center;gap:4px;padding:6px 10px;border:0;border-radius:8px;background:transparent;color:var(--text-primary);font:inherit;font-weight:600;cursor:pointer;';
         const languageLabel = document.createElement('span');
         languageLabel.id = 'lexisync-lang-label';
         languageLabel.textContent = currentTargetLang;
         const chevron = document.createElement('span');
         chevron.style.marginTop = '2px';
         setIcon(chevron, ICONS.chevronDown);
-        langWrap.append(languageLabel, chevron);
-        langWrap.onmouseover = () => (langWrap.style.background = 'var(--hover-bg)');
-        langWrap.onmouseout = () => (langWrap.style.background = 'transparent');
+        langTrigger.append(languageLabel, chevron);
+        langWrap.append(langTrigger);
 
         const langDropdown = document.createElement('div');
         langDropdown.className = 'lexisync-scroll';
+        langDropdown.setAttribute('role', 'listbox');
+        langDropdown.setAttribute('aria-label', t('translationLanguages', 'Языки перевода'));
         langDropdown.style.cssText =
             'display: none; position: absolute; top: 100%; left: -4px; margin-top: 8px; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 12px; box-shadow: 0 12px 24px var(--shadow-color); flex-direction: column; min-width: 140px; z-index: 9999; padding: 8px 0; max-height: 220px; overflow-y: auto; font-weight: normal;';
 
         const popularLangs = ['en', 'ru', 'de', 'fr', 'es', 'it', 'pl', 'zh', 'tr', 'ja'].map(getLanguageName);
 
         popularLangs.forEach((lang) => {
-            const langItem = document.createElement('div');
+            const langItem = document.createElement('button');
+            langItem.type = 'button';
+            langItem.setAttribute('role', 'option');
+            langItem.setAttribute('aria-selected', String(lang === currentTargetLang));
             langItem.textContent = lang;
-            langItem.style.cssText = `padding: 10px 16px; font-size: 13px; cursor: pointer; transition: background 0.1s; color: var(--text-primary);`;
+            langItem.style.cssText =
+                'width:100%;padding:10px 16px;border:0;background:transparent;text-align:left;font-size:13px;cursor:pointer;transition:background 0.1s;color:var(--text-primary);';
             if (lang === currentTargetLang) {
                 langItem.style.background = 'var(--hover-bg)';
                 langItem.style.fontWeight = '600';
@@ -187,6 +202,7 @@ export function executeRequest(
             langItem.onclick = (e) => {
                 e.stopPropagation();
                 langDropdown.style.display = 'none';
+                langTrigger.setAttribute('aria-expanded', 'false');
                 if (lang !== currentTargetLang) {
                     currentTargetLang = lang;
                     context.setTargetLanguage(lang);
@@ -200,9 +216,12 @@ export function executeRequest(
         });
 
         langWrap.appendChild(langDropdown);
-        langWrap.onclick = (e) => {
+        langTrigger.onclick = (e) => {
             e.stopPropagation();
-            langDropdown.style.display = langDropdown.style.display === 'flex' ? 'none' : 'flex';
+            const open = langDropdown.style.display !== 'flex';
+            langDropdown.style.display = open ? 'flex' : 'none';
+            langTrigger.setAttribute('aria-expanded', String(open));
+            if (open) langDropdown.querySelector<HTMLElement>('[aria-selected="true"]')?.focus();
         };
         headerTitleWrapper.appendChild(langWrap);
     } else {
@@ -229,9 +248,19 @@ export function executeRequest(
     actionsContainer.style.cssText =
         'display: none; padding: 0 16px 16px 16px; gap: 10px; align-items: center; justify-content: flex-start;';
 
+    const actionStatus = document.createElement('div');
+    actionStatus.className = 'lexisync-action-status';
+    actionStatus.setAttribute('role', 'status');
+    actionStatus.setAttribute('aria-live', 'polite');
+    actionStatus.hidden = true;
+
     const correctionsContainer = document.createElement('div');
     correctionsContainer.className = 'lexisync-corrections';
     correctionsContainer.style.cssText = 'display:none; padding:0 16px 12px; gap:6px; flex-direction:column;';
+
+    const compactCorrectionDetails = document.createElement('div');
+    compactCorrectionDetails.className = 'lexisync-compact-correction-details';
+    compactCorrectionDetails.hidden = true;
 
     const resultTools = document.createElement('div');
     resultTools.className = 'lexisync-result-tools';
@@ -239,10 +268,13 @@ export function executeRequest(
     popupUI.replaceChildren();
     popupUI.appendChild(header);
     popupUI.appendChild(contentPane);
+    popupUI.appendChild(compactCorrectionDetails);
     popupUI.appendChild(correctionsContainer);
     popupUI.appendChild(resultTools);
     popupUI.appendChild(actionsContainer);
+    popupUI.appendChild(actionStatus);
     adjustPopupPosition();
+    deactivateDialogKeyboard = activateDialogKeyboard(popupUI, closePopup);
 
     let fullResult = '';
     let compactResultMode = false;
@@ -252,8 +284,25 @@ export function executeRequest(
     let storageAllowed = false;
     let cacheSettingsFingerprint = 'default';
     let savedHistoryId: number | null = null;
-    let wordCorrections: WordCorrection[] = [];
-    const rejectedCorrections = new Set<number>();
+    const spellcheckUi = createSpellcheckUi({
+        contentPane,
+        correctionsContainer,
+        compactDetails: compactCorrectionDetails,
+        isCompact: () => compactResultMode,
+        adjustPosition: adjustPopupPosition,
+        onResultChange: (result) => {
+            if (storageAllowed && savedHistoryId !== null) void updateHistoryItemResult(savedHistoryId, result);
+        },
+    });
+
+    streamUiUpdater = createBatchedUiUpdater(() => {
+        if (lifecycle.disposed) return;
+        if (compactResultMode) contentPane.textContent = fullResult;
+        else renderMarkdown(contentPane, fullResult);
+        contentPane.setAttribute('aria-live', 'polite');
+        contentPane.scrollTop = contentPane.scrollHeight;
+        adjustPopupPosition();
+    });
 
     function applyCompactResultLayout(): void {
         const currentPopup = context.getPopup();
@@ -290,79 +339,18 @@ export function executeRequest(
         if (comparisonOriginalVisible && editedResultSnapshot) return editedResultSnapshot;
         if (contentPane.contentEditable === 'true') return contentPane.innerText.trim();
         const clean = fullResult.replace(/\*/g, '');
-        return mode === 'spellcheck' ? resolveCorrections(clean, wordCorrections, rejectedCorrections) : clean;
+        return mode === 'spellcheck' ? spellcheckUi.getResult(clean) : clean;
     }
 
-    function refreshSpellcheck(): void {
-        if (mode !== 'spellcheck') return;
-        contentPane.replaceChildren(
-            renderSpellcheckDiffFragment(currentSelection.text, fullResult, rejectedCorrections),
-        );
-        renderCorrectionControls();
+    function showActionStatus(message: string, isError = false): void {
+        actionStatus.textContent = message;
+        actionStatus.dataset.error = String(isError);
+        actionStatus.hidden = false;
+        lifecycle.setTimeout(() => {
+            actionStatus.hidden = true;
+        }, 2500);
     }
 
-    async function addToDictionary(word: string): Promise<void> {
-        await addPersonalDictionaryWord(word);
-    }
-
-    function toggleCorrection(correction: WordCorrection): void {
-        if (rejectedCorrections.has(correction.tokenIndex)) rejectedCorrections.delete(correction.tokenIndex);
-        else rejectedCorrections.add(correction.tokenIndex);
-        refreshSpellcheck();
-        if (storageAllowed && savedHistoryId !== null) {
-            void updateHistoryItemResult(savedHistoryId, getEffectiveResult());
-        }
-    }
-
-    function renderCorrectionControls(): void {
-        correctionsContainer.replaceChildren();
-        correctionsContainer.style.display = wordCorrections.length > 0 ? 'flex' : 'none';
-        for (const correction of wordCorrections) {
-            const row = document.createElement('div');
-            row.className = 'lexisync-correction-row';
-            row.style.cssText =
-                'display:flex; align-items:center; gap:7px; padding:7px 9px; border:1px solid var(--border-color); border-radius:8px; font-size:12px;';
-            const label = document.createElement('span');
-            label.style.cssText = 'flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
-            label.textContent = `${correction.original.trim() || '∅'} → ${correction.corrected.trim() || '∅'}`;
-            const choice = document.createElement('button');
-            choice.type = 'button';
-            choice.textContent = rejectedCorrections.has(correction.tokenIndex)
-                ? t('restoreCorrection', 'Вернуть')
-                : t('correctionAccepted', 'Принято');
-            choice.title = rejectedCorrections.has(correction.tokenIndex)
-                ? t('acceptAgain', 'Снова принять исправление')
-                : t('keepOriginal', 'Оставить исходное слово');
-            choice.style.cssText =
-                'border:0; border-radius:6px; padding:5px 7px; cursor:pointer; background:var(--bg-secondary); color:var(--text-primary);';
-            choice.onclick = () => toggleCorrection(correction);
-            const dictionary = document.createElement('button');
-            dictionary.type = 'button';
-            dictionary.textContent = t('addDictionary', '+ Словарь');
-            dictionary.title = t('dictionaryFuture', 'Не исправлять это слово в будущем');
-            dictionary.style.cssText = choice.style.cssText;
-            dictionary.onclick = async () => {
-                await addToDictionary(correction.original.trim());
-                rejectedCorrections.add(correction.tokenIndex);
-                dictionary.textContent = t('added', 'Добавлено');
-                dictionary.disabled = true;
-                refreshSpellcheck();
-                if (storageAllowed && savedHistoryId !== null) {
-                    void updateHistoryItemResult(savedHistoryId, getEffectiveResult());
-                }
-            };
-            dictionary.hidden = !/^[\p{L}\p{N}]+(?:['’][\p{L}\p{N}]+)*$/u.test(correction.original.trim());
-            row.append(label, choice, dictionary);
-            correctionsContainer.appendChild(row);
-        }
-    }
-
-    contentPane.addEventListener('click', (event) => {
-        const mark = (event.target as HTMLElement).closest('mark[data-token-index]') as HTMLElement | null;
-        const tokenIndex = Number(mark?.dataset.tokenIndex);
-        const correction = wordCorrections.find((item) => item.tokenIndex === tokenIndex);
-        if (correction) toggleCorrection(correction);
-    });
     contentPane.addEventListener('input', () => {
         if (storageAllowed && savedHistoryId !== null && contentPane.contentEditable === 'true') {
             void updateHistoryItemResult(savedHistoryId, getEffectiveResult());
@@ -396,6 +384,7 @@ export function executeRequest(
 
     function startStream() {
         if (lifecycle.disposed) return;
+        streamUiUpdater?.cancel();
         streamPort?.disconnect();
         streamPort = null;
         fullResult = '';
@@ -461,24 +450,12 @@ export function executeRequest(
             if (lifecycle.disposed) return;
             if (response.status === 'chunk') {
                 fullResult += response.text;
-                if (compactResultMode) contentPane.textContent = fullResult;
-                else renderMarkdown(contentPane, fullResult);
-                contentPane.setAttribute('aria-live', 'polite');
-                contentPane.scrollTop = contentPane.scrollHeight;
-                adjustPopupPosition();
+                streamUiUpdater?.request();
             } else if (response.status === 'done') {
+                streamUiUpdater?.cancel();
                 if (mode === 'spellcheck') {
                     fullResult = normalizeSpellcheckResult(fullResult);
-                    if (compactResultMode) {
-                        contentPane.replaceChildren(
-                            renderSpellcheckDiffFragment(currentSelection.text, fullResult, new Set(), {
-                                showDeletionMarkers: false,
-                            }),
-                        );
-                    } else {
-                        wordCorrections = getWordCorrections(currentSelection.text, fullResult);
-                        refreshSpellcheck();
-                    }
+                    spellcheckUi.setResult(currentSelection.text, fullResult);
                 } else if (compactResultMode) {
                     contentPane.textContent = fullResult;
                 } else {
@@ -507,12 +484,12 @@ export function executeRequest(
                     void getCacheHash(cacheModeKey, getCacheSource())
                         .then((cacheKey) => setCachedText(cacheKey, fullResult))
                         .catch((error) => console.error('Ошибка сохранения кэша:', error));
-                    void addHistoryItem(historyItem).then(async () => {
+                    void addHistoryItem(historyItem).then(() => {
                         savedHistoryId = historyItem.id;
-                        await updateHistoryItemResult(historyItem.id, getEffectiveResult());
                     });
                 }
             } else if (response.status === 'error') {
+                streamUiUpdater?.cancel();
                 const errorMessage =
                     typeof response.error === 'string' ? response.error : t('unknownError', 'Неизвестная ошибка.');
                 if (
@@ -527,6 +504,7 @@ export function executeRequest(
                 }
                 finishStream(false);
             } else if (response.status === 'cancelled') {
+                streamUiUpdater?.cancel();
                 contentPane.textContent = t('requestCancelled', 'Запрос отменён.');
                 contentPane.style.color = 'var(--text-secondary)';
                 finishStream(false);
@@ -609,90 +587,34 @@ export function executeRequest(
                     ),
                 );
             }
-            actionsContainer.style.display = 'flex';
-            actionsContainer.replaceChildren();
-
-            const btnClass =
-                mode === 'translate' || mode === 'layout' ? 'lexisync-translate-btn' : 'lexisync-btn-action';
-            const replaceIcon = mode === 'translate' || mode === 'layout' ? ICONS.replaceCurved : ICONS.replace;
-            const copyIcon = mode === 'translate' || mode === 'layout' ? ICONS.copyStandard : ICONS.copy;
-
-            const replaceBtn = document.createElement('button');
-            replaceBtn.type = 'button';
-            replaceBtn.className = `${btnClass} lexisync-result-button lexisync-result-button--primary`;
-            appendIconAndText(replaceBtn, replaceIcon, t('replaceText', 'Заменить текст'));
-            // ✅ НОВАЯ ЛОГИКА (ВСТАВИТЬ)
-            replaceBtn.onclick = (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-
-                const undo = replaceSelectedText(currentSelection, getEffectiveResult());
-
-                // Делаем красивую анимацию кнопки
-                appendIconAndText(replaceBtn, ICONS.check, t('replaced', 'Заменено!'));
-                replaceBtn.classList.add('lexisync-result-button--success');
-                replaceBtn.style.backgroundColor = '#dcfce7';
-                replaceBtn.style.color = '#166534';
-                replaceBtn.style.fontWeight = '600';
-
-                if (undo) {
-                    const undoBtn = document.createElement('button');
-                    undoBtn.type = 'button';
-                    undoBtn.className = `${btnClass} lexisync-result-button`;
-                    undoBtn.textContent = t('undoReplacement', 'Отменить замену');
-                    undoBtn.onclick = () => {
-                        undo();
-                        undoBtn.remove();
-                        replaceBtn.disabled = false;
-                        replaceBtn.classList.remove('lexisync-result-button--success');
-                        appendIconAndText(replaceBtn, replaceIcon, t('replaceText', 'Заменить текст'));
-                    };
-                    actionsContainer.appendChild(undoBtn);
-                }
-                replaceBtn.disabled = true;
-            };
-
-            if (mode === 'ocr') {
-                navigator.clipboard.writeText(getEffectiveResult());
-                const copied = document.createElement('span');
-                copied.style.cssText = 'display:flex;align-items:center;gap:8px;color:#166534;';
-                appendIconAndText(copied, ICONS.check, t('copied', 'Текст скопирован!'));
-                headerTitleWrapper.replaceChildren(copied);
-            }
-
-            const copyBtn = document.createElement('button');
-            copyBtn.type = 'button';
-            copyBtn.className = `${btnClass} lexisync-result-button icon-only`;
-            copyBtn.setAttribute('aria-label', t('copy', 'Копировать'));
-            setIcon(copyBtn, copyIcon);
-            copyBtn.onclick = (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                navigator.clipboard.writeText(getEffectiveResult());
-                setIcon(copyBtn, ICONS.check);
-                lifecycle.setTimeout(() => setIcon(copyBtn, copyIcon), 1500);
-            };
-
-            actionsContainer.appendChild(replaceBtn);
-            actionsContainer.appendChild(copyBtn);
+            renderPrimaryResultActions({
+                mode,
+                selection: currentSelection,
+                actionsContainer,
+                headerTitle: headerTitleWrapper,
+                getResult: getEffectiveResult,
+                showStatus: showActionStatus,
+                setTimeout: (callback, delay) => lifecycle.setTimeout(callback, delay),
+            });
         }
         adjustPopupPosition();
     }
 
     async function checkCacheAndRun() {
-        const [runtimeSettings, appearanceSettings] = await Promise.all([
-            chrome.runtime.sendMessage({ action: 'getRuntimeSettings' }),
-            chrome.storage.local.get({ compactResultMode: false }),
-        ]);
+        const runtimeSettings = await chrome.runtime.sendMessage({ action: 'getRuntimeSettings' });
         const res = runtimeSettings as {
             hasApiKey?: boolean;
             sendPageContext?: boolean;
             contextDisabledSites?: unknown;
             cacheFingerprint?: string;
+            resultDisplayMode?: unknown;
             compactResultMode?: boolean;
         };
         if (lifecycle.disposed) return;
-        compactResultMode = appearanceSettings.compactResultMode === true || res.compactResultMode === true;
+        compactResultMode = shouldUseCompactResult(
+            normalizeResultDisplayMode(res.resultDisplayMode, res.compactResultMode),
+            mode,
+        );
         if (compactResultMode) applyCompactResultLayout();
         usePageContext =
             res.sendPageContext === true &&
@@ -766,21 +688,13 @@ export function executeRequest(
         if (cachedResult) {
             void recordCacheHit();
             fullResult = mode === 'spellcheck' ? normalizeSpellcheckResult(cachedResult) : cachedResult;
-            if (compactResultMode && mode === 'spellcheck') {
-                contentPane.replaceChildren(
-                    renderSpellcheckDiffFragment(currentSelection.text, fullResult, new Set(), {
-                        showDeletionMarkers: false,
-                    }),
-                );
+            if (mode === 'spellcheck') {
+                spellcheckUi.setResult(currentSelection.text, fullResult);
             } else if (compactResultMode) {
                 contentPane.textContent = fullResult;
-            } else if (mode === 'spellcheck') {
-                wordCorrections = getWordCorrections(currentSelection.text, fullResult);
-                contentPane.replaceChildren(renderSpellcheckDiffFragment(currentSelection.text, fullResult));
             } else {
                 renderMarkdown(contentPane, fullResult);
             }
-            renderCorrectionControls();
             finishStream(true);
         } else {
             startStream();

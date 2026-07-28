@@ -1,9 +1,11 @@
 import { normalizeSitePatterns } from './site-profiles';
+import { normalizeDisabledSites } from './privacy';
 
 const PORTABLE_SETTING_KEYS = [
     'selectedTone',
     'selectedTheme',
     'interfaceScale',
+    'resultDisplayMode',
     'compactResultMode',
     'searchEngine',
     'sendPageContext',
@@ -28,6 +30,7 @@ const SYNC_SETTING_KEYS = [
     'selectedTone',
     'selectedTheme',
     'interfaceScale',
+    'resultDisplayMode',
     'compactResultMode',
     'searchEngine',
     'historyEnabled',
@@ -68,12 +71,13 @@ function sanitizePortableSetting(key: (typeof PORTABLE_SETTING_KEYS)[number], va
     if (key === 'selectedTone')
         return ['business', 'friendly', 'persuasive', 'creative'].includes(String(value)) ? value : 'business';
     if (key === 'selectedTheme') return ['auto', 'light', 'dark'].includes(String(value)) ? value : 'auto';
+    if (key === 'resultDisplayMode') return ['auto', 'compact', 'detailed'].includes(String(value)) ? value : 'compact';
     if (key === 'searchEngine') return ['google', 'yandex', 'duckduckgo'].includes(String(value)) ? value : 'google';
     if (key === 'aiMode') return value === 'fast' ? 'fast' : 'quality';
     if (key === 'interfaceScale') return Math.min(110, Math.max(75, Number(value) || 90));
     if (key === 'historyRetentionDays') return [1, 7, 30].includes(Number(value)) ? Number(value) : 30;
     if (['disabledSites', 'contextDisabledSites', 'blockedSites', 'adaptiveDisabledSites'].includes(key))
-        return stringList(value, 500, 253);
+        return normalizeDisabledSites(stringList(value, 500, 2_048));
     if (key === 'adaptiveBlockedWords' || key === 'personalDictionary') return stringList(value, 2000, 120);
     if (key === 'glossary') return stringList(value, 200, 240);
     if (key === 'activeStyleProfileId') return String(value || '').slice(0, 100);

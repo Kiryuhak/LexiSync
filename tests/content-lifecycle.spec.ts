@@ -1,8 +1,33 @@
 import { afterEach, expect, test, vi } from 'vitest';
 import { createRequestLifecycle } from '../src/request-lifecycle';
+import { createBatchedUiUpdater } from '../src/content-stream-renderer';
 
 afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
+});
+
+test('объединяет частые обновления потокового ответа в один кадр', () => {
+    vi.useFakeTimers();
+    const render = vi.fn();
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+        callback(0);
+        return 1;
+    });
+    vi.stubGlobal('cancelAnimationFrame', () => undefined);
+    const updater = createBatchedUiUpdater(render, 32);
+
+    updater.request();
+    updater.request();
+    updater.request();
+    vi.advanceTimersByTime(31);
+    expect(render).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(render).toHaveBeenCalledOnce();
+
+    updater.request();
+    updater.flush();
+    expect(render).toHaveBeenCalledTimes(2);
 });
 
 test('останавливает запрос и все таймеры при закрытии панели', () => {

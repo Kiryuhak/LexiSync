@@ -5,7 +5,7 @@ const OPTIONAL_WEB_ORIGINS = ['http://*/*', 'https://*/*'];
 
 for (const browser of ['chrome', 'firefox']) {
     const manifest = JSON.parse(
-        await fs.readFile(new URL(`../.output/${browser}-mv3/manifest.json`, import.meta.url), 'utf8'),
+        await fs.readFile(new URL(`../.output/release/${browser}-mv3/manifest.json`, import.meta.url), 'utf8'),
     );
     const permissions = manifest.permissions || [];
     const requiredOrigins = manifest.host_permissions || [];

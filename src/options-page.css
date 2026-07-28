@@ -235,6 +235,19 @@ button#saveBtn:disabled {
     line-height: 1.4;
     font-weight: 400;
 }
+.result-display-option {
+    align-items: center;
+    justify-content: space-between;
+}
+.result-display-option label {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+.result-display-option select {
+    width: min(170px, 42%);
+    margin: 0;
+    flex: 0 0 auto;
+}
 .settings-section {
     border-top: 1px solid var(--border);
     padding-top: 20px;
@@ -349,6 +362,24 @@ textarea {
     display: flex;
     gap: 9px;
     padding: 0 12px 13px;
+}
+.compact-result-preview-tools {
+    display: none;
+    flex-wrap: wrap;
+    gap: 5px;
+    padding: 0 12px 10px;
+}
+.compact-result-preview-tools span {
+    padding: 5px 7px;
+    color: var(--result-muted);
+    background: var(--result-inner);
+    border: 1px solid var(--result-border);
+    border-radius: 7px;
+    font-size: 10px;
+    font-weight: 650;
+}
+.compact-result-preview-stage[data-mode='detailed'] .compact-result-preview-tools {
+    display: flex;
 }
 .compact-result-preview-replace,
 .compact-result-preview-copy {
@@ -838,6 +869,13 @@ input[type='range'] {
     }
     .container {
         padding: 22px;
+    }
+    .result-display-option {
+        align-items: stretch;
+        flex-direction: column;
+    }
+    .result-display-option select {
+        width: 100%;
     }
     .command-form-actions {
         align-items: stretch;

@@ -359,8 +359,8 @@ function renderSuggestions(target: EditableElement, prefix: string, suggestions:
     const dismissButton = document.createElement('button');
     dismissButton.type = 'button';
     dismissButton.className = 'dismiss';
-    dismissButton.title = 'Больше не предлагать выбранное слово';
-    dismissButton.setAttribute('aria-label', 'Больше не предлагать выбранное слово');
+    dismissButton.title = t('dismissSuggestion', 'Больше не предлагать выбранное слово');
+    dismissButton.setAttribute('aria-label', dismissButton.title);
     dismissButton.textContent = '×';
     dismissButton.onmousedown = (event) => event.preventDefault();
     dismissButton.onclick = () => void blockSelectedSuggestion();

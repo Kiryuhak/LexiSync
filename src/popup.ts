@@ -1,5 +1,6 @@
 import { isSiteDisabled, normalizeDisabledSites } from './privacy';
-import { localizeDocument } from './i18n';
+import { localizeDocument, t } from './i18n';
+import { setSitePreference, type SitePreference } from './settings-store';
 
 type Theme = 'auto' | 'light' | 'dark';
 
@@ -40,12 +41,6 @@ document.getElementById('btn-options')!.addEventListener('click', () => {
     chrome.runtime.openOptionsPage();
     window.close();
 });
-
-function updateSiteList(list: unknown, hostname: string, enabled: boolean): string[] {
-    const sites = normalizeDisabledSites(list).filter((site) => site !== hostname);
-    if (!enabled) sites.push(hostname);
-    return [...new Set(sites)].sort();
-}
 
 async function initializeSiteControls(): Promise<void> {
     const [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -112,8 +107,46 @@ async function initializeSiteControls(): Promise<void> {
     contextInput.checked =
         stored.sendPageContext === true &&
         !isSiteDisabled(hostname, normalizeDisabledSites(stored.contextDisabledSites));
+    const status = document.createElement('p');
+    status.setAttribute('role', 'status');
+    status.setAttribute('aria-live', 'polite');
+    status.hidden = true;
+    status.style.cssText = 'margin:4px 0 0;color:var(--text-muted);font-size:9.5px;';
+    document.getElementById('site-panel')?.appendChild(status);
+    let busy = false;
     const updateDependentControls = () => {
-        for (const input of [suggestionsInput, historyInput, contextInput]) input.disabled = !enabledInput.checked;
+        enabledInput.disabled = busy;
+        for (const input of [suggestionsInput, historyInput, contextInput])
+            input.disabled = busy || !enabledInput.checked;
+    };
+    const setBusy = (value: boolean) => {
+        busy = value;
+        siteCard.setAttribute('aria-busy', String(value));
+        updateDependentControls();
+    };
+    const showStatus = (message = '', error = false) => {
+        status.textContent = message;
+        status.hidden = !message;
+        status.style.color = error ? '#c43f5d' : 'var(--text-muted)';
+    };
+    const savePreference = async (
+        input: HTMLInputElement,
+        preference: Exclude<SitePreference, 'access'>,
+    ): Promise<void> => {
+        const next = input.checked;
+        const previous = !next;
+        setBusy(true);
+        showStatus();
+        try {
+            await setSitePreference(preference, hostname, next);
+            showStatus(t('siteSettingSaved', 'Настройка сайта сохранена.'));
+        } catch (error) {
+            input.checked = previous;
+            showStatus(t('siteSettingUpdateFailed', 'Не удалось изменить настройку сайта.'), true);
+            console.error('LexiSync site preference update failed:', error);
+        } finally {
+            setBusy(false);
+        }
     };
     updateDependentControls();
     siteCard.hidden = false;
@@ -125,58 +158,61 @@ async function initializeSiteControls(): Promise<void> {
 
     enabledInput.addEventListener('change', async () => {
         const requestedState = enabledInput.checked;
-        if (requestedState) {
-            const granted = await chrome.permissions.request({ origins: [originPattern] });
-            if (!granted) {
-                enabledInput.checked = false;
-                updateDependentControls();
-                return;
+        const previousState = !requestedState;
+        let permissionBefore = false;
+        let permissionChecked = false;
+        let storageChanged = false;
+        setBusy(true);
+        showStatus();
+        try {
+            permissionBefore = await chrome.permissions.contains({ origins: [originPattern] });
+            permissionChecked = true;
+            if (requestedState && !permissionBefore) {
+                const granted = await chrome.permissions.request({ origins: [originPattern] });
+                if (!granted) throw new Error('SITE_PERMISSION_DENIED');
             }
-        }
-        const current = await chrome.storage.local.get({ blockedSites: [] });
-        await chrome.storage.local.set({
-            blockedSites: updateSiteList(current.blockedSites, hostname, requestedState),
-        });
-        if (!requestedState) {
-            await chrome.runtime.sendMessage({ action: 'siteAccessChanged', tabId: activeTab.id, enabled: false });
-            await chrome.permissions.remove({ origins: [originPattern] });
-        } else {
+            await setSitePreference('access', hostname, requestedState);
+            storageChanged = true;
             const response = await chrome.runtime.sendMessage({
                 action: 'siteAccessChanged',
                 tabId: activeTab.id,
-                enabled: true,
+                enabled: requestedState,
             });
-            if (response?.ok !== true) {
-                enabledInput.checked = false;
-                await chrome.permissions.remove({ origins: [originPattern] });
+            if (response?.ok !== true) throw new Error(response?.error || 'SITE_ACCESS_UPDATE_FAILED');
+            if (!requestedState) await chrome.permissions.remove({ origins: [originPattern] });
+            showStatus(t('siteSettingSaved', 'Настройка сайта сохранена.'));
+        } catch (error) {
+            enabledInput.checked = previousState;
+            if (storageChanged) {
+                try {
+                    await setSitePreference('access', hostname, previousState);
+                    await chrome.runtime.sendMessage({
+                        action: 'siteAccessChanged',
+                        tabId: activeTab.id,
+                        enabled: previousState,
+                    });
+                } catch (rollbackError) {
+                    console.error('LexiSync site access rollback failed:', rollbackError);
+                }
             }
+            if (requestedState && permissionChecked && !permissionBefore)
+                await chrome.permissions.remove({ origins: [originPattern] }).catch(() => false);
+            const denied = error instanceof Error && error.message === 'SITE_PERMISSION_DENIED';
+            showStatus(
+                denied
+                    ? t('sitePermissionDenied', 'Доступ к сайту не предоставлен.')
+                    : t('siteSettingUpdateFailed', 'Не удалось изменить настройку сайта.'),
+                true,
+            );
+            console.error('LexiSync site access update failed:', error);
+        } finally {
+            setBusy(false);
         }
-        updateDependentControls();
     });
 
-    suggestionsInput.addEventListener('change', async () => {
-        const current = await chrome.storage.local.get({
-            adaptiveSuggestionsEnabled: false,
-            adaptiveDisabledSites: [],
-        });
-        await chrome.storage.local.set({
-            adaptiveSuggestionsEnabled: suggestionsInput.checked ? true : current.adaptiveSuggestionsEnabled,
-            adaptiveDisabledSites: updateSiteList(current.adaptiveDisabledSites, hostname, suggestionsInput.checked),
-        });
-    });
-    historyInput.addEventListener('change', async () => {
-        const current = await chrome.storage.local.get({ disabledSites: [] });
-        await chrome.storage.local.set({
-            disabledSites: updateSiteList(current.disabledSites, hostname, historyInput.checked),
-        });
-    });
-    contextInput.addEventListener('change', async () => {
-        const current = await chrome.storage.local.get({ sendPageContext: false, contextDisabledSites: [] });
-        await chrome.storage.local.set({
-            sendPageContext: contextInput.checked ? true : current.sendPageContext,
-            contextDisabledSites: updateSiteList(current.contextDisabledSites, hostname, contextInput.checked),
-        });
-    });
+    suggestionsInput.addEventListener('change', () => void savePreference(suggestionsInput, 'suggestions'));
+    historyInput.addEventListener('change', () => void savePreference(historyInput, 'history'));
+    contextInput.addEventListener('change', () => void savePreference(contextInput, 'context'));
 }
 
 void initializeSiteControls();

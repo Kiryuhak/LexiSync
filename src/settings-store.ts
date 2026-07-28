@@ -1,12 +1,16 @@
 import { enqueueStorageMutation } from './storage-queue';
 import type { CustomCommand, StyleProfile } from './types';
+import { normalizeDisabledSites, normalizeSiteEntries } from './privacy';
 
 export type SettingsMutation =
     | 'addPersonalDictionaryWord'
     | 'addAdaptiveBlockedWord'
     | 'upsertCustomCommand'
     | 'deleteCustomCommand'
-    | 'replaceStyleProfiles';
+    | 'replaceStyleProfiles'
+    | 'setSitePreference';
+
+export type SitePreference = 'access' | 'suggestions' | 'history' | 'context';
 
 interface SettingsMutationPayload {
     value?: unknown;
@@ -14,6 +18,9 @@ interface SettingsMutationPayload {
     id?: unknown;
     profiles?: unknown;
     activeProfileId?: unknown;
+    preference?: unknown;
+    hostname?: unknown;
+    enabled?: unknown;
 }
 
 function isCustomCommand(value: unknown): value is CustomCommand {
@@ -67,6 +74,10 @@ export function replaceStyleProfiles(profiles: StyleProfile[], activeProfileId: 
     return requestSettingsMutation('replaceStyleProfiles', { profiles, activeProfileId });
 }
 
+export function setSitePreference(preference: SitePreference, hostname: string, enabled: boolean): Promise<void> {
+    return requestSettingsMutation('setSitePreference', { preference, hostname, enabled });
+}
+
 export function applySettingsMutation(mutation: SettingsMutation, payload: SettingsMutationPayload): Promise<unknown> {
     return enqueueStorageMutation(async () => {
         if (mutation === 'addPersonalDictionaryWord' || mutation === 'addAdaptiveBlockedWord') {
@@ -115,6 +126,36 @@ export function applySettingsMutation(mutation: SettingsMutation, payload: Setti
             const profiles = payload.profiles.slice(0, 8) as StyleProfile[];
             const activeProfileId = typeof payload.activeProfileId === 'string' ? payload.activeProfileId : '';
             await chrome.storage.local.set({ styleProfiles: profiles, activeStyleProfileId: activeProfileId });
+            return;
+        }
+        if (mutation === 'setSitePreference') {
+            const preferences: Record<SitePreference, { listKey: string; globalKey?: string }> = {
+                access: { listKey: 'blockedSites' },
+                suggestions: { listKey: 'adaptiveDisabledSites', globalKey: 'adaptiveSuggestionsEnabled' },
+                history: { listKey: 'disabledSites' },
+                context: { listKey: 'contextDisabledSites', globalKey: 'sendPageContext' },
+            };
+            if (
+                typeof payload.preference !== 'string' ||
+                !Object.prototype.hasOwnProperty.call(preferences, payload.preference)
+            )
+                throw new Error('INVALID_SITE_PREFERENCE');
+            if (typeof payload.hostname !== 'string' || typeof payload.enabled !== 'boolean')
+                throw new Error('INVALID_SITE_PREFERENCE');
+            const normalized = normalizeSiteEntries([payload.hostname]);
+            if (normalized.invalid.length || normalized.valid.length !== 1) throw new Error('INVALID_SITE_HOSTNAME');
+            const preference = payload.preference as SitePreference;
+            const { listKey, globalKey } = preferences[preference];
+            const stored = await chrome.storage.local.get({
+                [listKey]: [],
+                ...(globalKey ? { [globalKey]: false } : {}),
+            });
+            const hostname = normalized.valid[0];
+            const sites = normalizeDisabledSites(stored[listKey]).filter((site) => site !== hostname);
+            if (!payload.enabled) sites.push(hostname);
+            const updates: Record<string, unknown> = { [listKey]: [...new Set(sites)].sort() };
+            if (globalKey && payload.enabled) updates[globalKey] = true;
+            await chrome.storage.local.set(updates);
             return;
         }
         throw new Error('INVALID_SETTINGS_MUTATION');

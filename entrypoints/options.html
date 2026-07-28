@@ -112,18 +112,23 @@
                 <option value="dark" data-i18n="themeDark">🌙 Темная</option>
             </select>
 
-            <div class="privacy-option" data-settings-group="appearance" hidden>
-                <input type="checkbox" id="compactResultMode" />
-                <label for="compactResultMode">
-                    <span data-i18n="compactResultMode">Компактный результат</span>
-                    <small data-i18n="compactResultModeHint"
-                        >Показывать только готовый текст и кнопки замены и копирования.</small
+            <div class="privacy-option result-display-option" data-settings-group="appearance" hidden>
+                <label for="resultDisplayMode">
+                    <span data-i18n="resultDisplayMode">Режим результата</span>
+                    <small data-i18n="resultDisplayModeHint"
+                        >Автоматический режим показывает простые операции компактно, а изменение стиля —
+                        подробно.</small
                     >
                 </label>
+                <select id="resultDisplayMode">
+                    <option value="auto" data-i18n="resultDisplayAuto">Авто</option>
+                    <option value="compact" data-i18n="resultDisplayCompact" selected>Компактно</option>
+                    <option value="detailed" data-i18n="resultDisplayDetailed">Подробно</option>
+                </select>
             </div>
 
             <section class="compact-preview-panel" data-settings-group="appearance" hidden>
-                <h2 data-i18n="compactResultPreviewTitle">Предпросмотр компактного результата</h2>
+                <h2 data-i18n="resultPreviewTitle">Предпросмотр результата</h2>
                 <div
                     id="compactResultPreviewStage"
                     class="compact-result-preview-stage"
@@ -140,6 +145,11 @@
                             <span data-i18n="compactResultPreviewBefore">Готовый текст без </span
                             ><mark data-i18n="compactResultPreviewCorrection">ошибок</mark
                             ><span data-i18n="compactResultPreviewAfter">.</span>
+                        </div>
+                        <div class="compact-result-preview-tools">
+                            <span data-i18n="beforeAfter">До / После</span>
+                            <span data-i18n="repeat">Повторить</span>
+                            <span data-i18n="shorter">Короче</span>
                         </div>
                         <div class="compact-result-preview-actions">
                             <span class="compact-result-preview-replace"
@@ -171,7 +181,12 @@
                 <p class="appearance-hint" data-i18n="appearanceHint">
                     Масштаб применяется к панели выделения, AI-меню и окну результата.
                 </p>
-                <div id="interfacePreview" class="preview-stage" aria-label="Предпросмотр размера интерфейса">
+                <div
+                    id="interfacePreview"
+                    class="preview-stage"
+                    aria-label="Предпросмотр размера интерфейса"
+                    data-i18n-aria-label="interfacePreviewAria"
+                >
                     <div id="previewToolbar" class="preview-toolbar">
                         <span class="preview-logo">L</span>
                         <span class="preview-divider"></span>
@@ -468,7 +483,7 @@
 
             <div class="btn-container" id="saveActions">
                 <button id="saveBtn" data-i18n="save">Сохранить</button>
-                <span id="status" data-i18n="saved">✓ Сохранено успешно!</span>
+                <span id="status" role="status" aria-live="polite" data-i18n="saved">✓ Сохранено успешно!</span>
             </div>
         </main>
 

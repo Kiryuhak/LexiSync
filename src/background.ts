@@ -10,14 +10,16 @@ import { createSettingsFingerprint } from './request-cache';
 import { applySettingsMutation, type SettingsMutation } from './settings-store';
 import { initializeSettingsSync, restoreSyncedSettings } from './settings-transfer';
 import { processOcr, streamText, type MistralRequest } from './mistral-client';
+import { validateMistralRequest } from './request-validation';
 import { resolveStyleProfile } from './site-profiles';
 import {
     ensureContentScript,
+    injectOptionalContentFeature,
     initializeSiteAccess,
     sendToTabWithInjection,
     syncRegisteredSiteScripts,
 } from './site-access';
-import { getPrivacySettings, isSiteDisabled } from './privacy';
+import { getPrivacySettings, isSiteDisabled, normalizeDisabledSites } from './privacy';
 
 const REQUEST_TIMEOUT_MS = 45_000;
 
@@ -26,7 +28,27 @@ async function canStoreForSender(sender: chrome.runtime.MessageSender): Promise<
     if (!/^https?:/i.test(sourceUrl)) return true;
     if (sender.tab?.incognito) return false;
     const settings = await getPrivacySettings();
-    return settings.historyEnabled && !isSiteDisabled(new URL(sourceUrl).hostname, settings.disabledSites);
+    try {
+        return settings.historyEnabled && !isSiteDisabled(new URL(sourceUrl).hostname, settings.disabledSites);
+    } catch {
+        return false;
+    }
+}
+
+async function canMutateAdaptiveForSender(sender: chrome.runtime.MessageSender): Promise<boolean> {
+    const sourceUrl = sender.tab?.url || sender.url || '';
+    if (!/^https?:/i.test(sourceUrl)) return true;
+    if (sender.tab?.incognito) return false;
+    try {
+        const hostname = new URL(sourceUrl).hostname;
+        const stored = await chrome.storage.local.get({ blockedSites: [], adaptiveDisabledSites: [] });
+        return (
+            !isSiteDisabled(hostname, normalizeDisabledSites(stored.blockedSites)) &&
+            !isSiteDisabled(hostname, normalizeDisabledSites(stored.adaptiveDisabledSites))
+        );
+    } catch {
+        return false;
+    }
 }
 
 const initializationPromise = restoreSyncedSettings().then(migrateSettings);
@@ -59,7 +81,7 @@ chrome.runtime.onInstalled.addListener((details) => {
         chrome.contextMenus.create({ id: 'translate', title: t('translate', 'Перевести'), contexts: ['selection'] });
         chrome.contextMenus.create({
             id: 'ocr',
-            title: '📸 Распознать текст (Alt+S)',
+            title: `📸 ${t('recognizeText', 'Распознать текст')} (Alt+S)`,
             contexts: ['page', 'image', 'selection'],
         });
     });
@@ -125,6 +147,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         chrome.tabs.create({ url: chrome.runtime.getURL('lexisync-history.html') });
     } else if (request.action === 'openOptionsPage') {
         chrome.runtime.openOptionsPage();
+    } else if (
+        request.action === 'ensureOptionalContentFeature' &&
+        sender.tab?.id &&
+        (request.feature === 'adaptive' || request.feature === 'ocr')
+    ) {
+        void injectOptionalContentFeature(sender.tab.id, sender.frameId, request.feature)
+            .then(() => sendResponse({ ok: true }))
+            .catch((error) =>
+                sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) }),
+            );
+        return true;
     } else if (request.action === 'getRuntimeSettings') {
         void initializationPromise
             .then(() =>
@@ -138,7 +171,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     glossary: [],
                     styleProfiles: [],
                     activeStyleProfileId: '',
-                    compactResultMode: false,
+                    compactResultMode: null,
+                    resultDisplayMode: '',
                 }),
             )
             .then((settings) => {
@@ -155,6 +189,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     sendPageContext: settings.sendPageContext === true,
                     contextDisabledSites: settings.contextDisabledSites,
                     compactResultMode: settings.compactResultMode === true,
+                    resultDisplayMode: ['auto', 'compact', 'detailed'].includes(String(settings.resultDisplayMode))
+                        ? settings.resultDisplayMode
+                        : settings.compactResultMode === true
+                          ? 'compact'
+                          : settings.compactResultMode === false
+                            ? 'detailed'
+                            : 'compact',
                     activeStyleProfileName: profile?.name || '',
                     cacheFingerprint: createSettingsFingerprint({
                         aiMode: settings.aiMode,
@@ -168,8 +209,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     } else if (request.action === 'storageMutation') {
         const payload = request.payload && typeof request.payload === 'object' ? request.payload : {};
-        const needsPrivacyCheck = request.domain === 'history' || request.domain === 'cache';
-        const mutation = (needsPrivacyCheck ? canStoreForSender(sender) : Promise.resolve(true)).then((allowed) => {
+        const privacyCheck =
+            request.domain === 'history' || request.domain === 'cache'
+                ? canStoreForSender(sender)
+                : request.domain === 'adaptive'
+                  ? canMutateAdaptiveForSender(sender)
+                  : Promise.resolve(true);
+        const mutation = privacyCheck.then((allowed) => {
             if (!allowed) return;
             if (request.domain === 'history') return applyHistoryMutation(request.mutation as HistoryMutation, payload);
             if (request.domain === 'usage') return applyUsageMutation(request.mutation as UsageMutation, payload);
@@ -213,7 +259,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     .filter((tab) => tab.id && /^https?:/.test(tab.url || ''))
                     .sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0];
                 if (!target?.id) {
-                    sendResponse({ ok: false, error: 'Не найдена открытая веб-страница.' });
+                    sendResponse({
+                        ok: false,
+                        error: t('historyReplayPageMissing', 'Не найдена открытая веб-страница.'),
+                    });
                     return;
                 }
                 await chrome.tabs.update(target.id, { active: true });
@@ -239,13 +288,24 @@ chrome.runtime.onConnect.addListener((port) => {
     let cancelledByUser = false;
 
     port.onDisconnect.addListener(() => controller?.abort());
-    port.onMessage.addListener(async (msg: MistralRequest) => {
-        if (msg.action === 'cancelMistral') {
+    port.onMessage.addListener(async (message: unknown) => {
+        if (message && typeof message === 'object' && (message as Partial<MistralRequest>).action === 'cancelMistral') {
             cancelledByUser = true;
             controller?.abort();
             return;
         }
-        if (msg.action !== 'callMistral') return;
+        if (!message || typeof message !== 'object' || (message as Partial<MistralRequest>).action !== 'callMistral')
+            return;
+        try {
+            validateMistralRequest(message);
+        } catch (error) {
+            port.postMessage({
+                status: 'error',
+                error: error instanceof Error ? error.message : t('requestInvalid', 'Некорректный запрос.'),
+            });
+            return;
+        }
+        const msg = message;
 
         controller?.abort();
         controller = new AbortController();
@@ -265,6 +325,7 @@ chrome.runtime.onConnect.addListener((port) => {
                 styleProfiles: [],
                 activeStyleProfileId: '',
                 aiMode: 'quality',
+                contextDisabledSites: [],
             });
             if (!msg.mode) throw new Error(t('modeMissing', 'Режим обработки не указан.'));
             if (msg.mode === 'layout') {
@@ -285,6 +346,18 @@ chrome.runtime.onConnect.addListener((port) => {
                 String(settings.activeStyleProfileId || ''),
                 port.sender?.tab?.url || port.sender?.url || msg.pageUrl,
             );
+            const senderUrl = port.sender?.tab?.url || port.sender?.url || '';
+            let contextAllowedOnSite = true;
+            if (/^https?:/i.test(senderUrl)) {
+                try {
+                    contextAllowedOnSite = !isSiteDisabled(
+                        new URL(senderUrl).hostname,
+                        normalizeDisabledSites(settings.contextDisabledSites),
+                    );
+                } catch {
+                    contextAllowedOnSite = false;
+                }
+            }
 
             if (msg.mode === 'ocr') {
                 const text = await processOcr(msg, apiKey, controller.signal);
@@ -295,7 +368,8 @@ chrome.runtime.onConnect.addListener((port) => {
                     apiKey,
                     {
                         selectedTone: settings.selectedTone as string,
-                        sendPageContext: settings.sendPageContext === true && msg.allowPageContext !== false,
+                        sendPageContext:
+                            settings.sendPageContext === true && msg.allowPageContext !== false && contextAllowedOnSite,
                         personalDictionary: Array.isArray(settings.personalDictionary)
                             ? settings.personalDictionary.map(String)
                             : [],

@@ -24,7 +24,7 @@ const test = base.extend({
                     return settings.settingsSchemaVersion;
                 }),
             )
-            .toBe(5);
+            .toBe(6);
         await use(context);
         await context.close();
     },
@@ -42,6 +42,7 @@ async function setFakeApiKey(context: BrowserContext) {
             selectedTone: 'business',
             sendPageContext: false,
             compactResultMode: false,
+            resultDisplayMode: 'detailed',
         });
     });
 }
@@ -122,6 +123,15 @@ test('Сборки Chrome и Firefox используют совместимые
     expect(await fs.readFile(path.resolve(__dirname, '../.output/chrome-mv3/inject.js'), 'utf8')).toContain(
         'lexisyncPing',
     );
+    const [coreScript, adaptiveScript, ocrScript] = await Promise.all([
+        fs.readFile(path.resolve(__dirname, '../.output/chrome-mv3/inject.js'), 'utf8'),
+        fs.readFile(path.resolve(__dirname, '../.output/chrome-mv3/adaptive.js'), 'utf8'),
+        fs.readFile(path.resolve(__dirname, '../.output/chrome-mv3/ocr.js'), 'utf8'),
+    ]);
+    expect(coreScript).not.toContain('lexisync-adaptive-suggestions-host');
+    expect(coreScript).not.toContain('lexisync-ocr-overlay');
+    expect(adaptiveScript).toContain('lexisync-adaptive-suggestions-host');
+    expect(ocrScript).toContain('lexisync-ocr-overlay');
 });
 
 test('Панель выделения появляется автоматически и показывает SVG-иконки', async ({ page, context }) => {
@@ -480,7 +490,7 @@ test('Персональная подсказка дополняет изуче�
     if (!background) background = await context.waitForEvent('serviceworker');
     await background.evaluate(() =>
         chrome.storage.local.set({
-            settingsSchemaVersion: 5,
+            settingsSchemaVersion: 6,
             adaptiveSuggestionsEnabled: true,
             adaptiveLearningEnabled: true,
             adaptiveLanguageModel: {
@@ -588,13 +598,14 @@ test('Компактный режим настраивается и показы
     const compactPreview = page.locator('#compactResultPreviewStage');
     await expect(compactPreview).toBeVisible();
     await expect(compactPreview.locator('mark')).toContainText('ошибок');
-    await page.locator('#compactResultMode').check();
-    await expect(compactPreview).toHaveAttribute('data-enabled', 'true');
+    await page.locator('#resultDisplayMode').selectOption('compact');
+    await expect(compactPreview).toHaveAttribute('data-mode', 'compact');
     await page.locator('#saveBtn').click();
     await expect
-        .poll(() => background.evaluate(() => chrome.storage.local.get('compactResultMode')))
+        .poll(() => background.evaluate(() => chrome.storage.local.get(['resultDisplayMode', 'compactResultMode'])))
         .toEqual({
             compactResultMode: true,
+            resultDisplayMode: 'compact',
         });
 
     await context.route('https://api.mistral.ai/v1/chat/completions', async (route) => {
@@ -616,6 +627,13 @@ test('Компактный режим настраивается и показы
     await expect(panel.locator('.lexisync-result-tools')).toBeHidden();
     await expect(panel.locator('.lexisync-content-pane mark').first()).toBeVisible();
     await expect(panel.locator('.lexisync-content-pane mark[aria-label^="Удалено:"]')).toHaveCount(0);
+    await expect
+        .poll(() => panel.evaluate((element) => (element.getRootNode() as ShadowRoot).activeElement === element))
+        .toBe(true);
+    await page.keyboard.press('Tab');
+    await expect
+        .poll(() => panel.evaluate((element) => (element.getRootNode() as ShadowRoot).activeElement?.tagName))
+        .toBe('BUTTON');
     const compactLayout = await panel.evaluate((element) => {
         const content = element.querySelector<HTMLElement>('.lexisync-content-pane');
         return {
@@ -629,6 +647,14 @@ test('Компактный режим настраивается и показы
     expect(compactLayout.width).toBe(340);
     expect(compactLayout.height).toBeLessThan(280);
     expect(compactLayout.contentBackground).not.toBe('rgba(0, 0, 0, 0)');
+
+    const correction = panel.locator('.lexisync-content-pane mark').first();
+    await correction.focus();
+    await page.keyboard.press('Enter');
+    await expect(panel.locator('.lexisync-compact-correction-details')).toBeVisible();
+    await expect(panel.locator('.lexisync-compact-correction-copy')).toContainText('→');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#lexisync-shadow-host')).toHaveCount(0);
 });
 
 test('Страницы расширения проходят автоматический accessibility-аудит', async ({ page, context }) => {
@@ -863,7 +889,7 @@ test('Профиль стиля автоматически выбирается 
     if (!background) background = await context.waitForEvent('serviceworker');
     await background.evaluate(() =>
         chrome.storage.local.set({
-            settingsSchemaVersion: 5,
+            settingsSchemaVersion: 6,
             mistralApiKey: 'mock-test-key-123',
             styleProfiles: [
                 { id: 'default', name: 'Обычный', tone: 'custom', instruction: 'Используй обычный стиль.', sites: [] },

@@ -7,13 +7,13 @@ import {
     showAIMenu as showContentAiMenu,
     type ContentMenuContext,
 } from './content-menus';
-import type { OcrOverlayController } from './ocr-overlay';
 import { POPUP_STYLE_TEXT } from './content-ui-style';
 import {
     handleActionClick as handleContentAction,
     executeRequest as executeContentRequest,
     type ContentRequestContext,
 } from './content-request-panel';
+import { ensureOptionalContentFeature, OCR_IMAGE_EVENT, OCR_START_EVENT } from './optional-content-features';
 
 const contentRuntime = globalThis as typeof globalThis & { __lexisyncContentInitialized?: boolean };
 if (!contentRuntime.__lexisyncContentInitialized) {
@@ -23,8 +23,12 @@ if (!contentRuntime.__lexisyncContentInitialized) {
     const ensureAdaptiveSuggestions = async () => {
         if (adaptiveSuggestionsInitialized) return;
         adaptiveSuggestionsInitialized = true;
-        const { initializeAdaptiveSuggestions } = await import('./adaptive-suggestions');
-        initializeAdaptiveSuggestions();
+        try {
+            await ensureOptionalContentFeature('adaptive');
+        } catch (error) {
+            adaptiveSuggestionsInitialized = false;
+            console.error(t('adaptiveLoadFailed', 'Не удалось загрузить персональные подсказки.'), error);
+        }
     };
     void chrome.storage.local.get({ adaptiveSuggestionsEnabled: false }).then((stored) => {
         if (stored.adaptiveSuggestionsEnabled === true) void ensureAdaptiveSuggestions();
@@ -104,7 +108,13 @@ if (!contentRuntime.__lexisyncContentInitialized) {
         if (!extensionEnabledOnSite) return;
         if (request.action === 'startOcrMode') {
             const screenshotUrl = typeof request.screenshotUrl === 'string' ? request.screenshotUrl : '';
-            if (screenshotUrl) void getOcrController().then((controller) => controller.open(screenshotUrl));
+            if (screenshotUrl) {
+                void ensureOcrOverlay()
+                    .then(() => {
+                        document.dispatchEvent(new CustomEvent(OCR_START_EVENT, { detail: { screenshotUrl } }));
+                    })
+                    .catch(() => undefined);
+            }
             return;
         }
         if (request.action === 'contextMenuClicked') {
@@ -505,34 +515,38 @@ if (!contentRuntime.__lexisyncContentInitialized) {
         }
     }
 
-    let ocrControllerPromise: Promise<OcrOverlayController> | null = null;
-    function getOcrController(): Promise<OcrOverlayController> {
-        ocrControllerPromise ??= import('./ocr-overlay').then(({ initializeOcrOverlay }) =>
-            initializeOcrOverlay({
-                isEnabled: () => extensionEnabledOnSite,
-                onImage: (imageUrl, rect) => {
-                    currentSelection = {
-                        text: t('extractingText', 'Извлекаем текст…'),
-                        context: '',
-                        range: null,
-                        activeElement: null,
-                        start: null,
-                        end: null,
-                        isInput: false,
-                        imageUrl,
-                    };
-                    lastAnchorX = rect.left + rect.width / 2;
-                    lastAnchorY = rect.bottom + 10;
-                    closePopup();
-                    injectStyles();
-                    popupUI = createPopupElement();
-                    applyThemeToPopup(popupUI);
-                    popupUI.style.cssText =
-                        'position:fixed!important;left:-9999px;top:-9999px;background:var(--bg-primary);z-index:2147483647!important;font-family:system-ui,sans-serif;font-size:13px;color:var(--text-primary);';
-                    executeRequest('ocr');
-                },
-            }),
-        );
-        return ocrControllerPromise;
+    let ocrOverlayPromise: Promise<void> | null = null;
+    function ensureOcrOverlay(): Promise<void> {
+        ocrOverlayPromise ??= ensureOptionalContentFeature('ocr').catch((error) => {
+            ocrOverlayPromise = null;
+            showToast(t('ocrLoadFailed', 'Не удалось запустить распознавание текста.'));
+            throw error;
+        });
+        return ocrOverlayPromise;
     }
+
+    document.addEventListener(OCR_IMAGE_EVENT, (event) => {
+        if (!extensionEnabledOnSite) return;
+        const detail = (event as CustomEvent<{ imageUrl?: unknown; rect?: Partial<DOMRect> }>).detail;
+        if (typeof detail?.imageUrl !== 'string' || !detail.rect) return;
+        currentSelection = {
+            text: t('extractingText', 'Извлекаем текст…'),
+            context: '',
+            range: null,
+            activeElement: null,
+            start: null,
+            end: null,
+            isInput: false,
+            imageUrl: detail.imageUrl,
+        };
+        lastAnchorX = Number(detail.rect.left || 0) + Number(detail.rect.width || 0) / 2;
+        lastAnchorY = Number(detail.rect.bottom || 0) + 10;
+        closePopup();
+        injectStyles();
+        popupUI = createPopupElement();
+        applyThemeToPopup(popupUI);
+        popupUI.style.cssText =
+            'position:fixed!important;left:-9999px;top:-9999px;background:var(--bg-primary);z-index:2147483647!important;font-family:system-ui,sans-serif;font-size:13px;color:var(--text-primary);';
+        executeRequest('ocr');
+    });
 }

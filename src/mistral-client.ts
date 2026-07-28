@@ -29,15 +29,16 @@ const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
 
 function wait(ms: number, signal: AbortSignal): Promise<void> {
     return new Promise((resolve, reject) => {
-        const timer = setTimeout(resolve, ms);
-        signal.addEventListener(
-            'abort',
-            () => {
-                clearTimeout(timer);
-                reject(new DOMException(t('requestCancelled', 'Запрос отменён.'), 'AbortError'));
-            },
-            { once: true },
-        );
+        const onAbort = () => {
+            clearTimeout(timer);
+            reject(new DOMException(t('requestCancelled', 'Запрос отменён.'), 'AbortError'));
+        };
+        const timer = setTimeout(() => {
+            signal.removeEventListener('abort', onAbort);
+            resolve();
+        }, ms);
+        if (signal.aborted) onAbort();
+        else signal.addEventListener('abort', onAbort, { once: true });
     });
 }
 
@@ -140,10 +141,14 @@ export async function streamText(
 
     const decoder = new TextDecoder();
     let buffer = '';
+    let receivedContent = false;
     const processLine = (line: string): boolean => {
         if (line.trim() === 'data: [DONE]') return true;
         const content = readSsePayload(line);
-        if (content) onChunk(content);
+        if (content) {
+            receivedContent = true;
+            onChunk(content);
+        }
         return false;
     };
     while (true) {
@@ -152,8 +157,17 @@ export async function streamText(
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split(/\r?\n/);
         buffer = lines.pop() || '';
-        for (const line of lines) if (processLine(line)) return;
+        for (const line of lines) {
+            if (!processLine(line)) continue;
+            if (!receivedContent) throw new Error(t('emptyStream', 'Mistral вернул пустой поток данных.'));
+            return;
+        }
     }
     buffer += decoder.decode();
-    if (buffer) processLine(buffer);
+    if (buffer && processLine(buffer)) {
+        if (!receivedContent) throw new Error(t('emptyStream', 'Mistral вернул пустой поток данных.'));
+        return;
+    }
+    if (!receivedContent) throw new Error(t('emptyStream', 'Mistral вернул пустой поток данных.'));
+    throw new Error(t('incompleteStream', 'Ответ Mistral прервался до завершения. Повторите запрос.'));
 }

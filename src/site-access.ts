@@ -1,5 +1,6 @@
 const REGISTERED_SCRIPT_ID = 'lexisync-enabled-sites';
 const INJECT_SCRIPT_FILE = 'inject.js';
+const OPTIONAL_SCRIPT_FILES = { adaptive: 'adaptive.js', ocr: 'ocr.js' } as const;
 let scriptSyncQueue: Promise<void> = Promise.resolve();
 const tabInjectionQueues = new Map<number, Promise<void>>();
 
@@ -78,6 +79,17 @@ export async function ensureContentScript(tabId: number, frameId?: number): Prom
 export async function sendToTabWithInjection(tabId: number, message: unknown, frameId?: number): Promise<unknown> {
     await ensureContentScript(tabId, frameId);
     return chrome.tabs.sendMessage(tabId, message, frameId === undefined ? undefined : { frameId });
+}
+
+export async function injectOptionalContentFeature(
+    tabId: number,
+    frameId: number | undefined,
+    feature: keyof typeof OPTIONAL_SCRIPT_FILES,
+): Promise<void> {
+    await chrome.scripting.executeScript({
+        target: { tabId, frameIds: [frameId ?? 0] },
+        files: [OPTIONAL_SCRIPT_FILES[feature]],
+    });
 }
 
 export function initializeSiteAccess(): void {

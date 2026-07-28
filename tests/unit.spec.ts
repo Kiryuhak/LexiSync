@@ -2,11 +2,14 @@ import { expect, test } from 'vitest';
 import { detectLayoutDirection, fixKeyboardLayout } from '../src/keyboard-layout';
 import { buildMessages } from '../src/prompt-builder';
 import { escapeHTML, parseMarkdownToHTML } from '../src/markdown';
-import { readSsePayload } from '../src/mistral-client';
+import { readSsePayload, streamText } from '../src/mistral-client';
 import { matchesSite, normalizeSitePatterns, resolveStyleProfile } from '../src/site-profiles';
 import { getOriginPattern } from '../src/site-access';
 import { getWordCorrections, resolveCorrections } from '../src/spellcheck';
 import { createSettingsFingerprint, serializeCacheSource } from '../src/request-cache';
+import { normalizeDisabledSites, normalizeSiteEntries } from '../src/privacy';
+import { validateMistralRequest } from '../src/request-validation';
+import { normalizeResultDisplayMode, shouldUseCompactResult } from '../src/result-display-mode';
 
 test('локально исправляет русскую и английскую раскладки', () => {
     expect(detectLayoutDirection('ghbdtn')).toBe('en-to-ru');
@@ -75,6 +78,69 @@ test('устойчиво разбирает потоковые SSE-фрагме�
     expect(readSsePayload('data: некорректный json')).toBeNull();
 });
 
+test('считает оборванный SSE-поток ошибкой, а не успешным ответом', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () =>
+        new Response('data: {"choices":[{"delta":{"content":"Часть ответа"}}]}\n\n', {
+            status: 200,
+            headers: { 'Content-Type': 'text/event-stream' },
+        });
+    try {
+        await expect(
+            streamText(
+                { action: 'callMistral', mode: 'spellcheck', text: 'Текст' },
+                'test-key',
+                {
+                    selectedTone: 'business',
+                    sendPageContext: false,
+                    personalDictionary: [],
+                    glossary: [],
+                    aiMode: 'quality',
+                },
+                new AbortController().signal,
+                () => undefined,
+            ),
+        ).rejects.toThrow(/прервался|ended early/i);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
+test('отклоняет завершённый SSE-поток без содержимого', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () =>
+        new Response('data: [DONE]\n\n', { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
+    try {
+        await expect(
+            streamText(
+                { action: 'callMistral', mode: 'spellcheck', text: 'Текст' },
+                'test-key',
+                {
+                    selectedTone: 'business',
+                    sendPageContext: false,
+                    personalDictionary: [],
+                    glossary: [],
+                    aiMode: 'quality',
+                },
+                new AbortController().signal,
+                () => undefined,
+            ),
+        ).rejects.toThrow(/пустой|empty/i);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
+test('выбирает компактность результата автоматически по типу операции', () => {
+    expect(normalizeResultDisplayMode(undefined, true)).toBe('compact');
+    expect(normalizeResultDisplayMode(undefined, false)).toBe('detailed');
+    expect(normalizeResultDisplayMode(undefined)).toBe('compact');
+    expect(shouldUseCompactResult('auto', 'spellcheck')).toBe(true);
+    expect(shouldUseCompactResult('auto', 'translate')).toBe(true);
+    expect(shouldUseCompactResult('auto', 'style')).toBe(false);
+    expect(shouldUseCompactResult('compact', 'style')).toBe(true);
+});
+
 test('выбирает автоматический профиль для домена и поддоменов', () => {
     const profiles = [
         { id: 'default', name: 'По умолчанию', tone: 'custom', instruction: 'default', sites: [] },
@@ -127,4 +193,32 @@ test('инвалидирует кеш при изменении любого п�
     expect(serializeCacheSource({ text: 'Тест', pageOrigin: 'https://a.test' })).not.toBe(
         serializeCacheSource({ text: 'Тест', pageOrigin: 'https://b.test' }),
     );
+});
+
+test('нормализует домены и вставленные URL, сохраняя список некорректных значений', () => {
+    expect(
+        normalizeSiteEntries([
+            'https://EXAMPLE.com/path?q=1',
+            'пример.рф/страница',
+            'mail.example.com:8443/inbox',
+            'не адрес',
+            'javascript:alert(1)',
+        ]),
+    ).toEqual({
+        valid: ['example.com', 'mail.example.com', 'xn--e1afmkfd.xn--p1ai'],
+        invalid: ['не адрес', 'javascript:alert(1)'],
+    });
+    expect(normalizeDisabledSites('https://example.com/a, мусор')).toEqual(['example.com']);
+});
+
+test('проверяет режим, размеры и OCR data URL до обращения к API', () => {
+    expect(() => validateMistralRequest({ action: 'callMistral', mode: 'spellcheck', text: 'Текст' })).not.toThrow();
+    expect(() => validateMistralRequest({ action: 'callMistral', mode: 'unknown', text: 'Текст' })).toThrow();
+    expect(() => validateMistralRequest({ action: 'callMistral', mode: 'style', text: 'x'.repeat(50_001) })).toThrow();
+    expect(() =>
+        validateMistralRequest({ action: 'callMistral', mode: 'ocr', imageUrl: 'https://example.com/image.png' }),
+    ).toThrow();
+    expect(() =>
+        validateMistralRequest({ action: 'callMistral', mode: 'ocr', imageUrl: 'data:image/png;base64,YQ==' }),
+    ).not.toThrow();
 });

@@ -1,3 +1,5 @@
+import { t } from './i18n';
+
 interface TextToken {
     value: string;
     significant: boolean;
@@ -134,7 +136,7 @@ export function renderSpellcheckDiffFragment(
     original: string,
     corrected: string,
     rejected = new Set<number>(),
-    options: { showDeletionMarkers?: boolean } = {},
+    options: { showDeletionMarkers?: boolean; corrections?: readonly WordCorrection[] } = {},
 ): DocumentFragment {
     const fragment = document.createDocumentFragment();
     const appendText = (container: Node, value: string) => {
@@ -143,7 +145,7 @@ export function renderSpellcheckDiffFragment(
             if (index < lines.length - 1) container.appendChild(document.createElement('br'));
         });
     };
-    const corrections = getWordCorrections(original, corrected);
+    const corrections = options.corrections ?? getWordCorrections(original, corrected);
     let cursor = 0;
     for (const correction of corrections) {
         appendText(fragment, corrected.slice(cursor, correction.start));
@@ -156,7 +158,7 @@ export function renderSpellcheckDiffFragment(
             if (correction.corrected) appendText(mark, correction.corrected);
             else if (options.showDeletionMarkers !== false) {
                 mark.appendChild(document.createTextNode('\u200b'));
-                mark.title = `Удалено: ${correction.original.trim()}`;
+                mark.title = `${t('deletedCorrection', 'Удалено')}: ${correction.original.trim()}`;
                 mark.setAttribute('aria-label', mark.title);
                 mark.style.cssText =
                     'display:inline-block;min-width:0.45em;border-left:2px solid currentColor;vertical-align:text-bottom;';

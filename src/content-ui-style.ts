@@ -215,6 +215,53 @@ export const POPUP_STYLE_TEXT = `
                 box-shadow: 0 0 0 3px var(--primary-soft);
             }
             .lexisync-corrections { padding: 0 14px 12px !important; }
+            .lexisync-compact-correction-details {
+                position: relative;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin: -3px 12px 10px;
+                padding: 8px 34px 8px 10px;
+                color: var(--text-primary);
+                background: var(--bg-secondary);
+                border: 1px solid var(--inner-border);
+                border-radius: 10px;
+                font: 600 11px/1.35 system-ui, sans-serif;
+            }
+            .lexisync-compact-correction-details[hidden] { display: none !important; }
+            .lexisync-compact-correction-copy {
+                min-width: 0;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                flex: 1 1 auto !important;
+            }
+            .lexisync-compact-correction-close {
+                position: absolute;
+                top: 50%;
+                right: 8px;
+                width: 22px;
+                height: 22px;
+                padding: 0;
+                border: 0;
+                border-radius: 6px;
+                transform: translateY(-50%);
+                color: var(--text-secondary);
+                background: transparent;
+                cursor: pointer;
+            }
+            .lexisync-action-status {
+                margin: -7px 14px 12px;
+                color: #166534;
+                font: 600 11px/1.35 system-ui, sans-serif;
+            }
+            .lexisync-action-status[data-error="true"] { color: #b42318; }
+            .lexisync-action-status[hidden] { display: none !important; }
+            #lexisync-extension-ui mark[role="button"] { cursor: pointer; }
+            #lexisync-extension-ui mark[role="button"]:focus-visible {
+                outline: 3px solid color-mix(in srgb, var(--primary) 35%, transparent);
+                outline-offset: 2px;
+            }
             #lexisync-extension-ui[data-compact-result="true"] .lexisync-corrections,
             #lexisync-extension-ui[data-compact-result="true"] .lexisync-result-tools {
                 display: none !important;

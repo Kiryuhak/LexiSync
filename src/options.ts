@@ -4,11 +4,62 @@ import { clearUsageStats, EMPTY_USAGE_STATS } from './usage-stats';
 import { exportPortableSettings, importPortableSettings } from './settings-transfer';
 import { restoreStyleProfileSettings, setupStyleProfileSettings } from './style-profile-settings';
 import { restoreCustomCommandSettings, setupCustomCommandSettings } from './custom-command-settings';
+import { normalizeResultDisplayMode } from './result-display-mode';
+import { normalizeSiteEntries } from './privacy';
 
 type AppearanceTheme = 'auto' | 'light' | 'dark';
 
 const systemDarkTheme = window.matchMedia('(prefers-color-scheme: dark)');
 let restoredApiKey = '';
+let savedOptionsState = '';
+let saveInProgress = false;
+
+const SAVED_OPTION_IDS = [
+    'apiKey',
+    'toneSelect',
+    'themeSelect',
+    'interfaceScale',
+    'resultDisplayMode',
+    'adaptiveSuggestionsEnabled',
+    'adaptiveLearningEnabled',
+    'searchEngine',
+    'sendPageContext',
+    'historyEnabled',
+    'historyRetentionDays',
+    'disabledSites',
+    'personalDictionary',
+    'aiMode',
+    'glossary',
+] as const;
+
+function readOptionValue(id: (typeof SAVED_OPTION_IDS)[number]): string | boolean {
+    const element = document.getElementById(id) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+    return element instanceof HTMLInputElement && element.type === 'checkbox' ? element.checked : element.value;
+}
+
+function captureOptionsState(): string {
+    return JSON.stringify(SAVED_OPTION_IDS.map((id) => [id, readOptionValue(id)]));
+}
+
+function updateSaveButtonState(): void {
+    const saveButton = document.getElementById('saveBtn') as HTMLButtonElement | null;
+    if (!saveButton) return;
+    const dirty = Boolean(savedOptionsState) && captureOptionsState() !== savedOptionsState;
+    saveButton.disabled = saveInProgress || !dirty;
+    saveButton.dataset.dirty = String(dirty);
+    saveButton.title = dirty
+        ? t('unsavedChanges', 'Есть несохранённые изменения')
+        : t('noUnsavedChanges', 'Все изменения сохранены');
+}
+
+function showOptionsStatus(message: string, kind: 'success' | 'warning' | 'error'): void {
+    const status = document.getElementById('status');
+    if (!status) return;
+    status.textContent = message;
+    status.dataset.kind = kind;
+    status.style.color = kind === 'success' ? '#10b981' : kind === 'warning' ? '#d97706' : '#dc2626';
+    status.style.display = 'block';
+}
 
 function clampInterfaceScale(value: number): number {
     return Math.min(110, Math.max(75, Math.round(value / 5) * 5));
@@ -20,7 +71,7 @@ function updateAppearancePreview(): void {
     const scaleValue = document.getElementById('interfaceScaleValue') as HTMLOutputElement | null;
     const previewStage = document.getElementById('interfacePreview');
     const previewToolbar = document.getElementById('previewToolbar');
-    const compactResultModeInput = document.getElementById('compactResultMode') as HTMLInputElement | null;
+    const resultDisplayModeSelect = document.getElementById('resultDisplayMode') as HTMLSelectElement | null;
     const compactPreviewStage = document.getElementById('compactResultPreviewStage');
     const compactResultPreview = document.getElementById('compactResultPreview');
     if (
@@ -29,7 +80,7 @@ function updateAppearancePreview(): void {
         !scaleValue ||
         !previewStage ||
         !previewToolbar ||
-        !compactResultModeInput ||
+        !resultDisplayModeSelect ||
         !compactPreviewStage ||
         !compactResultPreview
     )
@@ -46,7 +97,7 @@ function updateAppearancePreview(): void {
     compactResultPreview.style.transform = `scale(${scale / 100})`;
     previewStage.dataset.theme = isDark ? 'dark' : 'light';
     compactPreviewStage.dataset.theme = isDark ? 'dark' : 'light';
-    compactPreviewStage.dataset.enabled = String(compactResultModeInput.checked);
+    compactPreviewStage.dataset.mode = normalizeResultDisplayMode(resultDisplayModeSelect.value);
     document.documentElement.toggleAttribute('data-theme', isDark);
 }
 
@@ -158,7 +209,7 @@ async function saveOptions(): Promise<void> {
     const toneSelect = document.getElementById('toneSelect') as HTMLSelectElement;
     const themeSelect = document.getElementById('themeSelect') as HTMLSelectElement;
     const interfaceScaleInput = document.getElementById('interfaceScale') as HTMLInputElement;
-    const compactResultModeInput = document.getElementById('compactResultMode') as HTMLInputElement;
+    const resultDisplayModeSelect = document.getElementById('resultDisplayMode') as HTMLSelectElement;
     const adaptiveSuggestionsInput = document.getElementById('adaptiveSuggestionsEnabled') as HTMLInputElement;
     const adaptiveLearningInput = document.getElementById('adaptiveLearningEnabled') as HTMLInputElement;
     const searchSelect = document.getElementById('searchEngine') as HTMLSelectElement;
@@ -169,74 +220,87 @@ async function saveOptions(): Promise<void> {
     const personalDictionaryInput = document.getElementById('personalDictionary') as HTMLTextAreaElement;
     const aiModeSelect = document.getElementById('aiMode') as HTMLSelectElement;
     const glossaryInput = document.getElementById('glossary') as HTMLTextAreaElement;
-    const statusDiv = document.getElementById('status') as HTMLElement;
     const saveBtn = document.getElementById('saveBtn') as HTMLButtonElement;
 
     const apiKey = apiKeyInput.value.trim();
-
+    const normalizedDisabledSites = normalizeSiteEntries(disabledSitesInput.value);
     const originalBtnText = saveBtn.textContent;
+    saveInProgress = true;
     saveBtn.textContent = t('saving', 'Сохранение…');
     saveBtn.style.opacity = '0.7';
     saveBtn.disabled = true;
-
-    await chrome.storage.local.set({
-        selectedTone: toneSelect.value,
-        selectedTheme: themeSelect.value,
-        interfaceScale: clampInterfaceScale(Number(interfaceScaleInput.value) || 90),
-        compactResultMode: compactResultModeInput.checked,
-        adaptiveSuggestionsEnabled: adaptiveSuggestionsInput.checked,
-        adaptiveLearningEnabled: adaptiveLearningInput.checked,
-        searchEngine: searchSelect.value,
-        sendPageContext: sendPageContextInput.checked,
-        historyEnabled: historyEnabledInput.checked,
-        historyRetentionDays: Number(historyRetentionSelect.value),
-        disabledSites: disabledSitesInput.value
-            .split(/\r?\n/)
-            .map((site) => site.trim())
-            .filter(Boolean),
-        personalDictionary: personalDictionaryInput.value
-            .split(/\r?\n/)
-            .map((word) => word.trim())
-            .filter(Boolean),
-        aiMode: aiModeSelect.value === 'fast' ? 'fast' : 'quality',
-        glossary: glossaryInput.value
-            .split(/\r?\n/)
-            .map((entry) => entry.trim())
-            .filter(Boolean)
-            .slice(0, 200),
-    });
-
-    let apiKeyStatus = '';
-    if (apiKey !== restoredApiKey && apiKey) {
-        saveBtn.textContent = t('checkingKey', 'Проверка ключа…');
-        try {
-            const response = await fetch('https://api.mistral.ai/v1/models', {
-                headers: { Authorization: `Bearer ${apiKey}` },
-            });
-            if (response.ok) {
-                await chrome.storage.local.set({ mistralApiKey: apiKey });
-                restoredApiKey = apiKey;
-            } else {
-                apiKeyStatus = t('invalidKey', 'Настройки сохранены, но новый API-ключ не прошёл проверку.');
-            }
-        } catch (error) {
-            console.error('Ошибка сети при проверке ключа', error);
-            apiKeyStatus = t('keyCheckUnavailable', 'Настройки сохранены. Проверить API-ключ сейчас не удалось.');
+    try {
+        if (normalizedDisabledSites.invalid.length) {
+            throw new Error(
+                `${t('invalidSiteEntries', 'Исправьте некорректные адреса сайтов:')} ${normalizedDisabledSites.invalid.join(', ')}`,
+            );
         }
-    } else if (!apiKey && restoredApiKey) {
-        await chrome.storage.local.set({ mistralApiKey: '' });
-        restoredApiKey = '';
-    }
+        await chrome.storage.local.set({
+            selectedTone: toneSelect.value,
+            selectedTheme: themeSelect.value,
+            interfaceScale: clampInterfaceScale(Number(interfaceScaleInput.value) || 90),
+            resultDisplayMode: normalizeResultDisplayMode(resultDisplayModeSelect.value),
+            compactResultMode: resultDisplayModeSelect.value === 'compact',
+            adaptiveSuggestionsEnabled: adaptiveSuggestionsInput.checked,
+            adaptiveLearningEnabled: adaptiveLearningInput.checked,
+            searchEngine: searchSelect.value,
+            sendPageContext: sendPageContextInput.checked,
+            historyEnabled: historyEnabledInput.checked,
+            historyRetentionDays: Number(historyRetentionSelect.value),
+            disabledSites: normalizedDisabledSites.valid,
+            personalDictionary: personalDictionaryInput.value
+                .split(/\r?\n/)
+                .map((word) => word.trim())
+                .filter(Boolean),
+            aiMode: aiModeSelect.value === 'fast' ? 'fast' : 'quality',
+            glossary: glossaryInput.value
+                .split(/\r?\n/)
+                .map((entry) => entry.trim())
+                .filter(Boolean)
+                .slice(0, 200),
+        });
+        disabledSitesInput.value = normalizedDisabledSites.valid.join('\n');
 
-    statusDiv.textContent = apiKeyStatus || t('saveSuccess', '✓ Настройки успешно сохранены!');
-    statusDiv.style.color = apiKeyStatus ? '#d97706' : '#10b981';
-    statusDiv.style.display = 'block';
-    window.setTimeout(() => {
-        statusDiv.style.display = 'none';
-    }, 3500);
-    saveBtn.textContent = originalBtnText;
-    saveBtn.style.opacity = '1';
-    saveBtn.disabled = false;
+        let apiKeyStatus = '';
+        if (apiKey !== restoredApiKey && apiKey) {
+            saveBtn.textContent = t('checkingKey', 'Проверка ключа…');
+            try {
+                const response = await fetch('https://api.mistral.ai/v1/models', {
+                    headers: { Authorization: `Bearer ${apiKey}` },
+                });
+                if (response.ok) {
+                    await chrome.storage.local.set({ mistralApiKey: apiKey });
+                    restoredApiKey = apiKey;
+                } else {
+                    apiKeyStatus = t('invalidKey', 'Настройки сохранены, но новый API-ключ не прошёл проверку.');
+                }
+            } catch (error) {
+                console.error('Ошибка сети при проверке ключа', error);
+                apiKeyStatus = t('keyCheckUnavailable', 'Настройки сохранены. Проверить API-ключ сейчас не удалось.');
+            }
+        } else if (!apiKey && restoredApiKey) {
+            await chrome.storage.local.set({ mistralApiKey: '' });
+            restoredApiKey = '';
+        }
+
+        savedOptionsState = captureOptionsState();
+        showOptionsStatus(
+            apiKeyStatus || t('saveSuccess', '✓ Настройки успешно сохранены!'),
+            apiKeyStatus ? 'warning' : 'success',
+        );
+        window.setTimeout(() => {
+            const status = document.getElementById('status');
+            if (status) status.style.display = 'none';
+        }, 3500);
+    } catch (error) {
+        const message = error instanceof Error ? error.message : t('saveFailed', 'Не удалось сохранить настройки.');
+        showOptionsStatus(message, 'error');
+    } finally {
+        saveInProgress = false;
+        saveBtn.textContent = originalBtnText;
+        saveBtn.style.opacity = '1';
+        updateSaveButtonState();
+    }
 }
 
 // Функция для восстановления настроек (Promise-based)
@@ -245,7 +309,7 @@ async function restoreOptions(): Promise<void> {
     const toneSelect = document.getElementById('toneSelect') as HTMLSelectElement;
     const themeSelect = document.getElementById('themeSelect') as HTMLSelectElement;
     const interfaceScaleInput = document.getElementById('interfaceScale') as HTMLInputElement;
-    const compactResultModeInput = document.getElementById('compactResultMode') as HTMLInputElement;
+    const resultDisplayModeSelect = document.getElementById('resultDisplayMode') as HTMLSelectElement;
     const adaptiveSuggestionsInput = document.getElementById('adaptiveSuggestionsEnabled') as HTMLInputElement;
     const adaptiveLearningInput = document.getElementById('adaptiveLearningEnabled') as HTMLInputElement;
     const searchSelect = document.getElementById('searchEngine') as HTMLSelectElement;
@@ -262,7 +326,8 @@ async function restoreOptions(): Promise<void> {
         selectedTone: 'business',
         selectedTheme: 'auto',
         interfaceScale: 90,
-        compactResultMode: false,
+        resultDisplayMode: 'compact',
+        compactResultMode: true,
         adaptiveSuggestionsEnabled: false,
         adaptiveLearningEnabled: true,
         adaptiveLanguageModel: { version: 2, words: {}, pairs: {}, rejections: {} },
@@ -285,7 +350,7 @@ async function restoreOptions(): Promise<void> {
     toneSelect.value = items.selectedTone as string;
     themeSelect.value = items.selectedTheme as string;
     interfaceScaleInput.value = String(clampInterfaceScale(Number(items.interfaceScale) || 90));
-    compactResultModeInput.checked = items.compactResultMode === true;
+    resultDisplayModeSelect.value = normalizeResultDisplayMode(items.resultDisplayMode, items.compactResultMode);
     adaptiveSuggestionsInput.checked = items.adaptiveSuggestionsEnabled === true;
     adaptiveLearningInput.checked = items.adaptiveLearningEnabled !== false;
     searchSelect.value = items.searchEngine as string;
@@ -302,6 +367,8 @@ async function restoreOptions(): Promise<void> {
     updateAppearancePreview();
     updateAdaptiveControls();
     renderAdaptiveStats(items.adaptiveLanguageModel);
+    savedOptionsState = captureOptionsState();
+    updateSaveButtonState();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -310,15 +377,24 @@ document.addEventListener('DOMContentLoaded', () => {
     void setupOnboarding();
 
     const saveBtn = document.getElementById('saveBtn') as HTMLButtonElement | null;
-    if (saveBtn) saveBtn.addEventListener('click', saveOptions);
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.addEventListener('click', saveOptions);
+    }
+
+    for (const id of SAVED_OPTION_IDS) {
+        const element = document.getElementById(id);
+        element?.addEventListener('input', updateSaveButtonState);
+        element?.addEventListener('change', updateSaveButtonState);
+    }
 
     const themeSelect = document.getElementById('themeSelect');
     const interfaceScaleInput = document.getElementById('interfaceScale');
-    const compactResultModeInput = document.getElementById('compactResultMode');
+    const resultDisplayModeSelect = document.getElementById('resultDisplayMode');
     const adaptiveSuggestionsInput = document.getElementById('adaptiveSuggestionsEnabled');
     themeSelect?.addEventListener('change', updateAppearancePreview);
     interfaceScaleInput?.addEventListener('input', updateAppearancePreview);
-    compactResultModeInput?.addEventListener('change', updateAppearancePreview);
+    resultDisplayModeSelect?.addEventListener('change', updateAppearancePreview);
     adaptiveSuggestionsInput?.addEventListener('change', updateAdaptiveControls);
     setupCustomCommandSettings();
     setupStyleProfileSettings();
@@ -429,6 +505,12 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 systemDarkTheme.addEventListener('change', updateAppearancePreview);
+
+window.addEventListener('beforeunload', (event) => {
+    if (!savedOptionsState || captureOptionsState() === savedOptionsState) return;
+    event.preventDefault();
+    event.returnValue = '';
+});
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== 'local') return;

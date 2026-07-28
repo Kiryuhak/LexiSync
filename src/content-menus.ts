@@ -2,6 +2,7 @@ import { ICONS } from './icons';
 import { t } from './i18n';
 import { setIcon } from './dom-rendering';
 import type { CustomCommand, RequestMode } from './types';
+import { copyText } from './clipboard';
 
 export interface ContentMenuContext {
     openPopup: (x: number, y: number) => HTMLElement;
@@ -89,6 +90,12 @@ export function showToolbarMenu(x: number, y: number, context: ContentMenuContex
         }),
     );
     popupUI.appendChild(divider());
+    const copyStatus = document.createElement('span');
+    copyStatus.setAttribute('role', 'status');
+    copyStatus.setAttribute('aria-live', 'polite');
+    copyStatus.hidden = true;
+    copyStatus.style.cssText =
+        'max-width:150px;padding:5px 7px;color:#b42318;font-size:10px;font-weight:600;line-height:1.25;';
     popupUI.appendChild(
         createBtn(ICONS.edit, t('editText', 'Редактировать'), t('textFunctions', 'Функции текста'), () => {
             showAIMenu(x, y, context);
@@ -96,15 +103,29 @@ export function showToolbarMenu(x: number, y: number, context: ContentMenuContex
     );
     popupUI.appendChild(divider());
     popupUI.appendChild(
-        createBtn(ICONS.copy, '', t('copy', 'Копировать'), (e, btn) => {
-            navigator.clipboard.writeText(currentSelectionText);
-            const iconWrap = document.createElement('span');
-            iconWrap.style.cssText = 'display:flex;align-items:center;justify-content:center;width:16px;height:16px;';
-            setIcon(iconWrap, ICONS.check);
-            btn.replaceChildren(iconWrap);
-            setTimeout(() => context.closePopup(), 1000);
+        createBtn(ICONS.copy, '', t('copy', 'Копировать'), (_event, btn) => {
+            btn.disabled = true;
+            void copyText(currentSelectionText)
+                .then(() => {
+                    const iconWrap = document.createElement('span');
+                    iconWrap.style.cssText =
+                        'display:flex;align-items:center;justify-content:center;width:16px;height:16px;';
+                    setIcon(iconWrap, ICONS.check);
+                    btn.replaceChildren(iconWrap);
+                    btn.setAttribute('aria-label', t('copied', 'Текст скопирован!'));
+                    setTimeout(() => context.closePopup(), 1000);
+                })
+                .catch(() => {
+                    btn.disabled = false;
+                    btn.setAttribute('aria-label', t('copyFailed', 'Не удалось скопировать текст'));
+                    btn.title = t('copyFailed', 'Не удалось скопировать текст');
+                    copyStatus.textContent = t('copyFailed', 'Не удалось скопировать текст');
+                    copyStatus.hidden = false;
+                    context.adjustPopupPosition();
+                });
         }),
     );
+    popupUI.appendChild(copyStatus);
     popupUI.appendChild(divider());
 
     const moreWrap = document.createElement('div');

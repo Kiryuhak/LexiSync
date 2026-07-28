@@ -1,9 +1,9 @@
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
-const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-const result = spawnSync(npmCommand, ['run', 'build:firefox'], {
+const wxtCli = fileURLToPath(new URL('../node_modules/wxt/bin/wxt.mjs', import.meta.url));
+const result = spawnSync(process.execPath, [wxtCli, 'build', '-b', 'firefox'], {
     stdio: 'inherit',
-    shell: process.platform === 'win32',
     env: { ...process.env, LEXISYNC_E2E_HOST_ACCESS: '1' },
 });
 

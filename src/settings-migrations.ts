@@ -1,11 +1,18 @@
 import { normalizeSitePatterns } from './site-profiles';
 import type { StyleProfile } from './types';
 
-const CURRENT_SETTINGS_SCHEMA = 5;
+const CURRENT_SETTINGS_SCHEMA = 6;
+
+function getSchemaVersion(value: unknown): number {
+    return Math.max(0, Number(value) || 0);
+}
 
 export async function migrateSettings(): Promise<void> {
+    const schema = await chrome.storage.local.get('settingsSchemaVersion');
+    if (getSchemaVersion(schema.settingsSchemaVersion) >= CURRENT_SETTINGS_SCHEMA) return;
+
     const stored = await chrome.storage.local.get(null);
-    const currentVersion = Math.max(0, Number(stored.settingsSchemaVersion) || 0);
+    const currentVersion = getSchemaVersion(stored.settingsSchemaVersion);
     if (currentVersion >= CURRENT_SETTINGS_SCHEMA) return;
 
     const updates: Record<string, unknown> = {};
@@ -55,11 +62,24 @@ export async function migrateSettings(): Promise<void> {
             .slice(0, 8);
     }
     if (currentVersion < 5 && typeof stored.compactResultMode !== 'boolean') {
-        updates.compactResultMode = false;
+        updates.compactResultMode = true;
+    }
+    if (
+        currentVersion < 6 &&
+        stored.resultDisplayMode !== 'auto' &&
+        stored.resultDisplayMode !== 'compact' &&
+        stored.resultDisplayMode !== 'detailed'
+    ) {
+        updates.resultDisplayMode =
+            typeof stored.compactResultMode === 'boolean'
+                ? stored.compactResultMode
+                    ? 'compact'
+                    : 'detailed'
+                : 'compact';
     }
     updates.settingsSchemaVersion = CURRENT_SETTINGS_SCHEMA;
     const migratedKeys = Object.keys(updates).filter((key) => key !== 'settingsSchemaVersion');
-    const latest = migratedKeys.length ? await chrome.storage.local.get(migratedKeys) : {};
+    const latest = await chrome.storage.local.get([...migratedKeys, 'settingsSchemaVersion']);
     let concurrentChange = false;
     for (const key of migratedKeys) {
         if (JSON.stringify(latest[key]) !== JSON.stringify(stored[key])) {
@@ -67,7 +87,10 @@ export async function migrateSettings(): Promise<void> {
             concurrentChange = true;
         }
     }
+    if (getSchemaVersion(latest.settingsSchemaVersion) !== currentVersion) {
+        concurrentChange = true;
+    }
     if (concurrentChange) delete updates.settingsSchemaVersion;
-    await chrome.storage.local.set(updates);
+    if (Object.keys(updates).length) await chrome.storage.local.set(updates);
     if (concurrentChange) await migrateSettings();
 }
