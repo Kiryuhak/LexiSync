@@ -29,6 +29,10 @@ for (const browser of ['chrome', 'firefox']) {
         throw new Error('chrome: side panel is not configured');
     if (browser === 'firefox' && manifest.sidebar_action?.default_panel !== 'sidepanel.html')
         throw new Error('firefox: sidebar is not configured');
+    if (browser === 'firefox' && manifest.action?.default_popup)
+        throw new Error('firefox: toolbar action must open the persistent sidebar instead of a transient popup');
+    if (browser === 'chrome' && manifest.action?.default_popup !== 'popup.html')
+        throw new Error('chrome: toolbar popup is not configured');
     if (!sameValues(requiredOrigins, REQUIRED_ORIGINS))
         throw new Error(`${browser}: обязательный доступ разрешён только для Mistral API`);
     if (manifest.content_scripts) throw new Error(`${browser}: content script не должен быть статическим`);

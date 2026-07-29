@@ -3,6 +3,9 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <!-- В Firefox открываем постоянную боковую панель по нажатию на иконку.
+             Всплывающее окно браузер закрывает при потере фокуса, поэтому не собираем его. -->
+        <meta name="manifest.exclude" content="['firefox']" />
         <title>LexiSync</title>
         <style>
             :root {
