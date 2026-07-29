@@ -232,7 +232,7 @@ test('Закрытие панели отменяет таймер переход
     await selectTextOnPage(page, 'h1');
     await page.keyboard.press('Alt+r');
     await expect(page.locator('#lexisync-extension-ui')).toContainText(
-        /API-(?:ключ не настроен|key is not configured)/,
+        /API(?:-| )(?:ключ не настроен|key is not configured)/,
     );
     await page.locator('body').click({ position: { x: 5, y: 5 } });
     await expect(page.locator('#lexisync-shadow-host')).toHaveCount(0);
@@ -513,7 +513,7 @@ test('Кейс 7: Негативный сценарий (Обработка HTTP
 
     const uiPanel = page.locator('#lexisync-extension-ui');
     await expect(uiPanel).toBeVisible({ timeout: 5000 });
-    await expect(uiPanel).toContainText('Ошибка');
+    await expect(uiPanel.locator('.lexisync-content-pane')).toContainText(/(?:Ошибка|Error):/);
 });
 
 test('Персональная подсказка дополняет изученное слово по Tab', async ({ page, context }) => {

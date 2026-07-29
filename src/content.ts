@@ -302,14 +302,9 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             if (isPopupEvent(e)) return;
             const isSelectAll = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a';
             if (isSelectAll) {
-                setTimeout(() => {
-                    const text = getSelectedText();
-                    if (text && text.trim().length > 0) {
-                        saveSelectionState();
-                        const coords = getSelectionCoords();
-                        showToolbarMenu(coords.x, coords.y);
-                    }
-                }, 50);
+                // Use the shared cancellable timer so a hotkey pressed immediately
+                // after Ctrl+A can cancel the toolbar before starting the request.
+                scheduleSelectionMenu(50, true);
                 return;
             }
             if (e.altKey && !e.ctrlKey && !e.shiftKey) {
