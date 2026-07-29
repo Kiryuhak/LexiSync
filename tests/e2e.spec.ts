@@ -13,8 +13,13 @@ const test = base.extend({
         const pathToExtension = path.resolve(__dirname, '../.output/chrome-mv3');
         const context = await chromium.launchPersistentContext('', {
             headless: false,
+            locale: 'ru-RU',
             permissions: ['clipboard-read', 'clipboard-write'],
-            args: [`--disable-extensions-except=${pathToExtension}`, `--load-extension=${pathToExtension}`],
+            args: [
+                '--lang=ru',
+                `--disable-extensions-except=${pathToExtension}`,
+                `--load-extension=${pathToExtension}`,
+            ],
         });
         const background = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
         await expect
