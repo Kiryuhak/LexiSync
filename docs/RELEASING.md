@@ -12,15 +12,14 @@ Workflow также можно запустить вручную. В этом с
 
 ## Публикация в магазины
 
-Для автоматической отправки нужно добавить repository secrets:
+Для автоматической отправки Firefox нужно добавить repository secrets:
 
-- `CHROME_EXTENSION_ID`
-- `CHROME_PUBLISHER_ID`
-- `CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL`
-- `CHROME_SERVICE_ACCOUNT_PRIVATE_KEY`
 - `FIREFOX_EXTENSION_ID`
 - `FIREFOX_JWT_ISSUER`
 - `FIREFOX_JWT_SECRET`
 
-Публикация включается ручным параметром `publish_stores` либо repository variable
-`PUBLISH_EXTENSION_STORES=true`. Секреты не должны храниться в репозитории или релизных архивах.
+Firefox-публикация включается ручным параметром `publish_firefox` либо repository variable
+`PUBLISH_FIREFOX_AMO=true`. Chrome Web Store настраивается отдельно: для него нужны
+`CHROME_EXTENSION_ID`, `CHROME_PUBLISHER_ID`, `CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL`,
+`CHROME_SERVICE_ACCOUNT_PRIVATE_KEY` и параметр `publish_chrome` либо переменная
+`PUBLISH_CHROME_STORE=true`. Секреты не должны храниться в репозитории или релизных архивах.

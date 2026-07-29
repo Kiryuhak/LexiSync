@@ -1,5 +1,4 @@
 import type { StyleProfile } from './types';
-import { browser } from 'wxt/browser';
 import { t } from './i18n';
 import { migrateSettings } from './settings-migrations';
 import { fixKeyboardLayout } from './keyboard-layout';
@@ -24,7 +23,6 @@ import { getPrivacySettings, isSiteDisabled, normalizeDisabledSites } from './pr
 import { DEFAULT_BUDGET_SETTINGS, estimateTokens } from './budget';
 import { finalizeBudgetReservation, reserveBudget } from './budget-reservations';
 import { getStoredApiKey, migrateApiKeyToSecretStore, setStoredApiKey } from './secret-store';
-import { openWorkspacePanel } from './workspace-panel';
 
 const REQUEST_TIMEOUT_MS = 45_000;
 
@@ -90,12 +88,6 @@ chrome.runtime.onInstalled.addListener((details) => {
             contexts: ['page', 'image', 'selection'],
         });
     });
-});
-
-// В Firefox popup намеренно исключён из сборки: по клику на значок открываем
-// постоянную рабочую панель. В Chromium слушатель не сработает, пока задан popup.
-browser.action.onClicked.addListener(() => {
-    void openWorkspacePanel().catch((error) => console.error('Не удалось открыть рабочую панель LexiSync:', error));
 });
 
 async function sendOcrCommand(tabId: number, windowId?: number): Promise<void> {
