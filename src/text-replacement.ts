@@ -1,4 +1,5 @@
 import type { SelectionData } from './types';
+import { copyText } from './clipboard';
 
 export function dispatchValueEvents(element: HTMLInputElement | HTMLTextAreaElement): void {
     element.dispatchEvent(new Event('input', { bubbles: true }));
@@ -44,7 +45,7 @@ export function replaceSelectedText(selection: SelectionData, newText: string): 
         }
     } catch (error) {
         console.error('Ошибка при вставке текста:', error);
-        void navigator.clipboard.writeText(newText);
+        void copyText(newText).catch(() => undefined);
     }
     return null;
 }

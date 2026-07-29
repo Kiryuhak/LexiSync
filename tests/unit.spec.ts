@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import { detectLayoutDirection, fixKeyboardLayout } from '../src/keyboard-layout';
 import { buildMessages } from '../src/prompt-builder';
 import { escapeHTML, parseMarkdownToHTML } from '../src/markdown';
@@ -16,6 +16,37 @@ import { normalizeThemeCustomization } from '../src/theme-customization';
 import { normalizeWorkflows } from '../src/workflows';
 import { splitTextIntoChunks } from '../src/text-chunker';
 import { createBatchJob, getBatchFileResult, normalizeBatchJob } from '../src/batch-jobs';
+import { copyText } from '../src/clipboard';
+
+test('копирует текст через запасной механизм при недоступном Clipboard API', async () => {
+    const clipboardWrite = vi.fn().mockRejectedValue(new Error('DENIED'));
+    const execCommand = vi.fn().mockReturnValue(true);
+    const textarea = {
+        value: '',
+        style: {},
+        setAttribute: vi.fn(),
+        select: vi.fn(),
+        remove: vi.fn(),
+    };
+    const append = vi.fn();
+    vi.stubGlobal('navigator', { clipboard: { writeText: clipboardWrite } });
+    vi.stubGlobal('document', {
+        body: { append },
+        createElement: vi.fn().mockReturnValue(textarea),
+        execCommand,
+    });
+
+    try {
+        await copyText('Текст для копирования');
+        expect(clipboardWrite).toHaveBeenCalledWith('Текст для копирования');
+        expect(textarea.value).toBe('Текст для копирования');
+        expect(append).toHaveBeenCalledWith(textarea);
+        expect(execCommand).toHaveBeenCalledWith('copy');
+        expect(textarea.remove).toHaveBeenCalledOnce();
+    } finally {
+        vi.unstubAllGlobals();
+    }
+});
 
 test('локально исправляет русскую и английскую раскладки', () => {
     expect(detectLayoutDirection('ghbdtn')).toBe('en-to-ru');

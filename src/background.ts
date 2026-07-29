@@ -102,7 +102,9 @@ async function sendOcrCommand(tabId: number, windowId?: number): Promise<void> {
             console.error('Ошибка захвата экрана:', chrome.runtime.lastError);
             return;
         }
-        chrome.tabs.sendMessage(tabId, { action: 'startOcrMode', screenshotUrl: dataUrl });
+        void chrome.tabs
+            .sendMessage(tabId, { action: 'startOcrMode', screenshotUrl: dataUrl })
+            .catch((error) => console.error('Не удалось открыть OCR на вкладке:', error));
     };
 
     if (typeof windowId === 'number') {
@@ -226,6 +228,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     sender.tab?.url || sender.url,
                 );
                 sendResponse({
+                    ok: true,
                     hasApiKey: apiKey.length > 0,
                     sendPageContext: settings.sendPageContext === true,
                     contextDisabledSites: settings.contextDisabledSites,
@@ -246,7 +249,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         activeStyleProfile: profile,
                     }),
                 });
-            });
+            })
+            .catch((error) =>
+                sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) }),
+            );
         return true;
     } else if (request.action === 'storageMutation') {
         const payload = request.payload && typeof request.payload === 'object' ? request.payload : {};

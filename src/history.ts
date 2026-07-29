@@ -3,6 +3,7 @@ import type { HistoryItem, RequestMode } from './types';
 import { localizeDocument, t } from './i18n';
 import { upsertCustomCommand } from './settings-store';
 import { applyAppearanceStyle } from './appearance-style';
+import { copyText } from './clipboard';
 
 const MODE_NAMES: Record<RequestMode, string> = {
     spellcheck: t('modeSpellcheck', 'Ошибки'),
@@ -73,7 +74,7 @@ function createHistoryCard(item: HistoryItem): HTMLElement {
             },
         ),
         createButton(t('copyResult', 'Копировать результат'), 'secondary-btn', async () => {
-            await navigator.clipboard.writeText(item.result);
+            await copyText(item.result);
         }),
         createButton(t('runAgain', 'Повторить на странице'), 'secondary-btn', async () => {
             await chrome.runtime.sendMessage({ action: 'replayHistoryItem', item });

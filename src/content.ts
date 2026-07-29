@@ -103,6 +103,17 @@ if (!contentRuntime.__lexisyncContentInitialized) {
         pendingSelectionMenuTimer = null;
     }
 
+    function scheduleSelectionMenu(delay = 50): void {
+        cancelPendingSelectionMenu();
+        pendingSelectionMenuTimer = setTimeout(() => {
+            pendingSelectionMenuTimer = null;
+            const text = getSelectedText();
+            if (!text || text.trim().length === 0) return;
+            saveSelectionState();
+            showToolbarMenu(lastMouseX || getSelectionCoords().x, lastMouseY || getSelectionCoords().y);
+        }, delay);
+    }
+
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         if (request.action === 'lexisyncPing') {
             sendResponse({ ok: true });
@@ -258,18 +269,17 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             if (isPopupEvent(e)) return;
             if (e.button === 2) return;
 
-            cancelPendingSelectionMenu();
-            pendingSelectionMenuTimer = setTimeout(() => {
-                pendingSelectionMenuTimer = null;
-                const text = getSelectedText();
-                if (text && text.trim().length > 0) {
-                    saveSelectionState();
-                    showToolbarMenu(lastMouseX, lastMouseY);
-                }
-            }, 50);
+            scheduleSelectionMenu();
         },
         true,
     );
+
+    // Клавиатурное выделение, iframe и некоторые редакторы не всегда посылают mouseup.
+    // selectionchange покрывает эти случаи, а debounce не показывает панель во время перетаскивания мышью.
+    document.addEventListener('selectionchange', () => {
+        if (!extensionEnabledOnSite || isDragging || isManuallyPositioned) return;
+        scheduleSelectionMenu(80);
+    });
 
     document.addEventListener(
         'keydown',

@@ -603,6 +603,8 @@ export function executeRequest(
     async function checkCacheAndRun() {
         const runtimeSettings = await chrome.runtime.sendMessage({ action: 'getRuntimeSettings' });
         const res = runtimeSettings as {
+            ok?: boolean;
+            error?: unknown;
             hasApiKey?: boolean;
             sendPageContext?: boolean;
             contextDisabledSites?: unknown;
@@ -610,6 +612,8 @@ export function executeRequest(
             resultDisplayMode?: unknown;
             compactResultMode?: boolean;
         };
+        if (res.ok === false)
+            throw new Error(typeof res.error === 'string' ? res.error : 'RUNTIME_SETTINGS_UNAVAILABLE');
         if (lifecycle.disposed) return;
         compactResultMode = shouldUseCompactResult(
             normalizeResultDisplayMode(res.resultDisplayMode, res.compactResultMode),
@@ -701,5 +705,11 @@ export function executeRequest(
         }
     }
 
-    checkCacheAndRun();
+    void checkCacheAndRun().catch((error) => {
+        if (lifecycle.disposed) return;
+        const message = error instanceof Error ? error.message : t('unknownError', 'Неизвестная ошибка.');
+        contentPane.textContent = `${t('errorPrefix', 'Ошибка:')} ${message}`;
+        contentPane.style.color = '#d32f2f';
+        finishStream(false);
+    });
 }
