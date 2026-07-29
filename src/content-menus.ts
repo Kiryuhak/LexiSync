@@ -35,10 +35,12 @@ export function showToolbarMenu(x: number, y: number, context: ContentMenuContex
         text: string,
         title: string,
         onClick: (e: MouseEvent, btn: HTMLButtonElement) => void,
+        action?: string,
     ) => {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'lexisync-toolbar-button';
+        if (action) btn.dataset.lexisyncAction = action;
         const iconWrap = document.createElement('span');
         iconWrap.style.cssText =
             'display:flex;align-items:center;justify-content:center;width:16px;height:16px;flex-shrink:0;color:var(--text-secondary);overflow:visible;';
@@ -97,9 +99,15 @@ export function showToolbarMenu(x: number, y: number, context: ContentMenuContex
     copyStatus.style.cssText =
         'max-width:150px;padding:5px 7px;color:#b42318;font-size:10px;font-weight:600;line-height:1.25;';
     popupUI.appendChild(
-        createBtn(ICONS.edit, t('editText', 'Редактировать'), t('textFunctions', 'Функции текста'), () => {
-            showAIMenu(x, y, context);
-        }),
+        createBtn(
+            ICONS.edit,
+            t('editText', 'Редактировать'),
+            t('textFunctions', 'Функции текста'),
+            () => {
+                showAIMenu(x, y, context);
+            },
+            'edit',
+        ),
     );
     popupUI.appendChild(divider());
     popupUI.appendChild(
