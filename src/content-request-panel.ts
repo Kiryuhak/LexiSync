@@ -484,9 +484,11 @@ export function executeRequest(
                     void getCacheHash(cacheModeKey, getCacheSource())
                         .then((cacheKey) => setCachedText(cacheKey, fullResult))
                         .catch((error) => console.error('Ошибка сохранения кэша:', error));
-                    void addHistoryItem(historyItem).then(() => {
-                        savedHistoryId = historyItem.id;
-                    });
+                    void addHistoryItem(historyItem)
+                        .then(() => {
+                            savedHistoryId = historyItem.id;
+                        })
+                        .catch((error) => console.error('Ошибка сохранения истории:', error));
                 }
             } else if (response.status === 'error') {
                 streamUiUpdater?.cancel();

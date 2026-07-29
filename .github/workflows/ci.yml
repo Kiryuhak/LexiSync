@@ -60,6 +60,17 @@ jobs:
             - name: Проверить Firefox
               run: npm run test:firefox:only
 
+            - name: Сохранить диагностику E2E
+              if: always()
+              uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+              with:
+                  name: e2e-diagnostics
+                  path: |
+                      test-results/**
+                      playwright-report/**
+                  retention-days: 7
+                  if-no-files-found: ignore
+
             - name: Сохранить сборки
               uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
               with:

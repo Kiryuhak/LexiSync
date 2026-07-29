@@ -47,6 +47,17 @@ jobs:
             - name: Полностью проверить релиз
               run: xvfb-run -a npm run test:all
 
+            - name: Сохранить диагностику E2E
+              if: always()
+              uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+              with:
+                  name: release-e2e-diagnostics
+                  path: |
+                      test-results/**
+                      playwright-report/**
+                  retention-days: 7
+                  if-no-files-found: ignore
+
             - name: Определить тег релиза
               id: release_meta
               shell: bash

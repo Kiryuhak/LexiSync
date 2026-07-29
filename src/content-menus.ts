@@ -273,23 +273,26 @@ export function showAIMenu(x: number, y: number, context: ContentMenuContext): v
         createMenuBtn(ICONS.emoji, t('addEmoji', 'Подобрать эмодзи'), () => context.handleAction('emoji'), 'Alt+T'),
     );
 
-    void chrome.storage.local.get({ customCommands: [] }).then((stored) => {
-        if (
-            context.getPopup() !== menuPopup ||
-            !Array.isArray(stored.customCommands) ||
-            stored.customCommands.length === 0
-        )
-            return;
-        const customLabel = document.createElement('div');
-        customLabel.className = 'lexisync-menu-label';
-        customLabel.textContent = t('myCommands', 'Мои команды');
-        menuPopup.appendChild(customLabel);
-        for (const command of stored.customCommands.slice(0, 8) as CustomCommand[]) {
-            if (!command?.id || !command.name || !command.prompt) continue;
-            menuPopup.appendChild(createMenuBtn(ICONS.style, command.name, () => context.executeCustom(command)));
-        }
-        context.adjustPopupPosition();
-    });
+    void chrome.storage.local
+        .get({ customCommands: [] })
+        .then((stored) => {
+            if (
+                context.getPopup() !== menuPopup ||
+                !Array.isArray(stored.customCommands) ||
+                stored.customCommands.length === 0
+            )
+                return;
+            const customLabel = document.createElement('div');
+            customLabel.className = 'lexisync-menu-label';
+            customLabel.textContent = t('myCommands', 'Мои команды');
+            menuPopup.appendChild(customLabel);
+            for (const command of stored.customCommands.slice(0, 8) as CustomCommand[]) {
+                if (!command?.id || !command.name || !command.prompt) continue;
+                menuPopup.appendChild(createMenuBtn(ICONS.style, command.name, () => context.executeCustom(command)));
+            }
+            context.adjustPopupPosition();
+        })
+        .catch((error) => console.error('Не удалось загрузить пользовательские команды:', error));
 
     context.adjustPopupPosition();
 }

@@ -4,6 +4,14 @@ import type { CustomCommand } from './types';
 
 let customCommands: CustomCommand[] = [];
 
+function showCommandStatus(message: string, isError = false): void {
+    const status = document.getElementById('status');
+    if (!status) return;
+    status.textContent = message;
+    status.style.color = isError ? '#b42318' : '#d97706';
+    status.style.display = 'block';
+}
+
 function resetCustomCommandForm(): void {
     const form = document.getElementById('customCommandForm') as HTMLFormElement | null;
     const idInput = document.getElementById('customCommandId') as HTMLInputElement | null;
@@ -53,9 +61,18 @@ function renderCustomCommands(): void {
         remove.title = t('delete', 'Удалить');
         remove.textContent = '×';
         remove.setAttribute('aria-label', `${remove.title}: ${command.name}`);
-        remove.onclick = async () => {
-            customCommands = await deleteCustomCommand(command.id);
-            renderCustomCommands();
+        remove.onclick = () => {
+            void deleteCustomCommand(command.id)
+                .then((commands) => {
+                    customCommands = commands;
+                    renderCustomCommands();
+                })
+                .catch((error) =>
+                    showCommandStatus(
+                        error instanceof Error ? error.message : t('saveFailed', 'Не удалось сохранить настройки.'),
+                        true,
+                    ),
+                );
         };
         actions.append(edit, remove);
         card.append(copy, actions);
@@ -75,18 +92,20 @@ export function setupCustomCommandSettings(): void {
         const prompt = promptInput.value.trim().slice(0, 2000);
         if (!name || !prompt) return;
         if (!idInput.value && customCommands.length >= 8) {
-            const status = document.getElementById('status');
-            if (status) {
-                status.textContent = t('commandLimit', 'Можно создать не более 8 команд.');
-                status.style.color = '#d97706';
-                status.style.display = 'block';
-            }
+            showCommandStatus(t('commandLimit', 'Можно создать не более 8 команд.'));
             return;
         }
-        const command: CustomCommand = { id: idInput.value || crypto.randomUUID(), name, prompt };
-        customCommands = await upsertCustomCommand(command);
-        resetCustomCommandForm();
-        renderCustomCommands();
+        try {
+            const command: CustomCommand = { id: idInput.value || crypto.randomUUID(), name, prompt };
+            customCommands = await upsertCustomCommand(command);
+            resetCustomCommandForm();
+            renderCustomCommands();
+        } catch (error) {
+            showCommandStatus(
+                error instanceof Error ? error.message : t('saveFailed', 'Не удалось сохранить настройки.'),
+                true,
+            );
+        }
     });
     document.getElementById('cancelCommandEdit')?.addEventListener('click', resetCustomCommandForm);
     document.querySelectorAll<HTMLButtonElement>('.preset-button').forEach((button) => {

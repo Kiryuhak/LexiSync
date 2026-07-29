@@ -103,14 +103,26 @@ if (!contentRuntime.__lexisyncContentInitialized) {
         pendingSelectionMenuTimer = null;
     }
 
-    function scheduleSelectionMenu(delay = 50): void {
+    function isSelectionInsidePopup(): boolean {
+        const selection = window.getSelection();
+        return Boolean(selection?.anchorNode && popupShadow && selection.anchorNode.getRootNode() === popupShadow);
+    }
+
+    function scheduleSelectionMenu(delay = 50, useSelectionCoords = false): void {
         cancelPendingSelectionMenu();
         pendingSelectionMenuTimer = setTimeout(() => {
             pendingSelectionMenuTimer = null;
+            // Не открываем вторую панель поверх меню или результата уже начатого действия.
+            // Новое выделение после клика вне панели обработается после её закрытия в mousedown.
+            if (popupUI) return;
             const text = getSelectedText();
             if (!text || text.trim().length === 0) return;
             saveSelectionState();
-            showToolbarMenu(lastMouseX || getSelectionCoords().x, lastMouseY || getSelectionCoords().y);
+            const coords = getSelectionCoords();
+            showToolbarMenu(
+                useSelectionCoords ? coords.x : lastMouseX || coords.x,
+                useSelectionCoords ? coords.y : lastMouseY || coords.y,
+            );
         }, delay);
     }
 
@@ -160,6 +172,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             return;
         }
         if (request.action === 'contextMenuClicked') {
+            cancelPendingSelectionMenu();
             saveSelectionState(request.text);
             const x = lastMouseX || window.innerWidth / 2;
             const y = lastMouseY || window.innerHeight / 2;
@@ -204,6 +217,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
         }
 
         if (request.action === 'historyReplay') {
+            cancelPendingSelectionMenu();
             void (async () => {
                 saveSelectionState(typeof request.text === 'string' ? request.text : '');
                 const coords = getSelectionCoords();
@@ -277,8 +291,8 @@ if (!contentRuntime.__lexisyncContentInitialized) {
     // Клавиатурное выделение, iframe и некоторые редакторы не всегда посылают mouseup.
     // selectionchange покрывает эти случаи, а debounce не показывает панель во время перетаскивания мышью.
     document.addEventListener('selectionchange', () => {
-        if (!extensionEnabledOnSite || isDragging || isManuallyPositioned) return;
-        scheduleSelectionMenu(80);
+        if (!extensionEnabledOnSite || isDragging || isManuallyPositioned || isSelectionInsidePopup()) return;
+        scheduleSelectionMenu(80, true);
     });
 
     document.addEventListener(

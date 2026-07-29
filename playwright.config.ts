@@ -9,4 +9,9 @@ export default defineConfig({
     // попытка защищает от кратковременных сбоев запуска браузера на GitHub Actions.
     workers: 1,
     retries: process.env.CI ? 1 : 0,
+    reporter: process.env.CI ? [['github'], ['list']] : 'list',
+    use: {
+        screenshot: 'only-on-failure',
+        trace: 'retain-on-failure',
+    },
 });

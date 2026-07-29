@@ -6,18 +6,29 @@ let databasePromise: Promise<IDBDatabase> | null = null;
 
 function openDatabase(): Promise<IDBDatabase> {
     if (databasePromise) return databasePromise;
-    databasePromise = new Promise((resolve, reject) => {
+    const opening = new Promise<IDBDatabase>((resolve, reject) => {
         const request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
         request.onupgradeneeded = () => {
             const database = request.result;
             if (!database.objectStoreNames.contains('secrets')) database.createObjectStore('secrets');
             if (!database.objectStoreNames.contains('batchJobs')) database.createObjectStore('batchJobs');
         };
-        request.onsuccess = () => resolve(request.result);
+        request.onsuccess = () => {
+            const database = request.result;
+            database.onversionchange = () => {
+                database.close();
+                if (databasePromise === opening) databasePromise = null;
+            };
+            resolve(database);
+        };
         request.onerror = () => reject(request.error || new Error('Не удалось открыть приватное хранилище LexiSync.'));
         request.onblocked = () => reject(new Error('Обновление приватного хранилища LexiSync заблокировано.'));
     });
-    return databasePromise;
+    databasePromise = opening;
+    void opening.catch(() => {
+        if (databasePromise === opening) databasePromise = null;
+    });
+    return opening;
 }
 
 export async function readPrivateRecord<T>(storeName: PrivateStoreName, key: IDBValidKey): Promise<T | undefined> {

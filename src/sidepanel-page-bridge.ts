@@ -8,8 +8,8 @@ async function getActiveTabId(): Promise<number> {
 
 export async function readPageSelection(): Promise<string> {
     const tabId = await getActiveTabId();
-    const [result] = await browser.scripting.executeScript({
-        target: { tabId },
+    const results = await browser.scripting.executeScript({
+        target: { tabId, allFrames: true },
         func: () => {
             const active = document.activeElement;
             if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) {
@@ -18,7 +18,7 @@ export async function readPageSelection(): Promise<string> {
             return window.getSelection()?.toString() || '';
         },
     });
-    const text = String(result?.result || '');
+    const text = results.map((result) => String(result.result || '').trim()).find(Boolean);
     if (!text) throw new Error('На странице нет выделенного текста.');
     return text;
 }

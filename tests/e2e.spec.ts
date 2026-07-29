@@ -62,15 +62,15 @@ async function clearApiKey(context: BrowserContext) {
 }
 
 async function selectTextOnPage(page: Page, selector: string = 'p') {
-    await page.evaluate((sel: string) => {
-        const el = document.querySelector(sel);
-        if (el) {
-            const range = document.createRange();
-            range.selectNodeContents(el);
-            window.getSelection()?.removeAllRanges();
-            window.getSelection()?.addRange(range);
-        }
-    }, selector);
+    const target = page.locator(selector).first();
+    await target.selectText();
+    await expect
+        .poll(() =>
+            target.evaluate(() => {
+                return window.getSelection()?.toString().trim().length ?? 0;
+            }),
+        )
+        .toBeGreaterThan(0);
 }
 
 async function grantSiteAccess(context: BrowserContext, page: Page): Promise<number> {
@@ -770,16 +770,14 @@ test('Пользовательская AI-команда передаёт соб
     await page.goto('https://example.com');
     await grantSiteAccess(context, page);
     await selectTextOnPage(page, 'h1');
-    await page.evaluate(() =>
-        document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX: 120, clientY: 80 })),
-    );
-    const panel = page.locator('#lexisync-extension-ui');
-    await expect(panel.getByRole('toolbar')).toBeVisible();
-    await panel.getByRole('button', { name: 'Редактировать' }).click();
-    const customCommand = panel.getByRole('menuitem', { name: 'Сделать тезисы' });
+    await page.locator('h1').dispatchEvent('mouseup', { button: 0, clientX: 120, clientY: 80 });
+    const toolbar = page.getByRole('toolbar', { name: 'Действия с выделенным текстом' });
+    await expect(toolbar).toBeVisible();
+    await toolbar.getByRole('button', { name: 'Редактировать' }).click();
+    const customCommand = page.getByRole('menuitem', { name: 'Сделать тезисы' });
     await expect(customCommand).toBeVisible();
     await customCommand.click();
-    await expect(panel).toContainText('Тезис');
+    await expect(page.getByRole('dialog', { name: 'Результат обработки текста' })).toContainText('Тезис');
     expect(systemPrompt).toContain('Преобразуй текст в тезисы.');
 });
 
