@@ -774,9 +774,11 @@ test('Пользовательская AI-команда передаёт соб
         document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX: 120, clientY: 80 })),
     );
     const panel = page.locator('#lexisync-extension-ui');
-    await expect(panel).toBeVisible();
+    await expect(panel.getByRole('toolbar')).toBeVisible();
     await panel.getByRole('button', { name: 'Редактировать' }).click();
-    await panel.getByRole('menuitem', { name: 'Сделать тезисы' }).click();
+    const customCommand = panel.getByRole('menuitem', { name: 'Сделать тезисы' });
+    await expect(customCommand).toBeVisible();
+    await customCommand.click();
     await expect(panel).toContainText('Тезис');
     expect(systemPrompt).toContain('Преобразуй текст в тезисы.');
 });
