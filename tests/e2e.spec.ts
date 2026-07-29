@@ -63,7 +63,14 @@ async function clearApiKey(context: BrowserContext) {
 
 async function selectTextOnPage(page: Page, selector: string = 'p') {
     const target = page.locator(selector).first();
-    await target.selectText();
+    await target.scrollIntoViewIfNeeded();
+    const box = await target.boundingBox();
+    if (!box) throw new Error(`Не удалось определить координаты для выделения: ${selector}`);
+    const y = box.y + box.height / 2;
+    await page.mouse.move(box.x + 2, y);
+    await page.mouse.down();
+    await page.mouse.move(box.x + Math.max(4, box.width - 2), y, { steps: 8 });
+    await page.mouse.up();
     await expect
         .poll(() =>
             target.evaluate(() => {
@@ -160,7 +167,6 @@ test('Панель выделения появляется автоматиче�
         .toBe(true);
 
     await selectTextOnPage(page, 'h1');
-    await page.locator('h1').dispatchEvent('mouseup', { button: 0, clientX: 180, clientY: 90 });
     const toolbar = page.getByRole('toolbar', { name: 'Действия с выделенным текстом' });
     await expect(toolbar).toBeVisible();
     const icons = toolbar.locator('svg');
@@ -199,7 +205,6 @@ test('Повторная инъекция не дублирует content script
     }, tabId);
     expect(initialized).toBe(true);
     await selectTextOnPage(page, 'h1');
-    await page.locator('h1').dispatchEvent('mouseup', { button: 0, clientX: 180, clientY: 90 });
     await expect(page.locator('#lexisync-shadow-host')).toHaveCount(1);
 });
 
@@ -298,11 +303,12 @@ test('Личный словарь передаётся в инструкцию �
     });
     await page.evaluate(() => {
         const input = document.createElement('textarea');
+        input.id = 'context-input';
         input.value = 'LexiSync';
         document.body.appendChild(input);
-        input.focus();
-        input.select();
     });
+    await page.locator('#context-input').focus();
+    await page.keyboard.press('Control+A');
     await page.keyboard.press('Alt+r');
     await expect(page.locator('#lexisync-extension-ui')).toContainText('LexiSync');
     expect(systemPrompt).toContain('LexiSync');
@@ -770,7 +776,6 @@ test('Пользовательская AI-команда передаёт соб
     await page.goto('https://example.com');
     await grantSiteAccess(context, page);
     await selectTextOnPage(page, 'h1');
-    await page.locator('h1').dispatchEvent('mouseup', { button: 0, clientX: 120, clientY: 80 });
     const toolbar = page.getByRole('toolbar', { name: 'Действия с выделенным текстом' });
     await expect(toolbar).toBeVisible();
     await toolbar.getByRole('button', { name: 'Редактировать' }).click();
@@ -1140,9 +1145,9 @@ test('замену из рабочей панели можно отменить 
         textarea.id = 'sidepanel-editor';
         textarea.value = 'Исходный текст';
         document.body.append(textarea);
-        textarea.focus();
-        textarea.select();
     });
+    await page.locator('#sidepanel-editor').focus();
+    await page.keyboard.press('Control+A');
     let [background] = context.serviceWorkers();
     if (!background) background = await context.waitForEvent('serviceworker');
     const extensionId = new URL(background.url()).host;

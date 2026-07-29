@@ -501,7 +501,9 @@ if (!contentRuntime.__lexisyncContentInitialized) {
 
     const menuContext: ContentMenuContext = {
         openPopup: (x, y) => {
-            closePopup();
+            // При переходе между панелью выделения, меню и результатом не оставляем
+            // старый host в DOM: иначе на короткое время появляются одинаковые id.
+            closePopup(true);
             injectStyles();
             lastAnchorX = x;
             lastAnchorY = y;
@@ -575,7 +577,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
         popupUI.style.top = `${viewportY}px`;
     }
 
-    function closePopup(): void {
+    function closePopup(removeImmediately = false): void {
         activeRequestCleanup?.();
         activeRequestCleanup = null;
         if (popupUI) {
@@ -588,7 +590,8 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             popupShadow = null;
             el.style.opacity = '0';
             el.style.pointerEvents = 'none';
-            setTimeout(() => host?.remove(), 150);
+            if (removeImmediately) host?.remove();
+            else setTimeout(() => host?.remove(), 150);
             previousFocus?.focus({ preventScroll: true });
             previousFocus = null;
         }
