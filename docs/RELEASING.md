@@ -14,12 +14,13 @@ Workflow также можно запустить вручную. В этом с
 
 Для автоматической отправки Firefox нужно добавить repository secrets:
 
-- `FIREFOX_EXTENSION_ID`
 - `FIREFOX_JWT_ISSUER`
 - `FIREFOX_JWT_SECRET`
 
 Firefox-публикация включается ручным параметром `publish_firefox` либо repository variable
-`PUBLISH_FIREFOX_AMO=true`. Chrome Web Store настраивается отдельно: для него нужны
+`PUBLISH_FIREFOX_AMO=true`. Идентификатор Firefox берётся из `browser_specific_settings.gecko.id`
+в манифесте, а лицензия ISC передаётся из `scripts/firefox-amo-metadata.json`. Chrome Web Store
+настраивается отдельно: для него нужны
 `CHROME_EXTENSION_ID`, `CHROME_PUBLISHER_ID`, `CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL`,
 `CHROME_SERVICE_ACCOUNT_PRIVATE_KEY` и параметр `publish_chrome` либо переменная
 `PUBLISH_CHROME_STORE=true`. Секреты не должны храниться в репозитории или релизных архивах.

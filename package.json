@@ -41,7 +41,7 @@
         "url": "git+https://github.com/Kiryuhak/LexiSync.git"
     },
     "keywords": [],
-    "author": "",
+    "author": "Kiryuhak",
     "license": "ISC",
     "type": "commonjs",
     "engines": {

@@ -7,8 +7,19 @@ import zlib from 'node:zlib';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const releaseRoot = path.join(root, '.output', 'release');
 const packageJson = JSON.parse(await fs.readFile(path.join(root, 'package.json'), 'utf8'));
+const amoMetadataPath = path.join(root, 'scripts', 'firefox-amo-metadata.json');
+const amoMetadata = JSON.parse(await fs.readFile(amoMetadataPath, 'utf8'));
+const licenseText = await fs.readFile(path.join(root, 'LICENSE'), 'utf8');
 const MAX_ZIP_ENTRIES = 10_000;
 const MAX_UNCOMPRESSED_BYTES = 100 * 1024 * 1024;
+
+const licenseOwner = licenseText.match(/^Copyright \(c\) \d{4}(?:-\d{4})? (.+)$/m)?.[1];
+if (!packageJson.author || licenseOwner !== packageJson.author) {
+    throw new Error('LICENSE: владелец авторских прав не совпадает с автором в package.json');
+}
+if (amoMetadata.version?.license !== packageJson.license) {
+    throw new Error('Mozilla Add-ons: лицензия версии не совпадает с package.json');
+}
 
 function assertSafeArchivePath(filename) {
     const normalized = filename.replaceAll('\\', '/');
@@ -140,8 +151,10 @@ const requiredSources = [
     '.github/workflows/ci.yml',
     '.npmrc',
     '.nvmrc',
+    'LICENSE',
     'package.json',
     'package-lock.json',
+    'scripts/firefox-amo-metadata.json',
     'wxt.config.ts',
     'src/background.ts',
 ];
