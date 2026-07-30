@@ -187,18 +187,41 @@
     "saved": { "message": "✓ Saved successfully!" },
     "onboardingIntro": { "message": "The extension corrects, translates, and improves text directly on the page." },
     "onboardingSelect": { "message": "Select text on any website" },
-    "onboardingOpen": { "message": "Open the compact LexiSync toolbar" },
+    "onboardingOpen": { "message": "Click the LexiSync button next to the selection" },
     "onboardingChoose": { "message": "Choose an action" },
     "onboardingShortcuts": { "message": "Quick commands" },
     "onboardingShortcutsHint": { "message": "Core actions work without opening a menu." },
-    "onboardingPrivacy": { "message": "Private suggestions" },
+    "onboardingPrivacy": { "message": "Privacy under your control" },
     "onboardingPrivacyHint": {
-        "message": "LexiSync can learn frequently used words locally and suggest continuations with Tab."
+        "message": "Text is sent to Mistral only to run the AI command you choose."
     },
-    "onboardingApi": { "message": "Add an API key" },
+    "onboardingApi": { "message": "Add a Mistral API key" },
     "onboardingApiHint": {
-        "message": "Mistral is needed only for AI processing. Local suggestions and keyboard layout correction work without it."
+        "message": "The key is required for AI commands and stays in the extension's local storage."
     },
+    "restartTutorial": { "message": "Open tutorial" },
+    "tutorialBenefitFix": { "message": "Fix errors and improve writing style" },
+    "tutorialBenefitTranslate": { "message": "Translate, add emoji, and run custom commands" },
+    "tutorialBenefitWorkspace": { "message": "Workspace, workflows, and file processing" },
+    "tutorialOpenMistral": { "message": "Open Mistral Studio ↗" },
+    "tutorialMistralSignIn": { "message": "Sign in to Mistral or create an account" },
+    "tutorialApiKeyLabel": { "message": "Mistral API key" },
+    "tutorialCheckKey": { "message": "Verify" },
+    "tutorialKeyRequired": { "message": "Paste an API key first." },
+    "tutorialKeyInvalid": { "message": "The key did not pass verification. Check it and try again." },
+    "tutorialKeySaved": { "message": "The key was verified and saved." },
+    "tutorialFirstAction": { "message": "Run your first command" },
+    "tutorialFirstActionHint": { "message": "LexiSync works directly with text on the open page." },
+    "tutorialChooseAndApply": {
+        "message": "Choose a command, then replace the text or copy the result"
+    },
+    "tutorialWorkspace": { "message": "Workspace and quick commands" },
+    "tutorialWorkspaceHint": {
+        "message": "Click the extension icon for the workspace or use keyboard shortcuts."
+    },
+    "tutorialPrivacyContext": { "message": "Page context is disabled by default" },
+    "tutorialPrivacyLocal": { "message": "The API key and history are stored locally" },
+    "tutorialPrivacyControls": { "message": "History and local data can be cleared in settings" },
     "profileNamePlaceholder": { "message": "Work email" },
     "profileInstructionPlaceholder": { "message": "Write concisely and professionally without corporate jargon." },
     "commandNamePlaceholder": { "message": "For example: Make shorter" },

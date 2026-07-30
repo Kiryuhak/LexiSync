@@ -1093,6 +1093,47 @@ test('API-ключ хранится вне доступного content scripts 
     expect(state.secret).toMatchObject({ ok: true, value: 'mock-test-key-123' });
 });
 
+test('обучение проводит нового пользователя через настройку API-ключа и первый запуск', async ({ page, context }) => {
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() => chrome.storage.local.set({ onboardingCompleted: false }));
+    const extensionId = new URL(background.url()).host;
+
+    await page.route('https://api.mistral.ai/v1/models', async (route) => {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: '{"data":[]}' });
+    });
+    await page.goto(`chrome-extension://${extensionId}/options.html?tutorial=1`);
+
+    const onboarding = page.locator('#onboarding');
+    await expect(onboarding).toBeVisible();
+    await expect(page.locator('#onboardingProgress')).toHaveText(/1.*5/);
+
+    await page.locator('#onboardingNext').click();
+    await expect(page.locator('#onboardingApiKey')).toBeVisible();
+    await expect(page.locator('.onboarding-external-link')).toHaveAttribute('href', 'https://console.mistral.ai/');
+    await page.locator('#onboardingApiKey').fill('tutorial-test-key');
+    await page.locator('#onboardingSaveKey').click();
+    await expect(page.locator('#onboardingKeyStatus')).toHaveAttribute('data-kind', 'success');
+
+    const savedKey = await page.evaluate(() => chrome.runtime.sendMessage({ action: 'getApiKey' }));
+    expect(savedKey).toMatchObject({ ok: true, value: 'tutorial-test-key' });
+
+    for (let step = 2; step <= 4; step++) {
+        await page.locator('#onboardingNext').click();
+        await expect(page.locator('#onboardingProgress')).toHaveText(new RegExp(`${step + 1}.*5`));
+    }
+    await expect(page.locator('#onboardingNext')).toHaveText(/Начать|Start/);
+    await page.locator('#onboardingNext').click();
+    await expect(onboarding).toBeHidden();
+    await expect
+        .poll(() => background.evaluate(() => chrome.storage.local.get('onboardingCompleted')))
+        .toEqual({ onboardingCompleted: true });
+
+    await page.locator('#openOnboarding').click();
+    await expect(onboarding).toBeVisible();
+    await expect(page.locator('#onboardingProgress')).toHaveText(/1.*5/);
+});
+
 test('автопроверка позволяет отклонить отдельное исправление', async ({ page, context }) => {
     await setFakeApiKey(context);
     let [background] = context.serviceWorkers();

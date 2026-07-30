@@ -59,7 +59,12 @@ initializeSettingsSync();
 initializeSiteAccess();
 
 chrome.runtime.onInstalled.addListener((details) => {
-    if (details.reason === 'install') void chrome.storage.local.set({ onboardingCompleted: false });
+    if (details.reason === 'install') {
+        void chrome.storage.local
+            .set({ onboardingCompleted: false })
+            .then(() => chrome.runtime.openOptionsPage())
+            .catch(() => undefined);
+    }
     chrome.contextMenus.removeAll(() => {
         chrome.contextMenus.create({
             id: 'spellcheck',

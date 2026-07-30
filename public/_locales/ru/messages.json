@@ -187,18 +187,41 @@
     "saved": { "message": "✓ Сохранено успешно!" },
     "onboardingIntro": { "message": "Расширение помогает исправлять, переводить и улучшать текст прямо на странице." },
     "onboardingSelect": { "message": "Выделите текст на любом сайте" },
-    "onboardingOpen": { "message": "Откройте компактную панель LexiSync" },
+    "onboardingOpen": { "message": "Нажмите кнопку LexiSync рядом с выделением" },
     "onboardingChoose": { "message": "Выберите нужное действие" },
     "onboardingShortcuts": { "message": "Быстрые команды" },
     "onboardingShortcutsHint": { "message": "Основные действия доступны без открытия меню." },
-    "onboardingPrivacy": { "message": "Приватные подсказки" },
+    "onboardingPrivacy": { "message": "Приватность под вашим контролем" },
     "onboardingPrivacyHint": {
-        "message": "LexiSync может изучать часто используемые слова локально и предлагать продолжение по Tab."
+        "message": "Текст отправляется в Mistral только для выполнения выбранной AI-команды."
     },
-    "onboardingApi": { "message": "Осталось добавить API-ключ" },
+    "onboardingApi": { "message": "Добавьте API-ключ Mistral" },
     "onboardingApiHint": {
-        "message": "Ключ Mistral нужен только для AI-обработки. Локальные подсказки и исправление раскладки работают без API."
+        "message": "Ключ нужен для AI-команд и хранится только в локальном хранилище расширения."
     },
+    "restartTutorial": { "message": "Открыть обучение" },
+    "tutorialBenefitFix": { "message": "Исправление ошибок и улучшение стиля" },
+    "tutorialBenefitTranslate": { "message": "Перевод, эмодзи и пользовательские команды" },
+    "tutorialBenefitWorkspace": { "message": "Рабочая панель, цепочки и обработка файлов" },
+    "tutorialOpenMistral": { "message": "Открыть Mistral Studio ↗" },
+    "tutorialMistralSignIn": { "message": "Войдите в аккаунт Mistral или создайте новый" },
+    "tutorialApiKeyLabel": { "message": "API-ключ Mistral" },
+    "tutorialCheckKey": { "message": "Проверить" },
+    "tutorialKeyRequired": { "message": "Сначала вставьте API-ключ." },
+    "tutorialKeyInvalid": { "message": "Ключ не прошёл проверку. Проверьте его и повторите." },
+    "tutorialKeySaved": { "message": "Ключ проверен и сохранён." },
+    "tutorialFirstAction": { "message": "Выполните первую команду" },
+    "tutorialFirstActionHint": { "message": "LexiSync работает прямо с текстом на открытой странице." },
+    "tutorialChooseAndApply": {
+        "message": "Выберите команду, затем замените или скопируйте результат"
+    },
+    "tutorialWorkspace": { "message": "Рабочая панель и быстрые команды" },
+    "tutorialWorkspaceHint": {
+        "message": "Нажмите значок расширения для рабочей панели или используйте горячие клавиши."
+    },
+    "tutorialPrivacyContext": { "message": "Контекст страницы по умолчанию отключён" },
+    "tutorialPrivacyLocal": { "message": "API-ключ и история хранятся локально" },
+    "tutorialPrivacyControls": { "message": "Историю и данные можно очистить в настройках" },
     "profileNamePlaceholder": { "message": "Рабочая почта" },
     "profileInstructionPlaceholder": { "message": "Пиши кратко, профессионально и без канцеляризмов." },
     "commandNamePlaceholder": { "message": "Например: Сделать короче" },

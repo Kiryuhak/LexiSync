@@ -607,6 +607,14 @@
                     <li data-i18n="getApiKeyStep2">В меню слева найдите раздел API Keys.</li>
                     <li data-i18n="getApiKeyStep3">Нажмите Create new key и скопируйте его.</li>
                 </ol>
+                <button
+                    id="openOnboarding"
+                    class="onboarding-button secondary"
+                    type="button"
+                    data-i18n="restartTutorial"
+                >
+                    Открыть обучение
+                </button>
             </div>
 
             <div class="btn-container" id="saveActions">
@@ -631,14 +639,76 @@
                         Расширение помогает исправлять, переводить и улучшать текст прямо на странице.
                     </p>
                     <ul class="onboarding-list">
-                        <li data-i18n="onboardingSelect">Выделите текст на любом сайте</li>
-                        <li data-i18n="onboardingOpen">Откройте компактную панель LexiSync</li>
-                        <li data-i18n="onboardingChoose">Выберите нужное действие</li>
+                        <li data-i18n="tutorialBenefitFix">Исправление ошибок и улучшение стиля</li>
+                        <li data-i18n="tutorialBenefitTranslate">Перевод, эмодзи и пользовательские команды</li>
+                        <li data-i18n="tutorialBenefitWorkspace">Рабочая панель, цепочки и обработка файлов</li>
                     </ul>
                 </section>
                 <section class="onboarding-step" data-onboarding-step="1">
-                    <h3 data-i18n="onboardingShortcuts">Быстрые команды</h3>
-                    <p data-i18n="onboardingShortcutsHint">Основные действия доступны без открытия меню.</p>
+                    <h3 data-i18n="onboardingApi">Добавьте API-ключ Mistral</h3>
+                    <p data-i18n="onboardingApiHint">
+                        Ключ нужен для AI-команд и хранится только в локальном хранилище расширения.
+                    </p>
+                    <a
+                        class="onboarding-external-link"
+                        href="https://console.mistral.ai/"
+                        target="_blank"
+                        rel="noreferrer"
+                        data-i18n="tutorialOpenMistral"
+                        >Открыть Mistral Studio ↗</a
+                    >
+                    <ol class="onboarding-list onboarding-api-steps">
+                        <li data-i18n="tutorialMistralSignIn">Войдите в аккаунт Mistral или создайте новый</li>
+                        <li data-i18n="getApiKeyStep2">В меню слева найдите раздел API Keys</li>
+                        <li data-i18n="getApiKeyStep3">Нажмите Create new key и сразу скопируйте ключ</li>
+                    </ol>
+                    <label class="onboarding-key-label" for="onboardingApiKey" data-i18n="tutorialApiKeyLabel"
+                        >API-ключ Mistral</label
+                    >
+                    <div class="onboarding-key-row">
+                        <input
+                            id="onboardingApiKey"
+                            type="password"
+                            autocomplete="off"
+                            spellcheck="false"
+                            data-i18n-placeholder="apiKeyPlaceholder"
+                            placeholder="Вставьте ключ…"
+                        />
+                        <button
+                            id="onboardingSaveKey"
+                            class="onboarding-button primary"
+                            type="button"
+                            data-i18n="tutorialCheckKey"
+                        >
+                            Проверить
+                        </button>
+                    </div>
+                    <p id="onboardingKeyStatus" class="onboarding-key-status" role="status" aria-live="polite"></p>
+                </section>
+                <section class="onboarding-step" data-onboarding-step="2">
+                    <h3 data-i18n="tutorialFirstAction">Выполните первую команду</h3>
+                    <p data-i18n="tutorialFirstActionHint">LexiSync работает прямо с текстом на открытой странице.</p>
+                    <ol class="tutorial-flow">
+                        <li>
+                            <strong>1</strong><span data-i18n="onboardingSelect">Выделите текст на любом сайте</span>
+                        </li>
+                        <li>
+                            <strong>2</strong
+                            ><span data-i18n="onboardingOpen">Нажмите кнопку LexiSync рядом с выделением</span>
+                        </li>
+                        <li>
+                            <strong>3</strong
+                            ><span data-i18n="tutorialChooseAndApply"
+                                >Выберите команду, затем замените или скопируйте результат</span
+                            >
+                        </li>
+                    </ol>
+                </section>
+                <section class="onboarding-step" data-onboarding-step="3">
+                    <h3 data-i18n="tutorialWorkspace">Рабочая панель и быстрые команды</h3>
+                    <p data-i18n="tutorialWorkspaceHint">
+                        Нажмите значок расширения для рабочей панели или используйте горячие клавиши.
+                    </p>
                     <ul class="onboarding-list">
                         <li data-i18n="shortcutSpellcheck">Alt+R — исправить ошибки</li>
                         <li data-i18n="shortcutStyle">Alt+Y — переписать текст</li>
@@ -646,30 +716,24 @@
                         <li data-i18n="shortcutOcr">Alt+S — распознать текст на экране</li>
                     </ul>
                 </section>
-                <section class="onboarding-step" data-onboarding-step="2">
-                    <h3 data-i18n="onboardingPrivacy">Приватные подсказки</h3>
+                <section class="onboarding-step" data-onboarding-step="4">
+                    <h3 data-i18n="onboardingPrivacy">Приватность под вашим контролем</h3>
                     <p data-i18n="onboardingPrivacyHint">
-                        LexiSync может изучать часто используемые слова локально и предлагать продолжение по Tab.
+                        Текст отправляется в Mistral только для выполнения выбранной AI-команды.
                     </p>
                     <ul class="onboarding-list">
-                        <li data-i18n="privacyOptIn">Функция включается только вами</li>
-                        <li data-i18n="privacySensitive">Пароли и платёжные поля игнорируются</li>
-                        <li data-i18n="privacyClear">Языковой профиль можно очистить в любой момент</li>
-                    </ul>
-                </section>
-                <section class="onboarding-step" data-onboarding-step="3">
-                    <h3 data-i18n="onboardingApi">Осталось добавить API-ключ</h3>
-                    <p data-i18n="onboardingApiHint">
-                        Ключ Mistral нужен только для AI-обработки. Локальные подсказки работают без API.
-                    </p>
-                    <ul class="onboarding-list">
-                        <li data-i18n="apiStepGet">Получите ключ в console.mistral.ai</li>
-                        <li data-i18n="apiStepPaste">Вставьте его во вкладке «Основные»</li>
-                        <li data-i18n="apiStepIndependent">Остальные настройки сохраняются независимо от ключа</li>
+                        <li data-i18n="tutorialPrivacyContext">Контекст страницы по умолчанию отключён</li>
+                        <li data-i18n="tutorialPrivacyLocal">API-ключ и история хранятся локально</li>
+                        <li data-i18n="tutorialPrivacyControls">Историю и данные можно очистить в настройках</li>
                     </ul>
                 </section>
                 <div class="onboarding-actions">
-                    <span id="onboardingProgress" class="onboarding-progress">1 из 4</span>
+                    <div class="onboarding-progress-wrap">
+                        <span id="onboardingProgress" class="onboarding-progress">1 из 5</span>
+                        <div class="onboarding-progress-track" aria-hidden="true">
+                            <span id="onboardingProgressBar"></span>
+                        </div>
+                    </div>
                     <div class="onboarding-buttons">
                         <button id="onboardingSkip" class="onboarding-button secondary" type="button" data-i18n="skip">
                             Пропустить</button

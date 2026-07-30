@@ -28,6 +28,15 @@ async function writePrivateApiKey(value: string): Promise<void> {
     if (response?.ok !== true) throw new Error(response?.error || 'Не удалось сохранить API-ключ.');
 }
 
+async function verifyMistralApiKey(apiKey: string): Promise<boolean> {
+    const response = await fetch('https://api.mistral.ai/v1/models', {
+        headers: { Authorization: `Bearer ${apiKey}` },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(10_000),
+    });
+    return response.ok;
+}
+
 const SAVED_OPTION_IDS = [
     'apiKey',
     'toneSelect',
@@ -172,18 +181,35 @@ async function setupOnboarding(): Promise<void> {
     const onboarding = document.getElementById('onboarding');
     const nextButton = document.getElementById('onboardingNext') as HTMLButtonElement | null;
     const skipButton = document.getElementById('onboardingSkip') as HTMLButtonElement | null;
+    const openButton = document.getElementById('openOnboarding') as HTMLButtonElement | null;
+    const keyInput = document.getElementById('onboardingApiKey') as HTMLInputElement | null;
+    const saveKeyButton = document.getElementById('onboardingSaveKey') as HTMLButtonElement | null;
+    const keyStatus = document.getElementById('onboardingKeyStatus');
     const progress = document.getElementById('onboardingProgress');
+    const progressBar = document.getElementById('onboardingProgressBar') as HTMLElement | null;
     const steps = [...document.querySelectorAll<HTMLElement>('[data-onboarding-step]')];
     if (!onboarding || !nextButton || !skipButton || !progress || steps.length === 0) return;
     const stored = await chrome.storage.local.get({ onboardingCompleted: false });
-    if (stored.onboardingCompleted === true) return;
-    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
     let activeStep = 0;
+    let previousFocus: HTMLElement | null = null;
     const render = () => {
         steps.forEach((step, index) => step.classList.toggle('is-active', index === activeStep));
         progress.textContent = `${activeStep + 1} ${t('of', 'из')} ${steps.length}`;
+        if (progressBar) progressBar.style.width = `${((activeStep + 1) / steps.length) * 100}%`;
         nextButton.textContent = activeStep === steps.length - 1 ? t('start', 'Начать работу') : t('next', 'Далее');
+    };
+    const open = () => {
+        previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        activeStep = 0;
+        if (keyInput) keyInput.value = restoredApiKey;
+        if (keyStatus) {
+            keyStatus.textContent = '';
+            delete keyStatus.dataset.kind;
+        }
+        onboarding.hidden = false;
+        render();
+        nextButton.focus();
     };
     const complete = async () => {
         onboarding.hidden = true;
@@ -198,6 +224,44 @@ async function setupOnboarding(): Promise<void> {
         }
     });
     skipButton.addEventListener('click', () => void complete());
+    openButton?.addEventListener('click', open);
+    saveKeyButton?.addEventListener('click', async () => {
+        if (!keyInput || !keyStatus) return;
+        const apiKey = keyInput.value.trim();
+        if (!apiKey) {
+            keyStatus.textContent = t('tutorialKeyRequired', 'Сначала вставьте API-ключ.');
+            keyStatus.dataset.kind = 'error';
+            keyInput.focus();
+            return;
+        }
+        const originalText = saveKeyButton.textContent;
+        saveKeyButton.disabled = true;
+        saveKeyButton.textContent = t('checkingKey', 'Проверка…');
+        keyStatus.textContent = '';
+        delete keyStatus.dataset.kind;
+        try {
+            if (!(await verifyMistralApiKey(apiKey))) {
+                keyStatus.textContent = t('tutorialKeyInvalid', 'Ключ не прошёл проверку. Проверьте его и повторите.');
+                keyStatus.dataset.kind = 'error';
+                return;
+            }
+            await writePrivateApiKey(apiKey);
+            restoredApiKey = apiKey;
+            const settingsKeyInput = document.getElementById('apiKey') as HTMLInputElement | null;
+            if (settingsKeyInput) settingsKeyInput.value = apiKey;
+            savedOptionsState = captureOptionsState();
+            updateSaveButtonState();
+            keyStatus.textContent = t('tutorialKeySaved', 'Ключ проверен и сохранён.');
+            keyStatus.dataset.kind = 'success';
+        } catch (error) {
+            console.error('Ошибка проверки API-ключа в обучении', error);
+            keyStatus.textContent = t('keyCheckUnavailable', 'Сейчас не удалось проверить ключ. Попробуйте ещё раз.');
+            keyStatus.dataset.kind = 'error';
+        } finally {
+            saveKeyButton.disabled = false;
+            saveKeyButton.textContent = originalText;
+        }
+    });
     onboarding.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
             event.preventDefault();
@@ -207,7 +271,7 @@ async function setupOnboarding(): Promise<void> {
         if (event.key !== 'Tab') return;
         const focusable = [
             ...onboarding.querySelectorAll<HTMLElement>('button, input, select, textarea, a[href]'),
-        ].filter((element) => !element.hidden && !element.hasAttribute('disabled'));
+        ].filter((element) => element.offsetParent !== null && !element.hasAttribute('disabled'));
         if (!focusable.length) return;
         const first = focusable[0];
         const last = focusable[focusable.length - 1];
@@ -219,9 +283,8 @@ async function setupOnboarding(): Promise<void> {
             first.focus();
         }
     });
-    onboarding.hidden = false;
-    render();
-    nextButton.focus();
+    const forcedByUrl = new URLSearchParams(window.location.search).get('tutorial') === '1';
+    if (stored.onboardingCompleted !== true || forcedByUrl) open();
 }
 
 async function saveOptions(): Promise<void> {
@@ -298,12 +361,7 @@ async function saveOptions(): Promise<void> {
         if (apiKey !== restoredApiKey && apiKey) {
             saveBtn.textContent = t('checkingKey', 'Проверка ключа…');
             try {
-                const response = await fetch('https://api.mistral.ai/v1/models', {
-                    headers: { Authorization: `Bearer ${apiKey}` },
-                    cache: 'no-store',
-                    signal: AbortSignal.timeout(10_000),
-                });
-                if (response.ok) {
+                if (await verifyMistralApiKey(apiKey)) {
                     await writePrivateApiKey(apiKey);
                     restoredApiKey = apiKey;
                 } else {
@@ -415,13 +473,11 @@ async function restoreOptions(): Promise<void> {
 
 document.addEventListener('DOMContentLoaded', () => {
     localizeDocument();
-    void restoreOptions();
+    void restoreOptions().then(() => setupOnboarding());
     void setupV4Settings();
     void chrome.storage.local
         .get({ themeCustomization: {} })
         .then((stored) => applyThemeCustomization(document.documentElement, stored.themeCustomization));
-    void setupOnboarding();
-
     const saveBtn = document.getElementById('saveBtn') as HTMLButtonElement | null;
     if (saveBtn) {
         saveBtn.disabled = true;
