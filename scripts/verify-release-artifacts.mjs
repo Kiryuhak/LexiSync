@@ -20,6 +20,18 @@ if (!packageJson.author || licenseOwner !== packageJson.author) {
 if (amoMetadata.version?.license !== packageJson.license) {
     throw new Error('Mozilla Add-ons: лицензия версии не совпадает с package.json');
 }
+const firefoxCategories = amoMetadata.categories?.firefox;
+if (!Array.isArray(firefoxCategories) || !firefoxCategories.includes('language-support')) {
+    throw new Error('Mozilla Add-ons: для Firefox не задана категория language-support');
+}
+if (
+    typeof amoMetadata.summary?.ru !== 'string' ||
+    !amoMetadata.summary.ru.trim() ||
+    typeof amoMetadata.summary?.['en-US'] !== 'string' ||
+    !amoMetadata.summary['en-US'].trim()
+) {
+    throw new Error('Mozilla Add-ons: отсутствует русское или английское краткое описание');
+}
 
 function assertSafeArchivePath(filename) {
     const normalized = filename.replaceAll('\\', '/');

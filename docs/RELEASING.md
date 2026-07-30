@@ -19,8 +19,9 @@ Workflow также можно запустить вручную. В этом с
 
 Firefox-публикация включается ручным параметром `publish_firefox` либо repository variable
 `PUBLISH_FIREFOX_AMO=true`. Идентификатор Firefox берётся из `browser_specific_settings.gecko.id`
-в манифесте, а лицензия ISC передаётся из `scripts/firefox-amo-metadata.json`. Chrome Web Store
-настраивается отдельно: для него нужны
+в манифесте, а лицензия ISC, категория `language-support` и локализованное краткое описание
+передаются из `scripts/firefox-amo-metadata.json`. Chrome Web Store настраивается отдельно:
+для него нужны
 `CHROME_EXTENSION_ID`, `CHROME_PUBLISHER_ID`, `CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL`,
 `CHROME_SERVICE_ACCOUNT_PRIVATE_KEY` и параметр `publish_chrome` либо переменная
 `PUBLISH_CHROME_STORE=true`. Секреты не должны храниться в репозитории или релизных архивах.
