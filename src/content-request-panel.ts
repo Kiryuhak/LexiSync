@@ -60,7 +60,7 @@ export function executeRequest(
         streamPort?.disconnect();
         streamPort = null;
     });
-    context.registerRequestCleanup(lifecycle.dispose);
+    registerRequestCleanup(() => lifecycle.dispose());
 
     function showRateLimitTimer(seconds: number, retryCallback: () => void, container: HTMLElement | null): void {
         let timeLeft = seconds;
@@ -656,7 +656,6 @@ export function executeRequest(
             emptyState.append(keyIcon, title, countdown, openButton);
             contentPane.replaceChildren(emptyState);
 
-            registerRequestCleanup(() => lifecycle.dispose());
             let timeLeft = 3;
             const interval = lifecycle.setInterval(() => {
                 timeLeft--;

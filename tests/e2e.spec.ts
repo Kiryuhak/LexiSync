@@ -57,6 +57,11 @@ async function setFakeApiKey(context: BrowserContext) {
 }
 
 async function clearApiKey(context: BrowserContext) {
+    for (const p of context.pages()) {
+        if (p.url().includes('options.html')) {
+            await p.close();
+        }
+    }
     let [background] = context.serviceWorkers();
     if (!background) background = await context.waitForEvent('serviceworker');
     const extensionId = new URL(background.url()).host;
