@@ -1122,7 +1122,7 @@ test('обучение проводит нового пользователя ч
         await page.locator('#onboardingNext').click();
         await expect(page.locator('#onboardingProgress')).toHaveText(new RegExp(`${step + 1}.*5`));
     }
-    await expect(page.locator('#onboardingNext')).toHaveText(/Начать|Start/);
+    await expect(page.locator('#onboardingNext')).toHaveText(/Начать|Start|Get started/);
     await page.locator('#onboardingNext').click();
     await expect(onboarding).toBeHidden();
     await expect

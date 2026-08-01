@@ -49,7 +49,7 @@ export function executeRequest(
     if (!popupUI) return;
     const currentSelection = context.getSelection();
     let currentTargetLang = context.getTargetLanguage();
-    const { getLanguageName, getPopupElementById, adjustPopupPosition, closePopup } = context;
+    const { getLanguageName, getPopupElementById, adjustPopupPosition, closePopup, registerRequestCleanup } = context;
     const originalText = currentSelection.text;
     let streamPort: chrome.runtime.Port | null = null;
     let streamUiUpdater: BatchedUiUpdater | null = null;
@@ -656,6 +656,7 @@ export function executeRequest(
             emptyState.append(keyIcon, title, countdown, openButton);
             contentPane.replaceChildren(emptyState);
 
+            registerRequestCleanup(() => lifecycle.dispose());
             let timeLeft = 3;
             const interval = lifecycle.setInterval(() => {
                 timeLeft--;
