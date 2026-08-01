@@ -2,7 +2,13 @@ import { expect, test, vi } from 'vitest';
 import { detectLayoutDirection, fixKeyboardLayout } from '../src/keyboard-layout';
 import { buildMessages } from '../src/prompt-builder';
 import { escapeHTML, parseMarkdownToHTML } from '../src/markdown';
-import { parseRetryAfterMs, readSsePayload, streamText } from '../src/mistral-client';
+import {
+    formatMistralError,
+    parseRetryAfterMs,
+    readSsePayload,
+    streamText,
+    validateApiKey,
+} from '../src/mistral-client';
 import { matchesSite, normalizeSitePatterns, resolveStyleProfile } from '../src/site-profiles';
 import { getOriginPattern } from '../src/site-access';
 import { getWordCorrections, resolveCorrections } from '../src/spellcheck';
@@ -346,4 +352,35 @@ test('пакетное задание сохраняет границы и уж�
     expect(getBatchFileResult(job.files[0])).toBe('Первая частьВторая часть');
     expect(normalizeBatchJob(job)?.files[0].source).toBe(source);
     expect(normalizeBatchJob({})).toBeNull();
+});
+
+test('форматирует сетевые ошибки и ошибки Mistral в понятный русифицированный текст', () => {
+    expect(formatMistralError(new TypeError('Failed to fetch'))).toContain(
+        'Не удалось подключиться к сервису Mistral AI',
+    );
+    expect(formatMistralError(new Error('NetworkError when attempting to fetch resource.'))).toContain(
+        'Не удалось подключиться к сервису Mistral AI',
+    );
+    expect(formatMistralError(new DOMException('Запрос отменён.', 'AbortError'))).toBe('Запрос отменён.');
+});
+
+test('валидирует API-ключ с возвратом понятного результата', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+        const emptyResult = await validateApiKey('');
+        expect(emptyResult.ok).toBe(false);
+        expect(emptyResult.message).toBe('Сначала вставьте API-ключ.');
+
+        const validResult = await validateApiKey('valid-key');
+        expect(validResult.ok).toBe(true);
+        expect(validResult.message).toBe('API-ключ проверен и готов к работе.');
+
+        fetchMock.mockResolvedValueOnce({ ok: false, status: 401 });
+        const invalidResult = await validateApiKey('bad-key');
+        expect(invalidResult.ok).toBe(false);
+        expect(invalidResult.message).toContain('API-ключ недействителен');
+    } finally {
+        vi.unstubAllGlobals();
+    }
 });

@@ -710,8 +710,29 @@ export function executeRequest(
     void checkCacheAndRun().catch((error) => {
         if (lifecycle.disposed) return;
         const message = error instanceof Error ? error.message : t('unknownError', 'Неизвестная ошибка.');
-        contentPane.textContent = `${t('errorPrefix', 'Ошибка:')} ${message}`;
-        contentPane.style.color = '#d32f2f';
+        const errorContainer = document.createElement('div');
+        errorContainer.className = 'lexisync-error-box';
+        errorContainer.style.cssText = 'padding: 8px 0; color: #d32f2f;';
+
+        const errorText = document.createElement('div');
+        errorText.style.cssText = 'margin-bottom: 10px; line-height: 1.45; font-size: 13px;';
+        errorText.textContent = `${t('errorPrefix', 'Ошибка:')} ${message}`;
+
+        const retryBtn = document.createElement('button');
+        retryBtn.type = 'button';
+        retryBtn.id = 'retryRequestBtn';
+        retryBtn.style.cssText =
+            'background: #1976d2; color: #ffffff; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500;';
+        retryBtn.textContent = t('retryRequest', 'Повторить попытку');
+        retryBtn.onclick = () => {
+            if (lifecycle.disposed) return;
+            contentPane.replaceChildren();
+            contentPane.style.color = '';
+            startStream();
+        };
+
+        errorContainer.append(errorText, retryBtn);
+        contentPane.replaceChildren(errorContainer);
         finishStream(false);
     });
 }

@@ -69,11 +69,47 @@ async function fetchWithRetry(url: string, init: RequestInit, signal: AbortSigna
     throw lastError instanceof Error ? lastError : new Error(t('requestFailed', 'Не удалось выполнить запрос.'));
 }
 
-function getApiError(status: number, details: string): string {
-    if (status === 401) return t('invalidApiKey', 'Неверный API-ключ. Проверьте настройки.');
+export function formatMistralError(error: unknown): string {
+    if (error instanceof Error) {
+        if (error.name === 'AbortError') return error.message;
+        const msg = error.message;
+        if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || error instanceof TypeError) {
+            return t(
+                'networkConnectionFailed',
+                'Не удалось подключиться к сервису Mistral AI. Проверьте интернет и повторите попытку.',
+            );
+        }
+        return msg;
+    }
+    return t('unknownNetworkError', 'Неизвестная ошибка сети.');
+}
+
+function getApiError(status: number): string {
+    if (status === 401 || status === 403)
+        return t('apiKeyInvalid', 'API-ключ недействителен или был отозван. Проверьте ключ.');
     if (status === 429) return t('mistralRateLimit', 'Превышен лимит запросов Mistral. Попробуйте немного позже.');
     if (status >= 500) return t('mistralUnavailable', 'Сервис Mistral временно недоступен. Попробуйте ещё раз.');
-    return `${t('mistralApiError', 'Ошибка Mistral API')} (${status}): ${details.slice(0, 300)}`;
+    return `${t('mistralApiError', 'Ошибка Mistral API')} (${status}).`;
+}
+
+export async function validateApiKey(apiKey: string): Promise<{ ok: boolean; message: string }> {
+    const trimmed = apiKey.trim();
+    if (!trimmed) {
+        return { ok: false, message: t('tutorialKeyRequired', 'Сначала вставьте API-ключ.') };
+    }
+    try {
+        const response = await fetch(`${API_BASE_URL}/models`, {
+            headers: { Authorization: `Bearer ${trimmed}` },
+            cache: 'no-store',
+            signal: AbortSignal.timeout(10_000),
+        });
+        if (response.ok) {
+            return { ok: true, message: t('apiKeyValid', 'API-ключ проверен и готов к работе.') };
+        }
+        return { ok: false, message: getApiError(response.status) };
+    } catch (error) {
+        return { ok: false, message: formatMistralError(error) };
+    }
 }
 
 export function readSsePayload(line: string): string | null {
@@ -109,7 +145,7 @@ export async function processOcr(msg: MistralRequest, apiKey: string, signal: Ab
         },
         signal,
     );
-    if (!response.ok) throw new Error(getApiError(response.status, await response.text()));
+    if (!response.ok) throw new Error(getApiError(response.status));
     const result = (await response.json()) as { pages?: Array<{ markdown?: string }> };
     const text = result.pages
         ?.map((page) => page.markdown || '')
@@ -140,7 +176,7 @@ export async function streamText(
         },
         signal,
     );
-    if (!response.ok) throw new Error(getApiError(response.status, await response.text()));
+    if (!response.ok) throw new Error(getApiError(response.status));
     const reader = response.body?.getReader();
     if (!reader) throw new Error(t('emptyStream', 'Mistral вернул пустой поток данных.'));
 

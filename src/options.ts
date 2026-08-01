@@ -9,6 +9,7 @@ import { normalizeSiteEntries } from './privacy';
 import { applyAppearanceStyle, normalizeAppearanceStyle } from './appearance-style';
 import { setupV4Settings } from './v4-settings';
 import { applyThemeCustomization } from './theme-customization';
+import { validateApiKey } from './mistral-client';
 
 type AppearanceTheme = 'auto' | 'light' | 'dark';
 
@@ -28,13 +29,8 @@ async function writePrivateApiKey(value: string): Promise<void> {
     if (response?.ok !== true) throw new Error(response?.error || 'Не удалось сохранить API-ключ.');
 }
 
-async function verifyMistralApiKey(apiKey: string): Promise<boolean> {
-    const response = await fetch('https://api.mistral.ai/v1/models', {
-        headers: { Authorization: `Bearer ${apiKey}` },
-        cache: 'no-store',
-        signal: AbortSignal.timeout(10_000),
-    });
-    return response.ok;
+async function verifyMistralApiKey(apiKey: string): Promise<{ ok: boolean; message: string }> {
+    return validateApiKey(apiKey);
 }
 
 const SAVED_OPTION_IDS = [
@@ -240,8 +236,9 @@ async function setupOnboarding(): Promise<void> {
         keyStatus.textContent = '';
         delete keyStatus.dataset.kind;
         try {
-            if (!(await verifyMistralApiKey(apiKey))) {
-                keyStatus.textContent = t('tutorialKeyInvalid', 'Ключ не прошёл проверку. Проверьте его и повторите.');
+            const validation = await verifyMistralApiKey(apiKey);
+            if (!validation.ok) {
+                keyStatus.textContent = validation.message;
                 keyStatus.dataset.kind = 'error';
                 return;
             }
@@ -251,7 +248,7 @@ async function setupOnboarding(): Promise<void> {
             if (settingsKeyInput) settingsKeyInput.value = apiKey;
             savedOptionsState = captureOptionsState();
             updateSaveButtonState();
-            keyStatus.textContent = t('tutorialKeySaved', 'Ключ проверен и сохранён.');
+            keyStatus.textContent = validation.message;
             keyStatus.dataset.kind = 'success';
         } catch (error) {
             console.error('Ошибка проверки API-ключа в обучении', error);
@@ -361,11 +358,12 @@ async function saveOptions(): Promise<void> {
         if (apiKey !== restoredApiKey && apiKey) {
             saveBtn.textContent = t('checkingKey', 'Проверка ключа…');
             try {
-                if (await verifyMistralApiKey(apiKey)) {
+                const validation = await verifyMistralApiKey(apiKey);
+                if (validation.ok) {
                     await writePrivateApiKey(apiKey);
                     restoredApiKey = apiKey;
                 } else {
-                    apiKeyStatus = t('invalidKey', 'Настройки сохранены, но новый API-ключ не прошёл проверку.');
+                    apiKeyStatus = validation.message;
                     apiKeyInput.value = restoredApiKey;
                 }
             } catch (error) {

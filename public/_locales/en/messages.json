@@ -369,5 +369,11 @@
     "ocrImageTooLarge": { "message": "The image for text recognition is too large." },
     "dailyBudgetReached": { "message": "The daily request limit has been reached." },
     "monthlyBudgetReached": { "message": "The monthly token limit has been reached." },
-    "deletedCorrection": { "message": "Deleted" }
+    "deletedCorrection": { "message": "Deleted" },
+    "networkConnectionFailed": {
+        "message": "Could not connect to the Mistral AI service. Check your internet and try again."
+    },
+    "apiKeyInvalid": { "message": "The API key is invalid or has been revoked. Please check your key." },
+    "apiKeyValid": { "message": "API key verified and ready to use." },
+    "retryRequest": { "message": "Retry" }
 }

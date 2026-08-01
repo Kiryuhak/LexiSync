@@ -369,5 +369,11 @@
     "ocrImageTooLarge": { "message": "Изображение для распознавания слишком большое." },
     "dailyBudgetReached": { "message": "Достигнут дневной лимит запросов." },
     "monthlyBudgetReached": { "message": "Достигнут месячный лимит токенов." },
-    "deletedCorrection": { "message": "Удалено" }
+    "deletedCorrection": { "message": "Удалено" },
+    "networkConnectionFailed": {
+        "message": "Не удалось подключиться к сервису Mistral AI. Проверьте интернет и повторите попытку."
+    },
+    "apiKeyInvalid": { "message": "API-ключ недействителен или был отозван. Проверьте ключ." },
+    "apiKeyValid": { "message": "API-ключ проверен и готов к работе." },
+    "retryRequest": { "message": "Повторить попытку" }
 }
