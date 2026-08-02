@@ -450,3 +450,14 @@ test('parseAdaptiveModel корректно нормализует структ�
     });
     expect(parsed.words['test']).toEqual({ count: 1, lastUsed: 100, value: 'Test' });
 });
+
+test('корректно распознаёт горячие клавиши в английской и русской раскладке клавиатуры', () => {
+    const isSelectAllKey = (e: { ctrlKey: boolean; code?: string; key: string }) =>
+        e.ctrlKey && (e.code === 'KeyA' || e.key.toLowerCase() === 'a' || e.key.toLowerCase() === 'ф');
+
+    expect(isSelectAllKey({ ctrlKey: true, code: 'KeyA', key: 'a' })).toBe(true);
+    expect(isSelectAllKey({ ctrlKey: true, code: 'KeyA', key: 'ф' })).toBe(true);
+    expect(isSelectAllKey({ ctrlKey: true, key: 'A' })).toBe(true);
+    expect(isSelectAllKey({ ctrlKey: true, key: 'Ф' })).toBe(true);
+    expect(isSelectAllKey({ ctrlKey: false, code: 'KeyA', key: 'a' })).toBe(false);
+});

@@ -290,7 +290,10 @@ document
     .getElementById('commandSearch')!
     .addEventListener('input', (event) => renderCommands((event.target as HTMLInputElement).value));
 document.addEventListener('keydown', (event) => {
-    if ((event.ctrlKey || event.metaKey) && event.key.toLocaleLowerCase() === 'k') {
+    if (
+        (event.ctrlKey || event.metaKey) &&
+        (event.code === 'KeyK' || event.key.toLocaleLowerCase() === 'k' || event.key.toLocaleLowerCase() === 'л')
+    ) {
         event.preventDefault();
         (document.getElementById('commandSearch') as HTMLInputElement).focus();
     }

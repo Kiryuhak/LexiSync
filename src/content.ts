@@ -300,7 +300,9 @@ if (!contentRuntime.__lexisyncContentInitialized) {
         async (e: KeyboardEvent) => {
             if (!extensionEnabledOnSite) return;
             if (isPopupEvent(e)) return;
-            const isSelectAll = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a';
+            const isSelectAll =
+                (e.ctrlKey || e.metaKey) &&
+                (e.code === 'KeyA' || e.key.toLowerCase() === 'a' || e.key.toLowerCase() === 'ф');
             if (isSelectAll) {
                 // Use the shared cancellable timer so a hotkey pressed immediately
                 // after Ctrl+A can cancel the toolbar before starting the request.
