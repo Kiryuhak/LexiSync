@@ -187,8 +187,8 @@ async function requestAdaptiveMutation(
 }
 
 function matchCase(candidate: string, prefix: string): string {
-    if (prefix && prefix[0] === prefix[0].toLocaleUpperCase('ru-RU')) {
-        return candidate[0].toLocaleUpperCase('ru-RU') + candidate.slice(1);
+    if (prefix && prefix[0] === prefix[0].toLocaleUpperCase()) {
+        return candidate[0].toLocaleUpperCase() + candidate.slice(1);
     }
     return candidate;
 }

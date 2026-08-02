@@ -89,10 +89,10 @@ async function processText(command: SidepanelCommand, text = sourceText.value, s
 
 function renderCommands(filter = ''): void {
     const list = document.getElementById('commandList') as HTMLElement;
-    const normalized = filter.trim().toLocaleLowerCase('ru-RU');
+    const normalized = filter.trim().toLocaleLowerCase();
     list.replaceChildren(
         ...paletteCommands
-            .filter((command) => command.name.toLocaleLowerCase('ru-RU').includes(normalized))
+            .filter((command) => command.name.toLocaleLowerCase().includes(normalized))
             .map((command) => {
                 const button = document.createElement('button');
                 button.type = 'button';

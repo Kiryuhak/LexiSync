@@ -22,6 +22,7 @@ import { normalizeThemeCustomization } from '../src/theme-customization';
 import { normalizeWorkflows } from '../src/workflows';
 import { splitTextIntoChunks } from '../src/text-chunker';
 import { createBatchJob, getBatchFileResult, normalizeBatchJob } from '../src/batch-jobs';
+import { parseAdaptiveModel } from '../src/adaptive-model-store';
 import { copyText } from '../src/clipboard';
 
 test('копирует текст через запасной механизм при недоступном Clipboard API', async () => {
@@ -438,4 +439,14 @@ test('normalizeBatchJob корректно обрабатывает повреж
     }));
     const withManyFiles = normalizeBatchJob({ ...validJob, files: manyFiles });
     expect(withManyFiles!.files).toHaveLength(10);
+});
+
+test('parseAdaptiveModel корректно нормализует структуры адаптивной модели', () => {
+    expect(parseAdaptiveModel(null)).toMatchObject({ version: 2, words: {}, pairs: {}, rejections: {} });
+    expect(parseAdaptiveModel(undefined)).toMatchObject({ version: 2, words: {}, pairs: {}, rejections: {} });
+    const parsed = parseAdaptiveModel({
+        words: { test: { count: 1, lastUsed: 100, value: 'Test' } },
+        pairs: {},
+    });
+    expect(parsed.words['test']).toEqual({ count: 1, lastUsed: 100, value: 'Test' });
 });

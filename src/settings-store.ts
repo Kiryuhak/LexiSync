@@ -87,7 +87,7 @@ export function applySettingsMutation(mutation: SettingsMutation, payload: Setti
             if (!normalized) throw new Error('INVALID_SETTINGS_VALUE');
             const stored = await chrome.storage.local.get({ [key]: [] });
             const values = Array.isArray(stored[key]) ? stored[key].map(String) : [];
-            if (!values.some((item) => item.toLocaleLowerCase('ru-RU') === normalized.toLocaleLowerCase('ru-RU'))) {
+            if (!values.some((item) => item.toLocaleLowerCase() === normalized.toLocaleLowerCase())) {
                 values.push(normalized);
             }
             const result = values.slice(0, 2000).sort((a, b) => a.localeCompare(b, 'ru'));

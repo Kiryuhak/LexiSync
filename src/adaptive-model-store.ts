@@ -60,7 +60,7 @@ function normalizeWord(value: unknown): string {
     return String(value || '')
         .trim()
         .slice(0, 32)
-        .toLocaleLowerCase('ru-RU');
+        .toLocaleLowerCase();
 }
 
 function pruneRecord<T extends { count: number; lastUsed: number }>(record: Record<string, T>, limit: number): void {
