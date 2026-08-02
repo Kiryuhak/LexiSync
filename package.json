@@ -1,6 +1,6 @@
 {
     "name": "lexisync-extension",
-    "version": "4.1.5",
+    "version": "4.1.6",
     "description": "Умный помощник для работы с текстом на базе Mistral AI",
     "scripts": {
         "dev": "wxt",
