@@ -102,17 +102,27 @@ jobs:
               env:
                   FIREFOX_JWT_ISSUER: ${{ secrets.FIREFOX_JWT_ISSUER }}
                   FIREFOX_JWT_SECRET: ${{ secrets.FIREFOX_JWT_SECRET }}
-              run: >
-                  npx web-ext sign
-                  --source-dir ".output/release/firefox-mv3"
-                  --artifacts-dir ".output/firefox-submission"
-                  --channel listed
-                  --api-key "$FIREFOX_JWT_ISSUER"
-                  --api-secret "$FIREFOX_JWT_SECRET"
-                  --amo-metadata "scripts/firefox-amo-metadata.json"
-                  --upload-source-code ".output/release/lexisync-extension-${{ needs.verify-and-release.outputs.version }}-sources.zip"
-                  --approval-timeout 0
-                  --no-input
+                  VERSION: ${{ needs.verify-and-release.outputs.version }}
+              shell: bash
+              run: |
+                  output=$(npx web-ext sign \
+                    --source-dir ".output/release/firefox-mv3" \
+                    --artifacts-dir ".output/firefox-submission" \
+                    --channel listed \
+                    --api-key "$FIREFOX_JWT_ISSUER" \
+                    --api-secret "$FIREFOX_JWT_SECRET" \
+                    --amo-metadata "scripts/firefox-amo-metadata.json" \
+                    --upload-source-code ".output/release/lexisync-extension-${VERSION}-sources.zip" \
+                    --approval-timeout 0 \
+                    --no-input 2>&1) || {
+                    if echo "$output" | grep -q "already exists"; then
+                      echo "Версия ${VERSION} уже загружена в Mozilla Add-ons — пропускаем повторную отправку."
+                      exit 0
+                    fi
+                    echo "$output" >&2
+                    exit 1
+                  }
+                  echo "$output"
 
     publish-chrome:
         needs: verify-and-release
