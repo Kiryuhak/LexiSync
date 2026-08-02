@@ -1195,7 +1195,7 @@ test('автопроверку можно отключить для текуще
     await page.locator('#excluded-editor').fill('Неправельный достаточно длинный текст.');
     const suggestion = page.locator('[data-lexisync-live-proof]');
     await expect(suggestion).toBeVisible();
-    await suggestion.getByRole('button', { name: 'Не проверять сайт' }).click();
+    await suggestion.locator('button.exclude').click();
     await expect(suggestion).toHaveCount(0);
     await expect
         .poll(() => background.evaluate(() => chrome.storage.local.get('liveProofreadDisabledSites')))
