@@ -338,9 +338,17 @@ document.getElementById('runBatch')!.addEventListener('click', () => {
         mode === 'custom'
             ? 'Сократи текст без потери смысла. Сохрани Markdown-разметку и язык. Верни только результат.'
             : undefined;
-    void batchController
-        .start([...(input.files || [])], mode, prompt)
-        .catch((error) => showStatus(error.message, true));
+    void batchController.start([...(input.files || [])], mode, prompt).catch((error: unknown) => {
+        if (error instanceof Error && error.message === 'ACTIVE_JOB_EXISTS') {
+            if (confirm('Незавершённое задание будет заменено. Продолжить?')) {
+                void batchController
+                    .start([...(input.files || [])], mode, prompt, true)
+                    .catch((err: unknown) => showStatus(err instanceof Error ? err.message : String(err), true));
+            }
+            return;
+        }
+        showStatus(error instanceof Error ? error.message : String(error), true);
+    });
 });
 document.getElementById('pauseBatch')!.addEventListener('click', () => void batchController.pause());
 document.getElementById('resumeBatch')!.addEventListener('click', () => void batchController.resume());

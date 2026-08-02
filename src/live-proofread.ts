@@ -2,6 +2,7 @@ import { normalizeDisabledSites, isSiteDisabled } from './privacy';
 import { getWordCorrections, renderSpellcheckDiffFragment, resolveCorrections } from './spellcheck';
 import { startTextRequest, type CancellableTextRequest } from './stream-request-client';
 import { dispatchValueEvents, setNativeValue } from './text-replacement';
+import { t } from './i18n';
 
 const ALLOWED_INPUT_TYPES = new Set(['text', 'search', 'email', 'url']);
 
@@ -41,13 +42,14 @@ export function startLiveProofread(): () => void {
             .card{width:min(340px,calc(100vw - 24px));padding:10px;border:1px solid #dfe5df;border-radius:14px;background:#fff;color:#202523;box-shadow:0 12px 34px #17211b2b;font:13px/1.45 system-ui,sans-serif}
             .head,.actions{display:flex;align-items:center;justify-content:space-between;gap:8px}.head strong{color:#176b3a}.preview{max-height:110px;overflow:auto;margin:9px 0;padding:9px;border-radius:9px;background:#f7faf7;white-space:pre-wrap}.preview mark{padding:1px 2px;border-radius:4px;color:#176b3a;background:#d9f8e5;cursor:pointer}.preview mark:focus{outline:2px solid #247a47}
             button{padding:7px 10px;border:0;border-radius:8px;font:inherit;cursor:pointer}.apply{color:#fff;background:#247a47}.close,.exclude{color:#58615b;background:#eef2ef}.note{display:grid;gap:2px;color:#58615b;font-size:11px}
+            @media (prefers-color-scheme: dark){.card{background:#1e2620;color:#d4e0d6;border-color:#3a4a3d;box-shadow:0 12px 34px #0008}.preview{background:#252e27}.preview mark{color:#7dd4a0;background:#1a3d28}.close,.exclude{color:#a8b8aa;background:#2c3a2f}.note{color:#8a9e8d}}
         `;
         const card = document.createElement('div');
         card.className = 'card';
         const head = document.createElement('div');
         head.className = 'head';
         const title = document.createElement('strong');
-        title.textContent = `Найдено исправлений: ${corrections.length}`;
+        title.textContent = `${t('liveProofCorrectionsFound', 'Найдено исправлений:')} ${corrections.length}`;
         const dismiss = document.createElement('button');
         dismiss.className = 'close';
         dismiss.type = 'button';
@@ -83,11 +85,11 @@ export function startLiveProofread(): () => void {
         const note = document.createElement('div');
         note.className = 'note';
         const noteText = document.createElement('span');
-        noteText.textContent = 'Нажмите на зелёное, чтобы отклонить';
+        noteText.textContent = t('liveProofDismissHint', 'Нажмите на зелёное, чтобы отклонить');
         const exclude = document.createElement('button');
         exclude.className = 'exclude';
         exclude.type = 'button';
-        exclude.textContent = 'Не проверять сайт';
+        exclude.textContent = t('liveProofExcludeSite', 'Не проверять сайт');
         exclude.onclick = () => {
             disabledSites = [...new Set([...disabledSites, location.hostname])].sort();
             void chrome.storage.local.set({ liveProofreadDisabledSites: disabledSites });
@@ -97,7 +99,7 @@ export function startLiveProofread(): () => void {
         const apply = document.createElement('button');
         apply.className = 'apply';
         apply.type = 'button';
-        apply.textContent = 'Применить';
+        apply.textContent = t('applyResult', 'Применить');
         apply.onclick = () => {
             if (editor.value !== original) return close();
             const resolved = resolveCorrections(corrected, corrections, rejected);

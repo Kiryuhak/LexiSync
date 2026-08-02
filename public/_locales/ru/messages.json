@@ -375,5 +375,9 @@
     },
     "apiKeyInvalid": { "message": "API-ключ недействителен или был отозван. Проверьте ключ." },
     "apiKeyValid": { "message": "API-ключ проверен и готов к работе." },
-    "retryRequest": { "message": "Повторить попытку" }
+    "retryRequest": { "message": "Повторить попытку" },
+    "liveProofCorrectionsFound": { "message": "Найдено исправлений:" },
+    "liveProofDismissHint": { "message": "Нажмите на зелёное, чтобы отклонить" },
+    "liveProofExcludeSite": { "message": "Не проверять сайт" },
+    "applyResult": { "message": "Применить" }
 }

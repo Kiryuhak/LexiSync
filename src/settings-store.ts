@@ -98,12 +98,12 @@ export function applySettingsMutation(mutation: SettingsMutation, payload: Setti
             if (!isCustomCommand(payload.command)) throw new Error('INVALID_CUSTOM_COMMAND');
             const stored = await chrome.storage.local.get({ customCommands: [] });
             const commands = Array.isArray(stored.customCommands)
-                ? stored.customCommands.filter(isCustomCommand).map(normalizeCommand).slice(0, 8)
+                ? stored.customCommands.filter(isCustomCommand).map(normalizeCommand).slice(0, 20)
                 : [];
             const command = normalizeCommand(payload.command);
             const index = commands.findIndex((item) => item.id === command.id);
             if (index >= 0) commands[index] = command;
-            else if (commands.length < 8) commands.push(command);
+            else if (commands.length < 20) commands.push(command);
             else throw new Error('CUSTOM_COMMAND_LIMIT');
             await chrome.storage.local.set({ customCommands: commands });
             return commands;
@@ -116,14 +116,25 @@ export function applySettingsMutation(mutation: SettingsMutation, payload: Setti
                       .filter(isCustomCommand)
                       .map(normalizeCommand)
                       .filter((item) => item.id !== payload.id)
-                      .slice(0, 8)
+                      .slice(0, 20)
                 : [];
             await chrome.storage.local.set({ customCommands: commands });
             return commands;
         }
         if (mutation === 'replaceStyleProfiles') {
             if (!Array.isArray(payload.profiles)) throw new Error('INVALID_STYLE_PROFILES');
-            const profiles = payload.profiles.slice(0, 8) as StyleProfile[];
+            const normalizeStyleProfile = (profile: StyleProfile): StyleProfile => ({
+                id: String(profile.id || '').slice(0, 100),
+                name: String(profile.name || '')
+                    .trim()
+                    .slice(0, 100),
+                tone: String(profile.tone || 'business').slice(0, 40),
+                instruction: String(profile.instruction || '')
+                    .trim()
+                    .slice(0, 2000),
+                sites: Array.isArray(profile.sites) ? profile.sites.map((s) => String(s).slice(0, 253)) : [],
+            });
+            const profiles = (payload.profiles.slice(0, 8) as StyleProfile[]).map(normalizeStyleProfile);
             const activeProfileId = typeof payload.activeProfileId === 'string' ? payload.activeProfileId : '';
             await chrome.storage.local.set({ styleProfiles: profiles, activeStyleProfileId: activeProfileId });
             return;

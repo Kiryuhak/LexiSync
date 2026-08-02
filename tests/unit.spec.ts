@@ -314,7 +314,7 @@ test('оценивает токены и блокирует превышение
         byMode: {},
         daily: { '2026-07-28': { requests: 3, tokens: 900 } },
     };
-    expect(estimateTokens('а'.repeat(32))).toBe(10);
+    expect(estimateTokens('а'.repeat(32))).toBe(19); // 32 / 1.7 ≈ 18.8 → 19 (кириллица)
     expect(getMonthUsage(stats, date)).toEqual({ requests: 3, tokens: 900 });
     expect(
         getBudgetBlockReason(
@@ -383,4 +383,59 @@ test('валидирует API-ключ с возвратом понятного
     } finally {
         vi.unstubAllGlobals();
     }
+});
+
+test('estimateTokens различает ASCII и кириллицу с разными коэффициентами', () => {
+    // Только кириллица: 32 символа / 1.7 ≈ 18.8 → ceil = 19
+    expect(estimateTokens('а'.repeat(32))).toBe(19);
+    // Только ASCII: 35 символов / 3.5 = 10
+    expect(estimateTokens('a'.repeat(35))).toBe(10);
+    // Смешанный: 17 ASCII + 17 кириллицы
+    const mixed = 'a'.repeat(17) + 'а'.repeat(17);
+    const expected = Math.max(1, Math.ceil(17 / 3.5 + 17 / 1.7));
+    expect(estimateTokens(mixed)).toBe(expected);
+    // Пустая строка
+    expect(estimateTokens('')).toBe(0);
+    // Один символ всегда >= 1
+    expect(estimateTokens('а')).toBeGreaterThanOrEqual(1);
+});
+
+test('normalizeBatchJob корректно обрабатывает повреждённые и пограничные случаи', () => {
+    // null и undefined возвращают null
+    expect(normalizeBatchJob(null)).toBeNull();
+    expect(normalizeBatchJob(undefined)).toBeNull();
+    expect(normalizeBatchJob({})).toBeNull();
+
+    // Отсутствие files возвращает null
+    expect(normalizeBatchJob({ id: 'x' })).toBeNull();
+
+    // Известные статусы нормализуются
+    const validJob = {
+        id: 'test-id',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        mode: 'spellcheck',
+        status: 'running', // статус 'running' → нормализуется в 'paused'
+        files: [],
+    };
+    const normalized = normalizeBatchJob(validJob);
+    expect(normalized).not.toBeNull();
+    expect(normalized!.status).toBe('paused'); // running → paused при нормализации
+
+    // Неизвестный mode → 'spellcheck'
+    const unknownMode = normalizeBatchJob({ ...validJob, mode: 'unknown' });
+    expect(unknownMode!.mode).toBe('spellcheck');
+
+    // Обрезка до 10 файлов
+    const manyFiles = Array.from({ length: 15 }, (_, i) => ({
+        id: `f${i}`,
+        name: `file${i}.txt`,
+        type: 'text/plain',
+        source: 'text',
+        chunks: ['text'],
+        processedChunks: [],
+        status: 'pending',
+    }));
+    const withManyFiles = normalizeBatchJob({ ...validJob, files: manyFiles });
+    expect(withManyFiles!.files).toHaveLength(10);
 });

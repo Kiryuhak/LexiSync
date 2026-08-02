@@ -375,5 +375,9 @@
     },
     "apiKeyInvalid": { "message": "The API key is invalid or has been revoked. Please check your key." },
     "apiKeyValid": { "message": "API key verified and ready to use." },
-    "retryRequest": { "message": "Retry" }
+    "retryRequest": { "message": "Retry" },
+    "liveProofCorrectionsFound": { "message": "Corrections found:" },
+    "liveProofDismissHint": { "message": "Click highlighted text to reject a correction" },
+    "liveProofExcludeSite": { "message": "Skip this site" },
+    "applyResult": { "message": "Apply" }
 }

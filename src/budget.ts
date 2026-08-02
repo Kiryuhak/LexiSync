@@ -9,7 +9,14 @@ export const DEFAULT_BUDGET_SETTINGS: BudgetSettings = {
 
 export function estimateTokens(text: string): number {
     if (!text) return 0;
-    return Math.max(1, Math.ceil([...text].length / 3.2));
+    let ascii = 0;
+    let nonAscii = 0;
+    for (const char of text) {
+        if (char.charCodeAt(0) < 128) ascii++;
+        else nonAscii++;
+    }
+    // ASCII ~3.5 chars/token, кириллица и прочие non-ASCII ~1.7 chars/token
+    return Math.max(1, Math.ceil(ascii / 3.5 + nonAscii / 1.7));
 }
 
 export function getLocalDayKey(date = new Date()): string {

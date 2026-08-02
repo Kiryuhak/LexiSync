@@ -4,7 +4,7 @@ import { migrateSettings } from './settings-migrations';
 import { fixKeyboardLayout } from './keyboard-layout';
 import { applyUsageMutation, type UsageMutation } from './usage-stats';
 import { applyHistoryMutation, type HistoryMutation } from './history-store';
-import { applyCacheMutation, type CacheMutation } from './ai-cache';
+import { applyCacheMutation, getCacheHash, getCachedText, setCachedText, type CacheMutation } from './ai-cache';
 import { applyAdaptiveMutation, type AdaptiveMutation } from './adaptive-model-store';
 import { createSettingsFingerprint } from './request-cache';
 import { applySettingsMutation, type SettingsMutation } from './settings-store';
@@ -455,8 +455,17 @@ chrome.runtime.onConnect.addListener((port) => {
             }
 
             if (msg.mode === 'ocr') {
-                const text = await processOcr(msg, apiKey, requestController.signal);
-                if (isCurrentRequest()) safePostMessage({ status: 'chunk', text });
+                // Проверяем кэш перед сетевым запросом OCR
+                const ocrCacheKey = await getCacheHash('ocr', msg.imageUrl || '');
+                const cached = await getCachedText(ocrCacheKey);
+                if (cached !== null) {
+                    if (isCurrentRequest()) safePostMessage({ status: 'chunk', text: cached });
+                } else {
+                    const text = await processOcr(msg, apiKey, requestController.signal);
+                    if (isCurrentRequest()) safePostMessage({ status: 'chunk', text });
+                    outputText = text;
+                    void setCachedText(ocrCacheKey, text);
+                }
             } else {
                 await streamText(
                     msg,

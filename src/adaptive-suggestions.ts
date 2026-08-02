@@ -63,7 +63,7 @@ function tokenize(text: string): string[] {
 }
 
 function normalizeWord(word: string): string {
-    return word.toLocaleLowerCase('ru-RU');
+    return word.toLocaleLowerCase();
 }
 
 function isUsefulWord(word: string): boolean {

@@ -33,11 +33,17 @@ export class SidepanelBatchController {
         this.render();
     }
 
-    async start(files: File[], mode: RequestMode, prompt?: string): Promise<void> {
+    async start(files: File[], mode: RequestMode, prompt?: string, force = false): Promise<void> {
         const selected = files.slice(0, 10);
         if (!selected.length) throw new Error('Выберите TXT или MD-файлы.');
         if (selected.some((file) => !isAcceptedFile(file))) throw new Error('Поддерживаются только TXT и MD-файлы.');
         if (selected.some((file) => file.size > 2_000_000)) throw new Error('Один из файлов больше 2 МБ.');
+
+        // Предупреждаем, если есть незавершённое задание и принудительная замена не запрошена.
+        if (!force && this.job && this.job.status !== 'completed') {
+            throw new Error('ACTIVE_JOB_EXISTS');
+        }
+
         const sources = await Promise.all(
             selected.map(async (file) => ({
                 name: file.name,
