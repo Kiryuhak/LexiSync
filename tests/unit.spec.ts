@@ -23,6 +23,7 @@ import { normalizeWorkflows } from '../src/workflows';
 import { splitTextIntoChunks } from '../src/text-chunker';
 import { createBatchJob, getBatchFileResult, normalizeBatchJob } from '../src/batch-jobs';
 import { parseAdaptiveModel } from '../src/adaptive-model-store';
+import { POPUP_STYLE_TEXT } from '../src/content-ui-style';
 import { copyText } from '../src/clipboard';
 
 test('копирует текст через запасной механизм при недоступном Clipboard API', async () => {
@@ -460,4 +461,15 @@ test('корректно распознаёт горячие клавиши в �
     expect(isSelectAllKey({ ctrlKey: true, key: 'A' })).toBe(true);
     expect(isSelectAllKey({ ctrlKey: true, key: 'Ф' })).toBe(true);
     expect(isSelectAllKey({ ctrlKey: false, code: 'KeyA', key: 'a' })).toBe(false);
+});
+
+test('стили интерфейса содержат семантические переменные для ошибок, предупреждений и успеха', () => {
+    expect(POPUP_STYLE_TEXT).toContain('--error-color: #d32f2f;');
+    expect(POPUP_STYLE_TEXT).toContain('--success-color: #166534;');
+    expect(POPUP_STYLE_TEXT).toContain('--error-color: #ff8a80;');
+    expect(POPUP_STYLE_TEXT).toContain('--success-color: #81c784;');
+    expect(POPUP_STYLE_TEXT).toContain('color: var(--error-color);');
+    expect(POPUP_STYLE_TEXT).toContain('color: var(--success-color);');
+    expect(POPUP_STYLE_TEXT).toContain('.lexisync-result-button--success {');
+    expect(POPUP_STYLE_TEXT).toContain('font-weight: 600 !important;');
 });

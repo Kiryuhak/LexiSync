@@ -97,7 +97,7 @@ export function showToolbarMenu(x: number, y: number, context: ContentMenuContex
     copyStatus.setAttribute('aria-live', 'polite');
     copyStatus.hidden = true;
     copyStatus.style.cssText =
-        'max-width:150px;padding:5px 7px;color:#b42318;font-size:10px;font-weight:600;line-height:1.25;';
+        'max-width:150px;padding:5px 7px;color:var(--error-color);font-size:10px;font-weight:600;line-height:1.25;';
     popupUI.appendChild(
         createBtn(
             ICONS.edit,

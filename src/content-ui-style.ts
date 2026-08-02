@@ -5,6 +5,7 @@ export const POPUP_STYLE_TEXT = `
                 --primary-soft: rgba(109, 92, 231, 0.12); --cyan-soft: rgba(31, 174, 190, 0.12);
                 --border-color: rgba(255,255,255,0.74); --inner-border: rgba(83, 91, 126, 0.12);
                 --hover-bg: rgba(255,255,255,0.9); --shadow-color: rgba(41, 43, 77, 0.18);
+                --error-color: #d32f2f; --success-color: #166534; --warning-bg: #fff8f0; --warning-border: #ffe8cc; --warning-text: #b06000;
                 transition: opacity 0.15s ease; border-radius: 18px;
                 border: 1px solid var(--border-color);
                 animation: lexiSyncFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -18,6 +19,7 @@ export const POPUP_STYLE_TEXT = `
                 --primary-soft: rgba(183, 168, 255, 0.15); --cyan-soft: rgba(102, 215, 228, 0.14);
                 --border-color: rgba(255,255,255,0.14); --inner-border: rgba(255,255,255,0.08);
                 --hover-bg: rgba(64, 70, 104, 0.9); --shadow-color: rgba(0,0,0,0.48);
+                --error-color: #ff8a80; --success-color: #81c784; --warning-bg: rgba(176, 96, 0, 0.2); --warning-border: rgba(255, 183, 77, 0.3); --warning-text: #ffb74d;
             }
             #lexisync-extension-ui[data-ui-style="material-3"] {
                 --bg-primary: #ffffff; --bg-solid: #ffffff; --bg-elevated: #f7f8fa; --bg-secondary: #f1f3f6;
@@ -319,10 +321,10 @@ export const POPUP_STYLE_TEXT = `
             }
             .lexisync-action-status {
                 margin: -7px 14px 12px;
-                color: #166534;
+                color: var(--success-color);
                 font: 600 11px/1.35 system-ui, sans-serif;
             }
-            .lexisync-action-status[data-error="true"] { color: #b42318; }
+            .lexisync-action-status[data-error="true"] { color: var(--error-color); }
             .lexisync-action-status[hidden] { display: none !important; }
             #lexisync-extension-ui mark[role="button"] { cursor: pointer; }
             #lexisync-extension-ui mark[role="button"]:focus-visible {
@@ -388,6 +390,7 @@ export const POPUP_STYLE_TEXT = `
             .lexisync-result-button--success {
                 color: #166534 !important;
                 background: #dcfce7 !important;
+                font-weight: 600 !important;
                 border-color: rgba(22, 101, 52, .14) !important;
                 box-shadow: 0 7px 16px rgba(22, 101, 52, .12) !important;
             }

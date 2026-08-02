@@ -34,9 +34,6 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
         const undo = replaceSelectedText(selection, getResult());
         appendIconAndText(replaceButton, ICONS.check, t('replaced', 'Заменено!'));
         replaceButton.classList.add('lexisync-result-button--success');
-        replaceButton.style.backgroundColor = '#dcfce7';
-        replaceButton.style.color = '#166534';
-        replaceButton.style.fontWeight = '600';
         if (undo) {
             const undoButton = document.createElement('button');
             undoButton.type = 'button';
@@ -58,7 +55,7 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
         void copyText(getResult())
             .then(() => {
                 const copied = document.createElement('span');
-                copied.style.cssText = 'display:flex;align-items:center;gap:8px;color:#166534;';
+                copied.style.cssText = 'display:flex;align-items:center;gap:8px;color:var(--success-color);';
                 appendIconAndText(copied, ICONS.check, t('copied', 'Текст скопирован!'));
                 headerTitle.replaceChildren(copied);
             })

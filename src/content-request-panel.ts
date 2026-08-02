@@ -68,7 +68,7 @@ export function executeRequest(
             if (!container || !container.isConnected) return false;
             const message = document.createElement('div');
             message.style.cssText =
-                'padding:16px;font-weight:500;color:#b06000;display:flex;align-items:center;justify-content:center;gap:10px;background:#fff8f0;border-radius:12px;border:1px solid #ffe8cc;margin:4px;';
+                'padding:16px;font-weight:500;color:var(--warning-text);display:flex;align-items:center;justify-content:center;gap:10px;background:var(--warning-bg);border-radius:12px;border:1px solid var(--warning-border);margin:4px;';
             const icon = document.createElement('span');
             icon.className = 'lexisync-hourglass';
             setIcon(icon, ICONS.hourglass);
@@ -412,7 +412,7 @@ export function executeRequest(
                 'offlineError',
                 'Нет подключения к интернету. Проверьте сеть и попробуйте снова.',
             );
-            contentPane.style.color = '#d32f2f';
+            contentPane.style.color = 'var(--error-color)';
             finishStream(false);
             return;
         }
@@ -422,14 +422,14 @@ export function executeRequest(
                 'textTooLong',
                 'Текст слишком длинный. Выделите не более 3000 символов за раз.',
             );
-            contentPane.style.color = '#d32f2f';
+            contentPane.style.color = 'var(--error-color)';
             finishStream(false);
             return;
         }
 
         if (!chrome.runtime || !chrome.runtime.connect) {
             contentPane.textContent = t('reloadPage', 'Пожалуйста, обновите страницу (F5).');
-            contentPane.style.color = '#d32f2f';
+            contentPane.style.color = 'var(--error-color)';
             return;
         }
 
@@ -502,7 +502,7 @@ export function executeRequest(
                     showRateLimitTimer(5, startStream, contentPane);
                 } else {
                     contentPane.textContent = `${t('errorPrefix', 'Ошибка:')} ${errorMessage}`;
-                    contentPane.style.color = '#d32f2f';
+                    contentPane.style.color = 'var(--error-color)';
                 }
                 finishStream(false);
             } else if (response.status === 'cancelled') {
@@ -712,7 +712,7 @@ export function executeRequest(
         const message = error instanceof Error ? error.message : t('unknownError', 'Неизвестная ошибка.');
         const errorContainer = document.createElement('div');
         errorContainer.className = 'lexisync-error-box';
-        errorContainer.style.cssText = 'padding: 8px 0; color: #d32f2f;';
+        errorContainer.style.cssText = 'padding: 8px 0; color: var(--error-color);';
 
         const errorText = document.createElement('div');
         errorText.style.cssText = 'margin-bottom: 10px; line-height: 1.45; font-size: 13px;';
@@ -722,7 +722,7 @@ export function executeRequest(
         retryBtn.type = 'button';
         retryBtn.id = 'retryRequestBtn';
         retryBtn.style.cssText =
-            'background: #1976d2; color: #ffffff; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500;';
+            'background: var(--primary); color: #ffffff; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500;';
         retryBtn.textContent = t('retryRequest', 'Повторить попытку');
         retryBtn.onclick = () => {
             if (lifecycle.disposed) return;
