@@ -436,6 +436,71 @@ test('Кейс 3: Mistral OCR (Alt+S) и буфер обмена', async ({ page
     await expect(uiPanel).toBeVisible({ timeout: 5000 });
     await expect(uiPanel).toContainText('Распознанный с картинки текст.');
 });
+
+test('OCR-кэш не расходует дневной лимит и не повторяет API-запрос', async ({ page, context }) => {
+    await setFakeApiKey(context);
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() =>
+        chrome.storage.local.set({
+            dailyRequestLimit: 1,
+            monthlyTokenLimit: 0,
+            usageStats: {
+                requests: 0,
+                cacheHits: 0,
+                failures: 0,
+                totalLatencyMs: 0,
+                byMode: {},
+                estimatedInputTokens: 0,
+                estimatedOutputTokens: 0,
+                daily: {},
+            },
+        }),
+    );
+
+    let apiRequests = 0;
+    await context.route('https://api.mistral.ai/v1/ocr', async (route) => {
+        apiRequests++;
+        await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({ pages: [{ markdown: 'Текст из OCR-кэша' }] }),
+        });
+    });
+
+    const extensionId = new URL(background.url()).host;
+    await page.goto(`chrome-extension://${extensionId}/options.html`);
+    const requestOcr = () =>
+        page.evaluate(
+            (imageUrl) =>
+                new Promise<string>((resolve, reject) => {
+                    const port = chrome.runtime.connect({ name: 'mistralStream' });
+                    let result = '';
+                    port.onMessage.addListener((message) => {
+                        if (message.status === 'chunk') result += message.text || '';
+                        else if (message.status === 'done') {
+                            port.disconnect();
+                            resolve(result);
+                        } else if (message.status === 'error') {
+                            port.disconnect();
+                            reject(new Error(message.error || 'OCR_REQUEST_FAILED'));
+                        }
+                    });
+                    port.postMessage({ action: 'callMistral', mode: 'ocr', imageUrl });
+                }),
+            'data:image/png;base64,YQ==',
+        );
+
+    await expect(requestOcr()).resolves.toBe('Текст из OCR-кэша');
+    await expect
+        .poll(() => background.evaluate(() => chrome.storage.local.get(['usageStats', 'ai_cache_index'])))
+        .toMatchObject({ usageStats: { requests: 1 }, ai_cache_index: expect.any(Array) });
+    await expect(requestOcr()).resolves.toBe('Текст из OCR-кэша');
+    await expect
+        .poll(() => background.evaluate(() => chrome.storage.local.get('usageStats')))
+        .toMatchObject({ usageStats: { requests: 1, cacheHits: 1 } });
+    expect(apiRequests).toBe(1);
+});
 test('Кейс 4: Переписывание стиля (Alt+Y)', async ({ page, context }) => {
     await setFakeApiKey(context);
     await page.waitForTimeout(300);

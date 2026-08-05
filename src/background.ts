@@ -4,7 +4,7 @@ import { migrateSettings } from './settings-migrations';
 import { fixKeyboardLayout } from './keyboard-layout';
 import { applyUsageMutation, type UsageMutation } from './usage-stats';
 import { applyHistoryMutation, type HistoryMutation } from './history-store';
-import { applyCacheMutation, getCacheHash, getCachedText, setCachedText, type CacheMutation } from './ai-cache';
+import { applyCacheMutation, getCacheHash, getCachedText, type CacheMutation } from './ai-cache';
 import { applyAdaptiveMutation, type AdaptiveMutation } from './adaptive-model-store';
 import { createSettingsFingerprint } from './request-cache';
 import { applySettingsMutation, type SettingsMutation } from './settings-store';
@@ -367,6 +367,7 @@ chrome.runtime.onConnect.addListener((port) => {
         const startedAt = Date.now();
         let completedSuccessfully = false;
         let budgetRejected = false;
+        let servedFromCache = false;
         let budgetReservationId = '';
         const inputTokens = estimateTokens(msg.text || msg.imageUrl || '');
         let outputText = '';
@@ -393,6 +394,30 @@ chrome.runtime.onConnect.addListener((port) => {
                 }
                 completedSuccessfully = true;
                 return;
+            }
+
+            let ocrCacheKey = '';
+            let canUseOcrCache = false;
+            if (msg.mode === 'ocr') {
+                canUseOcrCache = await canStoreForSender(port.sender ?? {});
+                if (canUseOcrCache) {
+                    ocrCacheKey = await getCacheHash('ocr', msg.imageUrl || '');
+                    const cached = await getCachedText(ocrCacheKey);
+                    if (cached !== null) {
+                        servedFromCache = true;
+                        completedSuccessfully = true;
+                        try {
+                            await applyUsageMutation('cacheHit', {});
+                        } catch (error) {
+                            console.error('Не удалось учесть попадание в OCR-кэш:', error);
+                        }
+                        if (isCurrentRequest()) {
+                            safePostMessage({ status: 'chunk', text: cached });
+                            safePostMessage({ status: 'done' });
+                        }
+                        return;
+                    }
+                }
             }
             const apiKey = await getStoredApiKey();
             if (!apiKey) throw new Error(t('apiKeyMissing', 'API-ключ не настроен'));
@@ -438,16 +463,15 @@ chrome.runtime.onConnect.addListener((port) => {
             }
 
             if (msg.mode === 'ocr') {
-                // Проверяем кэш перед сетевым запросом OCR
-                const ocrCacheKey = await getCacheHash('ocr', msg.imageUrl || '');
-                const cached = await getCachedText(ocrCacheKey);
-                if (cached !== null) {
-                    if (isCurrentRequest()) safePostMessage({ status: 'chunk', text: cached });
-                } else {
-                    const text = await processOcr(msg, apiKey, requestController.signal);
-                    if (isCurrentRequest()) safePostMessage({ status: 'chunk', text });
-                    outputText = text;
-                    void setCachedText(ocrCacheKey, text);
+                const text = await processOcr(msg, apiKey, requestController.signal);
+                if (isCurrentRequest()) safePostMessage({ status: 'chunk', text });
+                outputText = text;
+                if (canUseOcrCache) {
+                    try {
+                        await applyCacheMutation('set', { key: ocrCacheKey, value: text });
+                    } catch (error) {
+                        console.error('Не удалось сохранить OCR-кэш:', error);
+                    }
                 }
             } else {
                 await streamText(
@@ -495,7 +519,7 @@ chrome.runtime.onConnect.addListener((port) => {
         } finally {
             clearTimeout(timeout);
             if (activeController === requestController) activeController = null;
-            if (msg.mode && !budgetRejected) {
+            if (msg.mode && !budgetRejected && !servedFromCache) {
                 const usage = {
                     mode: msg.mode,
                     latencyMs: Date.now() - startedAt,

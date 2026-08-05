@@ -5,7 +5,7 @@ import { applySettingsMutation } from '../src/settings-store';
 import { applyAdaptiveMutation, flushAdaptiveMutations } from '../src/adaptive-model-store';
 import { migrateSettings } from '../src/settings-migrations';
 import { enqueueStorageMutation } from '../src/storage-queue';
-import { applyCacheMutation } from '../src/ai-cache';
+import { applyCacheMutation, getCachedText } from '../src/ai-cache';
 import { finalizeBudgetReservation, getActiveBudgetReservationCount, reserveBudget } from '../src/budget-reservations';
 
 let storage: Record<string, unknown>;
@@ -182,10 +182,16 @@ test('атомарно сохраняет и очищает только доп�
 
     expect(storage[key]).toMatchObject({ value: 'готовый текст' });
     expect(storage.ai_cache_index).toEqual([expect.objectContaining({ key })]);
-
     await applyCacheMutation('clear', {});
     expect(storage).not.toHaveProperty(key);
     expect(storage).not.toHaveProperty('ai_cache_index');
+});
+
+test('возвращает результат, сохранённый фоновым обработчиком в OCR-кэш', async () => {
+    const key = `ai_cache_${'c'.repeat(64)}`;
+    await applyCacheMutation('set', { key, value: 'распознанный текст' });
+
+    await expect(getCachedText(key)).resolves.toBe('распознанный текст');
 });
 
 test('не затирает настройку, изменённую параллельно с миграцией', async () => {
