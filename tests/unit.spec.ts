@@ -22,6 +22,18 @@ import { normalizeThemeCustomization } from '../src/theme-customization';
 import { parseAdaptiveModel } from '../src/adaptive-model-store';
 import { POPUP_STYLE_TEXT } from '../src/content-ui-style';
 import { copyText } from '../src/clipboard';
+import { shouldAutoProofreadField } from '../src/live-proofread-privacy';
+
+test('исключает чувствительные поля из фоновой автопроверки', () => {
+    expect(shouldAutoProofreadField('email', '')).toBe(false);
+    expect(shouldAutoProofreadField('url', '')).toBe(false);
+    expect(shouldAutoProofreadField('text', 'username')).toBe(false);
+    expect(shouldAutoProofreadField('text', 'section-profile email')).toBe(false);
+    expect(shouldAutoProofreadField(null, 'street-address')).toBe(false);
+    expect(shouldAutoProofreadField('text', '')).toBe(true);
+    expect(shouldAutoProofreadField('search', 'off')).toBe(true);
+    expect(shouldAutoProofreadField(null, '')).toBe(true);
+});
 
 test('копирует текст через запасной механизм при недоступном Clipboard API', async () => {
     const clipboardWrite = vi.fn().mockRejectedValue(new Error('DENIED'));

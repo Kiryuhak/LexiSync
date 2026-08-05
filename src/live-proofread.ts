@@ -3,15 +3,14 @@ import { getWordCorrections, renderSpellcheckDiffFragment, resolveCorrections } 
 import { startTextRequest, type CancellableTextRequest } from './stream-request-client';
 import { dispatchValueEvents, setNativeValue } from './text-replacement';
 import { t } from './i18n';
-
-const ALLOWED_INPUT_TYPES = new Set(['text', 'search', 'email', 'url']);
+import { shouldAutoProofreadField } from './live-proofread-privacy';
 
 function isSafeEditor(value: EventTarget | null): value is HTMLInputElement | HTMLTextAreaElement {
     if (!(value instanceof HTMLInputElement || value instanceof HTMLTextAreaElement)) return false;
-    if (value instanceof HTMLInputElement && !ALLOWED_INPUT_TYPES.has(value.type)) return false;
+    const inputType = value instanceof HTMLInputElement ? value.type : null;
+    if (!shouldAutoProofreadField(inputType, value.autocomplete)) return false;
     if (value.readOnly || value.disabled || value.closest('[data-lexisync-ignore]')) return false;
-    const autocomplete = value.autocomplete.toLowerCase();
-    return !/(?:password|cc-|one-time-code)/.test(autocomplete);
+    return true;
 }
 
 export function startLiveProofread(): () => void {

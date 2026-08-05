@@ -1136,6 +1136,45 @@ test('проверка при вводе показывает зелёные и�
     await expect(page.locator('#live-editor')).toHaveValue('Это исправленный длинный текст.');
 });
 
+test('автопроверка не отправляет email и логин из формы', async ({ page, context }) => {
+    await setFakeApiKey(context);
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() => chrome.storage.local.set({ liveProofreadEnabled: true, liveProofreadDelay: 600 }));
+
+    let apiRequests = 0;
+    await context.route('https://api.mistral.ai/v1/chat/completions', async (route) => {
+        apiRequests++;
+        await route.fulfill({
+            status: 200,
+            contentType: 'text/event-stream',
+            body: 'data: {"choices":[{"delta":{"content":"Исправленный обычный текст."}}]}\n\ndata: [DONE]\n\n',
+        });
+    });
+    await page.goto('https://example.com');
+    await grantSiteAccess(context, page);
+    await page.evaluate(() => {
+        const email = document.createElement('input');
+        email.id = 'private-email';
+        email.type = 'email';
+        const username = document.createElement('input');
+        username.id = 'private-username';
+        username.type = 'text';
+        username.autocomplete = 'username';
+        const textarea = document.createElement('textarea');
+        textarea.id = 'ordinary-editor';
+        document.body.append(email, username, textarea);
+    });
+
+    await page.locator('#private-email').fill('private.user@example.com');
+    await page.locator('#private-username').fill('private-user-login');
+    await page.waitForTimeout(900);
+    expect(apiRequests).toBe(0);
+
+    await page.locator('#ordinary-editor').fill('Обычный длинный текст для проверки.');
+    await expect.poll(() => apiRequests).toBe(1);
+});
+
 test('API-ключ хранится вне доступного content scripts storage.local', async ({ context }) => {
     await setFakeApiKey(context);
     let [background] = context.serviceWorkers();
