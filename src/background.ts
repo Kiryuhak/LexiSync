@@ -158,23 +158,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     } else if (request.action === 'openOptionsPage') {
         chrome.runtime.openOptionsPage();
     } else if (
-        (request.action === 'sidepanelApplyResult' || request.action === 'sidepanelUndoResult') &&
-        typeof request.tabId === 'number'
-    ) {
-        const directAction = request.action === 'sidepanelApplyResult' ? 'sidepanelApplyDirect' : 'sidepanelUndoDirect';
-        void ensureContentScript(request.tabId)
-            .then(() =>
-                chrome.tabs.sendMessage(request.tabId, {
-                    action: directAction,
-                    text: request.action === 'sidepanelApplyResult' ? request.text : undefined,
-                }),
-            )
-            .then((response) => sendResponse(response || { ok: false }))
-            .catch((error) =>
-                sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) }),
-            );
-        return true;
-    } else if (
         request.action === 'ensureOptionalContentFeature' &&
         sender.tab?.id &&
         (request.feature === 'adaptive' || request.feature === 'ocr')

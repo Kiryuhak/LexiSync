@@ -1,6 +1,5 @@
 import { normalizeSitePatterns } from './site-profiles';
 import type { StyleProfile } from './types';
-import { DEFAULT_WORKFLOWS } from './workflows';
 import { DEFAULT_THEME_CUSTOMIZATION } from './theme-customization';
 
 const CURRENT_SETTINGS_SCHEMA = 9;
@@ -23,7 +22,6 @@ const MIGRATION_SETTING_KEYS = [
     'compactResultMode',
     'resultDisplayMode',
     'visualStyle',
-    'workflows',
     'themeCustomization',
     'liveProofreadEnabled',
     'liveProofreadDelay',
@@ -116,7 +114,6 @@ export async function migrateSettings(): Promise<void> {
         updates.visualStyle = 'liquid-glass';
     }
     if (currentVersion < 8) {
-        if (!Array.isArray(stored.workflows)) updates.workflows = DEFAULT_WORKFLOWS;
         if (!stored.themeCustomization || typeof stored.themeCustomization !== 'object')
             updates.themeCustomization = DEFAULT_THEME_CUSTOMIZATION;
         if (typeof stored.liveProofreadEnabled !== 'boolean') updates.liveProofreadEnabled = false;

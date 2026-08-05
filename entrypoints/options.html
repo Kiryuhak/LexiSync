@@ -35,7 +35,6 @@
                 <button class="settings-tab" type="button" role="tab" data-tab="privacy" data-i18n="tabPrivacy">
                     Приватность
                 </button>
-                <button class="settings-tab" type="button" role="tab" data-tab="workspace">Рабочая панель</button>
                 <button class="settings-tab" type="button" role="tab" data-tab="commands" data-i18n="tabCommands">
                     Команды
                 </button>
@@ -496,22 +495,12 @@
                 </div>
             </section>
 
-            <section class="settings-section v4-settings" data-settings-group="workspace" hidden>
-                <div class="v4-heading">
-                    <div>
-                        <h2>Рабочая панель LexiSync 4.1</h2>
-                        <p>Цепочки обработки, варианты результата, TXT/MD-файлы и история в одном окне.</p>
-                    </div>
-                    <button id="openSidepanel" class="secondary-button" type="button">Открыть панель</button>
-                </div>
-            </section>
-
-            <section class="settings-section v4-settings" data-settings-group="workspace" hidden>
+            <section class="settings-section v4-settings" data-settings-group="suggestions" hidden>
                 <h2>Проверка при вводе</h2>
                 <div class="privacy-option">
                     <label for="liveProofreadEnabled">
                         <span>Автоматически проверять текст</span>
-                        <small>После короткой паузы показывает исправленный вариант в рабочей панели.</small>
+                        <small>После короткой паузы показывает исправленный вариант рядом с полем ввода.</small>
                     </label>
                     <input id="liveProofreadEnabled" type="checkbox" />
                 </div>
@@ -530,7 +519,7 @@
                 <p>По одному домену на строку. Список также можно пополнять прямо из подсказки.</p>
             </section>
 
-            <section class="settings-section v4-settings" data-settings-group="workspace" hidden>
+            <section class="settings-section v4-settings" data-settings-group="ai" hidden>
                 <h2>Лимиты и экономия</h2>
                 <div class="v4-grid">
                     <label for="dailyRequestLimit">Запросов в день <small>0 — без лимита</small></label>
@@ -551,35 +540,9 @@
                 </div>
             </section>
 
-            <section class="settings-section v4-settings" data-settings-group="workspace" hidden>
-                <div class="v4-heading">
-                    <div>
-                        <h2>Цепочки обработки</h2>
-                        <p>Готовые последовательности отображаются в боковой панели.</p>
-                    </div>
-                    <button id="resetWorkflows" class="secondary-button" type="button">Вернуть стандартные</button>
-                </div>
-                <div id="workflowSettingsList" class="command-list"></div>
-                <form id="workflowForm" class="command-form">
-                    <label for="workflowName">Название цепочки</label>
-                    <input id="workflowName" maxlength="60" placeholder="Например: Ответ клиенту" required />
-                    <label for="workflowPrompt">Финальная AI-инструкция</label>
-                    <textarea
-                        id="workflowPrompt"
-                        maxlength="2000"
-                        placeholder="Что нужно сделать после исправления ошибок?"
-                        required
-                    ></textarea>
-                    <label class="inline-check"
-                        ><input id="workflowSpellcheck" type="checkbox" checked /> Сначала исправить ошибки</label
-                    >
-                    <button class="onboarding-button primary" type="submit">Добавить цепочку</button>
-                </form>
-            </section>
-
             <section class="settings-section v4-settings" data-settings-group="appearance" hidden>
                 <h2>Редактор темы</h2>
-                <p>Тонкая настройка применяется к рабочей панели и новым элементам интерфейса.</p>
+                <p>Тонкая настройка применяется к меню, результатам и новым элементам интерфейса.</p>
                 <div class="theme-editor-grid">
                     <label for="themeAccent">Акцент</label>
                     <input id="themeAccent" type="color" value="#6750a4" />
@@ -641,7 +604,7 @@
                     <ul class="onboarding-list">
                         <li data-i18n="tutorialBenefitFix">Исправление ошибок и улучшение стиля</li>
                         <li data-i18n="tutorialBenefitTranslate">Перевод, эмодзи и пользовательские команды</li>
-                        <li data-i18n="tutorialBenefitWorkspace">Рабочая панель, цепочки и обработка файлов</li>
+                        <li data-i18n="tutorialBenefitWorkspace">Быстрые команды и локальная история</li>
                     </ul>
                 </section>
                 <section class="onboarding-step" data-onboarding-step="1">
@@ -705,10 +668,8 @@
                     </ol>
                 </section>
                 <section class="onboarding-step" data-onboarding-step="3">
-                    <h3 data-i18n="tutorialWorkspace">Рабочая панель и быстрые команды</h3>
-                    <p data-i18n="tutorialWorkspaceHint">
-                        Нажмите значок расширения для рабочей панели или используйте горячие клавиши.
-                    </p>
+                    <h3 data-i18n="tutorialWorkspace">Быстрые команды</h3>
+                    <p data-i18n="tutorialWorkspaceHint">Выделите текст на странице или используйте горячие клавиши.</p>
                     <ul class="onboarding-list">
                         <li data-i18n="shortcutSpellcheck">Alt+R — исправить ошибки</li>
                         <li data-i18n="shortcutStyle">Alt+Y — переписать текст</li>

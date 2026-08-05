@@ -25,7 +25,6 @@ const PORTABLE_SETTING_KEYS = [
     'glossary',
     'styleProfiles',
     'activeStyleProfileId',
-    'workflows',
     'themeCustomization',
     'liveProofreadEnabled',
     'liveProofreadDelay',
@@ -157,40 +156,6 @@ function sanitizePortableSetting(key: (typeof PORTABLE_SETTING_KEYS)[number], va
             transparency: Math.min(100, Math.max(70, Number(theme.transparency) || 90)),
             fontScale: Math.min(120, Math.max(85, Number(theme.fontScale) || 100)),
         };
-    }
-    if (key === 'workflows') {
-        if (!Array.isArray(value)) return [];
-        return value
-            .filter((workflow) => workflow && typeof workflow === 'object')
-            .slice(0, 12)
-            .map((workflow) => {
-                const item = workflow as Record<string, unknown>;
-                return {
-                    id: String(item.id || crypto.randomUUID()).slice(0, 100),
-                    name: String(item.name || '')
-                        .trim()
-                        .slice(0, 60),
-                    steps: Array.isArray(item.steps)
-                        ? item.steps
-                              .filter((step) => step && typeof step === 'object')
-                              .slice(0, 8)
-                              .map((step, index) => {
-                                  const candidate = step as Record<string, unknown>;
-                                  return {
-                                      id: String(candidate.id || `step-${index}`).slice(0, 100),
-                                      name: String(candidate.name || 'Шаг').slice(0, 60),
-                                      mode: ['spellcheck', 'style', 'emoji', 'translate', 'custom'].includes(
-                                          String(candidate.mode),
-                                      )
-                                          ? candidate.mode
-                                          : 'custom',
-                                      prompt: String(candidate.prompt || '').slice(0, 2000),
-                                  };
-                              })
-                        : [],
-                };
-            })
-            .filter((workflow) => workflow.name && workflow.steps.length);
     }
     return undefined;
 }

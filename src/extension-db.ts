@@ -1,6 +1,6 @@
 const DATABASE_NAME = 'lexisync-private';
 const DATABASE_VERSION = 1;
-export type PrivateStoreName = 'secrets' | 'batchJobs';
+export type PrivateStoreName = 'secrets';
 
 let databasePromise: Promise<IDBDatabase> | null = null;
 
@@ -11,7 +11,6 @@ function openDatabase(): Promise<IDBDatabase> {
         request.onupgradeneeded = () => {
             const database = request.result;
             if (!database.objectStoreNames.contains('secrets')) database.createObjectStore('secrets');
-            if (!database.objectStoreNames.contains('batchJobs')) database.createObjectStore('batchJobs');
         };
         request.onsuccess = () => {
             const database = request.result;

@@ -593,7 +593,7 @@ test('Названия вкладок настроек не переносятс
         }),
     );
 
-    expect(lineCounts).toHaveLength(7);
+    expect(lineCounts).toHaveLength(6);
     expect(lineCounts.every((count) => count === 1)).toBe(true);
 });
 
@@ -708,7 +708,7 @@ test('Страницы расширения проходят автоматич�
     if (!background) background = await context.waitForEvent('serviceworker');
     await background.evaluate(() => chrome.storage.local.set({ onboardingCompleted: true }));
     const extensionId = new URL(background.url()).host;
-    for (const pathName of ['options.html', 'popup.html', 'lexisync-history.html', 'sidepanel.html']) {
+    for (const pathName of ['options.html', 'popup.html', 'lexisync-history.html']) {
         await page.goto(`chrome-extension://${extensionId}/${pathName}`);
         const results = await new AxeBuilder({ page }).analyze();
         expect(
@@ -718,6 +718,28 @@ test('Страницы расширения проходят автоматич�
             })),
         ).toEqual([]);
     }
+});
+
+test('popup и манифест не содержат удалённую рабочую панель', async ({ page, context }) => {
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    const extensionId = new URL(background.url()).host;
+    const manifestState = await background.evaluate(() => {
+        const manifest = chrome.runtime.getManifest() as chrome.runtime.Manifest & Record<string, unknown>;
+        return {
+            permissions: manifest.permissions || [],
+            sidePanel: manifest['side_panel'],
+            sidebarAction: manifest['sidebar_action'],
+        };
+    });
+
+    expect(manifestState.permissions).not.toContain('sidePanel');
+    expect(manifestState.sidePanel).toBeUndefined();
+    expect(manifestState.sidebarAction).toBeUndefined();
+    await page.goto(`chrome-extension://${extensionId}/popup.html`);
+    await expect(page.locator('#btn-workspace')).toHaveCount(0);
+    await expect(page.locator('#btn-history')).toBeVisible();
+    await expect(page.locator('#btn-options')).toBeVisible();
 });
 
 test('Замена текста работает в contenteditable', async ({ page, context }) => {
@@ -978,52 +1000,20 @@ test('Полное отключение сайта подавляет интер
     await page.waitForTimeout(200);
     await expect(page.locator('#lexisync-shadow-host')).toHaveCount(0);
 });
-test('рабочая панель 4.1 показывает команды, цепочки и локальную статистику', async ({ page, context }) => {
-    let [background] = context.serviceWorkers();
-    if (!background) background = await context.waitForEvent('serviceworker');
-    const extensionId = new URL(background.url()).host;
-    await background.evaluate(() =>
-        chrome.storage.local.set({
-            onboardingCompleted: true,
-            usageStats: {
-                requests: 2,
-                cacheHits: 0,
-                failures: 0,
-                totalLatencyMs: 0,
-                byMode: { spellcheck: 2 },
-                daily: { [new Date().toLocaleDateString('en-CA')]: { requests: 2, tokens: 120 } },
-            },
-        }),
-    );
-
-    await page.goto(`chrome-extension://${extensionId}/sidepanel.html`);
-    await expect(page.locator('#commandList .command')).toHaveCount(6);
-    await expect(page.locator('#workflowList .workflow')).toHaveCount(3);
-    await page.locator('#sourceText').fill('Текст для рабочей панели');
-    await expect(page.locator('#sourceCount')).toContainText('24');
-    await page.keyboard.press('Control+k');
-    await expect(page.locator('#commandSearch')).toBeFocused();
-    await expect(page.locator('#usageToday')).toContainText('2');
-});
-
-test('настройки 4.1 сохраняют лимиты, автопроверку, тему и новую цепочку', async ({ page, context }) => {
+test('настройки сохраняют лимиты, автопроверку и тему без рабочей панели', async ({ page, context }) => {
     let [background] = context.serviceWorkers();
     if (!background) background = await context.waitForEvent('serviceworker');
     await background.evaluate(() => chrome.storage.local.set({ onboardingCompleted: true }));
     const extensionId = new URL(background.url()).host;
     await page.goto(`chrome-extension://${extensionId}/options.html`);
 
-    await page.locator('[data-tab="workspace"]').click();
+    await page.locator('[data-tab="suggestions"]').click();
     await page.locator('#liveProofreadEnabled').check();
+    await page.locator('[data-tab="ai"]').click();
     await page.locator('#dailyRequestLimit').fill('20');
     await page.locator('#dailyRequestLimit').blur();
     await page.locator('#monthlyTokenLimit').fill('50000');
     await page.locator('#monthlyTokenLimit').blur();
-    await page.locator('#workflowName').fill('Ответ клиенту');
-    await page.locator('#workflowPrompt').fill('Сделай ответ вежливым и коротким.');
-    await page.locator('#workflowForm button[type="submit"]').click();
-    await expect(page.locator('#workflowSettingsList .command-item')).toHaveCount(4);
-
     await page.locator('[data-tab="appearance"]').click();
     await page.locator('#themeAccent').evaluate((element: HTMLInputElement) => {
         element.value = '#006c4c';
@@ -1037,7 +1027,6 @@ test('настройки 4.1 сохраняют лимиты, автопрове
                     'dailyRequestLimit',
                     'monthlyTokenLimit',
                     'themeCustomization',
-                    'workflows',
                 ]),
             ),
         )
@@ -1046,7 +1035,6 @@ test('настройки 4.1 сохраняют лимиты, автопрове
             dailyRequestLimit: 20,
             monthlyTokenLimit: 50_000,
             themeCustomization: { accent: '#006c4c' },
-            workflows: expect.arrayContaining([expect.objectContaining({ name: 'Ответ клиенту' })]),
         });
 });
 
@@ -1200,67 +1188,4 @@ test('автопроверку можно отключить для текуще
     await expect
         .poll(() => background.evaluate(() => chrome.storage.local.get('liveProofreadDisabledSites')))
         .toMatchObject({ liveProofreadDisabledSites: ['example.com'] });
-});
-
-test('замену из рабочей панели можно отменить на странице', async ({ page, context }) => {
-    await page.goto('https://example.com');
-    const tabId = await grantSiteAccess(context, page);
-    await page.evaluate(() => {
-        const textarea = document.createElement('textarea');
-        textarea.id = 'sidepanel-editor';
-        textarea.value = 'Исходный текст';
-        document.body.append(textarea);
-    });
-    await page.locator('#sidepanel-editor').focus();
-    await page.keyboard.press('Control+A');
-    let [background] = context.serviceWorkers();
-    if (!background) background = await context.waitForEvent('serviceworker');
-    const extensionId = new URL(background.url()).host;
-    const extensionPage = await context.newPage();
-    await extensionPage.goto(`chrome-extension://${extensionId}/sidepanel.html`);
-    const applied = await extensionPage.evaluate(
-        async ({ tabId }) => chrome.runtime.sendMessage({ action: 'sidepanelApplyResult', tabId, text: 'Новый текст' }),
-        { tabId },
-    );
-    expect(applied).toMatchObject({ ok: true });
-    await expect(page.locator('#sidepanel-editor')).toHaveValue('Новый текст');
-    const undone = await extensionPage.evaluate(
-        async ({ tabId }) => chrome.runtime.sendMessage({ action: 'sidepanelUndoResult', tabId }),
-        { tabId },
-    );
-    await extensionPage.close();
-    expect(undone).toMatchObject({ ok: true });
-    await expect(page.locator('#sidepanel-editor')).toHaveValue('Исходный текст');
-});
-
-test('пакетное задание продолжается после повторного открытия панели', async ({ page, context }) => {
-    await setFakeApiKey(context);
-    let [background] = context.serviceWorkers();
-    if (!background) background = await context.waitForEvent('serviceworker');
-    const extensionId = new URL(background.url()).host;
-    let requestCount = 0;
-    await context.route('https://api.mistral.ai/v1/chat/completions', async (route) => {
-        requestCount++;
-        if (requestCount === 1) await new Promise((resolve) => setTimeout(resolve, 500));
-        await route.fulfill({
-            status: 200,
-            contentType: 'text/event-stream',
-            body: 'data: {"choices":[{"delta":{"content":"Обработанная часть"}}]}\n\ndata: [DONE]\n\n',
-        });
-    });
-    await page.goto(`chrome-extension://${extensionId}/sidepanel.html`);
-    await page.locator('#batchFiles').setInputFiles({
-        name: 'large.md',
-        mimeType: 'text/markdown',
-        buffer: Buffer.from('а'.repeat(7_000)),
-    });
-    await page.locator('#runBatch').click();
-    await expect(page.locator('#pauseBatch')).toBeVisible();
-    await page.locator('#pauseBatch').click();
-    await expect(page.locator('#resumeBatch')).toBeVisible();
-    await page.reload();
-    await expect(page.locator('#resumeBatch')).toBeVisible();
-    await page.locator('#resumeBatch').click();
-    await expect(page.locator('#batchList')).toContainText('готово', { timeout: 10_000 });
-    await expect(page.locator('#batchList a')).toHaveAttribute('download', 'large-lexisync.md');
 });

@@ -23,7 +23,6 @@ export async function createDiagnosticReport(): Promise<DiagnosticReport> {
             liveProofreadEnabled: false,
             adaptiveSuggestionsEnabled: false,
             historyEnabled: true,
-            workflows: [],
             customCommands: [],
             styleProfiles: [],
             disabledSites: [],
@@ -57,7 +56,6 @@ export async function createDiagnosticReport(): Promise<DiagnosticReport> {
             historyEnabled: stored.historyEnabled !== false,
         },
         counts: {
-            workflows: Array.isArray(stored.workflows) ? stored.workflows.length : 0,
             customCommands: Array.isArray(stored.customCommands) ? stored.customCommands.length : 0,
             styleProfiles: Array.isArray(stored.styleProfiles) ? stored.styleProfiles.length : 0,
             privacyExcludedSites: Array.isArray(stored.disabledSites) ? stored.disabledSites.length : 0,

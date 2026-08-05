@@ -3,7 +3,6 @@ import { localizeDocument, t } from './i18n';
 import { setSitePreference, type SitePreference } from './settings-store';
 import { applyAppearanceStyle, normalizeAppearanceStyle, type AppearanceStyle } from './appearance-style';
 import { applyThemeCustomization } from './theme-customization';
-import { openWorkspacePanel } from './workspace-panel';
 
 type Theme = 'auto' | 'light' | 'dark';
 
@@ -51,11 +50,6 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 });
 
 // --- Обработчики кнопок ---
-document.getElementById('btn-workspace')!.addEventListener('click', async () => {
-    await openWorkspacePanel();
-    window.close();
-});
-
 document.getElementById('btn-history')!.addEventListener('click', () => {
     chrome.tabs.create({ url: chrome.runtime.getURL('lexisync-history.html') });
     window.close();

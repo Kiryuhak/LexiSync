@@ -202,7 +202,7 @@
     "restartTutorial": { "message": "Открыть обучение" },
     "tutorialBenefitFix": { "message": "Исправление ошибок и улучшение стиля" },
     "tutorialBenefitTranslate": { "message": "Перевод, эмодзи и пользовательские команды" },
-    "tutorialBenefitWorkspace": { "message": "Рабочая панель, цепочки и обработка файлов" },
+    "tutorialBenefitWorkspace": { "message": "Быстрые команды и локальная история" },
     "tutorialOpenMistral": { "message": "Открыть Mistral Studio ↗" },
     "tutorialMistralSignIn": { "message": "Войдите в аккаунт Mistral или создайте новый" },
     "tutorialApiKeyLabel": { "message": "API-ключ Mistral" },
@@ -215,9 +215,9 @@
     "tutorialChooseAndApply": {
         "message": "Выберите команду, затем замените или скопируйте результат"
     },
-    "tutorialWorkspace": { "message": "Рабочая панель и быстрые команды" },
+    "tutorialWorkspace": { "message": "Быстрые команды" },
     "tutorialWorkspaceHint": {
-        "message": "Нажмите значок расширения для рабочей панели или используйте горячие клавиши."
+        "message": "Выделите текст на странице или используйте горячие клавиши."
     },
     "tutorialPrivacyContext": { "message": "Контекст страницы по умолчанию отключён" },
     "tutorialPrivacyLocal": { "message": "API-ключ и история хранятся локально" },

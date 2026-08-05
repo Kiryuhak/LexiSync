@@ -22,13 +22,10 @@ for (const browser of ['chrome', 'firefox']) {
     if (manifest.manifest_version !== 3) throw new Error(`${browser}: требуется Manifest V3`);
     if (manifest.version !== packageJson.version)
         throw new Error(`${browser}: версия манифеста не совпадает с package.json`);
-    const requiredPermissions = browser === 'chrome' ? [...BASE_PERMISSIONS, 'sidePanel'] : BASE_PERMISSIONS;
-    if (!sameValues(permissions, requiredPermissions))
+    if (!sameValues(permissions, BASE_PERMISSIONS))
         throw new Error(`${browser}: набор обязательных разрешений изменён`);
-    if (browser === 'chrome' && manifest.side_panel?.default_path !== 'sidepanel.html')
-        throw new Error('chrome: side panel is not configured');
-    if (browser === 'firefox' && manifest.sidebar_action?.default_panel !== 'sidepanel.html')
-        throw new Error('firefox: sidebar is not configured');
+    if (manifest.side_panel || manifest.sidebar_action)
+        throw new Error(`${browser}: удалённая рабочая панель не должна присутствовать в манифесте`);
     if (manifest.action?.default_popup !== 'popup.html') throw new Error(`${browser}: toolbar popup is not configured`);
     if (!sameValues(requiredOrigins, REQUIRED_ORIGINS))
         throw new Error(`${browser}: обязательный доступ разрешён только для Mistral API`);

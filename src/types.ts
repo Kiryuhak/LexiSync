@@ -37,19 +37,6 @@ export interface UsageStats {
     daily?: Record<string, { requests: number; tokens: number }>;
 }
 
-export interface WorkflowStep {
-    id: string;
-    name: string;
-    mode: Exclude<RequestMode, 'ocr' | 'layout'>;
-    prompt?: string;
-}
-
-export interface TextWorkflow {
-    id: string;
-    name: string;
-    steps: WorkflowStep[];
-}
-
 export interface BudgetSettings {
     dailyRequestLimit: number;
     monthlyTokenLimit: number;

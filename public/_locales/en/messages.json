@@ -202,7 +202,7 @@
     "restartTutorial": { "message": "Open tutorial" },
     "tutorialBenefitFix": { "message": "Fix errors and improve writing style" },
     "tutorialBenefitTranslate": { "message": "Translate, add emoji, and run custom commands" },
-    "tutorialBenefitWorkspace": { "message": "Workspace, workflows, and file processing" },
+    "tutorialBenefitWorkspace": { "message": "Quick commands and local history" },
     "tutorialOpenMistral": { "message": "Open Mistral Studio ↗" },
     "tutorialMistralSignIn": { "message": "Sign in to Mistral or create an account" },
     "tutorialApiKeyLabel": { "message": "Mistral API key" },
@@ -215,9 +215,9 @@
     "tutorialChooseAndApply": {
         "message": "Choose a command, then replace the text or copy the result"
     },
-    "tutorialWorkspace": { "message": "Workspace and quick commands" },
+    "tutorialWorkspace": { "message": "Quick commands" },
     "tutorialWorkspaceHint": {
-        "message": "Click the extension icon for the workspace or use keyboard shortcuts."
+        "message": "Select text on a page or use keyboard shortcuts."
     },
     "tutorialPrivacyContext": { "message": "Page context is disabled by default" },
     "tutorialPrivacyLocal": { "message": "The API key and history are stored locally" },

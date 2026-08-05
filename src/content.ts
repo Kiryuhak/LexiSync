@@ -18,7 +18,6 @@ import { applyAppearanceStyle, normalizeAppearanceStyle, type AppearanceStyle } 
 import { startLiveProofread } from './live-proofread';
 import { applyThemeCustomization, DEFAULT_THEME_CUSTOMIZATION } from './theme-customization';
 import type { ThemeCustomization } from './types';
-import { replaceSelectedText } from './text-replacement';
 
 const contentRuntime = globalThis as typeof globalThis & { __lexisyncContentInitialized?: boolean };
 if (!contentRuntime.__lexisyncContentInitialized) {
@@ -72,7 +71,6 @@ if (!contentRuntime.__lexisyncContentInitialized) {
     let previousFocus: HTMLElement | null = null;
     let popupStyleText = '';
     let activeRequestCleanup: (() => void) | null = null;
-    let sidepanelUndo: (() => void) | null = null;
     function getLanguageName(code: string): string {
         try {
             return new Intl.DisplayNames([chrome.i18n.getUILanguage()], { type: 'language' }).of(code) || code;
@@ -138,28 +136,6 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             return;
         }
         if (!extensionEnabledOnSite) return;
-        if (request.action === 'sidepanelApplyDirect') {
-            const text = typeof request.text === 'string' ? request.text : '';
-            const selection = captureSelection();
-            const undo = text ? replaceSelectedText(selection, text) : null;
-            if (!undo) {
-                sendResponse({ ok: false, error: 'Не удалось определить место замены.' });
-                return;
-            }
-            sidepanelUndo = undo;
-            sendResponse({ ok: true });
-            return;
-        }
-        if (request.action === 'sidepanelUndoDirect') {
-            if (!sidepanelUndo) {
-                sendResponse({ ok: false, error: 'Нет замены, которую можно отменить.' });
-                return;
-            }
-            sidepanelUndo();
-            sidepanelUndo = null;
-            sendResponse({ ok: true });
-            return;
-        }
         if (request.action === 'startOcrMode') {
             const screenshotUrl = typeof request.screenshotUrl === 'string' ? request.screenshotUrl : '';
             if (screenshotUrl) {
