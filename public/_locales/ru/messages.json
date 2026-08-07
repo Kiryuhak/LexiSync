@@ -26,6 +26,7 @@
     "visualStyleLabel": { "message": "Стиль интерфейса" },
     "visualStyleHint": { "message": "Меняет оформление модального окна, меню, popup и подсказок." },
     "visualStyleLiquid": { "message": "Liquid Glass" },
+    "visualStyleMagicOs": { "message": "MagicOS Liquid Glass" },
     "visualStyleMaterial": { "message": "Material Design 3" },
     "visualStyleFlutter": { "message": "Flutter Clean" },
     "visualStyleBento": { "message": "Bento Soft" },

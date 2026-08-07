@@ -109,7 +109,7 @@ export async function migrateSettings(): Promise<void> {
     }
     if (
         currentVersion < 7 &&
-        !['liquid-glass', 'material-3', 'flutter', 'bento'].includes(String(stored.visualStyle))
+        !['liquid-glass', 'magicos-11', 'material-3', 'flutter', 'bento'].includes(String(stored.visualStyle))
     ) {
         updates.visualStyle = 'liquid-glass';
     }

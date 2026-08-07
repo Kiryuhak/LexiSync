@@ -120,7 +120,7 @@ function updateAppearancePreview(): void {
     previewStage.dataset.theme = isDark ? 'dark' : 'light';
     compactPreviewStage.dataset.theme = isDark ? 'dark' : 'light';
     compactPreviewStage.dataset.mode = normalizeResultDisplayMode(resultDisplayModeSelect.value);
-    document.documentElement.toggleAttribute('data-theme', isDark);
+    document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
     const visualStyle = applyAppearanceStyle(document.documentElement, visualStyleSelect.value);
     previewStage.dataset.uiStyle = visualStyle;
     compactPreviewStage.dataset.uiStyle = visualStyle;

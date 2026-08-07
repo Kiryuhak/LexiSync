@@ -418,6 +418,40 @@
                     monospace;
             }
 
+            [data-ui-style='magicos-11'] {
+                --canvas: #dce8ff;
+                --glass: rgba(248, 251, 255, 0.52);
+                --glass-strong: rgba(255, 255, 255, 0.6);
+                --glass-hover: rgba(255, 255, 255, 0.76);
+                --text-main: #17213a;
+                --text-muted: #53627e;
+                --primary: #4267f5;
+                --primary-soft: rgba(82, 120, 255, 0.16);
+                --cyan: #168da7;
+                --cyan-soft: rgba(66, 203, 222, 0.18);
+                --stroke: rgba(255, 255, 255, 0.84);
+                --stroke-subtle: rgba(74, 99, 158, 0.13);
+                --shadow: 0 24px 58px rgba(38, 61, 120, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.76);
+                --focus: rgba(66, 103, 245, 0.34);
+            }
+
+            [data-ui-style='magicos-11'][data-theme='dark'] {
+                --canvas: #10172a;
+                --glass: rgba(28, 37, 62, 0.6);
+                --glass-strong: rgba(46, 59, 92, 0.6);
+                --glass-hover: rgba(66, 82, 123, 0.72);
+                --text-main: #f6f8ff;
+                --text-muted: #b8c4dc;
+                --primary: #a5b9ff;
+                --primary-soft: rgba(140, 168, 255, 0.2);
+                --cyan: #78dbea;
+                --cyan-soft: rgba(74, 195, 216, 0.18);
+                --stroke: rgba(255, 255, 255, 0.19);
+                --stroke-subtle: rgba(255, 255, 255, 0.11);
+                --shadow: 0 26px 64px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+                --focus: rgba(165, 185, 255, 0.42);
+            }
+
             [data-ui-style='material-3'] {
                 --canvas: #f4f6f8;
                 --glass: #ffffff;
@@ -515,6 +549,34 @@
                 --stroke: #d7dde8;
                 --stroke-subtle: rgba(215, 221, 232, 0.18);
                 --shadow: 7px 7px 0 rgba(0, 0, 0, 0.45);
+            }
+
+            [data-ui-style='magicos-11'] body {
+                background:
+                    radial-gradient(circle at 12% 4%, rgba(84, 128, 255, 0.72), transparent 40%),
+                    radial-gradient(circle at 92% 88%, rgba(76, 214, 225, 0.5), transparent 42%),
+                    radial-gradient(circle at 70% 22%, rgba(205, 163, 255, 0.32), transparent 34%), var(--canvas);
+            }
+
+            [data-ui-style='magicos-11'] .glass-panel {
+                border-radius: 28px;
+                box-shadow: var(--shadow);
+                backdrop-filter: blur(32px) saturate(180%);
+                -webkit-backdrop-filter: blur(32px) saturate(180%);
+            }
+
+            [data-ui-style='magicos-11'] .action,
+            [data-ui-style='magicos-11'] .site-card {
+                border-radius: 19px;
+                box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42);
+            }
+
+            [data-ui-style='magicos-11'] .action-icon,
+            [data-ui-style='magicos-11'] .brand-icon {
+                border-radius: 14px;
+                box-shadow:
+                    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+                    0 8px 18px rgba(51, 73, 133, 0.16);
             }
 
             [data-ui-style='material-3'] body,

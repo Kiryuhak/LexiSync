@@ -26,6 +26,7 @@
     "visualStyleLabel": { "message": "Interface style" },
     "visualStyleHint": { "message": "Changes the modal, menus, popup, and suggestion appearance." },
     "visualStyleLiquid": { "message": "Liquid Glass" },
+    "visualStyleMagicOs": { "message": "MagicOS Liquid Glass" },
     "visualStyleMaterial": { "message": "Material Design 3" },
     "visualStyleFlutter": { "message": "Flutter Clean" },
     "visualStyleBento": { "message": "Bento Soft" },

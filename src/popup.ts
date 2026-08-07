@@ -12,7 +12,7 @@ let visualStyle: AppearanceStyle = 'liquid-glass';
 
 function applyTheme(theme: Theme): void {
     const useDarkTheme = theme === 'dark' || (theme === 'auto' && systemTheme.matches);
-    document.documentElement.toggleAttribute('data-theme', useDarkTheme);
+    document.documentElement.dataset.theme = useDarkTheme ? 'dark' : 'light';
 }
 
 async function initializeTheme(): Promise<void> {

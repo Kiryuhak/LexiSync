@@ -8,6 +8,7 @@ import {
     type ContentMenuContext,
 } from './content-menus';
 import { POPUP_STYLE_TEXT } from './content-ui-style';
+import { calculatePopupPosition } from './popup-position';
 import {
     handleActionClick as handleContentAction,
     executeRequest as executeContentRequest,
@@ -536,18 +537,16 @@ if (!contentRuntime.__lexisyncContentInitialized) {
     function adjustPopupPosition(): void {
         if (!popupUI || isManuallyPositioned) return;
         const rect = popupUI.getBoundingClientRect();
-        const absoluteLeft = lastAnchorX;
-        const absoluteTop = lastAnchorY + 6;
-        let viewportX = absoluteLeft;
-        let viewportY = absoluteTop;
-
-        if (viewportX + rect.width > window.innerWidth - 20) viewportX = window.innerWidth - rect.width - 20;
-        if (viewportX < 20) viewportX = 20;
-        if (viewportY + rect.height > window.innerHeight - 20) viewportY = lastAnchorY - rect.height - 6;
-        if (viewportY < 20) viewportY = 20;
-
-        popupUI.style.left = `${viewportX}px`;
-        popupUI.style.top = `${viewportY}px`;
+        const position = calculatePopupPosition({
+            anchorX: lastAnchorX,
+            anchorY: lastAnchorY,
+            popupWidth: rect.width,
+            popupHeight: rect.height,
+            viewportWidth: window.innerWidth,
+            viewportHeight: window.innerHeight,
+        });
+        popupUI.style.left = `${position.x}px`;
+        popupUI.style.top = `${position.y}px`;
     }
 
     function closePopup(removeImmediately = false): void {

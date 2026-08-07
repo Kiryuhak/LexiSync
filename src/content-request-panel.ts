@@ -100,7 +100,7 @@ export function executeRequest(
     popupUI.setAttribute('role', 'dialog');
     popupUI.setAttribute('aria-modal', 'true');
     popupUI.setAttribute('aria-label', t('resultDialog', 'Результат обработки текста'));
-    popupUI.style.width = '340px';
+    popupUI.style.width = 'min(340px, calc(100vw - 24px))';
     popupUI.style.padding = '0';
     popupUI.style.display = 'block';
 
@@ -308,7 +308,7 @@ export function executeRequest(
         const currentPopup = context.getPopup();
         if (currentPopup) {
             currentPopup.dataset.compactResult = 'true';
-            currentPopup.style.width = '340px';
+            currentPopup.style.width = 'min(340px, calc(100vw - 24px))';
         }
         contentPane.style.margin = '10px 12px';
         contentPane.style.padding = '12px';

@@ -1147,6 +1147,73 @@ input[type='range'] {
     flex: 0 0 auto;
 }
 
+[data-ui-style='magicos-11'] {
+    --bg-main: #dfeaff;
+    --bg-card: rgba(248, 251, 255, 0.64);
+    --text-main: #17213a;
+    --text-secondary: #52617d;
+    --border: rgba(255, 255, 255, 0.78);
+    --border-input: rgba(87, 105, 148, 0.3);
+    --primary: #4267f5;
+    --primary-hover: #3153d7;
+    --badge-bg: rgba(255, 255, 255, 0.5);
+    --badge-text: #3153d7;
+    --box-bg: rgba(255, 255, 255, 0.44);
+    --box-border: rgba(255, 255, 255, 0.68);
+}
+[data-ui-style='magicos-11'][data-theme='dark'] {
+    --bg-main: #11182a;
+    --bg-card: rgba(27, 36, 60, 0.7);
+    --text-main: #f6f8ff;
+    --text-secondary: #b7c3dc;
+    --border: rgba(255, 255, 255, 0.18);
+    --border-input: rgba(211, 224, 255, 0.24);
+    --primary: #9eb4ff;
+    --primary-hover: #c1ceff;
+    --badge-bg: rgba(134, 162, 255, 0.2);
+    --badge-text: #dce4ff;
+    --box-bg: rgba(55, 70, 108, 0.44);
+    --box-border: rgba(255, 255, 255, 0.13);
+}
+[data-ui-style='magicos-11'] body {
+    background:
+        radial-gradient(circle at 12% 8%, rgba(114, 154, 255, 0.7), transparent 34%),
+        radial-gradient(circle at 88% 18%, rgba(110, 225, 242, 0.5), transparent 31%),
+        radial-gradient(circle at 66% 92%, rgba(170, 120, 255, 0.4), transparent 38%), var(--bg-main);
+    background-attachment: fixed;
+}
+[data-ui-style='magicos-11'] .container {
+    overflow: hidden;
+    border-color: var(--border);
+    border-radius: 30px;
+    box-shadow:
+        0 28px 70px rgba(39, 62, 118, 0.24),
+        inset 0 1px 0 rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(34px) saturate(175%);
+    -webkit-backdrop-filter: blur(34px) saturate(175%);
+}
+[data-ui-style='magicos-11'] button,
+[data-ui-style='magicos-11'] select,
+[data-ui-style='magicos-11'] input,
+[data-ui-style='magicos-11'] textarea,
+[data-ui-style='magicos-11'] .privacy-option,
+[data-ui-style='magicos-11'] .appearance-panel,
+[data-ui-style='magicos-11'] .compact-preview-panel {
+    background-color: var(--box-bg);
+    border-color: var(--box-border);
+    border-radius: 20px;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.52),
+        0 8px 24px rgba(52, 75, 132, 0.1);
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+}
+[data-ui-style='magicos-11'] button#saveBtn,
+[data-ui-style='magicos-11'] .settings-tab,
+[data-ui-style='magicos-11'] .version-badge {
+    border-radius: 999px;
+}
+
 [data-ui-style='material-3'] {
     --bg-main: #f4f6f8;
     --bg-card: #ffffff;
@@ -1280,6 +1347,47 @@ input[type='range'] {
 [data-ui-style='bento'] .compact-preview-panel {
     border-width: 2px;
     border-radius: 12px;
+}
+
+.preview-stage[data-ui-style='magicos-11'],
+.compact-result-preview-stage[data-ui-style='magicos-11'] {
+    background:
+        radial-gradient(circle at 14% 16%, rgba(92, 139, 255, 0.72), transparent 34%),
+        radial-gradient(circle at 86% 80%, rgba(112, 226, 237, 0.58), transparent 38%), #dce8ff;
+}
+.preview-stage[data-ui-style='magicos-11'] .preview-toolbar,
+.compact-result-preview-stage[data-ui-style='magicos-11'] .compact-result-preview-card {
+    background: rgba(249, 252, 255, 0.56);
+    border-color: rgba(255, 255, 255, 0.84);
+    border-radius: 24px;
+    box-shadow:
+        0 18px 46px rgba(38, 62, 126, 0.26),
+        inset 0 1px 0 rgba(255, 255, 255, 0.86);
+    backdrop-filter: blur(26px) saturate(180%);
+    -webkit-backdrop-filter: blur(26px) saturate(180%);
+}
+.compact-result-preview-stage[data-ui-style='magicos-11'] .compact-result-preview-header {
+    background: linear-gradient(120deg, rgba(255, 255, 255, 0.52), rgba(116, 157, 255, 0.16));
+    border-radius: 23px 23px 0 0;
+}
+.compact-result-preview-stage[data-ui-style='magicos-11'] .compact-result-preview-replace {
+    border-radius: 999px;
+    background: linear-gradient(135deg, #5278ff, #6f5fea);
+    box-shadow: 0 8px 22px rgba(67, 95, 220, 0.3);
+}
+.preview-stage[data-ui-style='magicos-11'][data-theme='dark'],
+.compact-result-preview-stage[data-ui-style='magicos-11'][data-theme='dark'] {
+    background:
+        radial-gradient(circle at 12% 12%, rgba(64, 100, 205, 0.58), transparent 36%),
+        radial-gradient(circle at 86% 82%, rgba(42, 155, 176, 0.42), transparent 38%), #10172a;
+}
+.preview-stage[data-ui-style='magicos-11'][data-theme='dark'] .preview-toolbar,
+.compact-result-preview-stage[data-ui-style='magicos-11'][data-theme='dark'] .compact-result-preview-card {
+    background: rgba(29, 39, 66, 0.6);
+    border-color: rgba(255, 255, 255, 0.18);
+    box-shadow:
+        0 20px 48px rgba(0, 0, 0, 0.42),
+        inset 0 1px 0 rgba(255, 255, 255, 0.16);
 }
 
 .preview-stage[data-ui-style='material-3'] .preview-toolbar,

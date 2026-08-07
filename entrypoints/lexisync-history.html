@@ -158,6 +158,53 @@
             .hidden {
                 display: none !important;
             }
+            [data-ui-style='magicos-11'] {
+                --bg: #dfeaff;
+                --card: rgba(249, 252, 255, 0.62);
+                --text: #17213a;
+                --muted: #52617d;
+                --border: rgba(255, 255, 255, 0.78);
+                --soft: rgba(255, 255, 255, 0.46);
+                --result: rgba(218, 247, 237, 0.7);
+                --result-text: #176846;
+                --accent: #4267f5;
+            }
+            [data-ui-style='magicos-11'][data-theme='dark'] {
+                --bg: #11182a;
+                --card: rgba(27, 36, 60, 0.7);
+                --text: #f6f8ff;
+                --muted: #b7c3dc;
+                --border: rgba(255, 255, 255, 0.18);
+                --soft: rgba(55, 70, 108, 0.46);
+                --result: rgba(26, 86, 65, 0.56);
+                --result-text: #9ee2c5;
+                --accent: #9eb4ff;
+            }
+            [data-ui-style='magicos-11'] body {
+                background:
+                    radial-gradient(circle at 12% 8%, rgba(114, 154, 255, 0.68), transparent 34%),
+                    radial-gradient(circle at 88% 16%, rgba(110, 225, 242, 0.46), transparent 31%),
+                    radial-gradient(circle at 68% 92%, rgba(170, 120, 255, 0.36), transparent 38%), var(--bg);
+                background-attachment: fixed;
+            }
+            [data-ui-style='magicos-11'] .history-card,
+            [data-ui-style='magicos-11'] .toolbar input,
+            [data-ui-style='magicos-11'] .toolbar select,
+            [data-ui-style='magicos-11'] button,
+            [data-ui-style='magicos-11'] .content {
+                border-color: var(--border);
+                border-radius: 20px;
+                box-shadow:
+                    0 14px 36px rgba(37, 59, 116, 0.16),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.58);
+                backdrop-filter: blur(24px) saturate(170%);
+                -webkit-backdrop-filter: blur(24px) saturate(170%);
+            }
+            [data-ui-style='magicos-11'] button,
+            [data-ui-style='magicos-11'] .mode-badge {
+                border-radius: 999px;
+            }
+
             [data-ui-style='material-3'] {
                 --bg: #f4f6f8;
                 --card: #fff;

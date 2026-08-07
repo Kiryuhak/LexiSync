@@ -154,7 +154,7 @@ async function initialize(): Promise<void> {
     const dark =
         theme.selectedTheme === 'dark' ||
         (theme.selectedTheme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
-    document.documentElement.toggleAttribute('data-theme', dark);
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
     applyAppearanceStyle(document.documentElement, theme.visualStyle);
     history = await getHistory();
     renderHistory();

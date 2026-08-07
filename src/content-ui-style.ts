@@ -21,6 +21,25 @@ export const POPUP_STYLE_TEXT = `
                 --hover-bg: rgba(64, 70, 104, 0.9); --shadow-color: rgba(0,0,0,0.48);
                 --error-color: #ff8a80; --success-color: #81c784; --warning-bg: rgba(176, 96, 0, 0.2); --warning-border: rgba(255, 183, 77, 0.3); --warning-text: #ffb74d;
             }
+            #lexisync-extension-ui[data-ui-style="magicos-11"] {
+                --bg-primary: rgba(246,250,255,.58); --bg-solid: #f4f8ff; --bg-elevated: rgba(255,255,255,.78); --bg-secondary: rgba(235,242,255,.62);
+                --text-primary: #19233b; --text-secondary: #5b6881; --primary: #4267f5; --primary-strong: #624fe5;
+                --primary-soft: rgba(72,108,246,.16); --cyan-soft: rgba(49,194,219,.18);
+                --border-color: rgba(255,255,255,.86); --inner-border: rgba(78,103,161,.14);
+                --hover-bg: rgba(255,255,255,.78); --shadow-color: rgba(31,56,118,.26);
+                --error-color: #c92f46; --success-color: #176b48; --warning-bg: rgba(255,244,220,.72); --warning-border: rgba(215,153,45,.24); --warning-text: #99600a;
+                border-radius: 28px;
+                box-shadow: 0 26px 68px var(--shadow-color), 0 4px 14px rgba(38,54,96,.12), inset 0 1px 0 rgba(255,255,255,.82);
+                backdrop-filter: blur(32px) saturate(180%);
+                -webkit-backdrop-filter: blur(32px) saturate(180%);
+            }
+            #lexisync-extension-ui[data-ui-style="magicos-11"][data-theme="dark"] {
+                --bg-primary: rgba(25,34,57,.66); --bg-solid: #192239; --bg-elevated: rgba(47,59,91,.72); --bg-secondary: rgba(58,72,108,.58);
+                --text-primary: #f6f8ff; --text-secondary: #bac5dc; --primary: #a6baff; --primary-strong: #b29cff;
+                --primary-soft: rgba(145,171,255,.2); --cyan-soft: rgba(72,198,219,.18);
+                --border-color: rgba(255,255,255,.2); --inner-border: rgba(255,255,255,.11);
+                --hover-bg: rgba(80,96,140,.7); --shadow-color: rgba(0,0,0,.52);
+            }
             #lexisync-extension-ui[data-ui-style="material-3"] {
                 --bg-primary: #ffffff; --bg-solid: #ffffff; --bg-elevated: #f7f8fa; --bg-secondary: #f1f3f6;
                 --text-primary: #1d1b20; --text-secondary: #49454f; --primary: #6750a4; --primary-strong: #4f378b;
@@ -216,8 +235,11 @@ export const POPUP_STYLE_TEXT = `
             #lexisync-extension-ui[data-surface="result"] {
                 overflow: visible;
                 background: var(--bg-primary) !important;
-                border-radius: 20px;
+                border-radius: 22px;
+                box-shadow: 0 22px 52px var(--shadow-color), inset 0 1px 0 rgba(255,255,255,.34);
             }
+            #lexisync-extension-ui[data-ui-style="magicos-11"][data-surface="result"],
+            #lexisync-extension-ui[data-ui-style="magicos-11"][data-surface="menu"] { border-radius: 28px; }
             #lexisync-extension-ui[data-ui-style="material-3"][data-surface="result"],
             #lexisync-extension-ui[data-ui-style="material-3"][data-surface="menu"] { border-radius: 28px; }
             #lexisync-extension-ui[data-ui-style="flutter"][data-surface="result"],
@@ -225,11 +247,18 @@ export const POPUP_STYLE_TEXT = `
             #lexisync-extension-ui[data-ui-style="bento"][data-surface="result"],
             #lexisync-extension-ui[data-ui-style="bento"][data-surface="menu"] { border-radius: 22px; }
             .lexisync-header {
-                min-height: 50px;
-                padding: 11px 14px !important;
-                background: linear-gradient(135deg, var(--primary-soft), transparent 62%) !important;
+                min-height: 52px;
+                padding: 12px 16px !important;
+                background: linear-gradient(180deg, var(--bg-elevated), var(--bg-secondary)) !important;
                 border-bottom-color: var(--inner-border) !important;
-                border-radius: 20px 20px 0 0 !important;
+                border-radius: 22px 22px 0 0 !important;
+            }
+            #lexisync-extension-ui[data-ui-style="magicos-11"] .lexisync-header {
+                background: linear-gradient(120deg, rgba(255,255,255,.62), rgba(121,156,255,.17), rgba(102,218,231,.12)) !important;
+                border-radius: 27px 27px 0 0 !important;
+            }
+            #lexisync-extension-ui[data-ui-style="magicos-11"][data-theme="dark"] .lexisync-header {
+                background: linear-gradient(120deg, rgba(255,255,255,.1), rgba(125,151,235,.18), rgba(58,170,192,.12)) !important;
             }
             #lexisync-extension-ui[data-ui-style="material-3"] .lexisync-header {
                 background: var(--primary-soft) !important;
@@ -248,7 +277,13 @@ export const POPUP_STYLE_TEXT = `
                 letter-spacing: -0.01em;
             }
             .lexisync-content-pane {
-                padding: 17px 18px !important;
+                margin: 10px 10px 12px;
+                padding: 16px 17px !important;
+                max-height: min(30vh, 150px) !important;
+                background: var(--bg-elevated);
+                border: 1px solid var(--inner-border);
+                border-radius: 14px;
+                box-shadow: 0 7px 18px rgba(33,48,84,.08), inset 0 1px 0 rgba(255,255,255,.28);
                 line-height: 1.65 !important;
             }
             .lexisync-actions {
@@ -283,7 +318,11 @@ export const POPUP_STYLE_TEXT = `
                 border-color: var(--primary);
                 box-shadow: 0 0 0 3px var(--primary-soft);
             }
-            .lexisync-corrections { padding: 0 14px 12px !important; }
+            .lexisync-corrections {
+                max-height: 150px;
+                padding: 0 14px 12px !important;
+                overflow-y: auto;
+            }
             .lexisync-compact-correction-details {
                 position: relative;
                 display: flex;
@@ -346,9 +385,10 @@ export const POPUP_STYLE_TEXT = `
                 padding: 0 14px 14px !important;
             }
             .lexisync-correction-row {
-                background: var(--bg-secondary);
+                background: var(--bg-elevated);
                 border-color: var(--inner-border) !important;
-                border-radius: 10px !important;
+                border-radius: 12px !important;
+                box-shadow: 0 5px 14px rgba(33,48,84,.06);
             }
             .lexisync-result-button {
                 border: 1px solid var(--inner-border) !important;
@@ -365,6 +405,19 @@ export const POPUP_STYLE_TEXT = `
             #lexisync-extension-ui[data-ui-style="material-3"] .lexisync-result-button {
                 border-radius: 999px !important;
                 box-shadow: none;
+            }
+            #lexisync-extension-ui[data-ui-style="magicos-11"] .lexisync-content-pane,
+            #lexisync-extension-ui[data-ui-style="magicos-11"] .lexisync-correction-row {
+                border-color: rgba(255,255,255,.72) !important;
+                border-radius: 18px !important;
+                box-shadow: 0 10px 26px rgba(36,61,124,.12), inset 0 1px 0 rgba(255,255,255,.62);
+                backdrop-filter: blur(20px) saturate(165%);
+                -webkit-backdrop-filter: blur(20px) saturate(165%);
+            }
+            #lexisync-extension-ui[data-ui-style="magicos-11"] .lexisync-result-button,
+            #lexisync-extension-ui[data-ui-style="magicos-11"] .lexisync-tool-chip {
+                border-radius: 999px !important;
+                box-shadow: inset 0 1px 0 rgba(255,255,255,.48), 0 6px 16px rgba(42,65,124,.1);
             }
             #lexisync-extension-ui[data-ui-style="flutter"] .lexisync-result-button,
             #lexisync-extension-ui[data-ui-style="flutter"] .lexisync-correction-row {

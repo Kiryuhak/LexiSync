@@ -199,6 +199,45 @@ test('Панель выделения появляется автоматиче�
     expect(await toolbar.locator('svg path, svg line, svg rect, svg circle, svg polyline').count()).toBeGreaterThan(0);
 });
 
+test('модальное окно остаётся рядом с указателем при ограниченной высоте', async ({ page, context }) => {
+    await setFakeApiKey(context);
+    await page.setViewportSize({ width: 900, height: 500 });
+    await page.goto('https://example.com');
+    await grantSiteAccess(context, page);
+    await page.evaluate(() => {
+        const target = document.createElement('div');
+        target.id = 'position-target';
+        target.textContent = 'Текст для проверки положения модального окна рядом с указателем.';
+        target.style.cssText = 'position:fixed;left:390px;top:230px;width:430px;font:20px/1.4 sans-serif;';
+        document.body.append(target);
+    });
+    await context.route('https://api.mistral.ai/v1/chat/completions', async (route) => {
+        const content = Array.from({ length: 16 }, (_, index) => `Строка результата ${index + 1}.`).join('\n');
+        await route.fulfill({
+            status: 200,
+            contentType: 'text/event-stream',
+            body: `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\ndata: [DONE]\n\n`,
+        });
+    });
+
+    await selectTextOnPage(page, '#position-target');
+    const selectionTarget = await page.locator('#position-target').boundingBox();
+    expect(selectionTarget).not.toBeNull();
+    await page.locator('[data-lexisync-action="edit"]').click();
+    const styleAction = page.locator('#lexisync-extension-ui[data-surface="menu"] [role="menuitem"]').nth(1);
+    await styleAction.click();
+
+    const result = page.locator('#lexisync-extension-ui[data-surface="result"]');
+    await expect(result.locator('.lexisync-content-pane')).toContainText('Строка результата 16.');
+    const box = await result.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.y).toBeGreaterThan(50);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(481);
+    const resultCenterY = box!.y + box!.height / 2;
+    const selectionCenterY = selectionTarget!.y + selectionTarget!.height / 2;
+    expect(Math.abs(resultCenterY - selectionCenterY)).toBeLessThan(120);
+});
+
 test('Повторная инъекция не дублирует content script и обработчики', async ({ page, context }) => {
     await page.goto('https://example.com');
     const tabId = await grantSiteAccess(context, page);
@@ -699,9 +738,11 @@ test('Компактный режим настраивается и показы
     await page.locator('[data-tab="appearance"]').click();
     const compactPreview = page.locator('#compactResultPreviewStage');
     await expect(compactPreview).toBeVisible();
-    await page.locator('#visualStyleSelect').selectOption('material-3');
-    await expect(compactPreview).toHaveAttribute('data-ui-style', 'material-3');
-    await expect(page.locator('html')).toHaveAttribute('data-ui-style', 'material-3');
+    await page.locator('#themeSelect').selectOption('light');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    await page.locator('#visualStyleSelect').selectOption('magicos-11');
+    await expect(compactPreview).toHaveAttribute('data-ui-style', 'magicos-11');
+    await expect(page.locator('html')).toHaveAttribute('data-ui-style', 'magicos-11');
     await expect(compactPreview.locator('mark')).toHaveText(/^(?:ошибок|errors)$/);
     await page.locator('#resultDisplayMode').selectOption('compact');
     await expect(compactPreview).toHaveAttribute('data-mode', 'compact');
@@ -715,7 +756,7 @@ test('Компактный режим настраивается и показы
         .toEqual({
             compactResultMode: true,
             resultDisplayMode: 'compact',
-            visualStyle: 'material-3',
+            visualStyle: 'magicos-11',
         });
 
     await context.route('https://api.mistral.ai/v1/chat/completions', async (route) => {
@@ -731,7 +772,7 @@ test('Компактный режим настраивается и показы
     await page.keyboard.press('Alt+r');
 
     const panel = page.locator('#lexisync-extension-ui');
-    await expect(panel).toHaveAttribute('data-ui-style', 'material-3');
+    await expect(panel).toHaveAttribute('data-ui-style', 'magicos-11');
     await expect(panel.locator('.lexisync-content-pane')).toHaveText('Sample Domai');
     await expect(panel.locator('.lexisync-result-button')).toHaveCount(2);
     await expect(panel.locator('.lexisync-corrections')).toBeHidden();
@@ -746,18 +787,25 @@ test('Компактный режим настраивается и показы
         .poll(() => panel.evaluate((element) => (element.getRootNode() as ShadowRoot).activeElement?.tagName))
         .toBe('BUTTON');
     const compactLayout = await panel.evaluate((element) => {
+        const header = element.querySelector<HTMLElement>('.lexisync-header');
         const content = element.querySelector<HTMLElement>('.lexisync-content-pane');
         return {
             compact: element.dataset.compactResult,
             width: Number.parseFloat(getComputedStyle(element).width),
             height: element.getBoundingClientRect().height,
+            backdropFilter: getComputedStyle(element).backdropFilter,
+            headerBackground: header ? getComputedStyle(header).backgroundImage : '',
             contentBackground: content ? getComputedStyle(content).backgroundColor : '',
+            contentRadius: content ? getComputedStyle(content).borderRadius : '',
         };
     });
     expect(compactLayout.compact).toBe('true');
     expect(compactLayout.width).toBe(340);
     expect(compactLayout.height).toBeLessThan(280);
+    expect(compactLayout.backdropFilter).toContain('blur(32px)');
+    expect(compactLayout.headerBackground).toContain('linear-gradient');
     expect(compactLayout.contentBackground).not.toBe('rgba(0, 0, 0, 0)');
+    expect(compactLayout.contentRadius).toBe('18px');
 
     const correction = panel.locator('.lexisync-content-pane mark').first();
     await correction.focus();

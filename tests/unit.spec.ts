@@ -23,6 +23,31 @@ import { parseAdaptiveModel } from '../src/adaptive-model-store';
 import { POPUP_STYLE_TEXT } from '../src/content-ui-style';
 import { copyText } from '../src/clipboard';
 import { shouldAutoProofreadField } from '../src/live-proofread-privacy';
+import { calculatePopupPosition } from '../src/popup-position';
+
+test('удерживает модальное окно рядом с указателем при ограниченной высоте', () => {
+    expect(
+        calculatePopupPosition({
+            anchorX: 400,
+            anchorY: 260,
+            popupWidth: 340,
+            popupHeight: 360,
+            viewportWidth: 900,
+            viewportHeight: 500,
+        }),
+    ).toEqual({ x: 400, y: 120 });
+
+    expect(
+        calculatePopupPosition({
+            anchorX: 850,
+            anchorY: 440,
+            popupWidth: 340,
+            popupHeight: 180,
+            viewportWidth: 900,
+            viewportHeight: 500,
+        }),
+    ).toEqual({ x: 540, y: 254 });
+});
 
 test('исключает чувствительные поля из фоновой автопроверки', () => {
     expect(shouldAutoProofreadField('email', '')).toBe(false);
@@ -197,6 +222,7 @@ test('выбирает компактность результата автом�
 
 test('нормализует поддерживаемые стили интерфейса', () => {
     expect(normalizeAppearanceStyle('liquid-glass')).toBe('liquid-glass');
+    expect(normalizeAppearanceStyle('magicos-11')).toBe('magicos-11');
     expect(normalizeAppearanceStyle('material-3')).toBe('material-3');
     expect(normalizeAppearanceStyle('flutter')).toBe('flutter');
     expect(normalizeAppearanceStyle('bento')).toBe('bento');

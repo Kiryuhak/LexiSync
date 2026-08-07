@@ -253,6 +253,10 @@ function ensureSuggestionUi(): void {
         :host { all: initial; }
         .bar { --bg:rgba(248,250,255,.94); --text:#20283b; --muted:#6e7890; --border:rgba(255,255,255,.82); position:fixed; display:none; align-items:center; gap:5px; max-width:min(420px,calc(100vw - 20px)); padding:5px; color:var(--text); background:var(--bg); border:1px solid var(--border); border-radius:13px; box-shadow:0 14px 36px rgba(36,39,70,.22),inset 0 1px 0 rgba(255,255,255,.5); backdrop-filter:blur(24px) saturate(135%); font:12px/1.2 system-ui,-apple-system,sans-serif; pointer-events:auto; animation:show .16s ease-out; }
         .bar.dark { --bg:rgba(27,30,49,.95); --text:#f5f6fc; --muted:#abb4ce; --border:rgba(255,255,255,.14); box-shadow:0 16px 38px rgba(0,0,0,.44),inset 0 1px 0 rgba(255,255,255,.08); }
+        .bar[data-ui-style="magicos-11"] { --bg:rgba(246,250,255,.62); --text:#19233b; --muted:#5b6881; --border:rgba(255,255,255,.86); border-radius:18px; box-shadow:0 18px 44px rgba(31,56,118,.28),inset 0 1px 0 rgba(255,255,255,.82); backdrop-filter:blur(30px) saturate(180%); }
+        .bar[data-ui-style="magicos-11"].dark { --bg:rgba(28,38,64,.68); --text:#f6f8ff; --muted:#bac5dc; --border:rgba(255,255,255,.19); box-shadow:0 20px 48px rgba(0,0,0,.48),inset 0 1px 0 rgba(255,255,255,.14); }
+        .bar[data-ui-style="magicos-11"] .spark { background:linear-gradient(135deg,#5278ff,#38bfd1); border-radius:12px; box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 6px 14px rgba(54,83,177,.24); }
+        .bar[data-ui-style="magicos-11"] button { border-radius:999px; }
         .bar[data-ui-style="material-3"] { --bg:#fff; --border:#c8cdd4; border-radius:20px; box-shadow:0 3px 8px rgba(29,35,43,.16); backdrop-filter:none; }
         .bar[data-ui-style="material-3"].dark { --bg:#1d2024; --border:#454b54; }
         .bar[data-ui-style="material-3"] .spark { background:#6750a4; border-radius:12px; }
