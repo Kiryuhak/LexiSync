@@ -1,6 +1,7 @@
 export interface PopupPositionInput {
     anchorX: number;
     anchorY: number;
+    anchorTop?: number;
     popupWidth: number;
     popupHeight: number;
     viewportWidth: number;
@@ -12,6 +13,7 @@ export interface PopupPositionInput {
 export function calculatePopupPosition({
     anchorX,
     anchorY,
+    anchorTop = anchorY,
     popupWidth,
     popupHeight,
     viewportWidth,
@@ -22,7 +24,7 @@ export function calculatePopupPosition({
     const maxX = Math.max(margin, viewportWidth - popupWidth - margin);
     const x = Math.min(Math.max(anchorX, margin), maxX);
     const below = anchorY + gap;
-    const above = anchorY - popupHeight - gap;
+    const above = anchorTop - popupHeight - gap;
     const maxY = Math.max(margin, viewportHeight - popupHeight - margin);
 
     if (below + popupHeight <= viewportHeight - margin) return { x, y: below };

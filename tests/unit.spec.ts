@@ -47,6 +47,20 @@ test('удерживает модальное окно рядом с указа�
             viewportHeight: 500,
         }),
     ).toEqual({ x: 540, y: 254 });
+
+    const narrowPosition = calculatePopupPosition({
+        anchorX: 220,
+        anchorY: 240,
+        anchorTop: 180,
+        popupWidth: 296,
+        popupHeight: 180,
+        viewportWidth: 320,
+        viewportHeight: 500,
+        gap: 8,
+        margin: 12,
+    });
+    expect(narrowPosition.x).toBe(12);
+    expect(narrowPosition.x + 296).toBeLessThanOrEqual(320);
 });
 
 test('исключает чувствительные поля из фоновой автопроверки', () => {

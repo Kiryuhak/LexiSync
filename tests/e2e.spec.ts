@@ -1184,6 +1184,37 @@ test('проверка при вводе показывает зелёные и�
     await expect(page.locator('#live-editor')).toHaveValue('Это исправленный длинный текст.');
 });
 
+test('панель автопроверки остаётся в границах узкого экрана', async ({ page, context }) => {
+    await setFakeApiKey(context);
+    await page.setViewportSize({ width: 320, height: 500 });
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() => chrome.storage.local.set({ liveProofreadEnabled: true, liveProofreadDelay: 600 }));
+    await context.route('https://api.mistral.ai/v1/chat/completions', async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: 'text/event-stream',
+            body: 'data: {"choices":[{"delta":{"content":"Это исправленный длинный текст."}}]}\n\ndata: [DONE]\n\n',
+        });
+    });
+    await page.goto('https://example.com');
+    await grantSiteAccess(context, page);
+    await page.evaluate(() => {
+        const textarea = document.createElement('textarea');
+        textarea.id = 'narrow-live-editor';
+        textarea.style.cssText = 'position:fixed;left:220px;top:180px;width:80px;height:60px;';
+        document.body.append(textarea);
+    });
+    await page.locator('#narrow-live-editor').fill('Это неправельный длинный текст.');
+
+    const suggestion = page.locator('[data-lexisync-live-proof]');
+    await expect(suggestion).toBeVisible();
+    const box = await suggestion.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(320);
+});
+
 test('автопроверка не отправляет email и логин из формы', async ({ page, context }) => {
     await setFakeApiKey(context);
     let [background] = context.serviceWorkers();
