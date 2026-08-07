@@ -199,6 +199,28 @@ test('Панель выделения появляется автоматиче�
     expect(await toolbar.locator('svg path, svg line, svg rect, svg circle, svg polyline').count()).toBeGreaterThan(0);
 });
 
+test('отключение сайта отменяет отложенное открытие панели выделения', async ({ page, context }) => {
+    await page.goto('https://example.com');
+    const tabId = await grantSiteAccess(context, page);
+    await page.evaluate(() => {
+        const paragraph = document.querySelector('p');
+        if (!paragraph?.firstChild) throw new Error('Текст для выделения не найден');
+        const range = document.createRange();
+        range.selectNodeContents(paragraph);
+        const selection = window.getSelection();
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+        document.dispatchEvent(new Event('selectionchange'));
+    });
+
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate((id) => chrome.tabs.sendMessage(id, { action: 'setSiteEnabled', enabled: false }), tabId);
+
+    await page.waitForTimeout(150);
+    await expect(page.locator('#lexisync-shadow-host')).toHaveCount(0);
+});
+
 test('модальное окно остаётся рядом с указателем при ограниченной высоте', async ({ page, context }) => {
     await setFakeApiKey(context);
     await page.setViewportSize({ width: 900, height: 500 });

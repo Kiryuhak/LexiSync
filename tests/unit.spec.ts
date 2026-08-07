@@ -23,6 +23,7 @@ import { parseAdaptiveModel } from '../src/adaptive-model-store';
 import { POPUP_STYLE_TEXT } from '../src/content-ui-style';
 import { copyText } from '../src/clipboard';
 import { shouldAutoProofreadField } from '../src/live-proofread-privacy';
+import { shouldShowSelectionMenu } from '../src/selection-state';
 import { calculatePopupPosition } from '../src/popup-position';
 
 test('удерживает модальное окно рядом с указателем при ограниченной высоте', () => {
@@ -72,6 +73,13 @@ test('исключает чувствительные поля из фоново
     expect(shouldAutoProofreadField('text', '')).toBe(true);
     expect(shouldAutoProofreadField('search', 'off')).toBe(true);
     expect(shouldAutoProofreadField(null, '')).toBe(true);
+});
+
+test('не открывает панель выделения на отключённом сайте', () => {
+    expect(shouldShowSelectionMenu(false, false, 'Выделенный текст')).toBe(false);
+    expect(shouldShowSelectionMenu(true, true, 'Выделенный текст')).toBe(false);
+    expect(shouldShowSelectionMenu(true, false, '   ')).toBe(false);
+    expect(shouldShowSelectionMenu(true, false, 'Выделенный текст')).toBe(true);
 });
 
 test('копирует текст через запасной механизм при недоступном Clipboard API', async () => {

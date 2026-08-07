@@ -87,3 +87,7 @@ export function getSelectionCoords(fallbackX = 0, fallbackY = 0): { x: number; y
     }
     return { x: fallbackX || window.innerWidth / 2, y: fallbackY || window.innerHeight / 2 };
 }
+
+export function shouldShowSelectionMenu(extensionEnabled: boolean, hasPopup: boolean, text: string): boolean {
+    return extensionEnabled && !hasPopup && text.trim().length > 0;
+}

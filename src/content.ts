@@ -1,7 +1,12 @@
 import { t } from './i18n';
 import { isSiteDisabled, normalizeDisabledSites } from './privacy';
 import type { CustomCommand, RequestMode, SelectionData } from './types';
-import { captureSelection, getSelectedText, getSelectionCoords as readSelectionCoords } from './selection-state';
+import {
+    captureSelection,
+    getSelectedText,
+    getSelectionCoords as readSelectionCoords,
+    shouldShowSelectionMenu,
+} from './selection-state';
 import {
     showToolbarMenu as showContentToolbar,
     showAIMenu as showContentAiMenu,
@@ -53,7 +58,10 @@ if (!contentRuntime.__lexisyncContentInitialized) {
                 location.hostname,
                 normalizeDisabledSites(changes.blockedSites.newValue),
             );
-            if (!extensionEnabledOnSite) closePopup();
+            if (!extensionEnabledOnSite) {
+                cancelPendingSelectionMenu();
+                closePopup();
+            }
         }
     });
 
@@ -111,11 +119,9 @@ if (!contentRuntime.__lexisyncContentInitialized) {
         cancelPendingSelectionMenu();
         pendingSelectionMenuTimer = setTimeout(() => {
             pendingSelectionMenuTimer = null;
-            // Не открываем вторую панель поверх меню или результата уже начатого действия.
-            // Новое выделение после клика вне панели обработается после её закрытия в mousedown.
-            if (popupUI) return;
             const text = getSelectedText();
-            if (!text || text.trim().length === 0) return;
+            // Не открываем вторую панель поверх меню или результата, а также после отключения сайта.
+            if (!shouldShowSelectionMenu(extensionEnabledOnSite, Boolean(popupUI), text)) return;
             saveSelectionState();
             const coords = getSelectionCoords();
             showToolbarMenu(
@@ -132,7 +138,10 @@ if (!contentRuntime.__lexisyncContentInitialized) {
         }
         if (request.action === 'setSiteEnabled') {
             extensionEnabledOnSite = request.enabled === true;
-            if (!extensionEnabledOnSite) closePopup();
+            if (!extensionEnabledOnSite) {
+                cancelPendingSelectionMenu();
+                closePopup();
+            }
             sendResponse({ ok: true });
             return;
         }
