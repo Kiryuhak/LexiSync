@@ -37,8 +37,7 @@ jobs:
               run: npm run audit:dependencies
 
             - name: Проверить инструменты сборки
-              continue-on-error: true
-              run: npm run audit:tooling
+              run: npm run audit:tooling || echo "::warning::Найдены известные уязвимости только в инструментах сборки; production-аудит остаётся блокирующим."
 
             - name: Запустить модульные тесты
               run: npm run test:coverage
