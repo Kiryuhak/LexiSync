@@ -265,10 +265,10 @@ function ensureSuggestionUi(): void {
         .bar[data-ui-style="flutter"].dark { --bg:#20252b; --border:#44515d; }
         .bar[data-ui-style="flutter"] .spark { background:#1976d2; border-radius:7px; }
         .bar[data-ui-style="flutter"] button { border-radius:7px; }
-        .bar[data-ui-style="bento"] { --bg:#fff; --border:#2d3648; border-width:2px; border-radius:18px; box-shadow:5px 5px 0 rgba(45,54,72,.16); backdrop-filter:none; }
-        .bar[data-ui-style="bento"].dark { --bg:#20242b; --border:#d7dde8; }
-        .bar[data-ui-style="bento"] .spark { background:linear-gradient(135deg,#6d5ce7,#20a6a0); border-radius:9px; }
-        .bar[data-ui-style="bento"] button { border-radius:10px; }
+        .bar[data-ui-style="aurora-glass"] { --bg:rgba(247,255,253,.76); --text:#183d39; --muted:#58746f; --border:rgba(255,255,255,.84); border-radius:16px; box-shadow:0 15px 34px rgba(23,108,98,.22),inset 0 1px 0 rgba(255,255,255,.72); backdrop-filter:blur(22px) saturate(145%); }
+        .bar[data-ui-style="aurora-glass"].dark { --bg:rgba(18,47,52,.78); --text:#e9fffa; --muted:#b5d2cc; --border:rgba(196,255,245,.2); }
+        .bar[data-ui-style="aurora-glass"] .spark { background:linear-gradient(135deg,#0d9d8a,#65bdf5); border-radius:10px; }
+        .bar[data-ui-style="aurora-glass"] button { border-radius:999px; }
         .spark { display:grid; width:25px; height:25px; flex:0 0 auto; place-items:center; color:#fff; background:linear-gradient(135deg,#765ff0,#24b8c6); border-radius:8px; font-size:12px; }
         button { max-width:145px; padding:7px 10px; overflow:hidden; color:var(--text); background:rgba(255,255,255,.42); border:1px solid rgba(93,103,138,.1); border-radius:9px; cursor:pointer; font:600 12px/1 system-ui,-apple-system,sans-serif; text-overflow:ellipsis; white-space:nowrap; }
         .dark button { background:rgba(63,69,103,.58); border-color:rgba(255,255,255,.08); }

@@ -14,6 +14,7 @@ import { activateDialogKeyboard } from './content-dialog-accessibility';
 import { normalizeResultDisplayMode, shouldUseCompactResult } from './result-display-mode';
 import { createSpellcheckUi } from './content-spellcheck-ui';
 import { renderPrimaryResultActions } from './content-result-actions';
+import { formatRequestDuration } from './request-duration';
 
 export interface ContentRequestContext {
     getPopup: () => HTMLElement | null;
@@ -284,6 +285,7 @@ export function executeRequest(
     let storageAllowed = false;
     let cacheSettingsFingerprint = 'default';
     let savedHistoryId: number | null = null;
+    let requestStartedAt: number | null = null;
     const spellcheckUi = createSpellcheckUi({
         contentPane,
         correctionsContainer,
@@ -346,8 +348,10 @@ export function executeRequest(
         actionStatus.textContent = message;
         actionStatus.dataset.error = String(isError);
         actionStatus.hidden = false;
+        adjustPopupPosition();
         lifecycle.setTimeout(() => {
             actionStatus.hidden = true;
+            adjustPopupPosition();
         }, 2500);
     }
 
@@ -434,6 +438,7 @@ export function executeRequest(
         }
 
         streamPort = chrome.runtime.connect({ name: 'mistralStream' });
+        requestStartedAt = performance.now();
         streamPort.postMessage({
             action: 'callMistral',
             text: currentSelection.text,
@@ -463,6 +468,11 @@ export function executeRequest(
                 }
                 contentPane.removeAttribute('aria-live');
                 finishStream();
+                if (requestStartedAt !== null) {
+                    const duration = formatRequestDuration(performance.now() - requestStartedAt);
+                    requestStartedAt = null;
+                    showActionStatus(t('requestCompletedIn', 'Ready in $1 s').replace('$1', duration));
+                }
 
                 const historyItem: HistoryItem = {
                     id: Date.now(),
@@ -491,6 +501,7 @@ export function executeRequest(
                         .catch((error) => console.error('Ошибка сохранения истории:', error));
                 }
             } else if (response.status === 'error') {
+                requestStartedAt = null;
                 streamUiUpdater?.cancel();
                 const errorMessage =
                     typeof response.error === 'string' ? response.error : t('unknownError', 'Неизвестная ошибка.');
@@ -506,6 +517,7 @@ export function executeRequest(
                 }
                 finishStream(false);
             } else if (response.status === 'cancelled') {
+                requestStartedAt = null;
                 streamUiUpdater?.cancel();
                 contentPane.textContent = t('requestCancelled', 'Запрос отменён.');
                 contentPane.style.color = 'var(--text-secondary)';
@@ -702,6 +714,7 @@ export function executeRequest(
                 renderMarkdown(contentPane, fullResult);
             }
             finishStream(true);
+            showActionStatus(t('resultFromCache', 'Result loaded from the local cache.'));
         } else {
             startStream();
         }

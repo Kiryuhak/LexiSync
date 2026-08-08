@@ -72,22 +72,21 @@ export const POPUP_STYLE_TEXT = `
                 --primary-soft: #163b58; --cyan-soft: #16444a; --border-color: #43505c; --inner-border: #3b4650;
                 --hover-bg: #35414c; --shadow-color: rgba(0,0,0,.44);
             }
-            #lexisync-extension-ui[data-ui-style="bento"] {
-                --bg-primary: #ffffff; --bg-solid: #ffffff; --bg-elevated: #ffffff; --bg-secondary: #f5f7fa;
-                --text-primary: #20242c; --text-secondary: #667085; --primary: #6d5ce7; --primary-strong: #5746cf;
-                --primary-soft: #ecebff; --cyan-soft: #e7f7f5; --border-color: #2d3648; --inner-border: rgba(45,54,72,.16);
-                --hover-bg: #edf2f7; --shadow-color: rgba(45,54,72,.16);
-                border: 2px solid var(--border-color);
-                border-radius: 22px;
-                box-shadow: 7px 7px 0 var(--shadow-color);
-                backdrop-filter: none;
-                -webkit-backdrop-filter: none;
+            #lexisync-extension-ui[data-ui-style="aurora-glass"] {
+                --bg-primary: rgba(247, 255, 253, .66); --bg-solid: #f4fffb; --bg-elevated: rgba(255, 255, 255, .82); --bg-secondary: rgba(233, 250, 245, .72);
+                --text-primary: #183d39; --text-secondary: #58746f; --primary: #0d9d8a; --primary-strong: #087466;
+                --primary-soft: rgba(41, 190, 161, .15); --cyan-soft: rgba(111, 204, 255, .17); --border-color: rgba(255, 255, 255, .84); --inner-border: rgba(42, 129, 117, .16);
+                --hover-bg: rgba(255, 255, 255, .86); --shadow-color: rgba(23, 108, 98, .22);
+                border-radius: 24px;
+                box-shadow: 0 20px 48px var(--shadow-color), inset 0 1px 0 rgba(255, 255, 255, .72);
+                backdrop-filter: blur(26px) saturate(145%);
+                -webkit-backdrop-filter: blur(26px) saturate(145%);
             }
-            #lexisync-extension-ui[data-ui-style="bento"][data-theme="dark"] {
-                --bg-primary: #20242b; --bg-solid: #20242b; --bg-elevated: #282d35; --bg-secondary: #303640;
-                --text-primary: #f7f9fc; --text-secondary: #c4cbd6; --primary: #b7abff; --primary-strong: #9d8fff;
-                --primary-soft: #413a70; --cyan-soft: #294b4c; --border-color: #d7dde8; --inner-border: rgba(215,221,232,.18);
-                --hover-bg: #39414c; --shadow-color: rgba(0,0,0,.46);
+            #lexisync-extension-ui[data-ui-style="aurora-glass"][data-theme="dark"] {
+                --bg-primary: rgba(18, 47, 52, .72); --bg-solid: #123034; --bg-elevated: rgba(31, 66, 70, .8); --bg-secondary: rgba(40, 82, 83, .7);
+                --text-primary: #e9fffa; --text-secondary: #b5d2cc; --primary: #65dfc8; --primary-strong: #43c5b1;
+                --primary-soft: rgba(101, 223, 200, .18); --cyan-soft: rgba(108, 184, 255, .16); --border-color: rgba(196, 255, 245, .2); --inner-border: rgba(209, 255, 245, .12);
+                --hover-bg: rgba(63, 115, 113, .75); --shadow-color: rgba(0, 0, 0, .5);
             }
             #lexisync-extension-ui span { flex-shrink: 0 !important; }
             #lexisync-extension-ui svg { width: 16px !important; height: 16px !important; min-width: 16px !important; min-height: 16px !important; max-width: 16px !important; max-height: 16px !important; flex-shrink: 0 !important; display: block !important; }
@@ -244,8 +243,8 @@ export const POPUP_STYLE_TEXT = `
             #lexisync-extension-ui[data-ui-style="material-3"][data-surface="menu"] { border-radius: 28px; }
             #lexisync-extension-ui[data-ui-style="flutter"][data-surface="result"],
             #lexisync-extension-ui[data-ui-style="flutter"][data-surface="menu"] { border-radius: 14px; }
-            #lexisync-extension-ui[data-ui-style="bento"][data-surface="result"],
-            #lexisync-extension-ui[data-ui-style="bento"][data-surface="menu"] { border-radius: 22px; }
+            #lexisync-extension-ui[data-ui-style="aurora-glass"][data-surface="result"],
+            #lexisync-extension-ui[data-ui-style="aurora-glass"][data-surface="menu"] { border-radius: 24px; }
             .lexisync-header {
                 min-height: 52px;
                 padding: 12px 16px !important;
@@ -268,9 +267,9 @@ export const POPUP_STYLE_TEXT = `
                 background: var(--bg-secondary) !important;
                 border-radius: 13px 13px 0 0 !important;
             }
-            #lexisync-extension-ui[data-ui-style="bento"] .lexisync-header {
-                background: linear-gradient(135deg, var(--primary-soft), var(--cyan-soft)) !important;
-                border-radius: 20px 20px 0 0 !important;
+            #lexisync-extension-ui[data-ui-style="aurora-glass"] .lexisync-header {
+                background: linear-gradient(120deg, rgba(255,255,255,.62), var(--primary-soft), var(--cyan-soft)) !important;
+                border-radius: 23px 23px 0 0 !important;
             }
             .lexisync-header-title {
                 color: var(--text-primary);
@@ -427,14 +426,12 @@ export const POPUP_STYLE_TEXT = `
                 background: var(--primary) !important;
                 box-shadow: 0 4px 10px color-mix(in srgb, var(--primary) 28%, transparent) !important;
             }
-            #lexisync-extension-ui[data-ui-style="bento"] .lexisync-result-button {
-                border: 2px solid var(--border-color) !important;
-                border-radius: 12px !important;
-                box-shadow: 3px 3px 0 var(--shadow-color);
-            }
-            #lexisync-extension-ui[data-ui-style="bento"] .lexisync-result-button--primary {
-                border-color: var(--border-color) !important;
-                background: var(--primary) !important;
+            #lexisync-extension-ui[data-ui-style="aurora-glass"] .lexisync-content-pane,
+            #lexisync-extension-ui[data-ui-style="aurora-glass"] .lexisync-correction-row {
+                border-color: rgba(255,255,255,.6) !important;
+                box-shadow: 0 9px 22px rgba(21, 106, 96, .11), inset 0 1px 0 rgba(255,255,255,.52);
+                backdrop-filter: blur(16px) saturate(135%);
+                -webkit-backdrop-filter: blur(16px) saturate(135%);
             }
             .lexisync-result-button--primary:hover {
                 filter: brightness(1.06);

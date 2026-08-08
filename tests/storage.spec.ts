@@ -6,18 +6,28 @@ import { applyAdaptiveMutation, flushAdaptiveMutations } from '../src/adaptive-m
 import { migrateSettings } from '../src/settings-migrations';
 import { enqueueStorageMutation } from '../src/storage-queue';
 import { applyCacheMutation, getCachedText } from '../src/ai-cache';
-import { finalizeBudgetReservation, getActiveBudgetReservationCount, reserveBudget } from '../src/budget-reservations';
+import {
+    finalizeBudgetReservation,
+    getActiveBudgetReservationCount,
+    reserveBudget,
+    reserveBudgetIfActive,
+} from '../src/budget-reservations';
+import { retrySettingsSync } from '../src/settings-transfer';
 
 let storage: Record<string, unknown>;
 let storageGetCalls: unknown[];
 let storageSetCalls: Record<string, unknown>[];
 let beforeStorageGet: ((keys: unknown) => void | Promise<void>) | undefined;
+let syncedStorage: Record<string, unknown>;
+let syncUnavailable: boolean;
 
 beforeEach(() => {
     storage = {};
     storageGetCalls = [];
     storageSetCalls = [];
     beforeStorageGet = undefined;
+    syncedStorage = {};
+    syncUnavailable = false;
     vi.stubGlobal('chrome', {
         storage: {
             local: {
@@ -42,8 +52,25 @@ beforeEach(() => {
                     for (const key of Array.isArray(keys) ? keys : [keys]) delete storage[key];
                 },
             },
+            sync: {
+                async set(updates: Record<string, unknown>) {
+                    if (syncUnavailable) throw new Error('SYNC_UNAVAILABLE');
+                    Object.assign(syncedStorage, structuredClone(updates));
+                },
+            },
         },
     });
+});
+
+test('показывает локальный статус и позволяет повторить синхронизацию настроек', async () => {
+    storage = { selectedTone: 'friendly', visualStyle: 'magicos-11' };
+    await retrySettingsSync();
+    expect(syncedStorage).toMatchObject({ selectedTone: 'friendly', visualStyle: 'magicos-11' });
+    expect(storage.settingsSyncStatus).toMatchObject({ state: 'synced' });
+
+    syncUnavailable = true;
+    await expect(retrySettingsSync()).rejects.toThrow('SYNC_UNAVAILABLE');
+    expect(storage.settingsSyncStatus).toMatchObject({ state: 'error' });
 });
 
 afterEach(async () => {
@@ -104,6 +131,36 @@ test('атомарно резервирует бюджет для паралле
     expect(storage.usageStats).toMatchObject({ requests: 2 });
 });
 
+test('не резервирует бюджет для запроса, отменённого до обращения к API', async () => {
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(
+        reserveBudgetIfActive(
+            { dailyRequestLimit: 1, monthlyTokenLimit: 0, warnLargeText: true, autoFastMode: true },
+            100,
+            controller.signal,
+        ),
+    ).resolves.toEqual({ cancelled: true });
+    expect(getActiveBudgetReservationCount()).toBe(0);
+    expect(storage.usageStats).toBeUndefined();
+});
+
+test('освобождает резервирование, если запрос отменён во время ожидания очереди', async () => {
+    const controller = new AbortController();
+    beforeStorageGet = () => controller.abort();
+
+    await expect(
+        reserveBudgetIfActive(
+            { dailyRequestLimit: 1, monthlyTokenLimit: 0, warnLargeText: true, autoFastMode: true },
+            100,
+            controller.signal,
+        ),
+    ).resolves.toEqual({ cancelled: true });
+    expect(getActiveBudgetReservationCount()).toBe(0);
+    expect(storage.usageStats).toBeUndefined();
+});
+
 test('отклоняет неизвестный режим статистики и чрезмерно большой результат истории', async () => {
     await expect(
         applyUsageMutation('request', { mode: 'unknown' as 'style', latencyMs: 10, success: true }),
@@ -138,7 +195,7 @@ test('атомарно добавляет и удаляет пользовате
 });
 
 test('миграция не читает всё хранилище при актуальной схеме', async () => {
-    storage.settingsSchemaVersion = 9;
+    storage.settingsSchemaVersion = 10;
 
     await migrateSettings();
 
@@ -157,7 +214,7 @@ test.each([
     await migrateSettings();
 
     expect(storage.resultDisplayMode).toBe(expected);
-    expect(storage.settingsSchemaVersion).toBe(9);
+    expect(storage.settingsSchemaVersion).toBe(10);
     expect(storageGetCalls).not.toContain(null);
 });
 
@@ -208,7 +265,7 @@ test('не затирает настройку, изменённую парал�
     await migrateSettings();
 
     expect(storage.resultDisplayMode).toBe('compact');
-    expect(storage.settingsSchemaVersion).toBe(9);
+    expect(storage.settingsSchemaVersion).toBe(10);
 });
 
 test('добавляет Liquid Glass как безопасный стиль по умолчанию', async () => {
@@ -217,14 +274,24 @@ test('добавляет Liquid Glass как безопасный стиль п�
     await migrateSettings();
 
     expect(storage.visualStyle).toBe('liquid-glass');
-    expect(storage.settingsSchemaVersion).toBe(9);
+    expect(storage.settingsSchemaVersion).toBe(10);
+});
+
+test('заменяет удалённый Bento Soft на Liquid Glass', async () => {
+    storage.settingsSchemaVersion = 9;
+    storage.visualStyle = 'bento';
+
+    await migrateSettings();
+
+    expect(storage.visualStyle).toBe('liquid-glass');
+    expect(storage.settingsSchemaVersion).toBe(10);
 });
 
 test('добавляет список исключений автопроверки при переходе на схему 9', async () => {
     storage.settingsSchemaVersion = 8;
     await migrateSettings();
     expect(storage.liveProofreadDisabledSites).toEqual([]);
-    expect(storage.settingsSchemaVersion).toBe(9);
+    expect(storage.settingsSchemaVersion).toBe(10);
 });
 
 test('пакетирует частые записи адаптивной модели в одно чтение и запись', async () => {

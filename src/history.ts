@@ -4,6 +4,7 @@ import { localizeDocument, t } from './i18n';
 import { upsertCustomCommand } from './settings-store';
 import { applyAppearanceStyle } from './appearance-style';
 import { copyText } from './clipboard';
+import { sortHistoryItems, type HistorySortOption } from './history-sort';
 
 const MODE_NAMES: Record<RequestMode, string> = {
     spellcheck: t('modeSpellcheck', 'Ошибки'),
@@ -21,6 +22,7 @@ const searchInput = document.getElementById('historySearch') as HTMLInputElement
 const modeFilter = document.getElementById('modeFilter') as HTMLSelectElement | null;
 const exportBtn = document.getElementById('exportBtn') as HTMLButtonElement | null;
 const favoriteFilter = document.getElementById('favoriteFilter') as HTMLButtonElement | null;
+const sortFilter = document.getElementById('historySort') as HTMLSelectElement | null;
 let history: HistoryItem[] = [];
 let favoritesOnly = false;
 
@@ -121,11 +123,13 @@ function getFilteredHistory(): HistoryItem[] {
     const locale = chrome.i18n.getUILanguage();
     const query = searchInput?.value.trim().toLocaleLowerCase(locale) || '';
     const mode = modeFilter?.value || 'all';
-    return history.filter((item) => {
+    const filtered = history.filter((item) => {
         const matchesMode = mode === 'all' || item.mode === mode;
         const matchesQuery = !query || `${item.original}\n${item.result}`.toLocaleLowerCase(locale).includes(query);
         return matchesMode && matchesQuery && (!favoritesOnly || item.favorite === true);
     });
+    const sort = sortFilter?.value as HistorySortOption;
+    return sortHistoryItems(filtered, sort === 'oldest' || sort === 'favorites' ? sort : 'newest');
 }
 
 function renderHistory(): void {
@@ -162,6 +166,7 @@ async function initialize(): Promise<void> {
 
 searchInput?.addEventListener('input', renderHistory);
 modeFilter?.addEventListener('change', renderHistory);
+sortFilter?.addEventListener('change', renderHistory);
 favoriteFilter?.addEventListener('click', () => {
     favoritesOnly = !favoritesOnly;
     favoriteFilter.setAttribute('aria-pressed', String(favoritesOnly));

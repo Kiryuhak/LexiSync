@@ -121,10 +121,10 @@
                 </label>
                 <select id="visualStyleSelect">
                     <option value="liquid-glass" data-i18n="visualStyleLiquid">Liquid Glass</option>
-                    <option value="magicos-11" data-i18n="visualStyleMagicOs">MagicOS Liquid Glass</option>
+                    <option value="magicos-11" data-i18n="visualStyleMagicOs">MagicOS</option>
                     <option value="material-3" data-i18n="visualStyleMaterial">Material Design 3</option>
                     <option value="flutter" data-i18n="visualStyleFlutter">Flutter Clean</option>
-                    <option value="bento" data-i18n="visualStyleBento">Bento Soft</option>
+                    <option value="aurora-glass" data-i18n="visualStyleAurora">Aurora Glass</option>
                 </select>
             </div>
 
@@ -322,6 +322,11 @@
                 </label>
             </div>
 
+            <aside class="privacy-summary" data-settings-group="privacy" data-i18n="privacyDataFlow" hidden>
+                В API отправляется только выбранный текст. Контекст страницы передаётся лишь при включённой настройке;
+                API-ключ, история и статистика остаются на устройстве. Парольные и платёжные поля не обрабатываются.
+            </aside>
+
             <div class="settings-section" data-settings-group="suggestions" hidden>
                 <h2 data-i18n="suggestionsTitle">Персональные подсказки</h2>
                 <div class="privacy-option">
@@ -371,7 +376,30 @@
                     <option value="30" data-i18n="days30" selected>30 дней</option>
                 </select>
                 <label for="disabledSites" data-i18n="disabledSitesLabel">Не сохранять данные на сайтах:</label>
+                <input
+                    id="disabledSitesSearch"
+                    type="search"
+                    aria-label="Search excluded sites"
+                    data-i18n-aria-label="siteSearch"
+                    data-i18n-placeholder="siteSearch"
+                    placeholder="Найти исключённый сайт…"
+                />
+                <div id="disabledSitesList" class="site-manager-list" aria-live="polite"></div>
                 <textarea id="disabledSites" placeholder="mail.example.com&#10;work.example.org"></textarea>
+            </div>
+
+            <div class="settings-section" data-settings-group="privacy" hidden>
+                <h2 data-i18n="settingsSyncTitle">Синхронизация настроек</h2>
+                <p id="settingsSyncStatus" class="settings-sync-status" role="status" aria-live="polite"></p>
+                <button
+                    id="retrySettingsSync"
+                    type="button"
+                    class="secondary-button"
+                    data-i18n="retrySettingsSync"
+                    hidden
+                >
+                    Повторить синхронизацию
+                </button>
             </div>
 
             <div class="settings-section" data-settings-group="privacy" hidden>
@@ -528,7 +556,7 @@
                     <label for="monthlyTokenLimit">Токенов в месяц <small>0 — без лимита</small></label>
                     <input id="monthlyTokenLimit" type="number" min="0" max="100000000" step="1000" />
                 </div>
-                <div class="privacy-option">
+                <div class="privacy-option budget-warning-option">
                     <label for="warnLargeText"><span>Предупреждать о большом тексте</span></label>
                     <input id="warnLargeText" type="checkbox" />
                 </div>

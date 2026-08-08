@@ -25,6 +25,8 @@ import { copyText } from '../src/clipboard';
 import { shouldAutoProofreadField } from '../src/live-proofread-privacy';
 import { shouldShowSelectionMenu } from '../src/selection-state';
 import { calculatePopupPosition } from '../src/popup-position';
+import { sortHistoryItems } from '../src/history-sort';
+import { formatRequestDuration } from '../src/request-duration';
 
 test('удерживает модальное окно рядом с указателем при ограниченной высоте', () => {
     expect(
@@ -80,6 +82,32 @@ test('не открывает панель выделения на отключ�
     expect(shouldShowSelectionMenu(true, true, 'Выделенный текст')).toBe(false);
     expect(shouldShowSelectionMenu(true, false, '   ')).toBe(false);
     expect(shouldShowSelectionMenu(true, false, 'Выделенный текст')).toBe(true);
+});
+
+test('сортирует историю по дате и избранному без изменения исходного списка', () => {
+    const items = [
+        { id: 1, mode: 'style' as const, original: 'Первый', result: 'First', date: '2026-08-01T10:00:00.000Z' },
+        {
+            id: 2,
+            mode: 'style' as const,
+            original: 'Второй',
+            result: 'Second',
+            date: '2026-08-03T10:00:00.000Z',
+            favorite: true,
+        },
+        { id: 3, mode: 'style' as const, original: 'Третий', result: 'Third', date: '2026-08-02T10:00:00.000Z' },
+    ];
+    expect(sortHistoryItems(items, 'newest').map((item) => item.id)).toEqual([2, 3, 1]);
+    expect(sortHistoryItems(items, 'oldest').map((item) => item.id)).toEqual([1, 3, 2]);
+    expect(sortHistoryItems(items, 'favorites').map((item) => item.id)).toEqual([2, 3, 1]);
+    expect(items.map((item) => item.id)).toEqual([1, 2, 3]);
+});
+
+test('показывает компактную длительность запроса', () => {
+    expect(formatRequestDuration(430)).toBe('0.4');
+    expect(formatRequestDuration(9_980)).toBe('10.0');
+    expect(formatRequestDuration(12_500)).toBe('13');
+    expect(formatRequestDuration(-1)).toBe('0.0');
 });
 
 test('копирует текст через запасной механизм при недоступном Clipboard API', async () => {
@@ -247,7 +275,8 @@ test('нормализует поддерживаемые стили интер�
     expect(normalizeAppearanceStyle('magicos-11')).toBe('magicos-11');
     expect(normalizeAppearanceStyle('material-3')).toBe('material-3');
     expect(normalizeAppearanceStyle('flutter')).toBe('flutter');
-    expect(normalizeAppearanceStyle('bento')).toBe('bento');
+    expect(normalizeAppearanceStyle('aurora-glass')).toBe('aurora-glass');
+    expect(normalizeAppearanceStyle('bento')).toBe('liquid-glass');
     expect(normalizeAppearanceStyle('неизвестный')).toBe('liquid-glass');
 });
 

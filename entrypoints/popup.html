@@ -518,37 +518,38 @@
                 --shadow: 0 8px 22px rgba(0, 0, 0, 0.44);
             }
 
-            [data-ui-style='bento'] {
-                --canvas: #f3f5f8;
-                --glass: #ffffff;
-                --glass-strong: #f5f7fa;
-                --glass-hover: #edf2f7;
-                --text-main: #20242c;
-                --text-muted: #667085;
-                --primary: #6d5ce7;
-                --primary-soft: #ecebff;
-                --cyan: #168f88;
-                --cyan-soft: #e7f7f5;
-                --stroke: #2d3648;
-                --stroke-subtle: rgba(45, 54, 72, 0.16);
-                --shadow: 7px 7px 0 rgba(45, 54, 72, 0.16);
-                --focus: rgba(109, 92, 231, 0.34);
+            [data-ui-style='aurora-glass'] {
+                --canvas: #dff6ef;
+                --glass: rgba(248, 255, 252, 0.76);
+                --glass-strong: rgba(255, 255, 255, 0.9);
+                --glass-hover: rgba(255, 255, 255, 0.9);
+                --text-main: #183d39;
+                --text-muted: #58746f;
+                --primary: #0d9d8a;
+                --primary-soft: rgba(41, 190, 161, 0.16);
+                --cyan: #258fc8;
+                --cyan-soft: rgba(111, 204, 255, 0.17);
+                --stroke: rgba(255, 255, 255, 0.84);
+                --stroke-subtle: rgba(42, 129, 117, 0.16);
+                --shadow: 0 18px 42px rgba(23, 108, 98, 0.2);
+                --focus: rgba(13, 157, 138, 0.32);
             }
 
-            [data-ui-style='bento'][data-theme='dark'] {
-                --canvas: #171a1f;
-                --glass: #20242b;
-                --glass-strong: #303640;
-                --glass-hover: #39414c;
-                --text-main: #f7f9fc;
-                --text-muted: #c4cbd6;
-                --primary: #b7abff;
-                --primary-soft: #413a70;
-                --cyan: #76d6cc;
-                --cyan-soft: #294e4d;
-                --stroke: #d7dde8;
-                --stroke-subtle: rgba(215, 221, 232, 0.18);
-                --shadow: 7px 7px 0 rgba(0, 0, 0, 0.45);
+            [data-ui-style='aurora-glass'][data-theme='dark'] {
+                --canvas: #0b292d;
+                --glass: rgba(18, 47, 52, 0.8);
+                --glass-strong: rgba(31, 66, 70, 0.9);
+                --glass-hover: rgba(63, 115, 113, 0.76);
+                --text-main: #e9fffa;
+                --text-muted: #b5d2cc;
+                --primary: #65dfc8;
+                --primary-soft: rgba(101, 223, 200, 0.18);
+                --cyan: #8ac8ff;
+                --cyan-soft: rgba(108, 184, 255, 0.16);
+                --stroke: rgba(196, 255, 245, 0.2);
+                --stroke-subtle: rgba(209, 255, 245, 0.12);
+                --shadow: 0 20px 46px rgba(0, 0, 0, 0.48);
+                --focus: rgba(101, 223, 200, 0.32);
             }
 
             [data-ui-style='magicos-11'] body {
@@ -587,9 +588,7 @@
             [data-ui-style='material-3'] body::before,
             [data-ui-style='material-3'] body::after,
             [data-ui-style='flutter'] body::before,
-            [data-ui-style='flutter'] body::after,
-            [data-ui-style='bento'] body::before,
-            [data-ui-style='bento'] body::after {
+            [data-ui-style='flutter'] body::after {
                 display: none;
             }
 
@@ -627,28 +626,31 @@
                 box-shadow: none;
             }
 
-            [data-ui-style='bento'] body {
-                background: var(--canvas);
+            [data-ui-style='aurora-glass'] body {
+                background:
+                    radial-gradient(circle at 10% 4%, rgba(76, 219, 183, 0.58), transparent 38%),
+                    radial-gradient(circle at 90% 90%, rgba(86, 168, 255, 0.44), transparent 42%), var(--canvas);
             }
 
-            [data-ui-style='bento'] .glass-panel {
-                border-width: 2px;
-                border-radius: 22px;
+            [data-ui-style='aurora-glass'] .glass-panel {
+                border-radius: 20px;
                 box-shadow: var(--shadow);
-                backdrop-filter: none;
+                backdrop-filter: blur(22px) saturate(145%);
+                -webkit-backdrop-filter: blur(22px) saturate(145%);
             }
 
-            [data-ui-style='bento'] .action,
-            [data-ui-style='bento'] .site-card {
-                border-width: 2px;
-                border-radius: 14px;
+            [data-ui-style='aurora-glass'] .action,
+            [data-ui-style='aurora-glass'] .site-card {
+                border-radius: 16px;
+                box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.44);
             }
 
-            [data-ui-style='bento'] .brand-icon,
-            [data-ui-style='bento'] .action-icon {
-                border: 2px solid var(--stroke);
-                border-radius: 11px;
-                box-shadow: 3px 3px 0 var(--stroke-subtle);
+            [data-ui-style='aurora-glass'] .brand-icon,
+            [data-ui-style='aurora-glass'] .action-icon {
+                border-radius: 12px;
+                box-shadow:
+                    inset 0 1px 0 rgba(255, 255, 255, 0.48),
+                    0 7px 16px rgba(23, 108, 98, 0.14);
             }
 
             @media (prefers-reduced-motion: reduce) {

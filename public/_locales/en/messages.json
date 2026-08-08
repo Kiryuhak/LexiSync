@@ -26,10 +26,10 @@
     "visualStyleLabel": { "message": "Interface style" },
     "visualStyleHint": { "message": "Changes the modal, menus, popup, and suggestion appearance." },
     "visualStyleLiquid": { "message": "Liquid Glass" },
-    "visualStyleMagicOs": { "message": "MagicOS Liquid Glass" },
+    "visualStyleMagicOs": { "message": "MagicOS" },
     "visualStyleMaterial": { "message": "Material Design 3" },
     "visualStyleFlutter": { "message": "Flutter Clean" },
-    "visualStyleBento": { "message": "Bento Soft" },
+    "visualStyleAurora": { "message": "Aurora Glass" },
     "interfaceSize": { "message": "Extension interface size" },
     "compact": { "message": "Compact" },
     "large": { "message": "Large" },
@@ -380,5 +380,24 @@
     "liveProofCorrectionsFound": { "message": "Corrections found:" },
     "liveProofDismissHint": { "message": "Click highlighted text to reject a correction" },
     "liveProofExcludeSite": { "message": "Skip this site" },
-    "applyResult": { "message": "Apply" }
+    "applyResult": { "message": "Apply" },
+    "privacyDataFlow": {
+        "message": "Only selected text is sent to the API. Page context is sent only when enabled; the API key, history, and statistics stay on this device. Password and payment fields are never processed."
+    },
+    "siteSearch": { "message": "Find an excluded site…" },
+    "siteSearchNoMatches": { "message": "No sites match this search." },
+    "siteListEmpty": { "message": "Excluded sites will appear here." },
+    "removeSite": { "message": "Remove site" },
+    "settingsSyncTitle": { "message": "Settings sync" },
+    "settingsSynced": { "message": "Settings are synced between browsers." },
+    "settingsSyncFailed": { "message": "Settings sync is unavailable. Changes are saved on this device." },
+    "retrySettingsSync": { "message": "Retry sync" },
+    "settingsSyncRestored": { "message": "Settings sync has been restored." },
+    "settingsSyncRetryFailed": { "message": "Could not sync settings. Try again later." },
+    "historySort": { "message": "History order" },
+    "historySortNewest": { "message": "Newest first" },
+    "historySortOldest": { "message": "Oldest first" },
+    "historySortFavorites": { "message": "Favorites first" },
+    "requestCompletedIn": { "message": "Ready in $1 s" },
+    "resultFromCache": { "message": "Result loaded from the local cache." }
 }

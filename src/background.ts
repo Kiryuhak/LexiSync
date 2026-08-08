@@ -21,7 +21,7 @@ import {
 } from './site-access';
 import { getPrivacySettings, isSiteDisabled, normalizeDisabledSites } from './privacy';
 import { DEFAULT_BUDGET_SETTINGS, estimateTokens } from './budget';
-import { finalizeBudgetReservation, reserveBudget } from './budget-reservations';
+import { finalizeBudgetReservation, reserveBudgetIfActive } from './budget-reservations';
 import { getStoredApiKey, migrateApiKeyToSecretStore, setStoredApiKey } from './secret-store';
 
 const REQUEST_TIMEOUT_MS = 45_000;
@@ -368,6 +368,7 @@ chrome.runtime.onConnect.addListener((port) => {
         let completedSuccessfully = false;
         let budgetRejected = false;
         let servedFromCache = false;
+        let cancelledBeforeReservation = false;
         let budgetReservationId = '';
         const inputTokens = estimateTokens(msg.text || msg.imageUrl || '');
         let outputText = '';
@@ -422,7 +423,7 @@ chrome.runtime.onConnect.addListener((port) => {
             const apiKey = await getStoredApiKey();
             if (!apiKey) throw new Error(t('apiKeyMissing', 'API-ключ не настроен'));
 
-            const budgetReservation = await reserveBudget(
+            const budgetReservation = await reserveBudgetIfActive(
                 {
                     dailyRequestLimit: Math.max(0, Number(settings.dailyRequestLimit) || 0),
                     monthlyTokenLimit: Math.max(0, Number(settings.monthlyTokenLimit) || 0),
@@ -430,7 +431,12 @@ chrome.runtime.onConnect.addListener((port) => {
                     autoFastMode: settings.autoFastMode !== false,
                 },
                 inputTokens,
+                requestController.signal,
             );
+            if ('cancelled' in budgetReservation) {
+                cancelledBeforeReservation = true;
+                throw new DOMException(t('requestCancelled', 'Запрос отменён.'), 'AbortError');
+            }
             if (budgetReservation.reason === 'daily') {
                 budgetRejected = true;
                 throw new Error(t('dailyBudgetReached', 'Достигнут дневной лимит запросов.'));
@@ -519,7 +525,7 @@ chrome.runtime.onConnect.addListener((port) => {
         } finally {
             clearTimeout(timeout);
             if (activeController === requestController) activeController = null;
-            if (msg.mode && !budgetRejected && !servedFromCache) {
+            if (msg.mode && !budgetRejected && !servedFromCache && !cancelledBeforeReservation) {
                 const usage = {
                     mode: msg.mode,
                     latencyMs: Date.now() - startedAt,

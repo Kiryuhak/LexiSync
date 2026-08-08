@@ -29,7 +29,7 @@ const test = base.extend({
                     return settings.settingsSchemaVersion;
                 }),
             )
-            .toBe(9);
+            .toBe(10);
         await use(context);
         await context.close();
     },
@@ -721,6 +721,27 @@ test('Названия вкладок настроек не переносятс
 
     expect(lineCounts).toHaveLength(6);
     expect(lineCounts.every((count) => count === 1)).toBe(true);
+});
+
+test('поиск и быстрое удаление упрощают управление исключёнными сайтами', async ({ page, context }) => {
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() =>
+        chrome.storage.local.set({
+            onboardingCompleted: true,
+            disabledSites: ['mail.example.com', 'work.example.org'],
+        }),
+    );
+    const extensionId = new URL(background.url()).host;
+    await page.goto(`chrome-extension://${extensionId}/options.html`);
+    await page.locator('[data-tab="privacy"]').click();
+
+    await expect(page.locator('.site-manager-row')).toHaveCount(2);
+    await page.locator('#disabledSitesSearch').fill('work');
+    await expect(page.locator('.site-manager-row')).toHaveCount(1);
+    await page.locator('.site-manager-row button').click();
+    await expect(page.locator('#disabledSites')).toHaveValue('mail.example.com');
+    await expect(page.locator('#saveBtn')).toBeEnabled();
 });
 
 test('Настройки сохраняют визуальный контракт на узких экранах', async ({ page, context }) => {

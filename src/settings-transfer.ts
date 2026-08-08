@@ -57,11 +57,43 @@ const SYNC_SETTING_KEYS = [
     'autoFastMode',
 ] as const;
 
+export interface SettingsSyncStatus {
+    state: 'synced' | 'error';
+    updatedAt: number;
+}
+
 export interface PortableSettings {
     format: 'lexisync-settings';
     version: 1;
     exportedAt: string;
     settings: Record<string, unknown>;
+}
+
+async function setSettingsSyncStatus(state: SettingsSyncStatus['state']): Promise<void> {
+    await chrome.storage.local.set({
+        settingsSyncStatus: { state, updatedAt: Date.now() } satisfies SettingsSyncStatus,
+    });
+}
+
+async function syncLocalSettings(): Promise<void> {
+    const local = await chrome.storage.local.get([...SYNC_SETTING_KEYS]);
+    const updates: Record<string, unknown> = {};
+    for (const key of SYNC_SETTING_KEYS) if (local[key] !== undefined) updates[key] = local[key];
+    await syncSettings(updates);
+}
+
+async function syncSettings(updates: Record<string, unknown>): Promise<void> {
+    await chrome.storage.sync.set(updates);
+    await setSettingsSyncStatus('synced');
+}
+
+async function reportSettingsSyncError(error: unknown): Promise<void> {
+    console.warn('Не удалось синхронизировать настройки LexiSync:', error);
+    try {
+        await setSettingsSyncStatus('error');
+    } catch (statusError) {
+        console.warn('Не удалось сохранить статус синхронизации LexiSync:', statusError);
+    }
 }
 
 function stringList(value: unknown, limit: number, itemLength: number): string[] {
@@ -92,7 +124,7 @@ function sanitizePortableSetting(key: (typeof PORTABLE_SETTING_KEYS)[number], va
         return ['business', 'friendly', 'persuasive', 'creative'].includes(String(value)) ? value : 'business';
     if (key === 'selectedTheme') return ['auto', 'light', 'dark'].includes(String(value)) ? value : 'auto';
     if (key === 'visualStyle')
-        return ['liquid-glass', 'magicos-11', 'material-3', 'flutter', 'bento'].includes(String(value))
+        return ['liquid-glass', 'magicos-11', 'material-3', 'flutter', 'aurora-glass'].includes(String(value))
             ? value
             : 'liquid-glass';
     if (key === 'resultDisplayMode') return ['auto', 'compact', 'detailed'].includes(String(value)) ? value : 'compact';
@@ -205,8 +237,19 @@ export async function restoreSyncedSettings(): Promise<void> {
             for (const key of Object.keys(updates)) if (latest[key] !== undefined) delete updates[key];
             if (Object.keys(updates).length) await chrome.storage.local.set(updates);
         }
-    } catch {
+        await setSettingsSyncStatus('synced');
+    } catch (error) {
         // Sync can be unavailable in private or enterprise-managed browsers.
+        await reportSettingsSyncError(error);
+    }
+}
+
+export async function retrySettingsSync(): Promise<void> {
+    try {
+        await syncLocalSettings();
+    } catch (error) {
+        await reportSettingsSyncError(error);
+        throw error;
     }
 }
 
@@ -215,7 +258,7 @@ export function initializeSettingsSync(): void {
         const updates: Record<string, unknown> = {};
         for (const key of SYNC_SETTING_KEYS) if (changes[key]) updates[key] = changes[key].newValue;
         if (!Object.keys(updates).length) return;
-        if (areaName === 'local') void chrome.storage.sync.set(updates).catch(() => undefined);
+        if (areaName === 'local') void syncSettings(updates).catch(reportSettingsSyncError);
         else if (areaName === 'sync') void chrome.storage.local.set(updates).catch(() => undefined);
     });
 }

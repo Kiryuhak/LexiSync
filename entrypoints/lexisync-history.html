@@ -255,35 +255,43 @@
                 border-radius: 10px;
                 box-shadow: 0 7px 18px rgba(32, 73, 105, 0.12);
             }
-            [data-ui-style='bento'] {
-                --bg: #f3f5f8;
-                --card: #fff;
-                --text: #20242c;
-                --muted: #667085;
-                --border: #2d3648;
-                --soft: #f5f7fa;
-                --accent: #6d5ce7;
+            [data-ui-style='aurora-glass'] {
+                --bg: #dff6ef;
+                --card: rgba(248, 255, 252, 0.78);
+                --text: #183d39;
+                --muted: #58746f;
+                --border: rgba(255, 255, 255, 0.84);
+                --soft: rgba(233, 250, 245, 0.74);
+                --accent: #0d9d8a;
             }
-            [data-ui-style='bento'][data-theme='dark'] {
-                --bg: #171a1f;
-                --card: #20242b;
-                --text: #f7f9fc;
-                --muted: #c4cbd6;
-                --border: #d7dde8;
-                --soft: #303640;
-                --accent: #b7abff;
+            [data-ui-style='aurora-glass'][data-theme='dark'] {
+                --bg: #0b292d;
+                --card: rgba(18, 47, 52, 0.82);
+                --text: #e9fffa;
+                --muted: #b5d2cc;
+                --border: rgba(196, 255, 245, 0.2);
+                --soft: rgba(40, 82, 83, 0.72);
+                --accent: #65dfc8;
             }
-            [data-ui-style='bento'] .history-card {
-                border-width: 2px;
+            [data-ui-style='aurora-glass'] body {
+                background:
+                    radial-gradient(circle at 12% 4%, rgba(76, 219, 183, 0.58), transparent 36%),
+                    radial-gradient(circle at 88% 90%, rgba(86, 168, 255, 0.42), transparent 42%), var(--bg);
+                background-attachment: fixed;
+            }
+            [data-ui-style='aurora-glass'] .history-card {
                 border-radius: 18px;
-                box-shadow: 6px 6px 0 rgba(43, 38, 51, 0.16);
+                box-shadow:
+                    0 16px 36px rgba(23, 108, 98, 0.18),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+                backdrop-filter: blur(20px) saturate(145%);
+                -webkit-backdrop-filter: blur(20px) saturate(145%);
             }
-            [data-ui-style='bento'] button,
-            [data-ui-style='bento'] input,
-            [data-ui-style='bento'] select,
-            [data-ui-style='bento'] .content {
-                border-width: 2px;
-                border-radius: 11px;
+            [data-ui-style='aurora-glass'] button,
+            [data-ui-style='aurora-glass'] input,
+            [data-ui-style='aurora-glass'] select,
+            [data-ui-style='aurora-glass'] .content {
+                border-radius: 12px;
             }
             @media (max-width: 720px) {
                 body {
@@ -314,6 +322,11 @@
                     <option value="translate" data-i18n="modeTranslate">Перевод</option>
                     <option value="ocr">OCR</option>
                     <option value="custom" data-i18n="modeCustom">Команда</option>
+                </select>
+                <select id="historySort" aria-label="Sort history" data-i18n-aria-label="historySort">
+                    <option value="newest" data-i18n="historySortNewest">Newest first</option>
+                    <option value="oldest" data-i18n="historySortOldest">Oldest first</option>
+                    <option value="favorites" data-i18n="historySortFavorites">Favorites first</option>
                 </select>
                 <button id="favoriteFilter" type="button" aria-pressed="false" data-i18n="favoritesOnly">
                     Только избранное

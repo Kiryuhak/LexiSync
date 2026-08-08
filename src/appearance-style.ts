@@ -1,4 +1,4 @@
-export const APPEARANCE_STYLES = ['liquid-glass', 'magicos-11', 'material-3', 'flutter', 'bento'] as const;
+export const APPEARANCE_STYLES = ['liquid-glass', 'magicos-11', 'material-3', 'flutter', 'aurora-glass'] as const;
 
 export type AppearanceStyle = (typeof APPEARANCE_STYLES)[number];
 

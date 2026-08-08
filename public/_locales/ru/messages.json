@@ -26,10 +26,10 @@
     "visualStyleLabel": { "message": "Стиль интерфейса" },
     "visualStyleHint": { "message": "Меняет оформление модального окна, меню, popup и подсказок." },
     "visualStyleLiquid": { "message": "Liquid Glass" },
-    "visualStyleMagicOs": { "message": "MagicOS Liquid Glass" },
+    "visualStyleMagicOs": { "message": "MagicOS" },
     "visualStyleMaterial": { "message": "Material Design 3" },
     "visualStyleFlutter": { "message": "Flutter Clean" },
-    "visualStyleBento": { "message": "Bento Soft" },
+    "visualStyleAurora": { "message": "Aurora Glass" },
     "interfaceSize": { "message": "Размер интерфейса расширения" },
     "compact": { "message": "Компактный" },
     "large": { "message": "Крупный" },
@@ -380,5 +380,24 @@
     "liveProofCorrectionsFound": { "message": "Найдено исправлений:" },
     "liveProofDismissHint": { "message": "Нажмите на зелёное, чтобы отклонить" },
     "liveProofExcludeSite": { "message": "Не проверять сайт" },
-    "applyResult": { "message": "Применить" }
+    "applyResult": { "message": "Применить" },
+    "privacyDataFlow": {
+        "message": "В API отправляется только выбранный текст. Контекст страницы передаётся лишь при включённой настройке; API-ключ, история и статистика остаются на устройстве. Парольные и платёжные поля не обрабатываются."
+    },
+    "siteSearch": { "message": "Найти исключённый сайт…" },
+    "siteSearchNoMatches": { "message": "Сайтов по этому запросу нет." },
+    "siteListEmpty": { "message": "Исключённые сайты появятся здесь." },
+    "removeSite": { "message": "Удалить сайт" },
+    "settingsSyncTitle": { "message": "Синхронизация настроек" },
+    "settingsSynced": { "message": "Настройки синхронизированы между браузерами." },
+    "settingsSyncFailed": { "message": "Синхронизация настроек недоступна. Изменения сохранены на этом устройстве." },
+    "retrySettingsSync": { "message": "Повторить синхронизацию" },
+    "settingsSyncRestored": { "message": "Синхронизация настроек восстановлена." },
+    "settingsSyncRetryFailed": { "message": "Не удалось синхронизировать настройки. Повторите попытку позже." },
+    "historySort": { "message": "Порядок истории" },
+    "historySortNewest": { "message": "Сначала новые" },
+    "historySortOldest": { "message": "Сначала старые" },
+    "historySortFavorites": { "message": "Сначала избранное" },
+    "requestCompletedIn": { "message": "Готово за $1 с" },
+    "resultFromCache": { "message": "Результат получен из локального кэша." }
 }

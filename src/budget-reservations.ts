@@ -49,6 +49,19 @@ export function reserveBudget(
     }, USAGE_MUTATION_QUEUE);
 }
 
+export async function reserveBudgetIfActive(
+    settings: BudgetSettings,
+    estimatedInputTokens: number,
+    signal: AbortSignal,
+    date = new Date(),
+): Promise<BudgetReservationResult | { cancelled: true }> {
+    if (signal.aborted) return { cancelled: true };
+    const reservation = await reserveBudget(settings, estimatedInputTokens, date);
+    if (!signal.aborted) return reservation;
+    if (reservation.id) await releaseBudgetReservation(reservation.id);
+    return { cancelled: true };
+}
+
 export function releaseBudgetReservation(id: string): Promise<void> {
     return enqueueStorageMutation(async () => {
         reservations.delete(id);

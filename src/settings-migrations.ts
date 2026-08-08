@@ -2,7 +2,7 @@ import { normalizeSitePatterns } from './site-profiles';
 import type { StyleProfile } from './types';
 import { DEFAULT_THEME_CUSTOMIZATION } from './theme-customization';
 
-const CURRENT_SETTINGS_SCHEMA = 9;
+const CURRENT_SETTINGS_SCHEMA = 10;
 const MIGRATION_SETTING_KEYS = [
     'settingsSchemaVersion',
     'disabledSites',
@@ -109,7 +109,7 @@ export async function migrateSettings(): Promise<void> {
     }
     if (
         currentVersion < 7 &&
-        !['liquid-glass', 'magicos-11', 'material-3', 'flutter', 'bento'].includes(String(stored.visualStyle))
+        !['liquid-glass', 'magicos-11', 'material-3', 'flutter', 'aurora-glass'].includes(String(stored.visualStyle))
     ) {
         updates.visualStyle = 'liquid-glass';
     }
@@ -127,6 +127,9 @@ export async function migrateSettings(): Promise<void> {
     }
     if (currentVersion < 9 && !Array.isArray(stored.liveProofreadDisabledSites)) {
         updates.liveProofreadDisabledSites = [];
+    }
+    if (currentVersion < 10 && stored.visualStyle === 'bento') {
+        updates.visualStyle = 'liquid-glass';
     }
     updates.settingsSchemaVersion = CURRENT_SETTINGS_SCHEMA;
     const migratedKeys = Object.keys(updates).filter((key) => key !== 'settingsSchemaVersion');

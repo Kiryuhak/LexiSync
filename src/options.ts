@@ -1,7 +1,12 @@
 import { localizeDocument, t } from './i18n';
 import type { UsageStats } from './types';
 import { clearUsageStats, EMPTY_USAGE_STATS } from './usage-stats';
-import { exportPortableSettings, importPortableSettings } from './settings-transfer';
+import {
+    exportPortableSettings,
+    importPortableSettings,
+    retrySettingsSync,
+    type SettingsSyncStatus,
+} from './settings-transfer';
 import { restoreStyleProfileSettings, setupStyleProfileSettings } from './style-profile-settings';
 import { restoreCustomCommandSettings, setupCustomCommandSettings } from './custom-command-settings';
 import { normalizeResultDisplayMode } from './result-display-mode';
@@ -157,6 +162,57 @@ function renderUsageStats(stats: UsageStats): void {
     if (hits) hits.textContent = String(stats.cacheHits);
     if (latency)
         latency.textContent = stats.requests ? `${(stats.totalLatencyMs / stats.requests / 1000).toFixed(1)} с` : '0 с';
+}
+
+function renderSettingsSyncStatus(value: unknown): void {
+    const status = document.getElementById('settingsSyncStatus');
+    const retryButton = document.getElementById('retrySettingsSync') as HTMLButtonElement | null;
+    if (!status || !retryButton) return;
+    const syncStatus = value && typeof value === 'object' ? (value as Partial<SettingsSyncStatus>) : {};
+    const failed = syncStatus.state === 'error';
+    status.textContent = failed
+        ? t('settingsSyncFailed', 'Синхронизация настроек недоступна. Изменения сохранены на этом устройстве.')
+        : t('settingsSynced', 'Настройки синхронизированы между браузерами.');
+    status.dataset.state = failed ? 'error' : 'synced';
+    retryButton.hidden = !failed;
+}
+
+function renderDisabledSites(): void {
+    const input = document.getElementById('disabledSites') as HTMLTextAreaElement | null;
+    const search = document.getElementById('disabledSitesSearch') as HTMLInputElement | null;
+    const list = document.getElementById('disabledSitesList');
+    if (!input || !search || !list) return;
+    const sites = normalizeSiteEntries(input.value).valid;
+    const query = search.value.trim().toLocaleLowerCase();
+    const filtered = sites.filter((site) => site.toLocaleLowerCase().includes(query));
+    list.replaceChildren();
+    if (!filtered.length) {
+        const empty = document.createElement('p');
+        empty.className = 'site-manager-empty';
+        empty.textContent = sites.length
+            ? t('siteSearchNoMatches', 'Сайтов по этому запросу нет.')
+            : t('siteListEmpty', 'Исключённые сайты появятся здесь.');
+        list.appendChild(empty);
+        return;
+    }
+    for (const site of filtered) {
+        const row = document.createElement('div');
+        row.className = 'site-manager-row';
+        const name = document.createElement('code');
+        name.textContent = site;
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'secondary-button site-manager-remove';
+        remove.textContent = '×';
+        remove.setAttribute('aria-label', `${t('removeSite', 'Удалить сайт')}: ${site}`);
+        remove.addEventListener('click', () => {
+            input.value = sites.filter((entry) => entry !== site).join('\n');
+            renderDisabledSites();
+            updateSaveButtonState();
+        });
+        row.append(name, remove);
+        list.appendChild(row);
+    }
 }
 
 function activateSettingsTab(tabName: string): void {
@@ -438,6 +494,7 @@ async function restoreOptions(): Promise<void> {
             styleProfiles: [],
             activeStyleProfileId: '',
             usageStats: EMPTY_USAGE_STATS,
+            settingsSyncStatus: { state: 'synced', updatedAt: 0 },
         }),
         readPrivateApiKey(),
     ]);
@@ -462,6 +519,8 @@ async function restoreOptions(): Promise<void> {
     restoreCustomCommandSettings(items.customCommands);
     restoreStyleProfileSettings(items.styleProfiles, items.activeStyleProfileId);
     renderUsageStats(items.usageStats as UsageStats);
+    renderSettingsSyncStatus(items.settingsSyncStatus);
+    renderDisabledSites();
     updateAppearancePreview();
     updateAdaptiveControls();
     renderAdaptiveStats(items.adaptiveLanguageModel);
@@ -498,6 +557,25 @@ document.addEventListener('DOMContentLoaded', () => {
     interfaceScaleInput?.addEventListener('input', updateAppearancePreview);
     resultDisplayModeSelect?.addEventListener('change', updateAppearancePreview);
     adaptiveSuggestionsInput?.addEventListener('change', updateAdaptiveControls);
+    const disabledSitesInput = document.getElementById('disabledSites');
+    const disabledSitesSearch = document.getElementById('disabledSitesSearch');
+    disabledSitesInput?.addEventListener('input', renderDisabledSites);
+    disabledSitesSearch?.addEventListener('input', renderDisabledSites);
+    document.getElementById('retrySettingsSync')?.addEventListener('click', async () => {
+        const retryButton = document.getElementById('retrySettingsSync') as HTMLButtonElement;
+        retryButton.disabled = true;
+        try {
+            await retrySettingsSync();
+            showOptionsStatus(t('settingsSyncRestored', 'Синхронизация настроек восстановлена.'), 'success');
+        } catch {
+            showOptionsStatus(
+                t('settingsSyncRetryFailed', 'Не удалось синхронизировать настройки. Повторите попытку позже.'),
+                'warning',
+            );
+        } finally {
+            retryButton.disabled = false;
+        }
+    });
     setupCustomCommandSettings();
     setupStyleProfileSettings();
     document.querySelectorAll<HTMLButtonElement>('.settings-tab').forEach((button) => {
@@ -618,6 +696,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== 'local') return;
     if (changes.adaptiveLanguageModel) renderAdaptiveStats(changes.adaptiveLanguageModel.newValue);
     if (changes.usageStats) renderUsageStats(changes.usageStats.newValue as UsageStats);
+    if (changes.settingsSyncStatus) renderSettingsSyncStatus(changes.settingsSyncStatus.newValue);
     if (changes.themeCustomization)
         applyThemeCustomization(document.documentElement, changes.themeCustomization.newValue);
 });
