@@ -49,12 +49,15 @@ export default defineConfig({
                 ? {
                       gecko: {
                           id: 'lexisync@kiryuhak.dev',
-                          // Нужна для optional_host_permissions и декларации
-                          // data_collection_permissions в Firefox и Firefox for Android.
-                          strict_min_version: '142.0',
+                          // Встроенное согласие на передачу данных доступно на desktop с Firefox 140.
+                          strict_min_version: '140.0',
                           data_collection_permissions: {
                               required: ['websiteContent', 'browsingActivity'],
                           },
+                      },
+                      gecko_android: {
+                          // Для Android встроенное согласие появилось в Firefox 142.
+                          strict_min_version: '142.0',
                       },
                   }
                 : undefined,

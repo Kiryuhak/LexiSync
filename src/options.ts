@@ -15,6 +15,8 @@ import { applyAppearanceStyle, normalizeAppearanceStyle } from './appearance-sty
 import { setupV4Settings } from './v4-settings';
 import { applyThemeCustomization } from './theme-customization';
 import { validateApiKey } from './mistral-client';
+import { POPUP_STYLE_TEXT } from './content-ui-style';
+import { renderCompactResultPreview } from './result-dialog-view';
 
 type AppearanceTheme = 'auto' | 'light' | 'dark';
 
@@ -22,6 +24,14 @@ const systemDarkTheme = window.matchMedia('(prefers-color-scheme: dark)');
 let restoredApiKey = '';
 let savedOptionsState = '';
 let saveInProgress = false;
+
+function installResultPreviewStyles(): void {
+    if (document.getElementById('lexisync-result-preview-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'lexisync-result-preview-styles';
+    style.textContent = POPUP_STYLE_TEXT.replaceAll('#lexisync-extension-ui', '#compactResultPreview');
+    document.head.appendChild(style);
+}
 
 async function readPrivateApiKey(): Promise<string> {
     const response = await chrome.runtime.sendMessage({ action: 'getApiKey' });
@@ -124,11 +134,34 @@ function updateAppearancePreview(): void {
     compactResultPreview.style.transform = `scale(${scale / 100})`;
     previewStage.dataset.theme = isDark ? 'dark' : 'light';
     compactPreviewStage.dataset.theme = isDark ? 'dark' : 'light';
-    compactPreviewStage.dataset.mode = normalizeResultDisplayMode(resultDisplayModeSelect.value);
+    const resultDisplayMode = normalizeResultDisplayMode(resultDisplayModeSelect.value);
+    compactPreviewStage.dataset.mode = resultDisplayMode;
     document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
     const visualStyle = applyAppearanceStyle(document.documentElement, visualStyleSelect.value);
     previewStage.dataset.uiStyle = visualStyle;
     compactPreviewStage.dataset.uiStyle = visualStyle;
+    compactResultPreview.dataset.surface = 'result';
+    compactResultPreview.dataset.uiStyle = visualStyle;
+    compactResultPreview.style.width =
+        resultDisplayMode === 'detailed' ? 'min(340px, calc(100% - 24px))' : 'min(300px, calc(100% - 24px))';
+    if (isDark) compactResultPreview.dataset.theme = 'dark';
+    else delete compactResultPreview.dataset.theme;
+    if (resultDisplayMode === 'detailed') delete compactResultPreview.dataset.compactResult;
+    else compactResultPreview.dataset.compactResult = 'true';
+    renderCompactResultPreview(
+        compactResultPreview,
+        {
+            title: t('spellcheckDone', 'Ошибки исправлены'),
+            before: t('compactResultPreviewBefore', 'Готовый текст без '),
+            correction: t('compactResultPreviewCorrection', 'ошибок'),
+            after: t('compactResultPreviewAfter', '.'),
+            replace: t('replaceText', 'Заменить текст'),
+            beforeAfter: t('beforeAfter', 'До / После'),
+            repeat: t('repeat', 'Повторить'),
+            shorter: t('shorter', 'Короче'),
+        },
+        resultDisplayMode === 'detailed',
+    );
 }
 
 function updateAdaptiveControls(): void {
@@ -530,6 +563,7 @@ async function restoreOptions(): Promise<void> {
 
 document.addEventListener('DOMContentLoaded', () => {
     localizeDocument();
+    installResultPreviewStyles();
     void restoreOptions().then(() => setupOnboarding());
     void setupV4Settings();
     void chrome.storage.local

@@ -12,6 +12,7 @@ yarn-error.log*
 .eslintcache
 *.log
 *.zip
+*.xpi
 
 # Тесты (Jest)
 coverage/

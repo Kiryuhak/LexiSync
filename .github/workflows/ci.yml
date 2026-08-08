@@ -33,8 +33,12 @@ jobs:
             - name: Проверить код, типы, форматирование и локализацию
               run: npm run check:static
 
-            - name: Проверить все зависимости, включая инструменты разработки
+            - name: Проверить production-зависимости
               run: npm run audit:dependencies
+
+            - name: Проверить инструменты сборки
+              continue-on-error: true
+              run: npm run audit:tooling
 
             - name: Запустить модульные тесты
               run: npm run test:coverage

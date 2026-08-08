@@ -246,11 +246,18 @@ export const POPUP_STYLE_TEXT = `
             #lexisync-extension-ui[data-ui-style="aurora-glass"][data-surface="result"],
             #lexisync-extension-ui[data-ui-style="aurora-glass"][data-surface="menu"] { border-radius: 24px; }
             .lexisync-header {
+                display: flex;
                 min-height: 52px;
+                align-items: center;
+                justify-content: space-between;
                 padding: 12px 16px !important;
+                color: var(--text-primary);
                 background: linear-gradient(180deg, var(--bg-elevated), var(--bg-secondary)) !important;
                 border-bottom-color: var(--inner-border) !important;
                 border-radius: 22px 22px 0 0 !important;
+                font: 600 14px/1.35 system-ui, sans-serif;
+                cursor: grab;
+                user-select: none;
             }
             #lexisync-extension-ui[data-ui-style="magicos-11"] .lexisync-header {
                 background: linear-gradient(120deg, rgba(255,255,255,.62), rgba(121,156,255,.17), rgba(102,218,231,.12)) !important;
@@ -272,20 +279,37 @@ export const POPUP_STYLE_TEXT = `
                 border-radius: 23px 23px 0 0 !important;
             }
             .lexisync-header-title {
+                display: flex;
+                align-items: center;
+                gap: 8px;
                 color: var(--text-primary);
+                font-weight: 600;
                 letter-spacing: -0.01em;
+                pointer-events: none;
             }
+            .lexisync-header-control { display: flex; align-items: center; }
             .lexisync-content-pane {
                 margin: 10px 10px 12px;
                 padding: 16px 17px !important;
+                min-height: 50px;
                 max-height: min(30vh, 150px) !important;
+                overflow-x: hidden;
+                overflow-y: auto;
                 background: var(--bg-elevated);
                 border: 1px solid var(--inner-border);
                 border-radius: 14px;
                 box-shadow: 0 7px 18px rgba(33,48,84,.08), inset 0 1px 0 rgba(255,255,255,.28);
+                color: var(--text-primary);
+                font: 400 14px/1.65 system-ui, sans-serif;
                 line-height: 1.65 !important;
+                overflow-wrap: anywhere;
+                white-space: pre-wrap;
             }
             .lexisync-actions {
+                display: none;
+                align-items: center;
+                justify-content: flex-start;
+                gap: 10px;
                 padding: 4px 14px 14px !important;
                 border-radius: 0 0 20px 20px;
             }
@@ -318,6 +342,9 @@ export const POPUP_STYLE_TEXT = `
                 box-shadow: 0 0 0 3px var(--primary-soft);
             }
             .lexisync-corrections {
+                display: none;
+                flex-direction: column;
+                gap: 6px;
                 max-height: 150px;
                 padding: 0 14px 12px !important;
                 overflow-y: auto;
@@ -364,6 +391,18 @@ export const POPUP_STYLE_TEXT = `
             }
             .lexisync-action-status[data-error="true"] { color: var(--error-color); }
             .lexisync-action-status[hidden] { display: none !important; }
+            .lexisync-action-status[data-compact-announcement="true"] {
+                position: absolute !important;
+                width: 1px !important;
+                height: 1px !important;
+                padding: 0 !important;
+                margin: -1px !important;
+                overflow: hidden !important;
+                clip: rect(0, 0, 0, 0) !important;
+                white-space: nowrap !important;
+                border: 0 !important;
+            }
+            .lexisync-preview-close { cursor: default !important; }
             #lexisync-extension-ui mark[role="button"] { cursor: pointer; }
             #lexisync-extension-ui mark[role="button"]:focus-visible {
                 outline: 3px solid color-mix(in srgb, var(--primary) 35%, transparent);
@@ -373,15 +412,76 @@ export const POPUP_STYLE_TEXT = `
             #lexisync-extension-ui[data-compact-result="true"] .lexisync-result-tools {
                 display: none !important;
             }
-            #lexisync-extension-ui[data-compact-result="true"] .lexisync-content-pane {
-                margin: 10px 12px !important;
-                padding: 12px !important;
-                background: var(--bg-secondary) !important;
-                border: 1px solid var(--inner-border) !important;
-                border-radius: 11px !important;
+            #lexisync-extension-ui[data-compact-result="true"][data-surface="result"] {
+                border-radius: 22px;
+                background: var(--bg-primary) !important;
+                box-shadow: 0 12px 30px var(--shadow-color), inset 0 1px 0 rgba(255, 255, 255, 0.68);
+            }
+            #lexisync-extension-ui[data-compact-result="true"] .lexisync-header {
+                min-height: 32px;
+                padding: 8px 16px !important;
+                background: linear-gradient(180deg, var(--bg-elevated), var(--bg-primary)) !important;
+                border-bottom: 1px solid var(--inner-border) !important;
+                border-radius: 21px 21px 0 0 !important;
+            }
+            #lexisync-extension-ui[data-compact-result="true"] .lexisync-header-title {
+                font-size: 16px;
+                font-weight: 700 !important;
+            }
+            #lexisync-extension-ui[data-compact-result="true"] .lexisync-close-button {
+                display: grid !important;
+                width: 28px;
+                height: 28px;
+                min-width: 28px;
+                place-items: center;
+                margin-right: -4px !important;
+                padding: 0 !important;
+                border: 0 !important;
+                border-radius: 8px !important;
+                background: transparent !important;
+                box-shadow: none !important;
+            }
+            #lexisync-extension-ui[data-compact-result="true"] .lexisync-close-button svg {
+                transform: scale(1.12);
+            }
+            #lexisync-extension-ui[data-compact-result="true"] .lexisync-close-button:focus-visible {
+                outline: 2px solid var(--primary);
+                outline-offset: 2px;
+            }
+            #lexisync-extension-ui[data-compact-result="true"][data-surface="result"] .lexisync-content-pane {
+                margin: 0 !important;
+                padding: 13px 18px 10px !important;
+                min-height: 28px !important;
+                line-height: 1.5 !important;
+                background: transparent !important;
+                border: 0 !important;
+                border-radius: 0 !important;
+                box-shadow: none !important;
             }
             #lexisync-extension-ui[data-compact-result="true"] .lexisync-actions {
-                padding: 0 14px 14px !important;
+                gap: 8px !important;
+                padding: 0 18px 14px !important;
+            }
+            #lexisync-extension-ui[data-compact-result="true"][data-surface="result"] .lexisync-result-button {
+                min-height: 36px;
+                padding: 0 12px !important;
+                border: 0 !important;
+                border-radius: 10px !important;
+                background: var(--hover-bg) !important;
+                box-shadow: none !important;
+            }
+            #lexisync-extension-ui[data-compact-result="true"][data-surface="result"] .lexisync-result-button--primary {
+                color: var(--text-primary) !important;
+                background: var(--hover-bg) !important;
+            }
+            #lexisync-extension-ui[data-compact-result="true"]:not([data-theme="dark"]) .lexisync-result-button,
+            #lexisync-extension-ui[data-compact-result="true"]:not([data-theme="dark"]) .lexisync-result-button--primary {
+                color: #151515 !important;
+                background: #f1f1f2 !important;
+            }
+            #lexisync-extension-ui[data-compact-result="true"] .lexisync-result-button:hover {
+                background: var(--primary-soft) !important;
+                transform: none;
             }
             .lexisync-correction-row {
                 background: var(--bg-elevated);

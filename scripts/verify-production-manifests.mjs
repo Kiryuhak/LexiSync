@@ -39,6 +39,10 @@ for (const browser of ['chrome', 'firefox']) {
     const csp = String(manifest.content_security_policy?.extension_pages || '');
     if (/\bunsafe-eval\b/i.test(csp)) throw new Error(`${browser}: CSP разрешает unsafe-eval`);
     if (browser === 'firefox') {
+        if (manifest.browser_specific_settings?.gecko?.strict_min_version !== '140.0')
+            throw new Error('firefox: минимальная desktop-версия должна быть Firefox 140');
+        if (manifest.browser_specific_settings?.gecko_android?.strict_min_version !== '142.0')
+            throw new Error('firefox: минимальная Android-версия должна быть Firefox 142');
         const collected = manifest.browser_specific_settings?.gecko?.data_collection_permissions?.required || [];
         if (!sameValues(collected, ['websiteContent', 'browsingActivity']))
             throw new Error('firefox: декларация собираемых данных изменилась');

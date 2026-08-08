@@ -8,6 +8,8 @@
         "noUncheckedSideEffectImports": true,
         "allowUnreachableCode": false,
         "allowUnusedLabels": false,
+        "jsx": "react-jsx",
+        "jsxImportSource": "preact",
         "esModuleInterop": true,
         "skipLibCheck": true,
         "forceConsistentCasingInFileNames": true,

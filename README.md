@@ -36,7 +36,7 @@
 - **Язык:** TypeScript 6 (Strict Mode)
 - **Сборка:** WXT 0.21 + Vite
 - **API:** WebExtensions Manifest V3, Mistral AI API
-- **UI/UX:** Vanilla DOM, CSS Variables, SVG Icons (без использования тяжелых внешних библиотек)
+- **UI/UX:** Preact для общего каркаса окна результата и его предпросмотра, компактные DOM-модули для остальных экранов, CSS Variables и SVG Icons
 
 ## 🎯 QA & Тестирование
 
@@ -59,6 +59,7 @@ npm run dev              # Chrome с hot reload
 npm run dev:firefox      # Firefox с hot reload
 npm run build            # production-сборки обоих браузеров
 npm run zip              # архивы для Chrome Web Store и Firefox AMO
+npm run xpi:firefox      # XPI для временной локальной установки Firefox
 npm run typecheck        # строгая проверка TypeScript
 npm run lint             # статический анализ ESLint
 npm run format:check     # проверка форматирования Prettier
@@ -73,7 +74,7 @@ npm run test:all         # полный набор автоматических 
 
 Для разработки рекомендуется Node.js 24; минимальная поддерживаемая версия — 22.15. Готовые релизные сборки создаются в `.output/release/chrome-mv3` и `.output/release/firefox-mv3`. Команды `npm run zip:chrome` и `npm run zip:firefox` создают отдельные архивы для магазинов.
 
-Для ручной установки Chrome откройте `chrome://extensions/`, включите режим разработчика и выберите `.output/release/chrome-mv3`. Для временной установки Firefox откройте `about:debugging#/runtime/this-firefox` и выберите `manifest.json` из `.output/release/firefox-mv3`.
+Для ручной установки Chrome откройте `chrome://extensions/`, включите режим разработчика и выберите `.output/release/chrome-mv3`. Команда `npm run xpi:firefox` создаёт в корне проекта XPI для временной установки через `about:debugging#/runtime/this-firefox`. Постоянная установка обычным пользователем требует подписанного Mozilla Add-ons файла, который формируется релизным workflow при включённой публикации Firefox.
 
 🔑 Начало работы
 

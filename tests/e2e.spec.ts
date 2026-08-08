@@ -149,6 +149,8 @@ test('Сборки Chrome и Firefox используют совместимые
     expect(chromeManifest.background.service_worker).toBe('background.js');
     expect(firefoxManifest.background.scripts).toEqual(['background.js']);
     expect(firefoxManifest.browser_specific_settings.gecko.id).toBe('lexisync@kiryuhak.dev');
+    expect(firefoxManifest.browser_specific_settings.gecko.strict_min_version).toBe('140.0');
+    expect(firefoxManifest.browser_specific_settings.gecko_android.strict_min_version).toBe('142.0');
     expect(chromeManifest.permissions).not.toContain('clipboardRead');
     expect(chromeManifest.permissions).not.toContain('clipboardWrite');
     expect(chromeManifest.permissions).toContain('scripting');
@@ -578,6 +580,8 @@ test('Кейс 4: Переписывание стиля (Alt+Y)', async ({ page,
 
     const uiPanel = page.locator('#lexisync-extension-ui');
     await expect(uiPanel).toContainText('Официальный деловой текст.', { timeout: 5000 });
+    await expect(uiPanel).not.toHaveAttribute('data-compact-result', 'true');
+    expect(await uiPanel.evaluate((element) => Number.parseFloat(getComputedStyle(element).width))).toBe(340);
 });
 
 test('Кейс 5: Добавление эмодзи (Alt+T)', async ({ page, context }) => {
@@ -787,8 +791,17 @@ test('Компактный режим настраивается и показы
     await expect(compactPreview).toHaveAttribute('data-ui-style', 'magicos-11');
     await expect(page.locator('html')).toHaveAttribute('data-ui-style', 'magicos-11');
     await expect(compactPreview.locator('mark')).toHaveText(/^(?:ошибок|errors)$/);
+    const previewCard = page.locator('#compactResultPreview');
+    await page.locator('#resultDisplayMode').selectOption('detailed');
+    await expect(compactPreview).toHaveAttribute('data-mode', 'detailed');
+    await expect(previewCard).not.toHaveAttribute('data-compact-result', 'true');
+    await expect(previewCard.locator('.lexisync-result-tools')).toBeVisible();
+    expect(await previewCard.evaluate((element) => Number.parseFloat(getComputedStyle(element).width))).toBe(340);
     await page.locator('#resultDisplayMode').selectOption('compact');
     await expect(compactPreview).toHaveAttribute('data-mode', 'compact');
+    await expect(previewCard).toHaveAttribute('data-compact-result', 'true');
+    await expect(previewCard.locator('.lexisync-result-tools')).toBeHidden();
+    expect(await previewCard.evaluate((element) => Number.parseFloat(getComputedStyle(element).width))).toBe(300);
     await page.locator('#saveBtn').click();
     await expect
         .poll(() =>
@@ -843,12 +856,18 @@ test('Компактный режим настраивается и показы
         };
     });
     expect(compactLayout.compact).toBe('true');
-    expect(compactLayout.width).toBe(340);
+    expect(compactLayout.width).toBe(300);
     expect(compactLayout.height).toBeLessThan(280);
     expect(compactLayout.backdropFilter).toContain('blur(32px)');
     expect(compactLayout.headerBackground).toContain('linear-gradient');
-    expect(compactLayout.contentBackground).not.toBe('rgba(0, 0, 0, 0)');
-    expect(compactLayout.contentRadius).toBe('18px');
+    expect(compactLayout.contentBackground).toBe('rgba(0, 0, 0, 0)');
+    expect(compactLayout.contentRadius).toBe('0px');
+
+    await panel.locator('.lexisync-result-button').nth(1).click();
+    const compactAnnouncement = panel.locator('.lexisync-action-status');
+    await expect(compactAnnouncement).toHaveAttribute('data-compact-announcement', 'true');
+    await expect(compactAnnouncement).not.toHaveAttribute('hidden', '');
+    expect(await compactAnnouncement.evaluate((element) => element.getBoundingClientRect().width)).toBe(1);
 
     const correction = panel.locator('.lexisync-content-pane mark').first();
     await correction.focus();

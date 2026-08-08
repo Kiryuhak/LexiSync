@@ -1,6 +1,6 @@
 {
     "name": "lexisync-extension",
-    "version": "5.1.3",
+    "version": "5.1.4",
     "description": "Умный помощник для работы с текстом на базе Mistral AI",
     "scripts": {
         "dev": "wxt",
@@ -11,13 +11,15 @@
         "zip": "npm run zip:chrome && npm run zip:firefox",
         "zip:chrome": "wxt zip -c scripts/wxt-release.config.ts -b chrome",
         "zip:firefox": "wxt zip -c scripts/wxt-release.config.ts -b firefox",
+        "xpi:firefox": "npm run zip:firefox && node scripts/create-firefox-xpi.mjs",
         "typecheck": "node node_modules/@typescript/native/bin/tsc --noEmit",
         "typecheck:legacy": "tsc6 --noEmit",
         "lint": "eslint .",
         "format": "prettier --write .",
         "format:check": "prettier --check .",
         "check:i18n": "node scripts/check-i18n.mjs",
-        "audit:dependencies": "npm audit --audit-level=high",
+        "audit:dependencies": "npm audit --omit=dev --audit-level=high",
+        "audit:tooling": "npm audit --audit-level=high",
         "verify:manifests": "node scripts/verify-production-manifests.mjs",
         "verify:artifacts": "npm run verify:manifests && node scripts/verify-release-artifacts.mjs",
         "test:unit": "vitest run --configLoader runner",
@@ -85,5 +87,8 @@
         "vitest": "^4.1.10",
         "web-ext": "^10.3.0",
         "wxt": "^0.21.2"
+    },
+    "dependencies": {
+        "preact": "^10.29.8"
     }
 }

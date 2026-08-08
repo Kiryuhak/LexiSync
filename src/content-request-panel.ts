@@ -15,6 +15,7 @@ import { normalizeResultDisplayMode, shouldUseCompactResult } from './result-dis
 import { createSpellcheckUi } from './content-spellcheck-ui';
 import { renderPrimaryResultActions } from './content-result-actions';
 import { formatRequestDuration } from './request-duration';
+import { mountResultDialogFrame } from './result-dialog-view';
 
 export interface ContentRequestContext {
     getPopup: () => HTMLElement | null;
@@ -127,10 +128,17 @@ export function executeRequest(
         headerLabel = customCommand?.name || t('myCommand', 'Моя команда');
     }
 
-    const header = document.createElement('div');
-    header.className = 'lexisync-header';
-    header.style.cssText =
-        'padding: 12px 16px; font-size: 14px; color: var(--text-primary); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; border-radius: 12px 12px 0 0; background: transparent; cursor: grab; user-select: none;';
+    const {
+        header,
+        headerTitle: headerTitleWrapper,
+        headerControl: loaderOrClose,
+        content: contentPane,
+        compactDetails: compactCorrectionDetails,
+        corrections: correctionsContainer,
+        tools: resultTools,
+        actions: actionsContainer,
+        status: actionStatus,
+    } = mountResultDialogFrame(popupUI);
 
     header.onmousedown = (e) => {
         const target = e.target as HTMLElement;
@@ -146,11 +154,6 @@ export function executeRequest(
         context.startDragging(e.clientX - rect.left, e.clientY - rect.top);
         e.preventDefault();
     };
-
-    const headerTitleWrapper = document.createElement('div');
-    headerTitleWrapper.className = 'lexisync-header-title';
-    headerTitleWrapper.style.cssText =
-        'display: flex; align-items: center; gap: 8px; font-weight: 600; pointer-events: none;';
 
     if (mode === 'translate') {
         headerTitleWrapper.style.pointerEvents = 'auto';
@@ -231,49 +234,9 @@ export function executeRequest(
         headerTitleWrapper.appendChild(document.createTextNode(headerLabel));
     }
 
-    const loaderOrClose = document.createElement('div');
     const initialLoader = document.createElement('div');
     initialLoader.className = 'lexisync-loader';
     loaderOrClose.appendChild(initialLoader);
-
-    header.appendChild(headerTitleWrapper);
-    header.appendChild(loaderOrClose);
-
-    const contentPane = document.createElement('div');
-    contentPane.className = 'lexisync-scroll lexisync-content-pane';
-    contentPane.style.cssText =
-        'padding: 16px; min-height: 50px; max-height: 50vh; overflow-y: auto; overflow-x: hidden; font-size: 14px; color: var(--text-primary); line-height: 1.6; font-family: system-ui, sans-serif; word-wrap: break-word; white-space: pre-wrap;';
-
-    const actionsContainer = document.createElement('div');
-    actionsContainer.className = 'lexisync-actions';
-    actionsContainer.style.cssText =
-        'display: none; padding: 0 16px 16px 16px; gap: 10px; align-items: center; justify-content: flex-start;';
-
-    const actionStatus = document.createElement('div');
-    actionStatus.className = 'lexisync-action-status';
-    actionStatus.setAttribute('role', 'status');
-    actionStatus.setAttribute('aria-live', 'polite');
-    actionStatus.hidden = true;
-
-    const correctionsContainer = document.createElement('div');
-    correctionsContainer.className = 'lexisync-corrections';
-    correctionsContainer.style.cssText = 'display:none; padding:0 16px 12px; gap:6px; flex-direction:column;';
-
-    const compactCorrectionDetails = document.createElement('div');
-    compactCorrectionDetails.className = 'lexisync-compact-correction-details';
-    compactCorrectionDetails.hidden = true;
-
-    const resultTools = document.createElement('div');
-    resultTools.className = 'lexisync-result-tools';
-
-    popupUI.replaceChildren();
-    popupUI.appendChild(header);
-    popupUI.appendChild(contentPane);
-    popupUI.appendChild(compactCorrectionDetails);
-    popupUI.appendChild(correctionsContainer);
-    popupUI.appendChild(resultTools);
-    popupUI.appendChild(actionsContainer);
-    popupUI.appendChild(actionStatus);
     adjustPopupPosition();
     deactivateDialogKeyboard = activateDialogKeyboard(popupUI, closePopup);
 
@@ -310,15 +273,8 @@ export function executeRequest(
         const currentPopup = context.getPopup();
         if (currentPopup) {
             currentPopup.dataset.compactResult = 'true';
-            currentPopup.style.width = 'min(340px, calc(100vw - 24px))';
+            currentPopup.style.width = 'min(300px, calc(100vw - 24px))';
         }
-        contentPane.style.margin = '10px 12px';
-        contentPane.style.padding = '12px';
-        contentPane.style.minHeight = '36px';
-        contentPane.style.maxHeight = '36vh';
-        contentPane.style.background = 'var(--bg-secondary)';
-        contentPane.style.border = '1px solid var(--inner-border)';
-        contentPane.style.borderRadius = '11px';
         correctionsContainer.replaceChildren();
         correctionsContainer.hidden = true;
         correctionsContainer.style.display = 'none';
@@ -347,10 +303,12 @@ export function executeRequest(
     function showActionStatus(message: string, isError = false): void {
         actionStatus.textContent = message;
         actionStatus.dataset.error = String(isError);
+        actionStatus.dataset.compactAnnouncement = String(compactResultMode && !isError);
         actionStatus.hidden = false;
         adjustPopupPosition();
         lifecycle.setTimeout(() => {
             actionStatus.hidden = true;
+            delete actionStatus.dataset.compactAnnouncement;
             adjustPopupPosition();
         }, 2500);
     }
