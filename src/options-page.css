@@ -725,11 +725,14 @@ input[type='range'] {
 .onboarding-key-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
+    align-items: stretch;
     gap: 8px;
 }
 .onboarding-key-row input {
     min-width: 0;
+    min-height: 40px;
     padding: 10px 12px;
+    margin-bottom: 0;
     color: var(--text-main);
     background: var(--box-bg);
     border: 1px solid var(--box-border);
@@ -737,6 +740,12 @@ input[type='range'] {
     font:
         13px system-ui,
         sans-serif;
+}
+.onboarding-key-row .onboarding-button {
+    min-width: 104px;
+    min-height: 40px;
+    padding: 8px 14px;
+    box-shadow: 0 5px 14px color-mix(in srgb, var(--primary) 20%, transparent);
 }
 .onboarding-key-row input:focus-visible,
 .onboarding-external-link:focus-visible,

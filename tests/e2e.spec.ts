@@ -1347,10 +1347,20 @@ test('обучение проводит нового пользователя ч
     await expect(page.locator('#onboardingProgress')).toHaveText(/1.*5/);
 
     await page.locator('#onboardingNext').click();
-    await expect(page.locator('#onboardingApiKey')).toBeVisible();
+    const onboardingApiKey = page.locator('#onboardingApiKey');
+    const onboardingSaveKey = page.locator('#onboardingSaveKey');
+    await expect(onboardingApiKey).toBeVisible();
     await expect(page.locator('.onboarding-external-link')).toHaveAttribute('href', 'https://console.mistral.ai/');
-    await page.locator('#onboardingApiKey').fill('tutorial-test-key');
-    await page.locator('#onboardingSaveKey').click();
+    const [keyBox, checkButtonBox] = await Promise.all([
+        onboardingApiKey.boundingBox(),
+        onboardingSaveKey.boundingBox(),
+    ]);
+    expect(keyBox).not.toBeNull();
+    expect(checkButtonBox).not.toBeNull();
+    expect(Math.abs((keyBox?.height ?? 0) - (checkButtonBox?.height ?? 0))).toBeLessThanOrEqual(1);
+    expect(checkButtonBox?.width ?? Number.POSITIVE_INFINITY).toBeLessThan(keyBox?.width ?? 0);
+    await onboardingApiKey.fill('tutorial-test-key');
+    await onboardingSaveKey.click();
     await expect(page.locator('#onboardingKeyStatus')).toHaveAttribute('data-kind', 'success');
 
     const savedKey = await page.evaluate(() => chrome.runtime.sendMessage({ action: 'getApiKey' }));
