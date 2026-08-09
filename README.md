@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/lexisync-showcase.gif" alt="Возможности LexiSync: работа с текстом, настройки, приватность и быстрый старт" width="100%">
+  <img src="docs/assets/lexisync-showcase-color.gif" alt="Возможности LexiSync: работа с текстом, настройки, приватность и быстрый старт" width="100%">
 </p>
 
 <details>

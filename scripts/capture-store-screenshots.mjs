@@ -9,7 +9,7 @@ const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const extensionDir = path.join(rootDir, '.output', 'chrome-mv3');
 const rawDir = path.join(rootDir, '.output', 'showcase');
 const outputDir = path.join(rootDir, 'docs', 'store-assets', 'firefox');
-const carouselPath = path.join(rootDir, 'docs', 'assets', 'lexisync-showcase.gif');
+const carouselPath = path.join(rootDir, 'docs', 'assets', 'lexisync-showcase-color.gif');
 const profileDir = await fs.mkdtemp(path.join(os.tmpdir(), 'lexisync-showcase-'));
 
 const demoHtml = `<!doctype html>
