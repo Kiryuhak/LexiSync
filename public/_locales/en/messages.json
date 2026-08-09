@@ -399,5 +399,52 @@
     "historySortOldest": { "message": "Oldest first" },
     "historySortFavorites": { "message": "Favorites first" },
     "requestCompletedIn": { "message": "Ready in $1 s" },
-    "resultFromCache": { "message": "Result loaded from the local cache." }
+    "resultFromCache": { "message": "Result loaded from the local cache." },
+    "releaseNotesOpen": { "message": "What's new" },
+    "releaseNotesOpenVersion": { "message": "LexiSync version $1. Open update history" },
+    "releaseNotesEyebrow": { "message": "LexiSync history" },
+    "releaseNotesTitle": { "message": "What's new" },
+    "releaseNotesClose": { "message": "Close update history" },
+    "releaseNotesIntro": { "message": "A simple overview of every change, improvement, and fix." },
+    "releaseNotesSearchLabel": { "message": "Search updates" },
+    "releaseNotesSearchPlaceholder": { "message": "Version or improvement…" },
+    "releaseNotesCurrent": { "message": "Current" },
+    "releaseNotesKindNew": { "message": "New" },
+    "releaseNotesKindImproved": { "message": "Improved" },
+    "releaseNotesKindFixed": { "message": "Fixed" },
+    "releaseNotesCount": { "message": "Versions shown: $1" },
+    "releaseNotesEmpty": { "message": "No updates match this search." },
+    "tabGuideMainTitle": { "message": "Start with the essentials" },
+    "tabGuideMainDescription": {
+        "message": "Connect Mistral, choose a writing tone, and select a search engine."
+    },
+    "tabGuideAiTitle": { "message": "Control quality and usage" },
+    "tabGuideAiDescription": {
+        "message": "Choose a model and configure your glossary, style profiles, and request limits."
+    },
+    "tabGuideAppearanceTitle": { "message": "Make LexiSync feel like yours" },
+    "tabGuideAppearanceDescription": {
+        "message": "Adjust the theme, window style, interface size, density, and transparency."
+    },
+    "tabGuideSuggestionsTitle": { "message": "Get help while you type" },
+    "tabGuideSuggestionsDescription": {
+        "message": "Control local suggestions and automatic text proofreading."
+    },
+    "tabGuidePrivacyTitle": { "message": "Keep control of your data" },
+    "tabGuidePrivacyDescription": {
+        "message": "Choose what to save, which sites to exclude, and when page context may be sent."
+    },
+    "tabGuideCommandsTitle": { "message": "Build your own quick actions" },
+    "tabGuideCommandsDescription": {
+        "message": "Create simple commands for text tasks you repeat often."
+    },
+    "apiKeySimpleHint": {
+        "message": "Used only for AI commands. Your key is stored locally and cannot be accessed by websites."
+    },
+    "toneSimpleHint": {
+        "message": "Used when improving or rewriting text. Translation and error correction are unchanged."
+    },
+    "searchEngineSimpleHint": {
+        "message": "Opens when you choose the command to search the web for selected text."
+    }
 }

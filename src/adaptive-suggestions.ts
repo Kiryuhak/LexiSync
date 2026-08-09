@@ -48,6 +48,7 @@ let activeEditable: EditableElement | null = null;
 let activePrefix = '';
 let activeSuggestions: string[] = [];
 let activeSuggestionIndex = 0;
+let focusoutHideTimer: number | null = null;
 let initialized = false;
 let stateReady: Promise<void> = Promise.resolve();
 const learnedTail = new WeakMap<EditableElement, string>();
@@ -312,6 +313,10 @@ function positionSuggestionBar(target: EditableElement): void {
 }
 
 function hideSuggestions(): void {
+    if (focusoutHideTimer !== null) {
+        window.clearTimeout(focusoutHideTimer);
+        focusoutHideTimer = null;
+    }
     if (suggestionBar) suggestionBar.style.display = 'none';
     activeEditable = null;
     activePrefix = '';
@@ -479,6 +484,10 @@ export function initializeAdaptiveSuggestions(): void {
     document.addEventListener(
         'input',
         (event) => {
+            if (focusoutHideTimer !== null) {
+                window.clearTimeout(focusoutHideTimer);
+                focusoutHideTimer = null;
+            }
             if (isEditableElement(event.target)) void evaluateEditable(event.target);
         },
         true,
@@ -520,7 +529,28 @@ export function initializeAdaptiveSuggestions(): void {
         true,
     );
 
-    document.addEventListener('focusout', () => window.setTimeout(hideSuggestions, 120), true);
+    document.addEventListener(
+        'focusout',
+        (event) => {
+            if (event.target !== activeEditable) return;
+            if (focusoutHideTimer !== null) window.clearTimeout(focusoutHideTimer);
+            const blurredEditable = activeEditable;
+            focusoutHideTimer = window.setTimeout(() => {
+                focusoutHideTimer = null;
+                if (document.activeElement !== blurredEditable) hideSuggestions();
+            }, 120);
+        },
+        true,
+    );
+    document.addEventListener(
+        'focusin',
+        () => {
+            if (focusoutHideTimer === null) return;
+            window.clearTimeout(focusoutHideTimer);
+            focusoutHideTimer = null;
+        },
+        true,
+    );
     window.addEventListener('scroll', hideSuggestions, true);
     window.addEventListener('resize', hideSuggestions);
 

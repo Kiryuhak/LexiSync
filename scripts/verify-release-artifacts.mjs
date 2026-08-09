@@ -12,6 +12,10 @@ const amoMetadata = JSON.parse(await fs.readFile(amoMetadataPath, 'utf8'));
 const licenseText = await fs.readFile(path.join(root, 'LICENSE'), 'utf8');
 const MAX_ZIP_ENTRIES = 10_000;
 const MAX_UNCOMPRESSED_BYTES = 100 * 1024 * 1024;
+const MAX_INITIAL_SCRIPT_BYTES = {
+    'background.js': 64 * 1024,
+    'inject.js': 120 * 1024,
+};
 
 const licenseOwner = licenseText.match(/^Copyright \(c\) \d{4}(?:-\d{4})? (.+)$/m)?.[1];
 if (!packageJson.author || licenseOwner !== packageJson.author) {
@@ -133,6 +137,16 @@ for (const browser of ['chrome', 'firefox']) {
     const buildNames = [...buildFiles.keys()].sort();
     const archiveNames = [...archiveFiles.keys()].filter((name) => !name.endsWith('/')).sort();
 
+    for (const [filename, limit] of Object.entries(MAX_INITIAL_SCRIPT_BYTES)) {
+        const file = buildFiles.get(filename);
+        if (!file) throw new Error(`${browser}: отсутствует стартовый скрипт ${filename}`);
+        if (file.length > limit) {
+            throw new Error(
+                `${browser}: ${filename} превышает бюджет размера (${file.length} байт вместо не более ${limit})`,
+            );
+        }
+    }
+
     if (JSON.stringify(buildNames) !== JSON.stringify(archiveNames)) {
         throw new Error(`${browser}: состав ZIP не совпадает с финальной production-сборкой`);
     }
@@ -171,6 +185,7 @@ const requiredSources = [
     'src/background.ts',
 ];
 const forbiddenSourcePath = /(^|\/)(?:node_modules|\.git|\.output|coverage|test-results|playwright-report)(?:\/|$)/;
+const releaseArtifactPath = /(^|\/)[^/]+\.(?:xpi|zip)$/iu;
 
 for (const filename of requiredSources) {
     if (!sourceFiles.has(filename)) throw new Error(`sources ZIP: отсутствует обязательный файл ${filename}`);
@@ -180,6 +195,7 @@ const unsafeSources = sourceNames.filter(
         filename.startsWith('../') ||
         path.isAbsolute(filename) ||
         forbiddenSourcePath.test(filename) ||
+        releaseArtifactPath.test(filename) ||
         /(^|\/)\.env(?:\.|$)/.test(filename),
 );
 if (unsafeSources.length)

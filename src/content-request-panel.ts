@@ -30,6 +30,10 @@ export interface ContentRequestContext {
     registerRequestCleanup: (cleanup: () => void) => void;
 }
 
+interface RequestExecutionOptions {
+    bypassCache?: boolean;
+}
+
 export function handleActionClick(mode: RequestMode, context: ContentRequestContext): void {
     if (mode === 'translate') {
         const text = context.getSelection().text || '';
@@ -39,13 +43,14 @@ export function handleActionClick(mode: RequestMode, context: ContentRequestCont
             ruCount > 0 && ruCount >= enCount ? context.getLanguageName('en') : context.getLanguageName('ru');
         context.setTargetLanguage(targetLanguage);
     }
-    executeRequest(mode, undefined, context);
+    void executeRequest(mode, undefined, context);
 }
 
 export function executeRequest(
     mode: RequestMode,
     customCommand: CustomCommand | undefined,
     context: ContentRequestContext,
+    options: RequestExecutionOptions = {},
 ): void {
     const popupUI = context.getPopup();
     if (!popupUI) return;
@@ -531,11 +536,14 @@ export function executeRequest(
                     const source = getEffectiveResult();
                     currentSelection.text = source;
                     currentSelection.context = source;
-                    executeRequest('custom', { id: `refine-${name}`, name, prompt }, context);
+                    void executeRequest('custom', { id: `refine-${name}`, name, prompt }, context);
                 };
                 resultTools.replaceChildren(
                     compareButton,
-                    createTool(t('repeat', 'Повторить'), () => executeRequest(mode, customCommand, context)),
+                    createTool(
+                        t('repeat', 'Повторить'),
+                        () => void executeRequest(mode, customCommand, context, { bypassCache: true }),
+                    ),
                     createTool(t('shorter', 'Короче'), () =>
                         refine(
                             t('refineShortName', 'Сделать короче'),
@@ -659,7 +667,7 @@ export function executeRequest(
         const cacheModeKey = `v${REQUEST_CACHE_VERSION}:${baseCacheMode}:${cacheSettingsFingerprint}`;
         const cacheKey = await getCacheHash(cacheModeKey, getCacheSource());
         if (lifecycle.disposed) return;
-        const cachedResult = storageAllowed ? await getCachedText(cacheKey) : null;
+        const cachedResult = storageAllowed && !options.bypassCache ? await getCachedText(cacheKey) : null;
         if (lifecycle.disposed) return;
         if (cachedResult) {
             void recordCacheHit();

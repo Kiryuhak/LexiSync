@@ -28,6 +28,15 @@ export function startLiveProofread(): () => void {
         host = null;
     };
 
+    const cancelPendingProofread = () => {
+        window.clearTimeout(timer);
+        timer = 0;
+        requestVersion++;
+        activeRequest?.cancel();
+        activeRequest = null;
+        close();
+    };
+
     const showSuggestion = (editor: HTMLInputElement | HTMLTextAreaElement, original: string, corrected: string) => {
         close();
         const corrections = getWordCorrections(original, corrected);
@@ -133,15 +142,14 @@ export function startLiveProofread(): () => void {
         if (isSiteDisabled(location.hostname, disabledSites)) return;
         const editor = event.target;
         const original = editor.value;
-        window.clearTimeout(timer);
-        activeRequest?.cancel();
-        activeRequest = null;
-        close();
+        cancelPendingProofread();
         if (original.trim().length < 12 || original.length > 5000) return;
-        const version = ++requestVersion;
+        const version = requestVersion;
         timer = window.setTimeout(async () => {
+            timer = 0;
+            let request: CancellableTextRequest | null = null;
             try {
-                const request = startTextRequest({
+                request = startTextRequest({
                     mode: 'spellcheck',
                     text: original,
                     allowPageContext: false,
@@ -154,7 +162,7 @@ export function startLiveProofread(): () => void {
                     // Фоновая проверка не должна мешать вводу.
                 }
             } finally {
-                activeRequest = null;
+                if (activeRequest === request) activeRequest = null;
             }
         }, delay);
     };
@@ -171,9 +179,7 @@ export function startLiveProofread(): () => void {
             ? Number(stored.liveProofreadDelay)
             : 900;
         if (!enabled || isSiteDisabled(location.hostname, disabledSites)) {
-            activeRequest?.cancel();
-            activeRequest = null;
-            close();
+            cancelPendingProofread();
         }
     };
     const onStorage = (changes: Record<string, chrome.storage.StorageChange>, areaName: chrome.storage.AreaName) => {
@@ -183,7 +189,7 @@ export function startLiveProofread(): () => void {
         )
             void updateSettings();
     };
-    const onPageHide = () => activeRequest?.cancel();
+    const onPageHide = cancelPendingProofread;
     void updateSettings();
     document.addEventListener('input', onInput, true);
     window.addEventListener('pagehide', onPageHide);
@@ -192,8 +198,6 @@ export function startLiveProofread(): () => void {
         document.removeEventListener('input', onInput, true);
         chrome.storage.onChanged.removeListener(onStorage);
         window.removeEventListener('pagehide', onPageHide);
-        window.clearTimeout(timer);
-        activeRequest?.cancel();
-        close();
+        cancelPendingProofread();
     };
 }

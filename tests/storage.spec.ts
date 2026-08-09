@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import { applyHistoryMutation } from '../src/history-store';
+import { addHistoryItem, applyHistoryMutation, getHistory } from '../src/history-store';
 import { applyUsageMutation } from '../src/usage-stats';
 import { applySettingsMutation } from '../src/settings-store';
 import { applyAdaptiveMutation, flushAdaptiveMutations } from '../src/adaptive-model-store';
@@ -12,7 +12,7 @@ import {
     reserveBudget,
     reserveBudgetIfActive,
 } from '../src/budget-reservations';
-import { retrySettingsSync } from '../src/settings-transfer';
+import { initializeSettingsSync, retrySettingsSync } from '../src/settings-transfer';
 
 let storage: Record<string, unknown>;
 let storageGetCalls: unknown[];
@@ -20,6 +20,22 @@ let storageSetCalls: Record<string, unknown>[];
 let beforeStorageGet: ((keys: unknown) => void | Promise<void>) | undefined;
 let syncedStorage: Record<string, unknown>;
 let syncUnavailable: boolean;
+let runtimeSendMessage: ReturnType<typeof vi.fn>;
+let syncSetCalls: number;
+let storageChangeListener:
+    ((changes: Record<string, chrome.storage.StorageChange>, areaName: chrome.storage.AreaName) => void) | undefined;
+
+function changesFor(
+    updates: Record<string, unknown>,
+    previous: Record<string, unknown>,
+): Record<string, chrome.storage.StorageChange> {
+    return Object.fromEntries(
+        Object.entries(updates).map(([key, newValue]) => [
+            key,
+            { oldValue: previous[key], newValue } satisfies chrome.storage.StorageChange,
+        ]),
+    );
+}
 
 beforeEach(() => {
     storage = {};
@@ -28,6 +44,9 @@ beforeEach(() => {
     beforeStorageGet = undefined;
     syncedStorage = {};
     syncUnavailable = false;
+    syncSetCalls = 0;
+    storageChangeListener = undefined;
+    runtimeSendMessage = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal('chrome', {
         storage: {
             local: {
@@ -44,8 +63,10 @@ beforeEach(() => {
                 },
                 async set(updates: Record<string, unknown>) {
                     await Promise.resolve();
+                    const previous = { ...storage };
                     storageSetCalls.push(structuredClone(updates));
                     Object.assign(storage, structuredClone(updates));
+                    storageChangeListener?.(changesFor(updates, previous), 'local');
                 },
                 async remove(keys: string | string[]) {
                     await Promise.resolve();
@@ -55,11 +76,56 @@ beforeEach(() => {
             sync: {
                 async set(updates: Record<string, unknown>) {
                     if (syncUnavailable) throw new Error('SYNC_UNAVAILABLE');
+                    const previous = { ...syncedStorage };
+                    syncSetCalls++;
                     Object.assign(syncedStorage, structuredClone(updates));
+                    storageChangeListener?.(changesFor(updates, previous), 'sync');
+                },
+            },
+            onChanged: {
+                addListener(listener: typeof storageChangeListener) {
+                    storageChangeListener = listener;
+                },
+                removeListener(listener: typeof storageChangeListener) {
+                    if (storageChangeListener === listener) storageChangeListener = undefined;
                 },
             },
         },
+        runtime: { sendMessage: runtimeSendMessage },
     });
+});
+
+test('очищает повреждённую и устаревшую историю, сохраняя избранное', async () => {
+    storage.historyRetentionDays = 1;
+    storage.aiHistory = [
+        { id: 1, mode: 'style', original: 'fresh', result: 'fresh', date: new Date().toISOString() },
+        { id: 2, mode: 'style', original: 'saved', result: 'saved', date: '2020-01-01T00:00:00.000Z', favorite: true },
+        { id: 3, mode: 'style', original: 'stale', result: 'stale', date: '2020-01-01T00:00:00.000Z' },
+        { id: 'broken' },
+    ];
+
+    await expect(getHistory()).resolves.toMatchObject([{ id: 1 }, { id: 2, favorite: true }]);
+    expect(storage.aiHistory).toHaveLength(2);
+});
+
+test('отправляет пользовательские изменения истории через фоновый обработчик', async () => {
+    const item = {
+        id: 10,
+        mode: 'style' as const,
+        original: 'before',
+        result: 'after',
+        date: new Date().toISOString(),
+    };
+    await addHistoryItem(item);
+    expect(runtimeSendMessage).toHaveBeenCalledWith({
+        action: 'storageMutation',
+        domain: 'history',
+        mutation: 'add',
+        payload: { item },
+    });
+
+    runtimeSendMessage.mockResolvedValueOnce({ ok: false, error: 'WRITE_FAILED' });
+    await expect(addHistoryItem(item)).rejects.toThrow('WRITE_FAILED');
 });
 
 test('показывает локальный статус и позволяет повторить синхронизацию настроек', async () => {
@@ -71,6 +137,15 @@ test('показывает локальный статус и позволяет
     syncUnavailable = true;
     await expect(retrySettingsSync()).rejects.toThrow('SYNC_UNAVAILABLE');
     expect(storage.settingsSyncStatus).toMatchObject({ state: 'error' });
+});
+
+test('не зацикливает синхронизацию, когда Firefox сообщает запись без изменения значения', async () => {
+    initializeSettingsSync();
+
+    await chrome.storage.local.set({ selectedTone: 'friendly' });
+    await vi.waitFor(() => expect(syncedStorage.selectedTone).toBe('friendly'));
+
+    expect(syncSetCalls).toBe(1);
 });
 
 afterEach(async () => {

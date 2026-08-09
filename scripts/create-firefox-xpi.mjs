@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -13,4 +14,8 @@ if (archive.length < 4 || archive.readUInt32LE(0) !== 0x04034b50) {
 }
 
 await fs.copyFile(source, destination);
+const copiedArchive = await fs.readFile(destination);
+const sourceDigest = crypto.createHash('sha256').update(archive).digest('hex');
+const copiedDigest = crypto.createHash('sha256').update(copiedArchive).digest('hex');
+if (sourceDigest !== copiedDigest) throw new Error(`Firefox XPI differs from the verified ZIP: ${destination}`);
 console.log(`Создан XPI для временной установки: ${destination}`);

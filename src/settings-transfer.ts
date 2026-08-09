@@ -253,10 +253,17 @@ export async function retrySettingsSync(): Promise<void> {
     }
 }
 
+function storageValueChanged(change: chrome.storage.StorageChange): boolean {
+    return JSON.stringify(change.oldValue) !== JSON.stringify(change.newValue);
+}
+
 export function initializeSettingsSync(): void {
     chrome.storage.onChanged.addListener((changes, areaName) => {
         const updates: Record<string, unknown> = {};
-        for (const key of SYNC_SETTING_KEYS) if (changes[key]) updates[key] = changes[key].newValue;
+        for (const key of SYNC_SETTING_KEYS) {
+            const change = changes[key];
+            if (change && storageValueChanged(change)) updates[key] = change.newValue;
+        }
         if (!Object.keys(updates).length) return;
         if (areaName === 'local') void syncSettings(updates).catch(reportSettingsSyncError);
         else if (areaName === 'sync') void chrome.storage.local.set(updates).catch(() => undefined);

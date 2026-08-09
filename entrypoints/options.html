@@ -9,10 +9,30 @@
     <body>
         <main class="container">
             <div class="header-row">
-                <h1 data-i18n="optionsTitle">Настройки нейросети</h1>
-                <span id="app-version" class="version-badge">v1.0.0</span>
+                <div class="settings-brand">
+                    <span class="settings-brand-mark" aria-hidden="true">✦</span>
+                    <h1 data-i18n="optionsTitle">Настройки нейросети</h1>
+                </div>
+                <button
+                    id="app-version"
+                    class="version-badge"
+                    type="button"
+                    aria-haspopup="dialog"
+                    aria-controls="releaseNotesDialog"
+                    title="Что нового"
+                    data-i18n-title="releaseNotesOpen"
+                >
+                    <svg aria-hidden="true" viewBox="0 0 24 24" width="15" height="15">
+                        <path
+                            d="M12 3v3m0 12v3M3 12h3m12 0h3M5.64 5.64l2.12 2.12m8.48 8.48 2.12 2.12m0-12.72-2.12 2.12M7.76 16.24l-2.12 2.12"
+                        />
+                    </svg>
+                    <span id="app-version-value">v1.0.0</span>
+                </button>
             </div>
-            <p data-i18n="optionsIntro">Укажите параметры доступа к API, стиль текста и тему оформления.</p>
+            <p class="options-intro" data-i18n="optionsIntro">
+                Укажите параметры доступа к API, стиль текста и тему оформления.
+            </p>
 
             <nav
                 class="settings-tabs"
@@ -39,6 +59,22 @@
                     Команды
                 </button>
             </nav>
+
+            <section
+                id="settingsSectionGuide"
+                class="settings-section-guide"
+                data-section="main"
+                aria-labelledby="settingsSectionGuideTitle"
+                aria-live="polite"
+            >
+                <span id="settingsSectionGuideIcon" class="settings-section-guide-icon" aria-hidden="true">✦</span>
+                <div>
+                    <h2 id="settingsSectionGuideTitle">Начните с основных параметров</h2>
+                    <p id="settingsSectionGuideDescription">
+                        Подключите Mistral, выберите стиль ответа и поисковую систему.
+                    </p>
+                </div>
+            </section>
 
             <label for="apiKey" data-settings-group="main" data-i18n="apiKeyLabel">Ваш Mistral API Key:</label>
             <div class="password-wrapper" data-settings-group="main">
@@ -92,6 +128,9 @@
                     </svg>
                 </button>
             </div>
+            <p class="field-hint" data-settings-group="main" data-i18n="apiKeySimpleHint">
+                Нужен только для AI-команд. Ключ хранится локально и недоступен сайтам.
+            </p>
 
             <label for="toneSelect" data-settings-group="main" data-i18n="toneLabel"
                 >Стиль текста (Tone of Voice):</label
@@ -102,6 +141,9 @@
                 <option value="persuasive" data-i18n="tonePersuasive">🔥 Убедительный (сильный, продающий)</option>
                 <option value="creative" data-i18n="toneCreative">✨ Креативный (живой, с метафорами)</option>
             </select>
+            <p class="field-hint" data-settings-group="main" data-i18n="toneSimpleHint">
+                Используется при улучшении и переписывании текста. Перевод и исправление ошибок не меняются.
+            </p>
 
             <label for="themeSelect" data-settings-group="appearance" data-i18n="themeLabel" hidden
                 >Тема оформления:</label
@@ -196,31 +238,16 @@
                 </div>
             </section>
 
-            <div style="margin-bottom: 20px" data-settings-group="main">
-                <label
-                    for="searchEngine"
-                    style="display: block; font-weight: 500; margin-bottom: 8px; color: var(--text-secondary)"
-                    data-i18n="searchEngineLabel"
-                    >Поисковая система:</label
-                >
-                <select
-                    id="searchEngine"
-                    style="
-                        width: 100%;
-                        padding: 10px 12px;
-                        border: 1px solid var(--border-input);
-                        border-radius: 8px;
-                        font-size: 14px;
-                        background: var(--bg-card);
-                        color: var(--text-main);
-                        outline: none;
-                        cursor: pointer;
-                    "
-                >
+            <div class="settings-field" data-settings-group="main">
+                <label for="searchEngine" data-i18n="searchEngineLabel">Поисковая система:</label>
+                <select id="searchEngine">
                     <option value="google">Google</option>
                     <option value="yandex">Yandex</option>
                     <option value="duckduckgo">DuckDuckGo</option>
                 </select>
+                <p class="field-hint" data-i18n="searchEngineSimpleHint">
+                    Откроется, когда вы выберете команду поиска выделенного текста в интернете.
+                </p>
             </div>
 
             <section class="settings-section" data-settings-group="ai" hidden>
@@ -592,6 +619,49 @@
                 <span id="status" role="status" aria-live="polite" data-i18n="saved">✓ Сохранено успешно!</span>
             </div>
         </main>
+
+        <dialog id="releaseNotesDialog" class="release-notes-dialog" aria-labelledby="releaseNotesTitle">
+            <div class="release-notes-card">
+                <header class="release-notes-header">
+                    <div>
+                        <span class="release-notes-eyebrow" data-i18n="releaseNotesEyebrow">История LexiSync</span>
+                        <h2 id="releaseNotesTitle" data-i18n="releaseNotesTitle">Что нового</h2>
+                    </div>
+                    <button
+                        id="closeReleaseNotes"
+                        class="release-notes-close"
+                        type="button"
+                        aria-label="Закрыть историю обновлений"
+                        data-i18n-aria-label="releaseNotesClose"
+                    >
+                        <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20">
+                            <path d="m6 6 12 12M18 6 6 18" />
+                        </svg>
+                    </button>
+                </header>
+                <p class="release-notes-intro" data-i18n="releaseNotesIntro">
+                    Коротко и понятно обо всех изменениях, улучшениях и исправлениях.
+                </p>
+                <label class="release-notes-search-label" for="releaseNotesSearch" data-i18n="releaseNotesSearchLabel"
+                    >Поиск по обновлениям</label
+                >
+                <div class="release-notes-search-wrap">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" width="17" height="17">
+                        <circle cx="11" cy="11" r="7"></circle>
+                        <path d="m16.5 16.5 4 4"></path>
+                    </svg>
+                    <input
+                        id="releaseNotesSearch"
+                        type="search"
+                        placeholder="Версия или изменение…"
+                        data-i18n-placeholder="releaseNotesSearchPlaceholder"
+                        autocomplete="off"
+                    />
+                </div>
+                <p id="releaseNotesCount" class="release-notes-count" role="status" aria-live="polite"></p>
+                <div id="releaseNotesList" class="release-notes-list"></div>
+            </div>
+        </dialog>
 
         <div
             id="onboarding"

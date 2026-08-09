@@ -570,8 +570,16 @@ test('Кейс 4: Переписывание стиля (Alt+Y)', async ({ page,
     await page.goto('https://example.com');
     await grantSiteAccess(context, page);
 
+    let requestCount = 0;
     await context.route('https://api.mistral.ai/v1/chat/completions', async (route) => {
-        const mockStreamData = `data: {"choices":[{"delta":{"content":"Официальный деловой текст."}}]}\n\ndata: [DONE]\n\n`;
+        requestCount += 1;
+        const result =
+            requestCount === 1
+                ? 'Официальный деловой текст.'
+                : requestCount === 2
+                  ? 'Новый деловой текст.'
+                  : 'Короткий деловой текст.';
+        const mockStreamData = `data: {"choices":[{"delta":{"content":"${result}"}}]}\n\ndata: [DONE]\n\n`;
         await route.fulfill({ status: 200, contentType: 'text/event-stream', body: mockStreamData });
     });
 
@@ -582,6 +590,12 @@ test('Кейс 4: Переписывание стиля (Alt+Y)', async ({ page,
     await expect(uiPanel).toContainText('Официальный деловой текст.', { timeout: 5000 });
     await expect(uiPanel).not.toHaveAttribute('data-compact-result', 'true');
     expect(await uiPanel.evaluate((element) => Number.parseFloat(getComputedStyle(element).width))).toBe(340);
+
+    await uiPanel.getByRole('button', { name: /Повторить|Repeat/ }).click();
+    await expect(uiPanel.locator('.lexisync-content-pane')).toContainText('Новый деловой текст.');
+    await uiPanel.getByRole('button', { name: /Короче|Shorter/ }).click();
+    await expect(uiPanel).toContainText('Короткий деловой текст.', { timeout: 5000 });
+    expect(requestCount).toBe(3);
 });
 
 test('Кейс 5: Добавление эмодзи (Alt+T)', async ({ page, context }) => {
@@ -677,15 +691,19 @@ test('Персональная подсказка дополняет изуче�
     await expect(page.locator('#lexisync-shadow-host')).toHaveCount(1);
     await page.keyboard.press('Escape');
     await page.evaluate(() => {
+        const previousTextarea = document.createElement('textarea');
+        previousTextarea.id = 'adaptive-previous-input';
         const textarea = document.createElement('textarea');
         textarea.id = 'adaptive-input';
-        document.body.appendChild(textarea);
-        textarea.focus();
+        document.body.append(previousTextarea, textarea);
     });
+    await page.locator('#adaptive-previous-input').fill('при');
+    await expect(page.locator('#lexisync-adaptive-suggestions-host button').first()).toBeVisible();
     await page.locator('#adaptive-input').fill('при');
 
     const suggestion = page.locator('#lexisync-adaptive-suggestions-host button').first();
     await expect(suggestion).toHaveText('привет');
+    await page.waitForTimeout(160);
     await page.keyboard.press('Tab');
     await expect(page.locator('#adaptive-input')).toHaveValue('привет');
 });
@@ -725,6 +743,87 @@ test('Названия вкладок настроек не переносятс
 
     expect(lineCounts).toHaveLength(6);
     expect(lineCounts.every((count) => count === 1)).toBe(true);
+    expect(await page.locator('.settings-tabs').evaluate((tabs) => tabs.scrollWidth - tabs.clientWidth)).toBe(0);
+});
+
+test('вкладки настроек простым языком объясняют назначение функций', async ({ page, context }) => {
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() => chrome.storage.local.set({ onboardingCompleted: true }));
+    const extensionId = new URL(background.url()).host;
+    await page.goto(`chrome-extension://${extensionId}/options.html`);
+
+    const guide = page.locator('#settingsSectionGuide');
+    await expect(guide).toHaveAttribute('aria-live', 'polite');
+    const expectedTitles: Record<string, string> = {
+        main: 'Начните с основных параметров',
+        ai: 'Управляйте качеством и расходами',
+        appearance: 'Настройте LexiSync под себя',
+        suggestions: 'Помощь прямо во время ввода',
+        privacy: 'Ваши данные под контролем',
+        commands: 'Соберите свои быстрые действия',
+    };
+
+    for (const [tab, title] of Object.entries(expectedTitles)) {
+        await page.locator(`[data-tab="${tab}"]`).click();
+        await expect(guide).toHaveAttribute('data-section', tab);
+        await expect(guide.locator('h2')).toHaveText(title);
+        expect((await guide.locator('p').textContent())?.trim().length).toBeGreaterThan(25);
+    }
+
+    await page.locator('[data-tab="main"]').click();
+    await expect(page.locator('.field-hint[data-settings-group="main"]')).toHaveCount(2);
+    await expect(page.locator('.settings-field .field-hint')).toContainText('поиска выделенного текста');
+
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const reducedMotionStyles = await page.evaluate(() => ({
+        backgroundAnimation: getComputedStyle(document.body, '::before').animationName,
+        logoAnimation: getComputedStyle(document.querySelector('.settings-brand-mark')!).animationName,
+    }));
+    expect(reducedMotionStyles).toEqual({ backgroundAnimation: 'none', logoAnimation: 'none' });
+});
+
+test('номер версии открывает доступную историю всех обновлений', async ({ page, context }) => {
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() => chrome.storage.local.set({ onboardingCompleted: true }));
+    const extensionId = new URL(background.url()).host;
+    const currentVersion = await background.evaluate(() => chrome.runtime.getManifest().version);
+    await page.goto(`chrome-extension://${extensionId}/options.html`);
+
+    const versionButton = page.locator('#app-version');
+    await expect(versionButton).toContainText(`v${currentVersion}`);
+    await expect(versionButton).toHaveAttribute('aria-label', new RegExp(currentVersion.replaceAll('.', '\\.')));
+    await versionButton.click();
+
+    const dialog = page.locator('#releaseNotesDialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog.locator('[data-release-version]')).toHaveCount(36);
+    await expect(dialog.locator(`[data-release-version="${currentVersion}"]`)).toHaveAttribute('open', '');
+
+    await dialog.locator('#releaseNotesSearch').fill('MagicOS');
+    await expect(dialog.locator('[data-release-version]')).toHaveCount(1);
+    await expect(dialog.locator('[data-release-version="5.1.0"]')).toBeVisible();
+    await expect(dialog.locator('#releaseNotesCount')).toContainText('1');
+
+    const accessibility = await new AxeBuilder({ page }).include('#releaseNotesDialog').analyze();
+    expect(accessibility.violations).toEqual([]);
+
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+    await expect(versionButton).toBeFocused();
+
+    await page.setViewportSize({ width: 320, height: 600 });
+    await versionButton.click();
+    const dialogBounds = await dialog.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom };
+    });
+    expect(dialogBounds.left).toBeGreaterThanOrEqual(0);
+    expect(dialogBounds.top).toBeGreaterThanOrEqual(0);
+    expect(dialogBounds.right).toBeLessThanOrEqual(320);
+    expect(dialogBounds.bottom).toBeLessThanOrEqual(600);
+    await dialog.locator('#closeReleaseNotes').click();
 });
 
 test('поиск и быстрое удаление упрощают управление исключёнными сайтами', async ({ page, context }) => {
@@ -1314,6 +1413,37 @@ test('автопроверка не отправляет email и логин и�
 
     await page.locator('#ordinary-editor').fill('Обычный длинный текст для проверки.');
     await expect.poll(() => apiRequests).toBe(1);
+});
+
+test('отключение автопроверки отменяет отложенный API-запрос', async ({ page, context }) => {
+    await setFakeApiKey(context);
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() => chrome.storage.local.set({ liveProofreadEnabled: true, liveProofreadDelay: 600 }));
+
+    let apiRequests = 0;
+    await context.route('https://api.mistral.ai/v1/chat/completions', async (route) => {
+        apiRequests++;
+        await route.fulfill({
+            status: 200,
+            contentType: 'text/event-stream',
+            body: 'data: {"choices":[{"delta":{"content":"Исправленный текст."}}]}\n\ndata: [DONE]\n\n',
+        });
+    });
+    await page.goto('https://example.com');
+    await grantSiteAccess(context, page);
+    await page.evaluate(() => {
+        const textarea = document.createElement('textarea');
+        textarea.id = 'disabled-live-editor';
+        document.body.append(textarea);
+    });
+
+    await page.locator('#disabled-live-editor').fill('Неправельный достаточно длинный текст.');
+    await background.evaluate(() => chrome.storage.local.set({ liveProofreadEnabled: false }));
+    await page.waitForTimeout(900);
+
+    expect(apiRequests).toBe(0);
+    await expect(page.locator('[data-lexisync-live-proof]')).toHaveCount(0);
 });
 
 test('API-ключ хранится вне доступного content scripts storage.local', async ({ context }) => {

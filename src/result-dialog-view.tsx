@@ -78,8 +78,11 @@ function requireElement<T extends HTMLElement>(ref: RefObject<T>, name: string):
 }
 
 export function mountResultDialogFrame(container: HTMLElement): ResultDialogElements {
-    // The result panel reuses the selection-menu container. Preact keeps DOM nodes
-    // that it did not create, so remove the previous menu before the first render.
+    // The result panel reuses the selection-menu container. It may already be
+    // owned by a previous Preact tree after a repeat/refinement request.
+    // Explicitly unmount it before touching the DOM, otherwise Preact can diff
+    // against detached nodes and leave the dialog empty.
+    render(null, container);
     container.replaceChildren();
     const refs: ResultDialogElementRefs = {
         header: createRef<HTMLDivElement>(),
@@ -104,6 +107,10 @@ export function mountResultDialogFrame(container: HTMLElement): ResultDialogElem
         actions: requireElement(refs.actions, 'actions'),
         status: requireElement(refs.status, 'status'),
     };
+}
+
+export function unmountResultDialogFrame(container: HTMLElement): void {
+    render(null, container);
 }
 
 export interface CompactResultPreviewCopy {

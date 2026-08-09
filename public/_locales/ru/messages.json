@@ -399,5 +399,52 @@
     "historySortOldest": { "message": "Сначала старые" },
     "historySortFavorites": { "message": "Сначала избранное" },
     "requestCompletedIn": { "message": "Готово за $1 с" },
-    "resultFromCache": { "message": "Результат получен из локального кэша." }
+    "resultFromCache": { "message": "Результат получен из локального кэша." },
+    "releaseNotesOpen": { "message": "Что нового" },
+    "releaseNotesOpenVersion": { "message": "Версия LexiSync $1. Открыть историю обновлений" },
+    "releaseNotesEyebrow": { "message": "История LexiSync" },
+    "releaseNotesTitle": { "message": "Что нового" },
+    "releaseNotesClose": { "message": "Закрыть историю обновлений" },
+    "releaseNotesIntro": { "message": "Коротко и понятно обо всех изменениях, улучшениях и исправлениях." },
+    "releaseNotesSearchLabel": { "message": "Поиск по обновлениям" },
+    "releaseNotesSearchPlaceholder": { "message": "Версия или изменение…" },
+    "releaseNotesCurrent": { "message": "Текущая" },
+    "releaseNotesKindNew": { "message": "Новое" },
+    "releaseNotesKindImproved": { "message": "Улучшено" },
+    "releaseNotesKindFixed": { "message": "Исправлено" },
+    "releaseNotesCount": { "message": "Показано версий: $1" },
+    "releaseNotesEmpty": { "message": "По этому запросу обновлений не найдено." },
+    "tabGuideMainTitle": { "message": "Начните с основных параметров" },
+    "tabGuideMainDescription": {
+        "message": "Подключите Mistral, выберите стиль ответа и поисковую систему."
+    },
+    "tabGuideAiTitle": { "message": "Управляйте качеством и расходами" },
+    "tabGuideAiDescription": {
+        "message": "Выберите модель, настройте словарь, профили стиля и лимиты запросов."
+    },
+    "tabGuideAppearanceTitle": { "message": "Настройте LexiSync под себя" },
+    "tabGuideAppearanceDescription": {
+        "message": "Меняйте тему, стиль окон, размер интерфейса, плотность и прозрачность."
+    },
+    "tabGuideSuggestionsTitle": { "message": "Помощь прямо во время ввода" },
+    "tabGuideSuggestionsDescription": {
+        "message": "Управляйте локальными подсказками и автоматической проверкой текста."
+    },
+    "tabGuidePrivacyTitle": { "message": "Ваши данные под контролем" },
+    "tabGuidePrivacyDescription": {
+        "message": "Решите, что сохранять, какие сайты исключить и когда передавать контекст страницы."
+    },
+    "tabGuideCommandsTitle": { "message": "Соберите свои быстрые действия" },
+    "tabGuideCommandsDescription": {
+        "message": "Создавайте понятные команды для повторяющихся задач с текстом."
+    },
+    "apiKeySimpleHint": {
+        "message": "Нужен только для AI-команд. Ключ хранится локально и недоступен сайтам."
+    },
+    "toneSimpleHint": {
+        "message": "Используется при улучшении и переписывании текста. Перевод и исправление ошибок не меняются."
+    },
+    "searchEngineSimpleHint": {
+        "message": "Откроется, когда вы выберете команду поиска выделенного текста в интернете."
+    }
 }

@@ -25,6 +25,98 @@ let restoredApiKey = '';
 let savedOptionsState = '';
 let saveInProgress = false;
 
+const SETTINGS_TAB_GUIDES = {
+    main: {
+        icon: '✦',
+        titleKey: 'tabGuideMainTitle',
+        title: 'Начните с основных параметров',
+        descriptionKey: 'tabGuideMainDescription',
+        description: 'Подключите Mistral, выберите стиль ответа и поисковую систему.',
+    },
+    ai: {
+        icon: '◆',
+        titleKey: 'tabGuideAiTitle',
+        title: 'Управляйте качеством и расходами',
+        descriptionKey: 'tabGuideAiDescription',
+        description: 'Выберите модель, настройте словарь, профили стиля и лимиты запросов.',
+    },
+    appearance: {
+        icon: '◐',
+        titleKey: 'tabGuideAppearanceTitle',
+        title: 'Настройте LexiSync под себя',
+        descriptionKey: 'tabGuideAppearanceDescription',
+        description: 'Меняйте тему, стиль окон, размер интерфейса, плотность и прозрачность.',
+    },
+    suggestions: {
+        icon: '✧',
+        titleKey: 'tabGuideSuggestionsTitle',
+        title: 'Помощь прямо во время ввода',
+        descriptionKey: 'tabGuideSuggestionsDescription',
+        description: 'Управляйте локальными подсказками и автоматической проверкой текста.',
+    },
+    privacy: {
+        icon: '◈',
+        titleKey: 'tabGuidePrivacyTitle',
+        title: 'Ваши данные под контролем',
+        descriptionKey: 'tabGuidePrivacyDescription',
+        description: 'Решите, что сохранять, какие сайты исключить и когда передавать контекст страницы.',
+    },
+    commands: {
+        icon: '⌘',
+        titleKey: 'tabGuideCommandsTitle',
+        title: 'Соберите свои быстрые действия',
+        descriptionKey: 'tabGuideCommandsDescription',
+        description: 'Создавайте понятные команды для повторяющихся задач с текстом.',
+    },
+} as const;
+
+type SettingsTabName = keyof typeof SETTINGS_TAB_GUIDES;
+
+function updateSettingsTabGuide(tabName: string): void {
+    const selectedTab = tabName in SETTINGS_TAB_GUIDES ? (tabName as SettingsTabName) : 'main';
+    const guide = SETTINGS_TAB_GUIDES[selectedTab];
+    const panel = document.getElementById('settingsSectionGuide');
+    const icon = document.getElementById('settingsSectionGuideIcon');
+    const title = document.getElementById('settingsSectionGuideTitle');
+    const description = document.getElementById('settingsSectionGuideDescription');
+    if (!panel || !icon || !title || !description) return;
+    panel.dataset.section = selectedTab;
+    document.querySelector<HTMLElement>('.container')?.setAttribute('data-active-tab', selectedTab);
+    icon.textContent = guide.icon;
+    title.textContent = t(guide.titleKey, guide.title);
+    description.textContent = t(guide.descriptionKey, guide.description);
+    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        panel.animate(
+            [
+                { opacity: 0.72, transform: 'translateY(4px)' },
+                { opacity: 1, transform: 'translateY(0)' },
+            ],
+            { duration: 220, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' },
+        );
+    }
+}
+
+function setupReleaseNotesTrigger(): void {
+    const trigger = document.getElementById('app-version') as HTMLButtonElement | null;
+    const versionValue = document.getElementById('app-version-value');
+    if (!trigger || !versionValue) return;
+    const currentVersion = chrome.runtime.getManifest().version;
+    versionValue.textContent = `v${currentVersion}`;
+    trigger.setAttribute(
+        'aria-label',
+        t('releaseNotesOpenVersion', `Версия LexiSync ${currentVersion}. Открыть историю обновлений`, currentVersion),
+    );
+    trigger.addEventListener('click', async () => {
+        trigger.setAttribute('aria-busy', 'true');
+        try {
+            const { openReleaseNotes } = await import('./release-notes');
+            openReleaseNotes();
+        } finally {
+            trigger.removeAttribute('aria-busy');
+        }
+    });
+}
+
 function installResultPreviewStyles(): void {
     if (document.getElementById('lexisync-result-preview-styles')) return;
     const style = document.createElement('style');
@@ -260,6 +352,7 @@ function activateSettingsTab(tabName: string): void {
         button.setAttribute('aria-selected', String(active));
         button.tabIndex = active ? 0 : -1;
     });
+    updateSettingsTabGuide(tabName);
 }
 
 async function setupOnboarding(): Promise<void> {
@@ -563,6 +656,7 @@ async function restoreOptions(): Promise<void> {
 
 document.addEventListener('DOMContentLoaded', () => {
     localizeDocument();
+    setupReleaseNotesTrigger();
     installResultPreviewStyles();
     void restoreOptions().then(() => setupOnboarding());
     void setupV4Settings();
@@ -688,12 +782,6 @@ document.addEventListener('DOMContentLoaded', () => {
             importFile.value = '';
         }
     });
-
-    const versionBadge = document.getElementById('app-version');
-    if (versionBadge) {
-        const manifest = chrome.runtime.getManifest();
-        versionBadge.textContent = `v${manifest.version}`;
-    }
 
     // НОВАЯ ЧИСТАЯ ЛОГИКА ДЛЯ ГЛАЗКА ПАРОЛЯ
     const toggleBtn = document.getElementById('toggleApiKey');

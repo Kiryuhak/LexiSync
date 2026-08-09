@@ -16,9 +16,9 @@ import { createSettingsFingerprint, serializeCacheSource } from '../src/request-
 import { normalizeDisabledSites, normalizeSiteEntries } from '../src/privacy';
 import { validateMistralRequest } from '../src/request-validation';
 import { normalizeResultDisplayMode, shouldUseCompactResult } from '../src/result-display-mode';
-import { normalizeAppearanceStyle } from '../src/appearance-style';
+import { applyAppearanceStyle, normalizeAppearanceStyle } from '../src/appearance-style';
 import { estimateTokens, getBudgetBlockReason, getMonthUsage } from '../src/budget';
-import { normalizeThemeCustomization } from '../src/theme-customization';
+import { applyThemeCustomization, normalizeThemeCustomization } from '../src/theme-customization';
 import { parseAdaptiveModel } from '../src/adaptive-model-store';
 import { POPUP_STYLE_TEXT } from '../src/content-ui-style';
 import { copyText } from '../src/clipboard';
@@ -27,6 +27,18 @@ import { shouldShowSelectionMenu } from '../src/selection-state';
 import { calculatePopupPosition } from '../src/popup-position';
 import { sortHistoryItems } from '../src/history-sort';
 import { formatRequestDuration } from '../src/request-duration';
+import { filterReleaseNotes, RELEASE_NOTES, resolveReleaseNotesLocale } from '../src/release-notes';
+
+test('история обновлений содержит все выпуски и поддерживает поиск', () => {
+    expect(RELEASE_NOTES[0].version).toBe('5.2.0');
+    expect(RELEASE_NOTES.at(-1)?.version).toBe('2.5');
+    expect(RELEASE_NOTES).toHaveLength(36);
+    expect(new Set(RELEASE_NOTES.map((release) => release.version)).size).toBe(RELEASE_NOTES.length);
+    expect(filterReleaseNotes(RELEASE_NOTES, 'MagicOS', 'ru').map((release) => release.version)).toEqual(['5.1.0']);
+    expect(filterReleaseNotes(RELEASE_NOTES, 'streaming', 'en').map((release) => release.version)).toEqual(['2.15.0']);
+    expect(resolveReleaseNotesLocale('ru-RU')).toBe('ru');
+    expect(resolveReleaseNotesLocale('de-DE')).toBe('en');
+});
 
 test('удерживает модальное окно рядом с указателем при ограниченной высоте', () => {
     expect(
@@ -278,6 +290,21 @@ test('нормализует поддерживаемые стили интер�
     expect(normalizeAppearanceStyle('aurora-glass')).toBe('aurora-glass');
     expect(normalizeAppearanceStyle('bento')).toBe('liquid-glass');
     expect(normalizeAppearanceStyle('неизвестный')).toBe('liquid-glass');
+});
+
+test('применяет нормализованный стиль и параметры темы к элементу', () => {
+    const setProperty = vi.fn();
+    const element = { dataset: {}, style: { setProperty } } as unknown as HTMLElement;
+
+    expect(applyAppearanceStyle(element, 'magicos-11')).toBe('magicos-11');
+    expect(element.dataset.uiStyle).toBe('magicos-11');
+    expect(applyThemeCustomization(element, { accent: '#123456', radius: 18, transparency: 75 })).toMatchObject({
+        accent: '#123456',
+        radius: 18,
+        transparency: 75,
+    });
+    expect(setProperty).toHaveBeenCalledWith('--lexisync-surface-opacity', '0.75');
+    expect(setProperty).toHaveBeenCalledWith('--lexisync-radius', '18px');
 });
 
 test('выбирает автоматический профиль для домена и поддоменов', () => {

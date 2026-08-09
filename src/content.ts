@@ -14,6 +14,7 @@ import {
 } from './content-menus';
 import { POPUP_STYLE_TEXT } from './content-ui-style';
 import { calculatePopupPosition } from './popup-position';
+import { unmountResultDialogFrame } from './result-dialog-view';
 import {
     handleActionClick as handleContentAction,
     executeRequest as executeContentRequest,
@@ -540,7 +541,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
     }
 
     function executeRequest(mode: RequestMode, customCommand?: CustomCommand): void {
-        executeContentRequest(mode, customCommand, requestContext);
+        void executeContentRequest(mode, customCommand, requestContext);
     }
 
     function adjustPopupPosition(): void {
@@ -569,6 +570,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             popupUI = null;
             popupHost = null;
             popupShadow = null;
+            unmountResultDialogFrame(el);
             el.style.opacity = '0';
             el.style.pointerEvents = 'none';
             if (removeImmediately) host?.remove();

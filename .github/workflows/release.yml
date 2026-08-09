@@ -41,6 +41,19 @@ jobs:
             - name: Установить зависимости
               run: npm ci
 
+            - name: Проверить версию и тег релиза
+              id: release_meta
+              shell: bash
+              run: |
+                  VERSION="$(node -p "require('./package.json').version")"
+                  TAG="v${VERSION}"
+                  if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" != "${TAG}" ]]; then
+                    echo "Тег ${GITHUB_REF_NAME} не совпадает с версией ${VERSION}" >&2
+                    exit 1
+                  fi
+                  echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+                  echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
             - name: Установить браузеры
               run: npx playwright install --with-deps chromium firefox
 
@@ -57,19 +70,6 @@ jobs:
                       playwright-report/**
                   retention-days: 7
                   if-no-files-found: ignore
-
-            - name: Определить тег релиза
-              id: release_meta
-              shell: bash
-              run: |
-                  VERSION="$(node -p "require('./package.json').version")"
-                  TAG="v${VERSION}"
-                  if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" != "${TAG}" ]]; then
-                    echo "Тег ${GITHUB_REF_NAME} не совпадает с версией ${VERSION}" >&2
-                    exit 1
-                  fi
-                  echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-                  echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
             - name: Создать GitHub Release
               env:

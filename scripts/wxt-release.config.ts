@@ -16,6 +16,8 @@ export default defineConfig({
             '.vscode/**',
             '.wxt/**',
             '.env*',
+            '*.xpi',
+            '*.zip',
             'coverage/**',
             'test-results/**',
             'playwright-report/**',
