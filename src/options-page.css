@@ -1073,6 +1073,17 @@ input[type='range'] {
         box-shadow 160ms ease,
         transform 160ms ease;
 }
+@media (min-width: 601px) {
+    .settings-tabs {
+        gap: 4px;
+    }
+    .settings-tab {
+        min-width: 0;
+        flex: 1 1 auto;
+        padding-right: 4px;
+        padding-left: 4px;
+    }
+}
 .settings-tab:hover {
     color: var(--text-main);
     background: var(--bg-card);

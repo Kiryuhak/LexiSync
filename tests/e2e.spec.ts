@@ -566,6 +566,12 @@ test('OCR-кэш не расходует дневной лимит и не по�
 });
 test('Кейс 4: Переписывание стиля (Alt+Y)', async ({ page, context }) => {
     await setFakeApiKey(context);
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    const actionLabels = await background.evaluate(() => ({
+        repeat: chrome.i18n.getMessage('repeat'),
+        shorter: chrome.i18n.getMessage('shorter'),
+    }));
     await page.waitForTimeout(300);
     await page.goto('https://example.com');
     await grantSiteAccess(context, page);
@@ -591,9 +597,9 @@ test('Кейс 4: Переписывание стиля (Alt+Y)', async ({ page,
     await expect(uiPanel).not.toHaveAttribute('data-compact-result', 'true');
     expect(await uiPanel.evaluate((element) => Number.parseFloat(getComputedStyle(element).width))).toBe(340);
 
-    await uiPanel.getByRole('button', { name: /Повторить|Repeat/ }).click();
+    await uiPanel.getByRole('button', { name: actionLabels.repeat, exact: true }).click();
     await expect(uiPanel.locator('.lexisync-content-pane')).toContainText('Новый деловой текст.');
-    await uiPanel.getByRole('button', { name: /Короче|Shorter/ }).click();
+    await uiPanel.getByRole('button', { name: actionLabels.shorter, exact: true }).click();
     await expect(uiPanel).toContainText('Короткий деловой текст.', { timeout: 5000 });
     expect(requestCount).toBe(3);
 });
@@ -755,16 +761,19 @@ test('вкладки настроек простым языком объясня
 
     const guide = page.locator('#settingsSectionGuide');
     await expect(guide).toHaveAttribute('aria-live', 'polite');
-    const expectedTitles: Record<string, string> = {
-        main: 'Начните с основных параметров',
-        ai: 'Управляйте качеством и расходами',
-        appearance: 'Настройте LexiSync под себя',
-        suggestions: 'Помощь прямо во время ввода',
-        privacy: 'Ваши данные под контролем',
-        commands: 'Соберите свои быстрые действия',
-    };
+    const localizedCopy = await page.evaluate(() => ({
+        titles: {
+            main: chrome.i18n.getMessage('tabGuideMainTitle'),
+            ai: chrome.i18n.getMessage('tabGuideAiTitle'),
+            appearance: chrome.i18n.getMessage('tabGuideAppearanceTitle'),
+            suggestions: chrome.i18n.getMessage('tabGuideSuggestionsTitle'),
+            privacy: chrome.i18n.getMessage('tabGuidePrivacyTitle'),
+            commands: chrome.i18n.getMessage('tabGuideCommandsTitle'),
+        },
+        searchHint: chrome.i18n.getMessage('searchEngineSimpleHint'),
+    }));
 
-    for (const [tab, title] of Object.entries(expectedTitles)) {
+    for (const [tab, title] of Object.entries(localizedCopy.titles)) {
         await page.locator(`[data-tab="${tab}"]`).click();
         await expect(guide).toHaveAttribute('data-section', tab);
         await expect(guide.locator('h2')).toHaveText(title);
@@ -773,7 +782,7 @@ test('вкладки настроек простым языком объясня
 
     await page.locator('[data-tab="main"]').click();
     await expect(page.locator('.field-hint[data-settings-group="main"]')).toHaveCount(2);
-    await expect(page.locator('.settings-field .field-hint')).toContainText('поиска выделенного текста');
+    await expect(page.locator('.settings-field .field-hint')).toHaveText(localizedCopy.searchHint);
 
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const reducedMotionStyles = await page.evaluate(() => ({
