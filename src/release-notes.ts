@@ -35,6 +35,16 @@ const note = (
 
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
+    note('5.2.1', '2026-08-09', 'fixed', 'Чёткий текст в стеклянных стилях', 'Clear text in glass styles', [
+        [
+            'В стилях MagicOS и Aurora окно истории стало плотнее, поэтому текст больше не сливается с настройками на фоне.',
+            'In MagicOS and Aurora, the update history surface is now denser so its text stays clear over the settings page.',
+        ],
+        [
+            'Контраст улучшен отдельно для светлой и тёмной темы без отказа от эффекта стекла.',
+            'Contrast is improved separately for light and dark themes while preserving the glass effect.',
+        ],
+    ]),
     note('5.2.0', '2026-08-09', 'new', 'Большое обновление интерфейса', 'Major interface update', [
         [
             'Нажмите на номер версии, чтобы посмотреть все изменения LexiSync в одном компактном окне.',

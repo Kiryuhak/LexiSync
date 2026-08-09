@@ -807,13 +807,42 @@ test('номер версии открывает доступную истори
 
     const dialog = page.locator('#releaseNotesDialog');
     await expect(dialog).toBeVisible();
-    await expect(dialog.locator('[data-release-version]')).toHaveCount(36);
+    await expect(dialog.locator('[data-release-version]')).toHaveCount(37);
     await expect(dialog.locator(`[data-release-version="${currentVersion}"]`)).toHaveAttribute('open', '');
 
+    for (const style of ['magicos-11', 'aurora-glass']) {
+        for (const theme of ['light', 'dark']) {
+            const surfaceAlpha = await page.evaluate(
+                ({ style, theme }) => {
+                    document.documentElement.dataset.uiStyle = style;
+                    document.documentElement.dataset.theme = theme;
+                    const alpha = (color: string): number => {
+                        const channels = color.match(/[\d.]+/g)?.map(Number) || [];
+                        return channels.length > 3 ? channels[3] : 1;
+                    };
+                    return {
+                        backdrop: alpha(
+                            getComputedStyle(document.querySelector('dialog')!, '::backdrop').backgroundColor,
+                        ),
+                        card: alpha(getComputedStyle(document.querySelector('.release-notes-card')!).backgroundColor),
+                        item: alpha(getComputedStyle(document.querySelector('.release-note-item')!).backgroundColor),
+                        search: alpha(getComputedStyle(document.querySelector('#releaseNotesSearch')!).backgroundColor),
+                    };
+                },
+                { style, theme },
+            );
+            expect(surfaceAlpha.backdrop).toBeGreaterThanOrEqual(0.5);
+            expect(surfaceAlpha.card).toBeGreaterThanOrEqual(0.95);
+            expect(surfaceAlpha.item).toBeGreaterThanOrEqual(0.9);
+            expect(surfaceAlpha.search).toBeGreaterThanOrEqual(0.93);
+        }
+    }
+
     await dialog.locator('#releaseNotesSearch').fill('MagicOS');
-    await expect(dialog.locator('[data-release-version]')).toHaveCount(1);
+    await expect(dialog.locator('[data-release-version]')).toHaveCount(2);
+    await expect(dialog.locator('[data-release-version="5.2.1"]')).toBeVisible();
     await expect(dialog.locator('[data-release-version="5.1.0"]')).toBeVisible();
-    await expect(dialog.locator('#releaseNotesCount')).toContainText('1');
+    await expect(dialog.locator('#releaseNotesCount')).toContainText('2');
 
     const accessibility = await new AxeBuilder({ page }).include('#releaseNotesDialog').analyze();
     expect(accessibility.violations).toEqual([]);

@@ -30,11 +30,14 @@ import { formatRequestDuration } from '../src/request-duration';
 import { filterReleaseNotes, RELEASE_NOTES, resolveReleaseNotesLocale } from '../src/release-notes';
 
 test('история обновлений содержит все выпуски и поддерживает поиск', () => {
-    expect(RELEASE_NOTES[0].version).toBe('5.2.0');
+    expect(RELEASE_NOTES[0].version).toBe('5.2.1');
     expect(RELEASE_NOTES.at(-1)?.version).toBe('2.5');
-    expect(RELEASE_NOTES).toHaveLength(36);
+    expect(RELEASE_NOTES).toHaveLength(37);
     expect(new Set(RELEASE_NOTES.map((release) => release.version)).size).toBe(RELEASE_NOTES.length);
-    expect(filterReleaseNotes(RELEASE_NOTES, 'MagicOS', 'ru').map((release) => release.version)).toEqual(['5.1.0']);
+    expect(filterReleaseNotes(RELEASE_NOTES, 'MagicOS', 'ru').map((release) => release.version)).toEqual([
+        '5.2.1',
+        '5.1.0',
+    ]);
     expect(filterReleaseNotes(RELEASE_NOTES, 'streaming', 'en').map((release) => release.version)).toEqual(['2.15.0']);
     expect(resolveReleaseNotesLocale('ru-RU')).toBe('ru');
     expect(resolveReleaseNotesLocale('de-DE')).toBe('en');
