@@ -12,52 +12,49 @@
 
 Кросс-браузерное расширение для Chrome и Firefox на базе **Mistral AI**. Позволяет исправлять ошибки, переписывать и переводить текст, менять раскладку, добавлять эмодзи и распознавать текст на изображениях.
 
-## 🖼 LexiSync в работе
-
-Выделите текст на странице, выберите нужное действие и примените готовый результат — без перехода в отдельный редактор.
+<h2 align="center">✨ Как работает LexiSync</h2>
 
 <p align="center">
-  <img src="docs/store-assets/firefox/lexisync-text-correction.png" alt="LexiSync исправляет текст прямо на странице" width="100%">
+  Выделите текст, выберите нужное действие и примените готовый результат — всё прямо на странице.
 </p>
 
-<table>
-  <tr>
-    <td width="50%" align="center">
-      <img src="docs/store-assets/firefox/lexisync-ai-actions.png" alt="Меню действий LexiSync на русском языке"><br>
-      <strong>1. Выберите действие</strong><br>
-      <sub>Исправление, переписывание, перевод и другие команды рядом с выделенным текстом.</sub>
-    </td>
-    <td width="50%" align="center">
-      <img src="docs/store-assets/firefox/lexisync-result-window.png" alt="Компактное окно результата LexiSync"><br>
-      <strong>2. Проверьте результат</strong><br>
-      <sub>Изменения подсвечены, а готовый текст можно заменить или скопировать.</sub>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" align="center">
-      <img src="docs/store-assets/firefox/lexisync-appearance-settings.png" alt="Настройки оформления LexiSync"><br>
-      <strong>Настройте оформление</strong><br>
-      <sub>Темы, стили MagicOS и Aurora Glass, размер, плотность и прозрачность интерфейса.</sub>
-    </td>
-    <td width="50%" align="center">
-      <img src="docs/store-assets/firefox/lexisync-privacy-settings.png" alt="Настройки приватности LexiSync"><br>
-      <strong>Управляйте данными</strong><br>
-      <sub>Локальная история, исключения сайтов и передача контекста находятся под вашим контролем.</sub>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" align="center">
-      <img src="docs/store-assets/firefox/lexisync-update-history.png" alt="История обновлений LexiSync"><br>
-      <strong>Следите за обновлениями</strong><br>
-      <sub>Понятная история версий с поиском и описанием исправлений.</sub>
-    </td>
-    <td width="50%" align="center">
-      <img src="docs/store-assets/firefox/lexisync-quick-start.png" alt="Пошаговая настройка LexiSync"><br>
-      <strong>Начните без сложной настройки</strong><br>
-      <sub>Русские подсказки помогут добавить API-ключ и выполнить первую команду.</sub>
-    </td>
-  </tr>
-</table>
+<p align="center">
+  <img src="docs/assets/lexisync-showcase.gif" alt="Возможности LexiSync: исправление текста, AI-команды, настройки и быстрый старт" width="960">
+</p>
+
+<p align="center">
+  <strong>① Выделите текст</strong>&nbsp;&nbsp;→&nbsp;&nbsp;
+  <strong>② Выберите действие</strong>&nbsp;&nbsp;→&nbsp;&nbsp;
+  <strong>③ Проверьте результат</strong>&nbsp;&nbsp;→&nbsp;&nbsp;
+  <strong>④ Замените одним кликом</strong>
+</p>
+
+<details>
+  <summary><strong>🪄 Работа с текстом — меню и готовый результат</strong></summary>
+  <br>
+  <p align="center">
+    <img src="docs/store-assets/firefox/lexisync-ai-actions.png" alt="Меню действий LexiSync на русском языке" width="49%">
+    <img src="docs/store-assets/firefox/lexisync-result-window.png" alt="Компактное окно результата LexiSync" width="49%">
+  </p>
+</details>
+
+<details>
+  <summary><strong>🎨 Оформление и приватность</strong></summary>
+  <br>
+  <p align="center">
+    <img src="docs/store-assets/firefox/lexisync-appearance-settings.png" alt="Настройки оформления LexiSync" width="49%">
+    <img src="docs/store-assets/firefox/lexisync-privacy-settings.png" alt="Настройки приватности LexiSync" width="49%">
+  </p>
+</details>
+
+<details>
+  <summary><strong>🚀 Быстрый старт и история обновлений</strong></summary>
+  <br>
+  <p align="center">
+    <img src="docs/store-assets/firefox/lexisync-quick-start.png" alt="Пошаговая настройка LexiSync" width="49%">
+    <img src="docs/store-assets/firefox/lexisync-update-history.png" alt="История обновлений LexiSync" width="49%">
+  </p>
+</details>
 
 ## ✨ Что нового в 5.2.1
 

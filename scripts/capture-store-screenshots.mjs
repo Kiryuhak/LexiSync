@@ -3,11 +3,13 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import sharp from 'sharp';
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const extensionDir = path.join(rootDir, '.output', 'chrome-mv3');
 const rawDir = path.join(rootDir, '.output', 'showcase');
 const outputDir = path.join(rootDir, 'docs', 'store-assets', 'firefox');
+const carouselPath = path.join(rootDir, 'docs', 'assets', 'lexisync-showcase.gif');
 const profileDir = await fs.mkdtemp(path.join(os.tmpdir(), 'lexisync-showcase-'));
 
 const demoHtml = `<!doctype html>
@@ -187,6 +189,23 @@ async function compose(context, scene) {
     await page.close();
 }
 
+async function createCarousel() {
+    const names = ['lexisync-text-correction.png', ...scenes.map((scene) => scene.output)];
+    const frames = await Promise.all(
+        names.map((name) => sharp(path.join(outputDir, name)).resize(960, 640, { fit: 'cover' }).png().toBuffer()),
+    );
+    await sharp(frames, { join: { animated: true } })
+        .gif({
+            loop: 0,
+            delay: Array.from({ length: names.length }, () => 2800),
+            effort: 10,
+            colours: 160,
+            dither: 0.5,
+            interFrameMaxError: 6,
+        })
+        .toFile(carouselPath);
+}
+
 await fs.access(path.join(extensionDir, 'manifest.json'));
 await fs.mkdir(rawDir, { recursive: true });
 await fs.mkdir(outputDir, { recursive: true });
@@ -285,7 +304,10 @@ try {
     await result.close();
 
     for (const scene of scenes) await compose(context, scene);
-    process.stdout.write(`Создано ${scenes.length} скриншотов в ${path.relative(rootDir, outputDir)}\n`);
+    await createCarousel();
+    process.stdout.write(
+        `Создано ${scenes.length} скриншотов и анимированная галерея ${path.relative(rootDir, carouselPath)}\n`,
+    );
 } finally {
     await context.close();
     if (path.dirname(profileDir) === os.tmpdir() && path.basename(profileDir).startsWith('lexisync-showcase-')) {
