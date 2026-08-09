@@ -19,14 +19,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/lexisync-showcase.gif" alt="Возможности LexiSync: исправление текста, AI-команды, настройки и быстрый старт" width="960">
-</p>
-
-<p align="center">
-  <strong>① Выделите текст</strong>&nbsp;&nbsp;→&nbsp;&nbsp;
-  <strong>② Выберите действие</strong>&nbsp;&nbsp;→&nbsp;&nbsp;
-  <strong>③ Проверьте результат</strong>&nbsp;&nbsp;→&nbsp;&nbsp;
-  <strong>④ Замените одним кликом</strong>
+  <img src="docs/assets/lexisync-showcase.gif" alt="Возможности LexiSync: работа с текстом, настройки, приватность и быстрый старт" width="100%">
 </p>
 
 <details>

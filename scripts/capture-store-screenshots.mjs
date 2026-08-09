@@ -190,18 +190,18 @@ async function compose(context, scene) {
 }
 
 async function createCarousel() {
-    const names = ['lexisync-text-correction.png', ...scenes.map((scene) => scene.output)];
+    const names = scenes.map((scene) => scene.output);
     const frames = await Promise.all(
-        names.map((name) => sharp(path.join(outputDir, name)).resize(960, 640, { fit: 'cover' }).png().toBuffer()),
+        names.map((name) => sharp(path.join(outputDir, name)).resize(1152, 768, { fit: 'cover' }).png().toBuffer()),
     );
     await sharp(frames, { join: { animated: true } })
         .gif({
             loop: 0,
             delay: Array.from({ length: names.length }, () => 2800),
             effort: 10,
-            colours: 160,
-            dither: 0.5,
-            interFrameMaxError: 6,
+            colours: 256,
+            dither: 0.65,
+            interFrameMaxError: 3,
         })
         .toFile(carouselPath);
 }
