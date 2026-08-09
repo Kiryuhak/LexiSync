@@ -33,6 +33,7 @@
         "test:firefox:only": "playwright test tests/firefox.spec.ts",
         "test:firefox": "npm run build:e2e:firefox && npm run test:firefox:only",
         "test:runtime": "npm run build:e2e && npm run test:e2e:only && npm run test:firefox:only",
+        "screenshots:store": "npm run build:e2e && node scripts/capture-store-screenshots.mjs",
         "lint:firefox": "web-ext lint --source-dir .output/release/firefox-mv3",
         "check:static": "npm run format:check && npm run lint && npm run typecheck && npm run typecheck:legacy && npm run check:i18n && npm run check:svg",
         "verify:release": "npm run zip && npm run verify:artifacts && npm run lint:firefox",

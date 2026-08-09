@@ -12,6 +12,53 @@
 
 Кросс-браузерное расширение для Chrome и Firefox на базе **Mistral AI**. Позволяет исправлять ошибки, переписывать и переводить текст, менять раскладку, добавлять эмодзи и распознавать текст на изображениях.
 
+## 🖼 LexiSync в работе
+
+Выделите текст на странице, выберите нужное действие и примените готовый результат — без перехода в отдельный редактор.
+
+<p align="center">
+  <img src="docs/store-assets/firefox/lexisync-text-correction.png" alt="LexiSync исправляет текст прямо на странице" width="100%">
+</p>
+
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <img src="docs/store-assets/firefox/lexisync-ai-actions.png" alt="Меню действий LexiSync на русском языке"><br>
+      <strong>1. Выберите действие</strong><br>
+      <sub>Исправление, переписывание, перевод и другие команды рядом с выделенным текстом.</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="docs/store-assets/firefox/lexisync-result-window.png" alt="Компактное окно результата LexiSync"><br>
+      <strong>2. Проверьте результат</strong><br>
+      <sub>Изменения подсвечены, а готовый текст можно заменить или скопировать.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img src="docs/store-assets/firefox/lexisync-appearance-settings.png" alt="Настройки оформления LexiSync"><br>
+      <strong>Настройте оформление</strong><br>
+      <sub>Темы, стили MagicOS и Aurora Glass, размер, плотность и прозрачность интерфейса.</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="docs/store-assets/firefox/lexisync-privacy-settings.png" alt="Настройки приватности LexiSync"><br>
+      <strong>Управляйте данными</strong><br>
+      <sub>Локальная история, исключения сайтов и передача контекста находятся под вашим контролем.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img src="docs/store-assets/firefox/lexisync-update-history.png" alt="История обновлений LexiSync"><br>
+      <strong>Следите за обновлениями</strong><br>
+      <sub>Понятная история версий с поиском и описанием исправлений.</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="docs/store-assets/firefox/lexisync-quick-start.png" alt="Пошаговая настройка LexiSync"><br>
+      <strong>Начните без сложной настройки</strong><br>
+      <sub>Русские подсказки помогут добавить API-ключ и выполнить первую команду.</sub>
+    </td>
+  </tr>
+</table>
+
 ## ✨ Что нового в 5.2.1
 
 - Повышена читаемость истории обновлений в стилях MagicOS и Aurora Glass.
@@ -87,6 +134,7 @@ npm run test:unit        # модульные тесты Vitest без запу�
 npm run test:coverage    # модульные тесты с порогами покрытия
 npm run test:e2e         # функциональные тесты Chrome
 npm run test:firefox     # временная установка сборки в Firefox через web-ext
+npm run screenshots:store # обновить русские скриншоты для README и витрины
 npm run verify:manifests # проверка разрешений финальных манифестов
 npm run verify:release   # финальные ZIP, MV3, целостность и Firefox Add-ons
 npm run test:all         # полный набор автоматических проверок
