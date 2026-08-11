@@ -156,6 +156,9 @@ for (const browser of ['chrome', 'firefox']) {
         }
         if (/\.(?:html|js)$/i.test(filename)) {
             const source = buildFiles.get(filename).toString('utf8');
+            if (/\.html$/i.test(filename) && /<link\b[^>]*\brel\s*=\s*['"]modulepreload['"]/iu.test(source)) {
+                throw new Error(`${browser}: ${filename} содержит несовместимый с extension-страницей modulepreload`);
+            }
             if (
                 /\beval\s*\(/u.test(source) ||
                 /\bnew\s+Function\s*\(/u.test(source) ||

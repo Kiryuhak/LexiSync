@@ -71,6 +71,11 @@ test('внедряет сценарии в нужный фрейм и перед
     expect(executeScript).toHaveBeenCalledWith({ target: { tabId: 7, frameIds: [3] }, files: ['inject.js'] });
     expect(response).toEqual({ ok: true });
     await injectOptionalContentFeature(7, 3, 'ocr');
+    await injectOptionalContentFeature(7, 3, 'liveProofread');
+    expect(executeScript).toHaveBeenLastCalledWith({
+        target: { tabId: 7, frameIds: [3] },
+        files: ['live-proofread.js'],
+    });
     await injectOptionalContentFeature(7, undefined, 'adaptive');
     expect(executeScript).toHaveBeenLastCalledWith({ target: { tabId: 7, frameIds: [0] }, files: ['adaptive.js'] });
 });

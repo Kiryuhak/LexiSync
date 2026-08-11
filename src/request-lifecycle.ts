@@ -6,6 +6,27 @@ export interface RequestLifecycle {
     dispose: () => void;
 }
 
+export interface PortDisconnectGuard {
+    expectDisconnect: () => void;
+    handleDisconnect: () => boolean;
+}
+
+export function createPortDisconnectGuard(onUnexpectedDisconnect: () => void): PortDisconnectGuard {
+    let expected = false;
+    let handled = false;
+    return {
+        expectDisconnect() {
+            expected = true;
+        },
+        handleDisconnect() {
+            if (expected || handled) return false;
+            handled = true;
+            onUnexpectedDisconnect();
+            return true;
+        },
+    };
+}
+
 export function createRequestLifecycle(onDispose: () => void): RequestLifecycle {
     let disposed = false;
     const intervals = new Set<ReturnType<typeof setInterval>>();

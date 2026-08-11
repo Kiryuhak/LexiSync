@@ -1,4 +1,4 @@
-export type OptionalContentFeature = 'adaptive' | 'ocr';
+export type OptionalContentFeature = 'adaptive' | 'liveProofread' | 'ocr';
 
 export const OCR_START_EVENT = 'lexisync:ocr-start';
 export const OCR_IMAGE_EVENT = 'lexisync:ocr-image';

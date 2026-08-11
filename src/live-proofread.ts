@@ -9,7 +9,17 @@ import { calculatePopupPosition } from './popup-position';
 function isSafeEditor(value: EventTarget | null): value is HTMLInputElement | HTMLTextAreaElement {
     if (!(value instanceof HTMLInputElement || value instanceof HTMLTextAreaElement)) return false;
     const inputType = value instanceof HTMLInputElement ? value.type : null;
-    if (!shouldAutoProofreadField(inputType, value.autocomplete)) return false;
+    const fieldIdentity = [
+        value.name,
+        value.id,
+        value.getAttribute('aria-label'),
+        value.getAttribute('aria-labelledby'),
+        value.placeholder,
+        value.title,
+    ]
+        .filter(Boolean)
+        .join(' ');
+    if (!shouldAutoProofreadField(inputType, value.autocomplete, fieldIdentity)) return false;
     if (value.readOnly || value.disabled || value.closest('[data-lexisync-ignore]')) return false;
     return true;
 }
@@ -22,6 +32,7 @@ export function startLiveProofread(): () => void {
     let requestVersion = 0;
     let activeRequest: CancellableTextRequest | null = null;
     let disabledSites: string[] = [];
+    const ignoredInputEvents = new WeakSet<HTMLInputElement | HTMLTextAreaElement>();
 
     const close = () => {
         host?.remove();
@@ -63,7 +74,7 @@ export function startLiveProofread(): () => void {
         dismiss.className = 'close';
         dismiss.type = 'button';
         dismiss.textContent = '×';
-        dismiss.setAttribute('aria-label', 'Закрыть');
+        dismiss.setAttribute('aria-label', t('closePanel', 'Закрыть панель'));
         dismiss.onclick = close;
         head.append(title, dismiss);
         const preview = document.createElement('div');
@@ -74,7 +85,7 @@ export function startLiveProofread(): () => void {
                 const tokenIndex = Number(mark.dataset.tokenIndex);
                 mark.tabIndex = 0;
                 mark.setAttribute('role', 'button');
-                mark.setAttribute('aria-label', 'Отклонить это исправление');
+                mark.setAttribute('aria-label', t('keepOriginal', 'Оставить исходное слово'));
                 const toggle = () => {
                     rejected.add(tokenIndex);
                     renderPreview();
@@ -113,6 +124,7 @@ export function startLiveProofread(): () => void {
             if (editor.value !== original) return close();
             const resolved = resolveCorrections(corrected, corrections, rejected);
             setNativeValue(editor, resolved);
+            ignoredInputEvents.add(editor);
             dispatchValueEvents(editor);
             close();
         };
@@ -138,6 +150,9 @@ export function startLiveProofread(): () => void {
     };
 
     const onInput = (event: Event) => {
+        if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+            if (ignoredInputEvents.delete(event.target)) return;
+        }
         if (!enabled || !isSafeEditor(event.target)) return;
         if (isSiteDisabled(location.hostname, disabledSites)) return;
         const editor = event.target;

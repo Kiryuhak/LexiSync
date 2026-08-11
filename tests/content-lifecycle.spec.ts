@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from 'vitest';
-import { createRequestLifecycle } from '../src/request-lifecycle';
+import { createPortDisconnectGuard, createRequestLifecycle } from '../src/request-lifecycle';
 import { createBatchedUiUpdater } from '../src/content-stream-renderer';
 
 afterEach(() => {
@@ -49,4 +49,18 @@ test('останавливает запрос и все таймеры при з
     expect(intervalCallback).toHaveBeenCalledOnce();
     expect(timeoutCallback).not.toHaveBeenCalled();
     expect(lifecycle.disposed).toBe(true);
+});
+
+test('отличает аварийное отключение порта от ожидаемого', () => {
+    const onUnexpectedDisconnect = vi.fn();
+    const unexpected = createPortDisconnectGuard(onUnexpectedDisconnect);
+
+    expect(unexpected.handleDisconnect()).toBe(true);
+    expect(unexpected.handleDisconnect()).toBe(false);
+    expect(onUnexpectedDisconnect).toHaveBeenCalledOnce();
+
+    const expected = createPortDisconnectGuard(onUnexpectedDisconnect);
+    expected.expectDisconnect();
+    expect(expected.handleDisconnect()).toBe(false);
+    expect(onUnexpectedDisconnect).toHaveBeenCalledOnce();
 });

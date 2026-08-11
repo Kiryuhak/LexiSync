@@ -6,6 +6,13 @@ const WEB_ORIGINS = ['http://*/*', 'https://*/*'];
 export default defineConfig({
     manifestVersion: 3,
     targetBrowsers: ['chrome', 'firefox'],
+    vite: () => ({
+        build: {
+            // Chrome помечает preload общих чанков extension-страницы как cross-world mismatch.
+            // Модули остаются разбитыми на чанки и загружаются штатными import без ложных ошибок.
+            modulePreload: false,
+        },
+    }),
     manifest: ({ browser }) => ({
         name: '__MSG_extName__',
         description: '__MSG_extDesc__',

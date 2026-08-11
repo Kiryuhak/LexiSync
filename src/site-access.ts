@@ -1,6 +1,10 @@
 const REGISTERED_SCRIPT_ID = 'lexisync-enabled-sites';
 const INJECT_SCRIPT_FILE = 'inject.js';
-const OPTIONAL_SCRIPT_FILES = { adaptive: 'adaptive.js', ocr: 'ocr.js' } as const;
+const OPTIONAL_SCRIPT_FILES = {
+    adaptive: 'adaptive.js',
+    liveProofread: 'live-proofread.js',
+    ocr: 'ocr.js',
+} as const;
 let scriptSyncQueue: Promise<void> = Promise.resolve();
 const tabInjectionQueues = new Map<number, Promise<void>>();
 

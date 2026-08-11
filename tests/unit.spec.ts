@@ -4,6 +4,8 @@ import { buildMessages } from '../src/prompt-builder';
 import { escapeHTML, parseMarkdownToHTML } from '../src/markdown';
 import {
     formatMistralError,
+    isRetryableMistralError,
+    MistralRequestError,
     parseRetryAfterMs,
     readSsePayload,
     streamText,
@@ -30,13 +32,16 @@ import { formatRequestDuration } from '../src/request-duration';
 import { filterReleaseNotes, RELEASE_NOTES, resolveReleaseNotesLocale } from '../src/release-notes';
 
 test('история обновлений содержит все выпуски и поддерживает поиск', () => {
-    expect(RELEASE_NOTES[0].version).toBe('5.2.1');
+    expect(RELEASE_NOTES[0].version).toBe('5.2.3');
     expect(RELEASE_NOTES.at(-1)?.version).toBe('2.5');
-    expect(RELEASE_NOTES).toHaveLength(37);
+    expect(RELEASE_NOTES).toHaveLength(38);
     expect(new Set(RELEASE_NOTES.map((release) => release.version)).size).toBe(RELEASE_NOTES.length);
     expect(filterReleaseNotes(RELEASE_NOTES, 'MagicOS', 'ru').map((release) => release.version)).toEqual([
         '5.2.1',
         '5.1.0',
+    ]);
+    expect(filterReleaseNotes(RELEASE_NOTES, 'чувствительных', 'ru').map((release) => release.version)).toEqual([
+        '5.2.3',
     ]);
     expect(filterReleaseNotes(RELEASE_NOTES, 'streaming', 'en').map((release) => release.version)).toEqual(['2.15.0']);
     expect(resolveReleaseNotesLocale('ru-RU')).toBe('ru');
@@ -87,9 +92,13 @@ test('исключает чувствительные поля из фоново
     expect(shouldAutoProofreadField('text', 'username')).toBe(false);
     expect(shouldAutoProofreadField('text', 'section-profile email')).toBe(false);
     expect(shouldAutoProofreadField(null, 'street-address')).toBe(false);
+    expect(shouldAutoProofreadField('text', 'off', 'accountPassword')).toBe(false);
+    expect(shouldAutoProofreadField('text', '', 'private_email')).toBe(false);
+    expect(shouldAutoProofreadField(null, '', 'Поле для номера карты')).toBe(false);
     expect(shouldAutoProofreadField('text', '')).toBe(true);
     expect(shouldAutoProofreadField('search', 'off')).toBe(true);
     expect(shouldAutoProofreadField(null, '')).toBe(true);
+    expect(shouldAutoProofreadField(null, '', 'message editor')).toBe(true);
 });
 
 test('не открывает панель выделения на отключённом сайте', () => {
@@ -454,6 +463,14 @@ test('форматирует сетевые ошибки и ошибки Mistral
         'Не удалось подключиться к сервису Mistral AI',
     );
     expect(formatMistralError(new DOMException('Запрос отменён.', 'AbortError'))).toBe('Запрос отменён.');
+});
+
+test('разрешает ручной повтор только для временных ошибок Mistral', () => {
+    expect(isRetryableMistralError(new TypeError('Failed to fetch'))).toBe(true);
+    expect(isRetryableMistralError(new MistralRequestError('Сервис временно недоступен.', true))).toBe(true);
+    expect(isRetryableMistralError(new MistralRequestError('API-ключ недействителен.', false))).toBe(false);
+    expect(isRetryableMistralError(new Error('Достигнут дневной лимит запросов.'))).toBe(false);
+    expect(isRetryableMistralError(new DOMException('Запрос отменён.', 'AbortError'))).toBe(false);
 });
 
 test('валидирует API-ключ с возвратом понятного результата', async () => {

@@ -9,7 +9,13 @@ import { applyAdaptiveMutation, type AdaptiveMutation } from './adaptive-model-s
 import { createSettingsFingerprint } from './request-cache';
 import { applySettingsMutation, type SettingsMutation } from './settings-store';
 import { initializeSettingsSync, restoreSyncedSettings } from './settings-transfer';
-import { processOcr, streamText, type MistralRequest } from './mistral-client';
+import {
+    formatMistralError,
+    isRetryableMistralError,
+    processOcr,
+    streamText,
+    type MistralRequest,
+} from './mistral-client';
 import { validateMistralRequest } from './request-validation';
 import { resolveStyleProfile } from './site-profiles';
 import {
@@ -160,7 +166,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     } else if (
         request.action === 'ensureOptionalContentFeature' &&
         sender.tab?.id &&
-        (request.feature === 'adaptive' || request.feature === 'ocr')
+        (request.feature === 'adaptive' || request.feature === 'liveProofread' || request.feature === 'ocr')
     ) {
         void injectOptionalContentFeature(sender.tab.id, sender.frameId, request.feature)
             .then(() => sendResponse({ ok: true }))
@@ -353,6 +359,7 @@ chrome.runtime.onConnect.addListener((port) => {
             safePostMessage({
                 status: 'error',
                 error: error instanceof Error ? error.message : t('requestInvalid', 'Некорректный запрос.'),
+                retryable: false,
             });
             return;
         }
@@ -516,11 +523,14 @@ chrome.runtime.onConnect.addListener((port) => {
                     error: cancelledByUser
                         ? t('requestCancelled', 'Запрос отменён.')
                         : t('requestTimeout', 'Превышено время ожидания ответа (45 секунд).'),
+                    retryable: !cancelledByUser,
                 });
             } else {
-                const message =
-                    error instanceof Error ? error.message : t('unknownNetworkError', 'Неизвестная ошибка сети.');
-                safePostMessage({ status: 'error', error: message });
+                safePostMessage({
+                    status: 'error',
+                    error: formatMistralError(error),
+                    retryable: isRetryableMistralError(error),
+                });
             }
         } finally {
             clearTimeout(timeout);

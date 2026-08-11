@@ -139,18 +139,26 @@ async function grantSiteAccess(context: BrowserContext, page: Page): Promise<num
 }
 
 test('Сборки Chrome и Firefox используют совместимые background-механизмы', async () => {
-    const chromeManifest = JSON.parse(
-        await fs.readFile(path.resolve(__dirname, '../.output/chrome-mv3/manifest.json'), 'utf8'),
-    );
-    const firefoxManifest = JSON.parse(
-        await fs.readFile(path.resolve(__dirname, '../.output/firefox-mv3/manifest.json'), 'utf8'),
-    );
+    const [chromeManifestSource, firefoxManifestSource, ...extensionPages] = await Promise.all([
+        fs.readFile(path.resolve(__dirname, '../.output/chrome-mv3/manifest.json'), 'utf8'),
+        fs.readFile(path.resolve(__dirname, '../.output/firefox-mv3/manifest.json'), 'utf8'),
+        ...['chrome-mv3', 'firefox-mv3'].flatMap((browser) =>
+            ['options.html', 'popup.html', 'lexisync-history.html'].map((page) =>
+                fs.readFile(path.resolve(__dirname, `../.output/${browser}/${page}`), 'utf8'),
+            ),
+        ),
+    ]);
+    const chromeManifest = JSON.parse(chromeManifestSource);
+    const firefoxManifest = JSON.parse(firefoxManifestSource);
 
     expect(chromeManifest.background.service_worker).toBe('background.js');
     expect(firefoxManifest.background.scripts).toEqual(['background.js']);
     expect(firefoxManifest.browser_specific_settings.gecko.id).toBe('lexisync@kiryuhak.dev');
     expect(firefoxManifest.browser_specific_settings.gecko.strict_min_version).toBe('140.0');
     expect(firefoxManifest.browser_specific_settings.gecko_android.strict_min_version).toBe('142.0');
+    for (const pageSource of extensionPages) {
+        expect(pageSource).not.toMatch(/<link\b[^>]*\brel\s*=\s*['"]modulepreload['"]/iu);
+    }
     expect(chromeManifest.permissions).not.toContain('clipboardRead');
     expect(chromeManifest.permissions).not.toContain('clipboardWrite');
     expect(chromeManifest.permissions).toContain('scripting');
@@ -256,7 +264,8 @@ test('модальное окно остаётся рядом с указате�
     const box = await result.boundingBox();
     expect(box).not.toBeNull();
     expect(box!.y).toBeGreaterThan(50);
-    expect(box!.y + box!.height).toBeLessThanOrEqual(481);
+    const viewportBottomSafetyMargin = 15;
+    expect(box!.y + box!.height).toBeLessThanOrEqual(500 - viewportBottomSafetyMargin);
     const resultCenterY = box!.y + box!.height / 2;
     const selectionCenterY = selectionTarget!.y + selectionTarget!.height / 2;
     expect(Math.abs(resultCenterY - selectionCenterY)).toBeLessThan(120);
@@ -671,6 +680,84 @@ test('Кейс 7: Негативный сценарий (Обработка HTTP
     await expect(uiPanel.locator('.lexisync-content-pane')).toContainText(/(?:Ошибка|Error):/);
 });
 
+test('временная ошибка не запускает бесконечные автоматические повторы', async ({ page, context }) => {
+    await setFakeApiKey(context);
+    await page.goto('https://example.com');
+    await grantSiteAccess(context, page);
+    let requestCount = 0;
+    await context.route('https://api.mistral.ai/v1/chat/completions', async (route) => {
+        requestCount++;
+        await route.fulfill({
+            status: 429,
+            headers: { 'Retry-After': '0' },
+            contentType: 'application/json',
+            body: JSON.stringify({ message: 'Too Many Requests' }),
+        });
+    });
+
+    await selectTextOnPage(page);
+    await page.keyboard.press('Alt+r');
+
+    const uiPanel = page.locator('#lexisync-extension-ui');
+    await expect(uiPanel.locator('.lexisync-content-pane')).toContainText(/(?:лимит|rate limit)/i, { timeout: 5000 });
+    await expect(uiPanel.locator('#retryRequestBtn')).toBeVisible();
+    await expect.poll(() => requestCount).toBe(3);
+    await page.waitForTimeout(5500);
+    expect(requestCount).toBe(3);
+});
+
+test('потеря service worker завершает загрузку и позволяет повторить запрос', async ({ page, context }) => {
+    await setFakeApiKey(context);
+    await page.goto('https://example.com');
+    await grantSiteAccess(context, page);
+
+    let requestCount = 0;
+    let releaseFirstRequest!: () => void;
+    const firstRequestGate = new Promise<void>((resolve) => {
+        releaseFirstRequest = resolve;
+    });
+    await context.route('https://api.mistral.ai/v1/chat/completions', async (route) => {
+        requestCount++;
+        if (requestCount === 1) await firstRequestGate;
+        await route
+            .fulfill({
+                status: 200,
+                contentType: 'text/event-stream',
+                body: `data: {"choices":[{"delta":{"content":"Соединение восстановлено"}}]}\n\ndata: [DONE]\n\n`,
+            })
+            .catch(() => undefined);
+    });
+
+    await selectTextOnPage(page);
+    await page.keyboard.press('Alt+r');
+    const uiPanel = page.locator('#lexisync-extension-ui');
+    await expect.poll(() => requestCount).toBe(1);
+    await expect(uiPanel.locator('.lexisync-skeleton')).toBeVisible();
+
+    const cdp = await context.newCDPSession(page);
+    try {
+        const { targetInfos } = await cdp.send('Target.getTargets');
+        const serviceWorker = targetInfos.find(
+            (target) => target.type === 'service_worker' && target.url.startsWith('chrome-extension://'),
+        );
+        expect(serviceWorker).toBeTruthy();
+        await cdp.send('Target.closeTarget', { targetId: serviceWorker!.targetId });
+
+        await expect(uiPanel.locator('.lexisync-content-pane')).toContainText(
+            /(?:соединение.+прервано|connection.+interrupted)/iu,
+        );
+        await expect(uiPanel.locator('.lexisync-skeleton')).toHaveCount(0);
+        await expect(uiPanel.locator('#retryRequestBtn')).toBeVisible();
+        releaseFirstRequest();
+        await uiPanel.locator('#retryRequestBtn').click();
+        await expect(uiPanel.locator('.lexisync-content-pane')).toContainText('Соединение восстановлено');
+        expect(requestCount).toBe(2);
+    } finally {
+        releaseFirstRequest();
+        await cdp.detach().catch(() => undefined);
+    }
+});
+
 test('Персональная подсказка дополняет изученное слово по Tab', async ({ page, context }) => {
     let [background] = context.serviceWorkers();
     if (!background) background = await context.waitForEvent('serviceworker');
@@ -807,7 +894,7 @@ test('номер версии открывает доступную истори
 
     const dialog = page.locator('#releaseNotesDialog');
     await expect(dialog).toBeVisible();
-    await expect(dialog.locator('[data-release-version]')).toHaveCount(37);
+    await expect(dialog.locator('[data-release-version]')).toHaveCount(38);
     await expect(dialog.locator(`[data-release-version="${currentVersion}"]`)).toHaveAttribute('open', '');
 
     for (const style of ['magicos-11', 'aurora-glass']) {
@@ -1361,7 +1448,9 @@ test('проверка при вводе показывает зелёные и�
             onboardingCompleted: true,
         }),
     );
+    let apiRequests = 0;
     await context.route('https://api.mistral.ai/v1/chat/completions', async (route) => {
+        apiRequests++;
         await route.fulfill({
             status: 200,
             contentType: 'text/event-stream',
@@ -1381,6 +1470,8 @@ test('проверка при вводе показывает зелёные и�
     await expect(suggestion.locator('mark')).toBeVisible();
     await suggestion.locator('button.apply').click();
     await expect(page.locator('#live-editor')).toHaveValue('Это исправленный длинный текст.');
+    await page.waitForTimeout(900);
+    expect(apiRequests).toBe(1);
 });
 
 test('панель автопроверки остаётся в границах узкого экрана', async ({ page, context }) => {
@@ -1414,7 +1505,7 @@ test('панель автопроверки остаётся в границах
     expect(box!.x + box!.width).toBeLessThanOrEqual(320);
 });
 
-test('автопроверка не отправляет email и логин из формы', async ({ page, context }) => {
+test('автопроверка не отправляет чувствительные данные из формы', async ({ page, context }) => {
     await setFakeApiKey(context);
     let [background] = context.serviceWorkers();
     if (!background) background = await context.waitForEvent('serviceworker');
@@ -1439,18 +1530,70 @@ test('автопроверка не отправляет email и логин и�
         username.id = 'private-username';
         username.type = 'text';
         username.autocomplete = 'username';
+        const password = document.createElement('input');
+        password.id = 'private-password';
+        password.type = 'text';
+        password.name = 'accountPassword';
+        password.autocomplete = 'off';
+        const labelledEmail = document.createElement('textarea');
+        labelledEmail.id = 'labelled-email';
+        labelledEmail.setAttribute('aria-label', 'Email address');
         const textarea = document.createElement('textarea');
         textarea.id = 'ordinary-editor';
-        document.body.append(email, username, textarea);
+        document.body.append(email, username, password, labelledEmail, textarea);
     });
 
     await page.locator('#private-email').fill('private.user@example.com');
     await page.locator('#private-username').fill('private-user-login');
+    await page.locator('#private-password').fill('not-a-real-private-password');
+    await page.locator('#labelled-email').fill('another.private@example.com');
     await page.waitForTimeout(900);
     expect(apiRequests).toBe(0);
 
     await page.locator('#ordinary-editor').fill('Обычный длинный текст для проверки.');
     await expect.poll(() => apiRequests).toBe(1);
+});
+
+test('персональные подсказки не обучаются на чувствительных полях', async ({ page, context }) => {
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() =>
+        chrome.storage.local.set({
+            settingsSchemaVersion: 10,
+            adaptiveSuggestionsEnabled: true,
+            adaptiveLearningEnabled: true,
+            adaptiveLanguageModel: { version: 2, words: {}, pairs: {}, rejections: {} },
+        }),
+    );
+
+    await page.goto('https://example.com');
+    await grantSiteAccess(context, page);
+    await page.evaluate(() => {
+        const sensitive = document.createElement('textarea');
+        sensitive.id = 'adaptive-sensitive';
+        sensitive.name = 'accountPassword';
+        sensitive.autocomplete = 'off';
+        const ordinary = document.createElement('textarea');
+        ordinary.id = 'adaptive-ordinary';
+        document.body.append(sensitive, ordinary);
+    });
+
+    await page.locator('#adaptive-sensitive').fill('секретное ');
+    await page.waitForTimeout(900);
+    const sensitiveModel = await background.evaluate(() => chrome.storage.local.get('adaptiveLanguageModel'));
+    const sensitiveWords = (sensitiveModel.adaptiveLanguageModel as { words: Record<string, unknown> }).words;
+    expect(sensitiveWords).not.toHaveProperty('секретное');
+
+    await page.locator('#adaptive-ordinary').fill('обычное ');
+    await expect
+        .poll(() =>
+            background.evaluate(async () => {
+                const stored = await chrome.storage.local.get('adaptiveLanguageModel');
+                const model = stored.adaptiveLanguageModel as { words?: Record<string, unknown> } | undefined;
+                return Boolean(model?.words?.['обычное']);
+            }),
+        )
+        .toBe(true);
 });
 
 test('отключение автопроверки отменяет отложенный API-запрос', async ({ page, context }) => {

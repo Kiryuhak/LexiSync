@@ -8,7 +8,7 @@ import type { CustomCommand, HistoryItem, RequestMode, SelectionData, StreamResp
 import { recordCacheHit } from './usage-stats';
 import { createSvgIcon, renderMarkdown, setIcon } from './dom-rendering';
 import { REQUEST_CACHE_VERSION, serializeCacheSource } from './request-cache';
-import { createRequestLifecycle } from './request-lifecycle';
+import { createPortDisconnectGuard, createRequestLifecycle, type PortDisconnectGuard } from './request-lifecycle';
 import { createBatchedUiUpdater, type BatchedUiUpdater } from './content-stream-renderer';
 import { activateDialogKeyboard } from './content-dialog-accessibility';
 import { normalizeResultDisplayMode, shouldUseCompactResult } from './result-display-mode';
@@ -59,48 +59,28 @@ export function executeRequest(
     const { getLanguageName, getPopupElementById, adjustPopupPosition, closePopup, registerRequestCleanup } = context;
     const originalText = currentSelection.text;
     let streamPort: chrome.runtime.Port | null = null;
+    let streamDisconnectGuard: PortDisconnectGuard | null = null;
     let streamUiUpdater: BatchedUiUpdater | null = null;
     let deactivateDialogKeyboard: (() => void) | null = null;
+
+    function disconnectStreamPort(): void {
+        const port = streamPort;
+        streamPort = null;
+        streamDisconnectGuard?.expectDisconnect();
+        streamDisconnectGuard = null;
+        try {
+            port?.disconnect();
+        } catch {
+            // Порт уже мог закрыться вместе с фоновым процессом.
+        }
+    }
+
     const lifecycle = createRequestLifecycle(() => {
         streamUiUpdater?.cancel();
         deactivateDialogKeyboard?.();
-        streamPort?.disconnect();
-        streamPort = null;
+        disconnectStreamPort();
     });
     registerRequestCleanup(() => lifecycle.dispose());
-
-    function showRateLimitTimer(seconds: number, retryCallback: () => void, container: HTMLElement | null): void {
-        let timeLeft = seconds;
-        const render = () => {
-            if (!container || !container.isConnected) return false;
-            const message = document.createElement('div');
-            message.style.cssText =
-                'padding:16px;font-weight:500;color:var(--warning-text);display:flex;align-items:center;justify-content:center;gap:10px;background:var(--warning-bg);border-radius:12px;border:1px solid var(--warning-border);margin:4px;';
-            const icon = document.createElement('span');
-            icon.className = 'lexisync-hourglass';
-            setIcon(icon, ICONS.hourglass);
-            const copy = document.createElement('span');
-            copy.append(
-                document.createTextNode(`${t('rateLimitRetry', 'Лимит. Автоповтор через')} `),
-                Object.assign(document.createElement('b'), { textContent: String(timeLeft) }),
-                document.createTextNode(` ${t('seconds', 'сек…')}`),
-            );
-            message.append(icon, copy);
-            container.replaceChildren(message);
-            adjustPopupPosition();
-            return true;
-        };
-        if (!render()) return;
-        const interval = lifecycle.setInterval(() => {
-            timeLeft--;
-            if (timeLeft <= 0) {
-                lifecycle.clearInterval(interval);
-                if (!lifecycle.disposed && container && container.isConnected) retryCallback();
-            } else if (!render()) {
-                lifecycle.clearInterval(interval);
-            }
-        }, 1000);
-    }
 
     popupUI.dataset.surface = 'result';
     delete popupUI.dataset.compactResult;
@@ -217,7 +197,6 @@ export function executeRequest(
                     context.setTargetLanguage(lang);
                     const languageLabel = getPopupElementById<HTMLElement>('lexisync-lang-label');
                     if (languageLabel) languageLabel.textContent = lang;
-                    if (streamPort) streamPort.disconnect();
                     startStream();
                 }
             };
@@ -318,6 +297,38 @@ export function executeRequest(
         }, 2500);
     }
 
+    function showRequestError(message: string, retryable = false): void {
+        streamUiUpdater?.cancel();
+        const errorContainer = document.createElement('div');
+        errorContainer.className = 'lexisync-error-box';
+        errorContainer.style.cssText = 'padding: 8px 0; color: var(--error-color);';
+
+        const errorText = document.createElement('div');
+        errorText.style.cssText = 'margin-bottom: 10px; line-height: 1.45; font-size: 13px;';
+        errorText.textContent = `${t('errorPrefix', 'Ошибка:')} ${message}`;
+        errorContainer.appendChild(errorText);
+
+        if (retryable) {
+            const retryButton = document.createElement('button');
+            retryButton.type = 'button';
+            retryButton.id = 'retryRequestBtn';
+            retryButton.style.cssText =
+                'background: var(--primary); color: #ffffff; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500;';
+            retryButton.textContent = t('retryRequest', 'Повторить попытку');
+            retryButton.onclick = () => {
+                if (lifecycle.disposed) return;
+                contentPane.replaceChildren();
+                contentPane.style.color = '';
+                startStream();
+            };
+            errorContainer.appendChild(retryButton);
+        }
+
+        contentPane.style.color = '';
+        contentPane.replaceChildren(errorContainer);
+        finishStream(false);
+    }
+
     contentPane.addEventListener('input', () => {
         if (storageAllowed && savedHistoryId !== null && contentPane.contentEditable === 'true') {
             void updateHistoryItemResult(savedHistoryId, getEffectiveResult());
@@ -343,7 +354,18 @@ export function executeRequest(
             event.stopPropagation();
             cancelBtn.disabled = true;
             contentPane.textContent = t('cancelling', 'Отменяем запрос…');
-            streamPort?.postMessage({ action: 'cancelMistral' });
+            if (!streamPort) {
+                showRequestError(
+                    t('requestConnectionLost', 'Соединение с обработчиком запроса прервано. Повторите попытку.'),
+                    true,
+                );
+                return;
+            }
+            try {
+                streamPort.postMessage({ action: 'cancelMistral' });
+            } catch {
+                showRequestError(t('reloadPage', 'Пожалуйста, обновите страницу (F5).'));
+            }
         };
         wrapper.append(loader, cancelBtn);
         loaderOrClose.appendChild(wrapper);
@@ -352,8 +374,7 @@ export function executeRequest(
     function startStream() {
         if (lifecycle.disposed) return;
         streamUiUpdater?.cancel();
-        streamPort?.disconnect();
-        streamPort = null;
+        disconnectStreamPort();
         fullResult = '';
         comparisonOriginalVisible = false;
         editedResultSnapshot = '';
@@ -395,26 +416,60 @@ export function executeRequest(
         }
 
         if (!chrome.runtime || !chrome.runtime.connect) {
-            contentPane.textContent = t('reloadPage', 'Пожалуйста, обновите страницу (F5).');
-            contentPane.style.color = 'var(--error-color)';
+            showRequestError(t('reloadPage', 'Пожалуйста, обновите страницу (F5).'));
             return;
         }
 
-        streamPort = chrome.runtime.connect({ name: 'mistralStream' });
-        requestStartedAt = performance.now();
-        streamPort.postMessage({
-            action: 'callMistral',
-            text: currentSelection.text,
-            context: currentSelection.context,
-            mode: mode,
-            targetLang: currentTargetLang,
-            pageTitle: document.title,
-            pageUrl: window.location.hostname,
-            allowPageContext: usePageContext,
-            customPrompt: customCommand?.prompt,
-            imageUrl: currentSelection.imageUrl, // 🔥 НОВОЕ
+        let requestPort: chrome.runtime.Port;
+        try {
+            requestPort = chrome.runtime.connect({ name: 'mistralStream' });
+        } catch {
+            showRequestError(t('reloadPage', 'Пожалуйста, обновите страницу (F5).'));
+            return;
+        }
+        streamPort = requestPort;
+        const disconnectGuard = createPortDisconnectGuard(() => {
+            if (lifecycle.disposed || streamPort !== requestPort) return;
+            streamPort = null;
+            streamDisconnectGuard = null;
+            requestStartedAt = null;
+            const runtimeError = chrome.runtime.lastError?.message || '';
+            const extensionContextInvalidated = /extension context invalidated/iu.test(runtimeError);
+            showRequestError(
+                extensionContextInvalidated
+                    ? t('reloadPage', 'Пожалуйста, обновите страницу (F5).')
+                    : t('requestConnectionLost', 'Соединение с обработчиком запроса прервано. Повторите попытку.'),
+                !extensionContextInvalidated,
+            );
         });
-        streamPort.onMessage.addListener((response: StreamResponse) => {
+        streamDisconnectGuard = disconnectGuard;
+        requestPort.onDisconnect.addListener(() => disconnectGuard.handleDisconnect());
+        requestStartedAt = performance.now();
+        try {
+            requestPort.postMessage({
+                action: 'callMistral',
+                text: currentSelection.text,
+                context: currentSelection.context,
+                mode: mode,
+                targetLang: currentTargetLang,
+                pageTitle: document.title,
+                pageUrl: window.location.hostname,
+                allowPageContext: usePageContext,
+                customPrompt: customCommand?.prompt,
+                imageUrl: currentSelection.imageUrl, // 🔥 НОВОЕ
+            });
+        } catch (error) {
+            const extensionContextInvalidated =
+                error instanceof Error && /extension context invalidated/iu.test(error.message);
+            showRequestError(
+                extensionContextInvalidated
+                    ? t('reloadPage', 'Пожалуйста, обновите страницу (F5).')
+                    : t('requestConnectionLost', 'Соединение с обработчиком запроса прервано. Повторите попытку.'),
+                !extensionContextInvalidated,
+            );
+            return;
+        }
+        requestPort.onMessage.addListener((response: StreamResponse) => {
             if (lifecycle.disposed) return;
             if (response.status === 'chunk') {
                 fullResult += response.text;
@@ -465,20 +520,9 @@ export function executeRequest(
                 }
             } else if (response.status === 'error') {
                 requestStartedAt = null;
-                streamUiUpdater?.cancel();
                 const errorMessage =
                     typeof response.error === 'string' ? response.error : t('unknownError', 'Неизвестная ошибка.');
-                if (
-                    errorMessage.toLowerCase().includes('rate limit') ||
-                    errorMessage.toLowerCase().includes('лимит') ||
-                    errorMessage.includes('429')
-                ) {
-                    showRateLimitTimer(5, startStream, contentPane);
-                } else {
-                    contentPane.textContent = `${t('errorPrefix', 'Ошибка:')} ${errorMessage}`;
-                    contentPane.style.color = 'var(--error-color)';
-                }
-                finishStream(false);
+                showRequestError(errorMessage, response.retryable === true);
             } else if (response.status === 'cancelled') {
                 requestStartedAt = null;
                 streamUiUpdater?.cancel();
@@ -490,8 +534,7 @@ export function executeRequest(
     }
 
     function finishStream(success = true) {
-        streamPort?.disconnect();
-        streamPort = null;
+        disconnectStreamPort();
         const closeBtn = document.createElement('button');
         closeBtn.type = 'button';
         closeBtn.className = 'lexisync-close-button';
@@ -689,29 +732,6 @@ export function executeRequest(
     void checkCacheAndRun().catch((error) => {
         if (lifecycle.disposed) return;
         const message = error instanceof Error ? error.message : t('unknownError', 'Неизвестная ошибка.');
-        const errorContainer = document.createElement('div');
-        errorContainer.className = 'lexisync-error-box';
-        errorContainer.style.cssText = 'padding: 8px 0; color: var(--error-color);';
-
-        const errorText = document.createElement('div');
-        errorText.style.cssText = 'margin-bottom: 10px; line-height: 1.45; font-size: 13px;';
-        errorText.textContent = `${t('errorPrefix', 'Ошибка:')} ${message}`;
-
-        const retryBtn = document.createElement('button');
-        retryBtn.type = 'button';
-        retryBtn.id = 'retryRequestBtn';
-        retryBtn.style.cssText =
-            'background: var(--primary); color: #ffffff; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500;';
-        retryBtn.textContent = t('retryRequest', 'Повторить попытку');
-        retryBtn.onclick = () => {
-            if (lifecycle.disposed) return;
-            contentPane.replaceChildren();
-            contentPane.style.color = '';
-            startStream();
-        };
-
-        errorContainer.append(errorText, retryBtn);
-        contentPane.replaceChildren(errorContainer);
-        finishStream(false);
+        showRequestError(message);
     });
 }

@@ -35,6 +35,36 @@ const note = (
 
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
+    note('5.2.3', '2026-08-11', 'improved', 'Безопаснее, быстрее и стабильнее', 'Safer, faster, and more reliable', [
+        [
+            'Автопроверка не отправляет содержимое полей пароля, логина, почты, телефона, адреса и платёжных данных, даже если сайт неверно обозначил поле.',
+            'Live proofread does not send password, login, email, phone, address, or payment fields even when a site labels them incorrectly.',
+        ],
+        [
+            'Персональные подсказки не обучаются на чувствительных полях, а применение исправления не запускает повторный запрос.',
+            'Personal suggestions do not learn from sensitive fields, and applying a correction does not start another request.',
+        ],
+        [
+            'После временной ошибки LexiSync не повторяет запросы без участия пользователя, а лимиты не запускают бесполезный цикл.',
+            'After a temporary failure, LexiSync does not repeat requests without user action, and usage limits do not start a useless loop.',
+        ],
+        [
+            'Автоматическая проверка загружается только после включения, поэтому обычные страницы запускают меньше кода LexiSync.',
+            'Automatic proofread now loads only after it is enabled, so regular pages start less LexiSync code.',
+        ],
+        [
+            'Chrome больше не показывает ложные ошибки несовпадения ресурсов после открытия настроек, popup или истории.',
+            'Chrome no longer reports false resource mismatch errors after opening settings, the popup, or history.',
+        ],
+        [
+            'Если фоновый обработчик перезапустился во время запроса, панель завершает загрузку и предлагает повторить действие.',
+            'If the background worker restarts during a request, the panel stops loading and offers to retry the action.',
+        ],
+        [
+            'Отмена запроса безопасно работает, даже если соединение с фоновым обработчиком уже успело закрыться.',
+            'Cancelling a request remains safe even if the connection to the background worker has already closed.',
+        ],
+    ]),
     note('5.2.1', '2026-08-09', 'fixed', 'Чёткий текст в стеклянных стилях', 'Clear text in glass styles', [
         [
             'В стилях MagicOS и Aurora окно истории стало плотнее, поэтому текст больше не сливается с настройками на фоне.',

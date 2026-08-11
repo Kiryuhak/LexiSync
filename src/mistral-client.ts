@@ -27,6 +27,26 @@ export interface MistralSettings {
 const API_BASE_URL = 'https://api.mistral.ai/v1';
 const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
 
+export class MistralRequestError extends Error {
+    constructor(
+        message: string,
+        readonly retryable: boolean,
+    ) {
+        super(message);
+        this.name = 'MistralRequestError';
+    }
+}
+
+export function isRetryableMistralError(error: unknown): boolean {
+    if (error instanceof MistralRequestError) return error.retryable;
+    if (error instanceof DOMException && error.name === 'AbortError') return false;
+    return (
+        error instanceof TypeError ||
+        (error instanceof Error &&
+            (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')))
+    );
+}
+
 export function parseRetryAfterMs(value: string | null, now = Date.now()): number | null {
     if (!value) return null;
     const seconds = Number(value);
@@ -92,6 +112,10 @@ function getApiError(status: number): string {
     return `${t('mistralApiError', 'Ошибка Mistral API')} (${status}).`;
 }
 
+function createApiError(status: number): MistralRequestError {
+    return new MistralRequestError(getApiError(status), RETRYABLE_STATUSES.has(status));
+}
+
 export async function validateApiKey(apiKey: string): Promise<{ ok: boolean; message: string }> {
     const trimmed = apiKey.trim();
     if (!trimmed) {
@@ -145,7 +169,7 @@ export async function processOcr(msg: MistralRequest, apiKey: string, signal: Ab
         },
         signal,
     );
-    if (!response.ok) throw new Error(getApiError(response.status));
+    if (!response.ok) throw createApiError(response.status);
     const result = (await response.json()) as { pages?: Array<{ markdown?: string }> };
     const text = result.pages
         ?.map((page) => page.markdown || '')
@@ -176,9 +200,9 @@ export async function streamText(
         },
         signal,
     );
-    if (!response.ok) throw new Error(getApiError(response.status));
+    if (!response.ok) throw createApiError(response.status);
     const reader = response.body?.getReader();
-    if (!reader) throw new Error(t('emptyStream', 'Mistral вернул пустой поток данных.'));
+    if (!reader) throw new MistralRequestError(t('emptyStream', 'Mistral вернул пустой поток данных.'), true);
 
     const decoder = new TextDecoder();
     let buffer = '';
@@ -200,17 +224,22 @@ export async function streamText(
         buffer = lines.pop() || '';
         for (const line of lines) {
             if (!processLine(line)) continue;
-            if (!receivedContent) throw new Error(t('emptyStream', 'Mistral вернул пустой поток данных.'));
+            if (!receivedContent)
+                throw new MistralRequestError(t('emptyStream', 'Mistral вернул пустой поток данных.'), true);
             await reader.cancel();
             return;
         }
     }
     buffer += decoder.decode();
     if (buffer && processLine(buffer)) {
-        if (!receivedContent) throw new Error(t('emptyStream', 'Mistral вернул пустой поток данных.'));
+        if (!receivedContent)
+            throw new MistralRequestError(t('emptyStream', 'Mistral вернул пустой поток данных.'), true);
         await reader.cancel();
         return;
     }
-    if (!receivedContent) throw new Error(t('emptyStream', 'Mistral вернул пустой поток данных.'));
-    throw new Error(t('incompleteStream', 'Ответ Mistral прервался до завершения. Повторите запрос.'));
+    if (!receivedContent) throw new MistralRequestError(t('emptyStream', 'Mistral вернул пустой поток данных.'), true);
+    throw new MistralRequestError(
+        t('incompleteStream', 'Ответ Mistral прервался до завершения. Повторите запрос.'),
+        true,
+    );
 }

@@ -22,14 +22,12 @@ import {
 } from './content-request-panel';
 import { ensureOptionalContentFeature, OCR_IMAGE_EVENT, OCR_START_EVENT } from './optional-content-features';
 import { applyAppearanceStyle, normalizeAppearanceStyle, type AppearanceStyle } from './appearance-style';
-import { startLiveProofread } from './live-proofread';
 import { applyThemeCustomization, DEFAULT_THEME_CUSTOMIZATION } from './theme-customization';
 import type { ThemeCustomization } from './types';
 
 const contentRuntime = globalThis as typeof globalThis & { __lexisyncContentInitialized?: boolean };
 if (!contentRuntime.__lexisyncContentInitialized) {
     contentRuntime.__lexisyncContentInitialized = true;
-    startLiveProofread();
 
     let adaptiveSuggestionsInitialized = false;
     const ensureAdaptiveSuggestions = async () => {
@@ -42,8 +40,20 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             console.error(t('adaptiveLoadFailed', 'Не удалось загрузить персональные подсказки.'), error);
         }
     };
-    void chrome.storage.local.get({ adaptiveSuggestionsEnabled: false }).then((stored) => {
+    let liveProofreadInitialized = false;
+    const ensureLiveProofread = async () => {
+        if (liveProofreadInitialized) return;
+        liveProofreadInitialized = true;
+        try {
+            await ensureOptionalContentFeature('liveProofread');
+        } catch (error) {
+            liveProofreadInitialized = false;
+            console.error(t('liveProofLoadFailed', 'Не удалось загрузить автоматическую проверку.'), error);
+        }
+    };
+    void chrome.storage.local.get({ adaptiveSuggestionsEnabled: false, liveProofreadEnabled: false }).then((stored) => {
         if (stored.adaptiveSuggestionsEnabled === true) void ensureAdaptiveSuggestions();
+        if (stored.liveProofreadEnabled === true) void ensureLiveProofread();
     });
 
     let extensionEnabledOnSite = true;
@@ -53,6 +63,9 @@ if (!contentRuntime.__lexisyncContentInitialized) {
     chrome.storage.onChanged.addListener((changes, areaName) => {
         if (areaName === 'local' && changes.adaptiveSuggestionsEnabled?.newValue === true) {
             void ensureAdaptiveSuggestions();
+        }
+        if (areaName === 'local' && changes.liveProofreadEnabled?.newValue === true) {
+            void ensureLiveProofread();
         }
         if (areaName === 'local' && changes.blockedSites) {
             extensionEnabledOnSite = !isSiteDisabled(

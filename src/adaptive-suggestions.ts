@@ -10,6 +10,7 @@ import {
 } from './adaptive-model-store';
 import { addAdaptiveBlockedWord } from './settings-store';
 import { normalizeAppearanceStyle, type AppearanceStyle } from './appearance-style';
+import { shouldUseAutomaticTextFeatures } from './live-proofread-privacy';
 
 export type { AdaptiveLanguageModel } from './adaptive-model-store';
 
@@ -81,16 +82,22 @@ function isEditableElement(target: EventTarget | null): target is EditableElemen
 }
 
 function isSensitiveField(target: EditableElement): boolean {
-    if (target instanceof HTMLInputElement) {
-        if (!['text', 'search'].includes(target.type)) return true;
-        const autocomplete = target.autocomplete.toLowerCase();
-        if (/password|cc-|one-time-code|transaction|webauthn/.test(autocomplete)) return true;
-    }
-    const fieldIdentity =
-        `${target.getAttribute('name') || ''} ${target.id} ${target.getAttribute('aria-label') || ''}`.toLowerCase();
-    return /password|парол|passwd|credit.?card|bank.?card|cvv|cvc|otp|one.?time|secret|token|пин|pin.?code/.test(
-        fieldIdentity,
-    );
+    const inputType = target instanceof HTMLInputElement ? target.type : null;
+    const autocomplete =
+        target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement
+            ? target.autocomplete
+            : target.getAttribute('autocomplete') || '';
+    const fieldIdentity = [
+        target.getAttribute('name'),
+        target.id,
+        target.getAttribute('aria-label'),
+        target.getAttribute('aria-labelledby'),
+        target.getAttribute('placeholder'),
+        target.getAttribute('title'),
+    ]
+        .filter(Boolean)
+        .join(' ');
+    return !shouldUseAutomaticTextFeatures(inputType, autocomplete, fieldIdentity);
 }
 
 function isAllowedOnCurrentPage(): boolean {

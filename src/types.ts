@@ -73,4 +73,5 @@ export interface StreamResponse {
     status: 'chunk' | 'done' | 'error' | 'cancelled';
     text?: string;
     error?: string;
+    retryable?: boolean;
 }
