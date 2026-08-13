@@ -894,7 +894,7 @@ test('номер версии открывает доступную истори
 
     const dialog = page.locator('#releaseNotesDialog');
     await expect(dialog).toBeVisible();
-    await expect(dialog.locator('[data-release-version]')).toHaveCount(38);
+    await expect(dialog.locator('[data-release-version]')).toHaveCount(39);
     await expect(dialog.locator(`[data-release-version="${currentVersion}"]`)).toHaveAttribute('open', '');
 
     for (const style of ['magicos-11', 'aurora-glass']) {

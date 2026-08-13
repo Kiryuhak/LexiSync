@@ -1,5 +1,5 @@
 {
-    "extName": { "message": "LexiSync" },
+    "extName": { "message": "Grammar and Spell Checker - LexiSync" },
     "extDesc": { "message": "Smart text assistant powered by Mistral AI" },
     "commandSpellcheck": { "message": "Fix writing errors" },
     "commandStyle": { "message": "Rewrite text" },

@@ -1,5 +1,5 @@
 {
-    "extName": { "message": "LexiSync" },
+    "extName": { "message": "Корректор грамматики и орфографии - LexiSync" },
     "extDesc": { "message": "Умный помощник для работы с текстом на базе Mistral AI" },
     "commandSpellcheck": { "message": "Исправить ошибки" },
     "commandStyle": { "message": "Переписать текст" },

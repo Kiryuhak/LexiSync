@@ -3,6 +3,10 @@ import fs from 'node:fs/promises';
 const BASE_PERMISSIONS = ['storage', 'activeTab', 'scripting', 'contextMenus'];
 const REQUIRED_ORIGINS = ['https://api.mistral.ai/*'];
 const OPTIONAL_WEB_ORIGINS = ['http://*/*', 'https://*/*'];
+const EXTENSION_NAMES = {
+    ru: 'Корректор грамматики и орфографии - LexiSync',
+    en: 'Grammar and Spell Checker - LexiSync',
+};
 const packageJson = JSON.parse(await fs.readFile(new URL('../package.json', import.meta.url), 'utf8'));
 
 function sameValues(actual, expected) {
@@ -22,6 +26,19 @@ for (const browser of ['chrome', 'firefox']) {
     if (manifest.manifest_version !== 3) throw new Error(`${browser}: требуется Manifest V3`);
     if (manifest.version !== packageJson.version)
         throw new Error(`${browser}: версия манифеста не совпадает с package.json`);
+    if (manifest.name !== '__MSG_extName__') throw new Error(`${browser}: название должно использовать локализацию`);
+    if (manifest.action?.default_title !== '__MSG_extName__')
+        throw new Error(`${browser}: подпись кнопки должна совпадать с локализованным названием`);
+    for (const [locale, expectedName] of Object.entries(EXTENSION_NAMES)) {
+        const messages = JSON.parse(
+            await fs.readFile(
+                new URL(`../.output/release/${browser}-mv3/_locales/${locale}/messages.json`, import.meta.url),
+                'utf8',
+            ),
+        );
+        if (messages.extName?.message !== expectedName)
+            throw new Error(`${browser}: неверное название расширения для локали ${locale}`);
+    }
     if (!sameValues(permissions, BASE_PERMISSIONS))
         throw new Error(`${browser}: набор обязательных разрешений изменён`);
     if (manifest.side_panel || manifest.sidebar_action)

@@ -49,7 +49,7 @@ export default defineConfig({
                 48: 'icons/icon-48.png',
                 128: 'icons/icon-128.png',
             },
-            default_title: 'LexiSync',
+            default_title: '__MSG_extName__',
         },
         browser_specific_settings:
             browser === 'firefox'

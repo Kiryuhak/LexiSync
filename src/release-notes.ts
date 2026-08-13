@@ -35,6 +35,16 @@ const note = (
 
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
+    note('5.2.4', '2026-08-13', 'improved', 'Понятное название расширения', 'A clearer extension name', [
+        [
+            'Новое название «Корректор грамматики и орфографии - LexiSync» сразу объясняет основное назначение расширения.',
+            'The new name “Grammar and Spell Checker - LexiSync” immediately explains the extension’s main purpose.',
+        ],
+        [
+            'Название в списке расширений, магазине и подсказке кнопки браузера теперь согласовано.',
+            'The name is now consistent in the extensions list, store listing, and browser button tooltip.',
+        ],
+    ]),
     note('5.2.3', '2026-08-11', 'improved', 'Безопаснее, быстрее и стабильнее', 'Safer, faster, and more reliable', [
         [
             'Автопроверка не отправляет содержимое полей пароля, логина, почты, телефона, адреса и платёжных данных, даже если сайт неверно обозначил поле.',
