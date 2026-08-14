@@ -436,7 +436,7 @@ test('На исключённом сайте история и кэш не со�
     expect(stored.ai_cache_index).toEqual([]);
 });
 
-test('История безопасно показывает текст и поддерживает поиск и удаление', async ({ page, context }) => {
+test('История безопасно выполняет действия и объясняет ошибки пользователю', async ({ page, context }) => {
     let [background] = context.serviceWorkers();
     if (!background) background = await context.waitForEvent('serviceworker');
     await background.evaluate(() =>
@@ -459,14 +459,22 @@ test('История безопасно показывает текст и по�
     await expect(page.locator('.history-card img')).toHaveCount(0);
     await page.locator('.history-card .card-actions button').first().click();
     await expect(page.locator('.history-card')).toHaveClass(/is-favorite/);
+    await expect(page.locator('#historyStatus')).toHaveText('Добавлено в избранное.');
     const favoriteHistory = await background.evaluate(() => chrome.storage.local.get({ aiHistory: [] }));
     expect((favoriteHistory.aiHistory as Array<{ favorite?: boolean }>)[0].favorite).toBe(true);
+
+    const replayButton = page.locator('.history-card .card-actions button').nth(2);
+    await replayButton.click();
+    await expect(page.locator('#historyStatus')).toHaveText('Не найдена открытая веб-страница.');
+    await expect(replayButton).toBeEnabled();
+
     await page.locator('#historySearch').fill('нет совпадения');
     await expect(page.locator('.history-card')).toHaveCount(0);
     await page.locator('#historySearch').fill('безопасный');
     await expect(page.locator('.history-card')).toHaveCount(1);
     await page.locator('.history-card .card-actions button').last().click();
     await expect(page.locator('.history-card')).toHaveCount(0);
+    await expect(page.locator('#historyStatus')).toHaveText('Запись удалена.');
 });
 
 test('Кейс 3: Mistral OCR (Alt+S) и буфер обмена', async ({ page, context }) => {
@@ -894,7 +902,7 @@ test('номер версии открывает доступную истори
 
     const dialog = page.locator('#releaseNotesDialog');
     await expect(dialog).toBeVisible();
-    await expect(dialog.locator('[data-release-version]')).toHaveCount(39);
+    await expect(dialog.locator('[data-release-version]')).toHaveCount(40);
     await expect(dialog.locator(`[data-release-version="${currentVersion}"]`)).toHaveAttribute('open', '');
 
     for (const style of ['magicos-11', 'aurora-glass']) {
@@ -1170,7 +1178,7 @@ test('Замена текста работает в contenteditable', async ({ p
     await expect(page.locator('#rich-editor')).toHaveText('Исправленный текст');
 });
 
-test('Горячая клавиша работает внутри iframe', async ({ page, context }) => {
+test('Фоновая горячая клавиша работает в поле внутри iframe', async ({ page, context }) => {
     await setFakeApiKey(context);
     await page.goto('https://example.com');
     await grantSiteAccess(context, page);
@@ -1184,18 +1192,39 @@ test('Горячая клавиша работает внутри iframe', async
     await page.evaluate(() => {
         const frame = document.createElement('iframe');
         frame.id = 'editor-frame';
-        frame.srcdoc = '<p id="frame-text">Текст ис iframe</p>';
+        frame.srcdoc = '<textarea id="frame-text">Текст ис iframe</textarea>';
         document.body.appendChild(frame);
     });
     const frame = page.frameLocator('#editor-frame');
     await frame.locator('#frame-text').click();
-    await frame.locator('#frame-text').evaluate((element) => {
-        const range = document.createRange();
-        range.selectNodeContents(element);
-        getSelection()?.removeAllRanges();
-        getSelection()?.addRange(range);
+    await frame.locator('#frame-text').evaluate((element: HTMLTextAreaElement) => {
+        element.setSelectionRange(0, element.value.length);
     });
-    await page.keyboard.press('Alt+r');
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    const targetFrameId = await background.evaluate(async () => {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab.id) throw new Error('Активная вкладка не найдена');
+        const frames = await chrome.scripting.executeScript({
+            target: { tabId: tab.id, allFrames: true },
+            func: () => {
+                const active = document.activeElement;
+                if (!(active instanceof HTMLTextAreaElement)) return 0;
+                const start = active.selectionStart ?? 0;
+                const end = active.selectionEnd ?? start;
+                return active.value.slice(start, end).trim().length;
+            },
+        });
+        const target = frames.find((item) => Number(item.result) > 0);
+        if (target?.frameId === undefined) throw new Error('Фрейм с выделенным текстом не найден');
+        await chrome.tabs.sendMessage(
+            tab.id,
+            { action: 'hotkeyTriggered', mode: 'spellcheck' },
+            { frameId: target.frameId },
+        );
+        return target.frameId;
+    });
+    expect(targetFrameId).not.toBe(0);
     await expect(frame.locator('#lexisync-extension-ui[role="dialog"]')).toContainText('Текст из iframe');
 });
 

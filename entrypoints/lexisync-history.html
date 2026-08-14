@@ -143,10 +143,40 @@
             button.clear-btn:hover {
                 background: #fce8e6;
             }
+            button:disabled {
+                cursor: progress;
+                opacity: 0.62;
+            }
             .card-actions {
                 display: flex;
                 gap: 8px;
                 justify-content: flex-end;
+            }
+            .history-status {
+                margin: -12px 0 18px;
+                padding: 10px 12px;
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                background: var(--card);
+                color: var(--muted);
+                font-size: 14px;
+            }
+            .history-status:empty {
+                display: none;
+            }
+            .history-status[data-kind='success'] {
+                color: var(--result-text);
+                background: var(--result);
+            }
+            .history-status[data-kind='error'] {
+                color: #b42318;
+                background: #fff1f0;
+                border-color: #f1b8b3;
+            }
+            [data-theme='dark'] .history-status[data-kind='error'] {
+                color: #ffb4ab;
+                background: #4a2020;
+                border-color: #7b3a36;
             }
             .secondary-btn:hover {
                 background: #e8f0fe;
@@ -301,6 +331,11 @@
                     grid-template-columns: 1fr;
                 }
             }
+            @media (prefers-reduced-motion: reduce) {
+                button {
+                    transition: none;
+                }
+            }
         </style>
     </head>
     <body>
@@ -334,6 +369,7 @@
                 <button id="exportBtn" data-i18n="exportJson">Экспорт JSON</button>
                 <button id="clearBtn" class="clear-btn" data-i18n="clear">Очистить</button>
             </div>
+            <p id="historyStatus" class="history-status" role="status" aria-live="polite" aria-atomic="true"></p>
             <div id="historyList"></div>
         </main>
         <script type="module" src="/src/history.ts"></script>

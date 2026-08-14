@@ -82,7 +82,7 @@ jobs:
 
     publish-firefox:
         needs: verify-and-release
-        if: ${{ vars.PUBLISH_FIREFOX_AMO == 'true' || inputs.publish_firefox == true }}
+        if: ${{ github.event_name == 'push' || vars.PUBLISH_FIREFOX_AMO == 'true' || inputs.publish_firefox == true }}
         runs-on: ubuntu-latest
         timeout-minutes: 15
         steps:
@@ -126,7 +126,7 @@ jobs:
 
     publish-chrome:
         needs: verify-and-release
-        if: ${{ vars.PUBLISH_CHROME_STORE == 'true' || inputs.publish_chrome == true }}
+        if: ${{ github.event_name == 'push' || vars.PUBLISH_CHROME_STORE == 'true' || inputs.publish_chrome == true }}
         runs-on: ubuntu-latest
         timeout-minutes: 15
         steps:

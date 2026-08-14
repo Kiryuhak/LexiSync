@@ -35,6 +35,35 @@ const note = (
 
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
+    note(
+        '5.2.5',
+        '2026-08-14',
+        'fixed',
+        'Встроенные редакторы и надёжная история',
+        'Embedded editors and reliable history',
+        [
+            [
+                'Горячие клавиши теперь работают с выделенным текстом в редакторах, встроенных в страницу, например в учебных заданиях.',
+                'Keyboard shortcuts now work with selected text in editors embedded into a page, such as learning exercises.',
+            ],
+            [
+                'Если текст выделен во встроенном поле, LexiSync больше не показывает ошибочное сообщение о недоступном буфере обмена.',
+                'When text is selected in an embedded field, LexiSync no longer shows an incorrect clipboard access message.',
+            ],
+            [
+                'История теперь подтверждает выполненные действия и понятным текстом сообщает, если что-то не получилось.',
+                'History now confirms completed actions and clearly explains when something could not be completed.',
+            ],
+            [
+                'Если для повтора нет открытой веб-страницы, LexiSync показывает причину вместо отсутствия реакции.',
+                'If there is no open web page for replay, LexiSync now explains the issue instead of appearing unresponsive.',
+            ],
+            [
+                'Кнопки защищены от случайного двойного запуска, а выгрузка истории надёжнее начинается в Firefox.',
+                'Buttons are protected from accidental duplicate actions, and history downloads start more reliably in Firefox.',
+            ],
+        ],
+    ),
     note('5.2.4', '2026-08-13', 'improved', 'Понятное название расширения', 'A clearer extension name', [
         [
             'Новое название «Корректор грамматики и орфографии - LexiSync» сразу объясняет основное назначение расширения.',

@@ -20,6 +20,7 @@ import { validateMistralRequest } from './request-validation';
 import { resolveStyleProfile } from './site-profiles';
 import {
     ensureContentScript,
+    findCommandTargetFrame,
     injectOptionalContentFeature,
     initializeSiteAccess,
     sendToTabWithInjection,
@@ -142,18 +143,17 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     ).catch((error) => console.error('Не удалось выполнить команду LexiSync:', error));
 });
 
-chrome.commands.onCommand.addListener((command) => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        const tab = tabs[0];
+chrome.commands.onCommand.addListener((command, commandTab) => {
+    void (async () => {
+        const tab = commandTab?.id ? commandTab : (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
         if (!tab?.id) return;
         if (command === 'ocr') {
-            void sendOcrCommand(tab.id, tab.windowId);
+            await sendOcrCommand(tab.id, tab.windowId);
             return;
         }
-        void sendToTabWithInjection(tab.id, { action: 'hotkeyTriggered', mode: command }).catch((error) =>
-            console.error('Не удалось выполнить горячую клавишу LexiSync:', error),
-        );
-    });
+        const frameId = await findCommandTargetFrame(tab.id);
+        await sendToTabWithInjection(tab.id, { action: 'hotkeyTriggered', mode: command }, frameId);
+    })().catch((error) => console.error('Не удалось выполнить горячую клавишу LexiSync:', error));
 });
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {

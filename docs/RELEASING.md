@@ -17,13 +17,15 @@ Workflow также можно запустить вручную. В этом с
 - `FIREFOX_JWT_ISSUER`
 - `FIREFOX_JWT_SECRET`
 
-Firefox-публикация включается ручным параметром `publish_firefox` либо repository variable
-`PUBLISH_FIREFOX_AMO=true`. Идентификатор Firefox берётся из `browser_specific_settings.gecko.id`
+При отправке релизного тега `v*` workflow автоматически передаёт сборки в Firefox Add-ons и Chrome Web Store.
+При ручном запуске отдельный магазин можно включить параметром `publish_firefox` или `publish_chrome`.
+Переменные `PUBLISH_FIREFOX_AMO=true` и `PUBLISH_CHROME_STORE=true` сохраняют автопубликацию и для ручных запусков.
+
+Идентификатор Firefox берётся из `browser_specific_settings.gecko.id`
 в манифесте, а лицензия ISC, категория `language-support` и локализованное краткое описание
 передаются из `scripts/firefox-amo-metadata.json`. Chrome Web Store настраивается отдельно:
 для него нужны
 `CHROME_EXTENSION_ID`, `CHROME_PUBLISHER_ID`, `CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL`,
-`CHROME_SERVICE_ACCOUNT_PRIVATE_KEY` и параметр `publish_chrome` либо переменная
-`PUBLISH_CHROME_STORE=true`. Секреты не должны храниться в репозитории или релизных архивах.
+`CHROME_SERVICE_ACCOUNT_PRIVATE_KEY`. Секреты не должны храниться в репозитории или релизных архивах.
 
 Локальная команда `npm run xpi:firefox` создаёт неподписанный XPI для временной установки и проверки. Для постоянной установки Firefox принимает только файл, подписанный Mozilla; такой файл создаётся в задаче `publish-firefox`.

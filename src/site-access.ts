@@ -8,6 +8,65 @@ const OPTIONAL_SCRIPT_FILES = {
 let scriptSyncQueue: Promise<void> = Promise.resolve();
 const tabInjectionQueues = new Map<number, Promise<void>>();
 
+interface CommandFrameState {
+    hasFocus: boolean;
+    hasEditableFocus: boolean;
+    activeElementIsFrame: boolean;
+    selectionLength: number;
+}
+
+function inspectCommandFrame(): CommandFrameState {
+    const activeElement = document.activeElement;
+    let editableSelectionLength = 0;
+    const hasEditableFocus =
+        activeElement instanceof HTMLInputElement ||
+        activeElement instanceof HTMLTextAreaElement ||
+        (activeElement instanceof HTMLElement && activeElement.isContentEditable);
+    if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement) {
+        try {
+            const start = activeElement.selectionStart ?? 0;
+            const end = activeElement.selectionEnd ?? start;
+            editableSelectionLength = activeElement.value.slice(start, end).trim().length;
+        } catch {
+            // Некоторые типы input не предоставляют позиции выделения.
+        }
+    }
+    const documentSelectionLength = window.getSelection()?.toString().trim().length ?? 0;
+    return {
+        hasFocus: document.hasFocus(),
+        hasEditableFocus,
+        activeElementIsFrame: activeElement instanceof HTMLIFrameElement,
+        selectionLength: Math.max(editableSelectionLength, documentSelectionLength),
+    };
+}
+
+function getCommandFrameScore(frameId: number, state: CommandFrameState): number {
+    return (
+        (state.hasFocus && !state.activeElementIsFrame ? 1000 : 0) +
+        (state.hasEditableFocus ? 500 : 0) +
+        (state.selectionLength > 0 ? 200 : 0) +
+        (frameId === 0 ? 0 : 1)
+    );
+}
+
+export async function findCommandTargetFrame(tabId: number): Promise<number | undefined> {
+    try {
+        const frames = await chrome.scripting.executeScript({
+            target: { tabId, allFrames: true },
+            func: inspectCommandFrame,
+        });
+        return frames
+            .filter((frame): frame is typeof frame & { result: CommandFrameState } => Boolean(frame.result))
+            .sort(
+                (left, right) =>
+                    getCommandFrameScore(right.frameId, right.result) - getCommandFrameScore(left.frameId, left.result),
+            )[0]?.frameId;
+    } catch {
+        // На служебной или защищённой странице сохраняем прежнюю отправку в основной фрейм.
+        return undefined;
+    }
+}
+
 export function getOriginPattern(urlValue: string): string | null {
     try {
         const url = new URL(urlValue);

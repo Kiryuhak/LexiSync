@@ -1,15 +1,17 @@
 import { beforeEach, expect, test, vi } from 'vitest';
 import {
     ensureContentScript,
+    findCommandTargetFrame,
     injectOptionalContentFeature,
     sendToTabWithInjection,
     syncRegisteredSiteScripts,
 } from '../src/site-access';
 
 let ready = false;
-const executeScript = vi.fn(async () => {
+const executeScript = vi.fn(async (): Promise<unknown> => {
     await Promise.resolve();
     ready = true;
+    return undefined;
 });
 
 beforeEach(() => {
@@ -78,4 +80,33 @@ test('внедряет сценарии в нужный фрейм и перед
     });
     await injectOptionalContentFeature(7, undefined, 'adaptive');
     expect(executeScript).toHaveBeenLastCalledWith({ target: { tabId: 7, frameIds: [0] }, files: ['adaptive.js'] });
+});
+
+test('направляет горячую клавишу во фрейм с активным полем и выделенным текстом', async () => {
+    executeScript.mockResolvedValueOnce([
+        {
+            frameId: 0,
+            result: { hasFocus: true, hasEditableFocus: false, activeElementIsFrame: true, selectionLength: 18 },
+        },
+        {
+            frameId: 7,
+            result: { hasFocus: true, hasEditableFocus: true, activeElementIsFrame: false, selectionLength: 18 },
+        },
+        {
+            frameId: 9,
+            result: { hasFocus: false, hasEditableFocus: false, activeElementIsFrame: false, selectionLength: 0 },
+        },
+    ]);
+
+    await expect(findCommandTargetFrame(42)).resolves.toBe(7);
+    expect(executeScript).toHaveBeenCalledWith({
+        target: { tabId: 42, allFrames: true },
+        func: expect.any(Function),
+    });
+});
+
+test('сохраняет отправку в основной фрейм, если проверка фокуса запрещена браузером', async () => {
+    executeScript.mockRejectedValueOnce(new Error('Cannot access contents of the page'));
+
+    await expect(findCommandTargetFrame(42)).resolves.toBeUndefined();
 });

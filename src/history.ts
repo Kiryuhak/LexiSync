@@ -23,15 +23,62 @@ const modeFilter = document.getElementById('modeFilter') as HTMLSelectElement | 
 const exportBtn = document.getElementById('exportBtn') as HTMLButtonElement | null;
 const favoriteFilter = document.getElementById('favoriteFilter') as HTMLButtonElement | null;
 const sortFilter = document.getElementById('historySort') as HTMLSelectElement | null;
+const historyStatus = document.getElementById('historyStatus');
 let history: HistoryItem[] = [];
 let favoritesOnly = false;
 
-function createButton(text: string, className: string, action: () => void | Promise<void>): HTMLButtonElement {
+type HistoryStatusKind = 'success' | 'error';
+
+class UserFacingHistoryError extends Error {}
+
+function showHistoryStatus(message: string, kind: HistoryStatusKind): void {
+    if (!historyStatus) return;
+    historyStatus.textContent = message;
+    historyStatus.dataset.kind = kind;
+}
+
+function getHistoryErrorMessage(error: unknown): string {
+    return error instanceof UserFacingHistoryError
+        ? error.message
+        : t('historyActionFailed', 'Не удалось выполнить действие с историей. Попробуйте ещё раз.');
+}
+
+async function runHistoryAction(
+    button: HTMLButtonElement,
+    action: () => void | Promise<void>,
+    successMessage: string,
+): Promise<void> {
+    if (button.dataset.busy === 'true') return;
+    if (historyStatus) {
+        historyStatus.textContent = '';
+        delete historyStatus.dataset.kind;
+    }
+    button.dataset.busy = 'true';
+    button.disabled = true;
+    button.setAttribute('aria-busy', 'true');
+    try {
+        await action();
+        showHistoryStatus(successMessage, 'success');
+    } catch (error) {
+        showHistoryStatus(getHistoryErrorMessage(error), 'error');
+    } finally {
+        delete button.dataset.busy;
+        button.disabled = false;
+        button.removeAttribute('aria-busy');
+    }
+}
+
+function createButton(
+    text: string,
+    className: string,
+    action: () => void | Promise<void>,
+    successMessage: string,
+): HTMLButtonElement {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = className;
     button.textContent = text;
-    button.addEventListener('click', () => void action());
+    button.addEventListener('click', () => void runHistoryAction(button, action, successMessage));
     return button;
 }
 
@@ -63,6 +110,7 @@ function createHistoryCard(item: HistoryItem): HTMLElement {
 
     const actions = document.createElement('div');
     actions.className = 'card-actions';
+    const nextFavorite = item.favorite !== true;
     actions.append(
         createButton(
             item.favorite
@@ -70,44 +118,72 @@ function createHistoryCard(item: HistoryItem): HTMLElement {
                 : `☆ ${t('addFavorite', 'Добавить в избранное')}`,
             'secondary-btn',
             async () => {
-                item.favorite = !item.favorite;
-                await setHistoryItemFavorite(item.id, item.favorite);
+                await setHistoryItemFavorite(item.id, nextFavorite);
+                item.favorite = nextFavorite;
                 renderHistory();
             },
+            nextFavorite
+                ? t('historyFavoriteAdded', 'Добавлено в избранное.')
+                : t('historyFavoriteRemoved', 'Удалено из избранного.'),
         ),
-        createButton(t('copyResult', 'Копировать результат'), 'secondary-btn', async () => {
-            await copyText(item.result);
-        }),
-        createButton(t('runAgain', 'Повторить на странице'), 'secondary-btn', async () => {
-            await chrome.runtime.sendMessage({ action: 'replayHistoryItem', item });
-        }),
-        createButton(t('saveAsCommand', 'Сохранить как команду'), 'secondary-btn', async () => {
-            const promptByMode: Record<RequestMode, string> = {
-                spellcheck: t(
-                    'historyPromptSpellcheck',
-                    'Исправь орфографические, грамматические и пунктуационные ошибки, сохранив формулировки.',
-                ),
-                style: `${t('historyPromptStyle', 'Перепиши текст в стиле этого примера результата:')} ${item.result.slice(0, 500)}`,
-                emoji: t('historyPromptEmoji', 'Добавь подходящие по смыслу эмодзи, не перегружая текст.'),
-                layout: t('historyPromptLayout', 'Исправь текст, набранный в неправильной раскладке.'),
-                translate: t(
-                    'historyPromptTranslate',
-                    'Переведи текст, сохранив смысл, терминологию и форматирование.',
-                ),
-                ocr: t('historyPromptOcr', 'Приведи распознанный текст в аккуратный читаемый вид.'),
-                custom: `${t('historyPromptCustom', 'Обработай текст по аналогии с этим результатом:')} ${item.result.slice(0, 500)}`,
-            };
-            await upsertCustomCommand({
-                id: crypto.randomUUID(),
-                name: (item.customName || MODE_NAMES[item.mode]).slice(0, 40),
-                prompt: promptByMode[item.mode].slice(0, 2000),
-            });
-        }),
-        createButton(t('delete', 'Удалить'), 'delete-btn', async () => {
-            await deleteHistoryItem(item.id);
-            history = history.filter((entry) => entry.id !== item.id);
-            renderHistory();
-        }),
+        createButton(
+            t('copyResult', 'Копировать результат'),
+            'secondary-btn',
+            async () => {
+                await copyText(item.result);
+            },
+            t('historyResultCopied', 'Результат скопирован.'),
+        ),
+        createButton(
+            t('runAgain', 'Повторить на странице'),
+            'secondary-btn',
+            async () => {
+                const response = await chrome.runtime.sendMessage({ action: 'replayHistoryItem', item });
+                if (response?.ok !== true) {
+                    const missingPageMessage = t('historyReplayPageMissing', 'Не найдена открытая веб-страница.');
+                    if (response?.error === missingPageMessage) throw new UserFacingHistoryError(missingPageMessage);
+                    throw new Error('HISTORY_REPLAY_FAILED');
+                }
+            },
+            t('historyReplayStarted', 'Команда отправлена на открытую страницу.'),
+        ),
+        createButton(
+            t('saveAsCommand', 'Сохранить как команду'),
+            'secondary-btn',
+            async () => {
+                const promptByMode: Record<RequestMode, string> = {
+                    spellcheck: t(
+                        'historyPromptSpellcheck',
+                        'Исправь орфографические, грамматические и пунктуационные ошибки, сохранив формулировки.',
+                    ),
+                    style: `${t('historyPromptStyle', 'Перепиши текст в стиле этого примера результата:')} ${item.result.slice(0, 500)}`,
+                    emoji: t('historyPromptEmoji', 'Добавь подходящие по смыслу эмодзи, не перегружая текст.'),
+                    layout: t('historyPromptLayout', 'Исправь текст, набранный в неправильной раскладке.'),
+                    translate: t(
+                        'historyPromptTranslate',
+                        'Переведи текст, сохранив смысл, терминологию и форматирование.',
+                    ),
+                    ocr: t('historyPromptOcr', 'Приведи распознанный текст в аккуратный читаемый вид.'),
+                    custom: `${t('historyPromptCustom', 'Обработай текст по аналогии с этим результатом:')} ${item.result.slice(0, 500)}`,
+                };
+                await upsertCustomCommand({
+                    id: crypto.randomUUID(),
+                    name: (item.customName || MODE_NAMES[item.mode]).slice(0, 40),
+                    prompt: promptByMode[item.mode].slice(0, 2000),
+                });
+            },
+            t('historyCommandSaved', 'Команда сохранена в настройках.'),
+        ),
+        createButton(
+            t('delete', 'Удалить'),
+            'delete-btn',
+            async () => {
+                await deleteHistoryItem(item.id);
+                history = history.filter((entry) => entry.id !== item.id);
+                renderHistory();
+            },
+            t('historyItemDeleted', 'Запись удалена.'),
+        ),
     );
 
     card.append(
@@ -174,17 +250,34 @@ favoriteFilter?.addEventListener('click', () => {
 });
 clearBtn?.addEventListener('click', async () => {
     if (!confirm(t('confirmClearHistory', 'Удалить всю историю запросов? Это действие нельзя отменить.'))) return;
-    await clearHistory();
-    history = [];
-    renderHistory();
+    await runHistoryAction(
+        clearBtn,
+        async () => {
+            await clearHistory();
+            history = [];
+            renderHistory();
+        },
+        t('historyCleared', 'История очищена.'),
+    );
 });
 exportBtn?.addEventListener('click', () => {
-    const blob = new Blob([JSON.stringify(history, null, 2)], { type: 'application/json' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `lexisync-history-${new Date().toISOString().slice(0, 10)}.json`;
-    link.click();
-    URL.revokeObjectURL(link.href);
+    void runHistoryAction(
+        exportBtn,
+        () => {
+            const blob = new Blob([JSON.stringify(history, null, 2)], { type: 'application/json' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.href = url;
+            link.download = `lexisync-history-${new Date().toISOString().slice(0, 10)}.json`;
+            link.click();
+            window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+        },
+        t('historyExported', 'Файл истории подготовлен.'),
+    );
 });
 
-document.addEventListener('DOMContentLoaded', () => void initialize());
+document.addEventListener('DOMContentLoaded', () => {
+    void initialize().catch(() => {
+        showHistoryStatus(t('historyLoadFailed', 'Не удалось загрузить историю. Перезагрузите страницу.'), 'error');
+    });
+});
