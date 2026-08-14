@@ -459,13 +459,15 @@ test('История безопасно выполняет действия и �
     await expect(page.locator('.history-card img')).toHaveCount(0);
     await page.locator('.history-card .card-actions button').first().click();
     await expect(page.locator('.history-card')).toHaveClass(/is-favorite/);
-    await expect(page.locator('#historyStatus')).toHaveText('Добавлено в избранное.');
+    await expect(page.locator('#historyStatus')).toHaveText(/^(?:Добавлено в избранное\.|Added to favorites\.)$/);
     const favoriteHistory = await background.evaluate(() => chrome.storage.local.get({ aiHistory: [] }));
     expect((favoriteHistory.aiHistory as Array<{ favorite?: boolean }>)[0].favorite).toBe(true);
 
     const replayButton = page.locator('.history-card .card-actions button').nth(2);
     await replayButton.click();
-    await expect(page.locator('#historyStatus')).toHaveText('Не найдена открытая веб-страница.');
+    await expect(page.locator('#historyStatus')).toHaveText(
+        /^(?:Не найдена открытая веб-страница\.|No open web page was found\.)$/,
+    );
     await expect(replayButton).toBeEnabled();
 
     await page.locator('#historySearch').fill('нет совпадения');
@@ -474,7 +476,7 @@ test('История безопасно выполняет действия и �
     await expect(page.locator('.history-card')).toHaveCount(1);
     await page.locator('.history-card .card-actions button').last().click();
     await expect(page.locator('.history-card')).toHaveCount(0);
-    await expect(page.locator('#historyStatus')).toHaveText('Запись удалена.');
+    await expect(page.locator('#historyStatus')).toHaveText(/^(?:Запись удалена\.|History item deleted\.)$/);
 });
 
 test('Кейс 3: Mistral OCR (Alt+S) и буфер обмена', async ({ page, context }) => {
