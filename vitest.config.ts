@@ -4,6 +4,7 @@ export default defineConfig({
     test: {
         include: [
             'tests/unit.spec.ts',
+            'tests/chrome-store-publisher.spec.ts',
             'tests/storage.spec.ts',
             'tests/content-lifecycle.spec.ts',
             'tests/site-access.spec.ts',

@@ -148,11 +148,10 @@ jobs:
                   CHROME_PUBLISHER_ID: ${{ secrets.CHROME_PUBLISHER_ID }}
                   CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL: ${{ secrets.CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL }}
                   CHROME_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CHROME_SERVICE_ACCOUNT_PRIVATE_KEY }}
-              run: >
-                  npx wxt submit
-                  --chrome-api-version v2
-                  --chrome-extension-id "$CHROME_EXTENSION_ID"
-                  --chrome-publisher-id "$CHROME_PUBLISHER_ID"
-                  --chrome-service-account-client-email "$CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL"
-                  --chrome-service-account-private-key "$CHROME_SERVICE_ACCOUNT_PRIVATE_KEY"
-                  --chrome-zip ".output/release/LexiSync-v${{ needs.verify-and-release.outputs.version }}-chrome.zip"
+                  CHROME_EXPECTED_VERSION: ${{ needs.verify-and-release.outputs.version }}
+                  CHROME_ZIP: .output/release/LexiSync-v${{ needs.verify-and-release.outputs.version }}-chrome.zip
+                  CHROME_MAX_ATTEMPTS: 3
+                  CHROME_POLL_ATTEMPTS: 12
+                  CHROME_POLL_DELAY_MS: 2500
+                  CHROME_RETRY_DELAY_MS: 3000
+              run: node scripts/publish-chrome-store.mjs
