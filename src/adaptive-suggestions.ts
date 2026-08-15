@@ -251,20 +251,11 @@ function getSuggestions(context: string): { prefix: string; suggestions: string[
 
 function ensureSuggestionUi(): void {
     if (suggestionHost && suggestionBar) return;
-    if (!customElements.get('lexisync-suggestion')) {
-        class LexiSyncSuggestion extends HTMLElement {
-            constructor() {
-                super();
-                this.attachShadow({ mode: 'open' });
-            }
-        }
-        customElements.define('lexisync-suggestion', LexiSyncSuggestion);
-    }
-    suggestionHost = document.createElement('lexisync-suggestion');
+    suggestionHost = document.createElement('div');
     suggestionHost.id = 'lexisync-adaptive-suggestions-host';
     suggestionHost.style.cssText =
         'all:initial!important;position:fixed!important;inset:0!important;width:0!important;height:0!important;z-index:2147483646!important;pointer-events:none!important;';
-    const shadow = suggestionHost.shadowRoot!;
+    const shadow = suggestionHost.attachShadow({ mode: 'open' });
     const style = document.createElement('style');
     style.textContent = `
         :host { all: initial; }

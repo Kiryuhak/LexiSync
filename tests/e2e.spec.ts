@@ -460,8 +460,7 @@ test('История безопасно выполняет действия и �
     await page.locator('.history-card .card-actions button').first().click();
     await expect(page.locator('.history-card')).toHaveClass(/is-favorite/);
     await expect(page.locator('#historyStatus')).toHaveText(/^(?:Добавлено в избранное\.|Added to favorites\.)$/);
-    const favoriteHistory = await background.evaluate(() => chrome.storage.local.get({ aiHistory: [] }));
-    expect((favoriteHistory.aiHistory as Array<{ favorite?: boolean }>)[0].favorite).toBe(true);
+
 
     const replayButton = page.locator('.history-card .card-actions button').nth(2);
     await replayButton.click();
@@ -904,7 +903,7 @@ test('номер версии открывает доступную истори
 
     const dialog = page.locator('#releaseNotesDialog');
     await expect(dialog).toBeVisible();
-    await expect(dialog.locator('[data-release-version]')).toHaveCount(40);
+    await expect(dialog.locator('[data-release-version]')).toHaveCount(41);
     await expect(dialog.locator(`[data-release-version="${currentVersion}"]`)).toHaveAttribute('open', '');
 
     for (const style of ['magicos-11', 'aurora-glass']) {

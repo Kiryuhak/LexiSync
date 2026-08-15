@@ -424,24 +424,14 @@ if (!contentRuntime.__lexisyncContentInitialized) {
         return popupShadow?.getElementById(id) as T | null;
     }
 
-    if (!customElements.get('lexisync-ui')) {
-        class LexiSyncUI extends HTMLElement {
-            constructor() {
-                super();
-                this.attachShadow({ mode: 'open' });
-            }
-        }
-        customElements.define('lexisync-ui', LexiSyncUI);
-    }
-
     function createPopupElement(): HTMLElement {
         injectStyles();
         if (!popupHost && document.activeElement instanceof HTMLElement) previousFocus = document.activeElement;
-        popupHost = document.createElement('lexisync-ui');
+        popupHost = document.createElement('div');
         popupHost.id = 'lexisync-shadow-host';
         popupHost.style.cssText =
             'all: initial !important; position: fixed !important; inset: 0 !important; width: 0 !important; height: 0 !important; z-index: 2147483647 !important; pointer-events: auto !important;';
-        popupShadow = popupHost.shadowRoot!;
+        popupShadow = popupHost.attachShadow({ mode: 'open' });
 
         const style = document.createElement('style');
         style.textContent = `:host { all: initial; } ${popupStyleText}`;
