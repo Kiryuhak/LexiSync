@@ -461,7 +461,6 @@ test('История безопасно выполняет действия и �
     await expect(page.locator('.history-card')).toHaveClass(/is-favorite/);
     await expect(page.locator('#historyStatus')).toHaveText(/^(?:Добавлено в избранное\.|Added to favorites\.)$/);
 
-
     const replayButton = page.locator('.history-card .card-actions button').nth(2);
     await replayButton.click();
     await expect(page.locator('#historyStatus')).toHaveText(
