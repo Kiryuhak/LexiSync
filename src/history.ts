@@ -240,7 +240,22 @@ async function initialize(): Promise<void> {
     renderHistory();
 }
 
-searchInput?.addEventListener('input', renderHistory);
+let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+function handleSearchInput(): void {
+    if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(() => {
+        searchDebounceTimer = null;
+        renderHistory();
+    }, 80);
+}
+
+searchInput?.addEventListener('input', handleSearchInput);
+searchInput?.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && searchInput.value) {
+        searchInput.value = '';
+        renderHistory();
+    }
+});
 modeFilter?.addEventListener('change', renderHistory);
 sortFilter?.addEventListener('change', renderHistory);
 favoriteFilter?.addEventListener('click', () => {

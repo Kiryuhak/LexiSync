@@ -30,6 +30,7 @@ import { getPrivacySettings, isSiteDisabled, normalizeDisabledSites } from './pr
 import { DEFAULT_BUDGET_SETTINGS, estimateTokens } from './budget';
 import { finalizeBudgetReservation, reserveBudgetIfActive } from './budget-reservations';
 import { getStoredApiKey, migrateApiKeyToSecretStore, setStoredApiKey } from './secret-store';
+import { logger } from './logger';
 
 const REQUEST_TIMEOUT_MS = 45_000;
 
@@ -64,6 +65,31 @@ async function canMutateAdaptiveForSender(sender: chrome.runtime.MessageSender):
 const initializationPromise = restoreSyncedSettings().then(migrateSettings).then(migrateApiKeyToSecretStore);
 initializeSettingsSync();
 initializeSiteAccess();
+
+let settingsCache: Record<string, unknown> = {};
+const cacheReady = initializationPromise
+    .then(() => chrome.storage.local.get(null))
+    .then((all) => {
+        settingsCache = all;
+    });
+
+chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local') {
+        for (const [key, { newValue }] of Object.entries(changes)) {
+            if (newValue === undefined) delete settingsCache[key];
+            else settingsCache[key] = newValue;
+        }
+    }
+});
+
+export async function getCachedSettings(keys: Record<string, unknown>): Promise<Record<string, unknown>> {
+    await cacheReady;
+    const result: Record<string, unknown> = {};
+    for (const key of Object.keys(keys)) {
+        result[key] = settingsCache[key] !== undefined ? settingsCache[key] : keys[key];
+    }
+    return result;
+}
 
 chrome.runtime.onInstalled.addListener((details) => {
     if (details.reason === 'install') {
@@ -106,17 +132,17 @@ async function sendOcrCommand(tabId: number, windowId?: number): Promise<void> {
     try {
         await ensureContentScript(tabId);
     } catch (error) {
-        console.error('Не удалось запустить LexiSync на вкладке:', error);
+        logger.error('Не удалось запустить LexiSync на вкладке:', error);
         return;
     }
     const handleCapture = (dataUrl?: string) => {
         if (chrome.runtime.lastError || !dataUrl) {
-            console.error('Ошибка захвата экрана:', chrome.runtime.lastError);
+            logger.error('Ошибка захвата экрана:', chrome.runtime.lastError);
             return;
         }
         void chrome.tabs
             .sendMessage(tabId, { action: 'startOcrMode', screenshotUrl: dataUrl })
-            .catch((error) => console.error('Не удалось открыть OCR на вкладке:', error));
+            .catch((error) => logger.error('Не удалось открыть OCR на вкладке:', error));
     };
 
     if (typeof windowId === 'number') {
@@ -140,7 +166,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
             text: info.selectionText || '',
         },
         info.frameId,
-    ).catch((error) => console.error('Не удалось выполнить команду LexiSync:', error));
+    ).catch((error) => logger.error('Не удалось выполнить команду LexiSync:', error));
 });
 
 chrome.commands.onCommand.addListener((command, commandTab) => {
@@ -153,7 +179,7 @@ chrome.commands.onCommand.addListener((command, commandTab) => {
         }
         const frameId = await findCommandTargetFrame(tab.id);
         await sendToTabWithInjection(tab.id, { action: 'hotkeyTriggered', mode: command }, frameId);
-    })().catch((error) => console.error('Не удалось выполнить горячую клавишу LexiSync:', error));
+    })().catch((error) => logger.error('Не удалось выполнить горячую клавишу LexiSync:', error));
 });
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -196,7 +222,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         void initializationPromise
             .then(async () => {
                 const [settings, apiKey] = await Promise.all([
-                    chrome.storage.local.get({
+                    getCachedSettings({
                         sendPageContext: false,
                         contextDisabledSites: [],
                         aiMode: 'quality',
@@ -382,7 +408,7 @@ chrome.runtime.onConnect.addListener((port) => {
 
         try {
             await initializationPromise;
-            const settings = await chrome.storage.local.get({
+            const settings = await getCachedSettings({
                 selectedTone: 'business',
                 sendPageContext: false,
                 personalDictionary: [],
@@ -417,7 +443,7 @@ chrome.runtime.onConnect.addListener((port) => {
                         try {
                             await applyUsageMutation('cacheHit', {});
                         } catch (error) {
-                            console.error('Не удалось учесть попадание в OCR-кэш:', error);
+                            logger.error('Не удалось учесть попадание в OCR-кэш:', error);
                         }
                         if (isCurrentRequest()) {
                             safePostMessage({ status: 'chunk', text: cached });
@@ -483,7 +509,7 @@ chrome.runtime.onConnect.addListener((port) => {
                     try {
                         await applyCacheMutation('set', { key: ocrCacheKey, value: text });
                     } catch (error) {
-                        console.error('Не удалось сохранить OCR-кэш:', error);
+                        logger.error('Не удалось сохранить OCR-кэш:', error);
                     }
                 }
             } else {

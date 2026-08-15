@@ -1,5 +1,6 @@
 import { normalizeSitePatterns } from './site-profiles';
 import { normalizeDisabledSites } from './privacy';
+import { logger } from './logger';
 
 const PORTABLE_SETTING_KEYS = [
     'selectedTone',
@@ -88,11 +89,11 @@ async function syncSettings(updates: Record<string, unknown>): Promise<void> {
 }
 
 async function reportSettingsSyncError(error: unknown): Promise<void> {
-    console.warn('Не удалось синхронизировать настройки LexiSync:', error);
+    logger.warn('Не удалось синхронизировать настройки LexiSync:', error);
     try {
         await setSettingsSyncStatus('error');
     } catch (statusError) {
-        console.warn('Не удалось сохранить статус синхронизации LexiSync:', statusError);
+        logger.warn('Не удалось сохранить статус синхронизации LexiSync:', statusError);
     }
 }
 

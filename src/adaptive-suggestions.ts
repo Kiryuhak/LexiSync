@@ -43,7 +43,7 @@ let settings: AdaptiveSettings = {
     adaptiveDisabledSites: [],
 };
 let model: AdaptiveLanguageModel = structuredClone(EMPTY_MODEL);
-let suggestionHost: HTMLDivElement | null = null;
+let suggestionHost: HTMLElement | null = null;
 let suggestionBar: HTMLDivElement | null = null;
 let activeEditable: EditableElement | null = null;
 let activePrefix = '';
@@ -102,7 +102,7 @@ function isSensitiveField(target: EditableElement): boolean {
 
 function isAllowedOnCurrentPage(): boolean {
     return (
-        !chrome.extension.inIncognitoContext &&
+        chrome.extension?.inIncognitoContext !== true &&
         !isSiteDisabled(location.hostname, settings.blockedSites) &&
         !isSiteDisabled(location.hostname, settings.adaptiveDisabledSites)
     );
@@ -251,11 +251,20 @@ function getSuggestions(context: string): { prefix: string; suggestions: string[
 
 function ensureSuggestionUi(): void {
     if (suggestionHost && suggestionBar) return;
-    suggestionHost = document.createElement('div');
+    if (!customElements.get('lexisync-suggestion')) {
+        class LexiSyncSuggestion extends HTMLElement {
+            constructor() {
+                super();
+                this.attachShadow({ mode: 'open' });
+            }
+        }
+        customElements.define('lexisync-suggestion', LexiSyncSuggestion);
+    }
+    suggestionHost = document.createElement('lexisync-suggestion');
     suggestionHost.id = 'lexisync-adaptive-suggestions-host';
     suggestionHost.style.cssText =
         'all:initial!important;position:fixed!important;inset:0!important;width:0!important;height:0!important;z-index:2147483646!important;pointer-events:none!important;';
-    const shadow = suggestionHost.attachShadow({ mode: 'open' });
+    const shadow = suggestionHost.shadowRoot!;
     const style = document.createElement('style');
     style.textContent = `
         :host { all: initial; }

@@ -44,14 +44,27 @@ function fillThemeEditor(theme: ThemeCustomization): void {
     renderThemePreview(theme);
 }
 
-export async function setupV4Settings(): Promise<void> {
-    const stored = await chrome.storage.local.get({
-        themeCustomization: DEFAULT_THEME_CUSTOMIZATION,
-        liveProofreadEnabled: false,
-        liveProofreadDelay: 900,
-        liveProofreadDisabledSites: [],
-        ...DEFAULT_BUDGET_SETTINGS,
-    });
+export interface StoredV4Settings {
+    themeCustomization?: unknown;
+    liveProofreadEnabled?: unknown;
+    liveProofreadDelay?: unknown;
+    liveProofreadDisabledSites?: unknown;
+    dailyRequestLimit?: unknown;
+    monthlyTokenLimit?: unknown;
+    warnLargeText?: unknown;
+    autoFastMode?: unknown;
+}
+
+export async function restoreV4Settings(storedSettings?: StoredV4Settings): Promise<void> {
+    const stored: StoredV4Settings =
+        storedSettings ??
+        (await chrome.storage.local.get({
+            themeCustomization: DEFAULT_THEME_CUSTOMIZATION,
+            liveProofreadEnabled: false,
+            liveProofreadDelay: 900,
+            liveProofreadDisabledSites: [],
+            ...DEFAULT_BUDGET_SETTINGS,
+        }));
     byId<HTMLInputElement>('liveProofreadEnabled').checked = stored.liveProofreadEnabled === true;
     byId<HTMLSelectElement>('liveProofreadDelay').value = ['600', '900', '1500', '2500'].includes(
         String(stored.liveProofreadDelay),
@@ -66,6 +79,10 @@ export async function setupV4Settings(): Promise<void> {
     byId<HTMLInputElement>('warnLargeText').checked = stored.warnLargeText !== false;
     byId<HTMLInputElement>('autoFastMode').checked = stored.autoFastMode !== false;
     fillThemeEditor(normalizeThemeCustomization(stored.themeCustomization));
+}
+
+export async function setupV4Settings(): Promise<void> {
+    await restoreV4Settings();
 
     byId<HTMLInputElement>('liveProofreadEnabled').addEventListener('change', (event) => {
         void chrome.storage.local.set({ liveProofreadEnabled: (event.target as HTMLInputElement).checked });

@@ -3,6 +3,7 @@ import { t } from './i18n';
 import { setIcon } from './dom-rendering';
 import type { CustomCommand, RequestMode } from './types';
 import { copyText } from './clipboard';
+import { logger } from './logger';
 
 export interface ContentMenuContext {
     openPopup: (x: number, y: number) => HTMLElement;
@@ -16,6 +17,72 @@ export interface ContentMenuContext {
     executeCustom: (command: CustomCommand) => void;
 }
 
+function setupToolbarKeyboardNavigation(container: HTMLElement, onClose: () => void): void {
+    container.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            event.stopPropagation();
+            const moreDropdown = container.querySelector<HTMLElement>('#lexisync-more-dropdown');
+            if (moreDropdown && moreDropdown.style.display === 'flex') {
+                moreDropdown.style.display = 'none';
+                container.querySelector<HTMLButtonElement>('#lexisync-more-btn-wrap button')?.focus();
+            } else {
+                onClose();
+            }
+            return;
+        }
+        const buttons = Array.from(container.querySelectorAll<HTMLButtonElement>('button:not([disabled])'));
+        if (buttons.length === 0) return;
+        const currentIndex = buttons.indexOf(document.activeElement as HTMLButtonElement);
+        if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+            event.preventDefault();
+            const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % buttons.length : 0;
+            buttons[nextIndex].focus();
+        } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+            event.preventDefault();
+            const prevIndex = currentIndex > 0 ? currentIndex - 1 : buttons.length - 1;
+            buttons[prevIndex].focus();
+        } else if (event.key === 'Home') {
+            event.preventDefault();
+            buttons[0].focus();
+        } else if (event.key === 'End') {
+            event.preventDefault();
+            buttons[buttons.length - 1].focus();
+        }
+    });
+}
+
+function setupMenuKeyboardNavigation(container: HTMLElement, onClose: () => void): void {
+    container.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            event.stopPropagation();
+            onClose();
+            return;
+        }
+        const items = Array.from(
+            container.querySelectorAll<HTMLButtonElement>('button.lexisync-menu-button:not([disabled])'),
+        );
+        if (items.length === 0) return;
+        const currentIndex = items.indexOf(document.activeElement as HTMLButtonElement);
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % items.length : 0;
+            items[nextIndex].focus();
+        } else if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            const prevIndex = currentIndex > 0 ? currentIndex - 1 : items.length - 1;
+            items[prevIndex].focus();
+        } else if (event.key === 'Home') {
+            event.preventDefault();
+            items[0].focus();
+        } else if (event.key === 'End') {
+            event.preventDefault();
+            items[items.length - 1].focus();
+        }
+    });
+}
+
 export function showToolbarMenu(x: number, y: number, context: ContentMenuContext): void {
     const popupUI = context.openPopup(x, y);
     const currentSearchEngine = context.getSearchEngine();
@@ -27,6 +94,7 @@ export function showToolbarMenu(x: number, y: number, context: ContentMenuContex
     popupUI.addEventListener('mousedown', (e) => e.stopPropagation());
     popupUI.addEventListener('mouseup', (e) => e.stopPropagation());
     popupUI.addEventListener('click', (e) => e.stopPropagation());
+    setupToolbarKeyboardNavigation(popupUI, () => context.closePopup());
 
     popupUI.style.cssText = `position: fixed !important; left: -9999px; top: -9999px; background: var(--bg-primary); z-index: 2147483647 !important; font-family: system-ui, sans-serif; font-size: 13px; color: var(--text-primary); display: flex; align-items: center; padding: 4px; gap: 2px;`;
 
@@ -224,6 +292,7 @@ export function showAIMenu(x: number, y: number, context: ContentMenuContext): v
     popupUI.addEventListener('mousedown', (e) => e.stopPropagation());
     popupUI.addEventListener('mouseup', (e) => e.stopPropagation());
     popupUI.addEventListener('click', (e) => e.stopPropagation());
+    setupMenuKeyboardNavigation(popupUI, () => context.closePopup());
 
     popupUI.style.cssText = `position: fixed !important; left: -9999px; top: -9999px; background: var(--bg-primary); z-index: 2147483647 !important; font-family: system-ui, sans-serif; font-size: 13px; color: var(--text-primary); width: 250px; padding: 7px;`;
 
@@ -300,7 +369,7 @@ export function showAIMenu(x: number, y: number, context: ContentMenuContext): v
             }
             context.adjustPopupPosition();
         })
-        .catch((error) => console.error('Не удалось загрузить пользовательские команды:', error));
+        .catch((error) => logger.error('Не удалось загрузить пользовательские команды:', error));
 
     context.adjustPopupPosition();
 }

@@ -150,6 +150,8 @@
     "apiKeyLabel": { "message": "Your Mistral API key:" },
     "apiKeyPlaceholder": { "message": "Paste your key…" },
     "toggleApiKey": { "message": "Show or hide the API key" },
+    "showApiKey": { "message": "Show API key" },
+    "hideApiKey": { "message": "Hide API key" },
     "toneLabel": { "message": "Tone of voice:" },
     "toneBusiness": { "message": "💼 Business (formal, polite)" },
     "toneFriendly": { "message": "👋 Friendly (open, conversational)" },

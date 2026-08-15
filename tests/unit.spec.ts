@@ -24,17 +24,23 @@ import { applyThemeCustomization, normalizeThemeCustomization } from '../src/the
 import { parseAdaptiveModel } from '../src/adaptive-model-store';
 import { POPUP_STYLE_TEXT } from '../src/content-ui-style';
 import { copyText } from '../src/clipboard';
+import { renderPrimaryResultActions } from '../src/content-result-actions';
+import { shouldStoreOnCurrentPage } from '../src/privacy';
 import { shouldAutoProofreadField } from '../src/live-proofread-privacy';
 import { shouldShowSelectionMenu } from '../src/selection-state';
 import { calculatePopupPosition } from '../src/popup-position';
 import { sortHistoryItems } from '../src/history-sort';
 import { formatRequestDuration } from '../src/request-duration';
 import { filterReleaseNotes, RELEASE_NOTES, resolveReleaseNotesLocale } from '../src/release-notes';
+import { logger } from '../src/logger';
+import { clampInterfaceScale } from '../src/options-appearance';
+import { SETTINGS_TAB_GUIDES } from '../src/options-tabs';
+import { createDiagnosticReport } from '../src/diagnostics';
 
 test('история обновлений содержит все выпуски и поддерживает поиск', () => {
-    expect(RELEASE_NOTES[0].version).toBe('5.2.5');
+    expect(RELEASE_NOTES[0].version).toBe('5.2.6');
     expect(RELEASE_NOTES.at(-1)?.version).toBe('2.5');
-    expect(RELEASE_NOTES).toHaveLength(40);
+    expect(RELEASE_NOTES).toHaveLength(41);
     expect(new Set(RELEASE_NOTES.map((release) => release.version)).size).toBe(RELEASE_NOTES.length);
     expect(filterReleaseNotes(RELEASE_NOTES, 'MagicOS', 'ru').map((release) => release.version)).toEqual([
         '5.2.1',
@@ -539,4 +545,244 @@ test('стили интерфейса содержат семантически�
     expect(POPUP_STYLE_TEXT).toContain('color: var(--success-color);');
     expect(POPUP_STYLE_TEXT).toContain('.lexisync-result-button--success {');
     expect(POPUP_STYLE_TEXT).toContain('font-weight: 600 !important;');
+});
+
+test('renderPrimaryResultActions отображает только кнопку копирования при отсутствии цели замены или в OCR', () => {
+    interface MockElement {
+        tagName: string;
+        style: Record<string, string>;
+        className: string;
+        classList: {
+            add: (cls: string) => void;
+            remove: (cls: string) => void;
+            contains: (cls: string) => boolean;
+        };
+        setAttribute: (name: string, value: string) => void;
+        getAttribute: (name: string) => string | null;
+        appendChild: (child: MockElement | { textContent: string }) => MockElement | { textContent: string };
+        replaceChildren: (...newChildren: Array<MockElement | { textContent: string }>) => void;
+        querySelectorAll: (selector: string) => MockElement[];
+        textContent: string;
+    }
+
+    function createMockElement(tagName = 'div'): MockElement {
+        const children: Array<MockElement | { textContent: string }> = [];
+        const classList = new Set<string>();
+        const attributes = new Map<string, string>();
+        const element: MockElement = {
+            tagName: tagName.toUpperCase(),
+            style: {},
+            get className() {
+                return Array.from(classList).join(' ');
+            },
+            set className(val: string) {
+                classList.clear();
+                val.split(/\s+/)
+                    .filter(Boolean)
+                    .forEach((cls) => classList.add(cls));
+            },
+            classList: {
+                add: (cls: string) => classList.add(cls),
+                remove: (cls: string) => classList.delete(cls),
+                contains: (cls: string) => classList.has(cls),
+            },
+            setAttribute: (name: string, value: string) => attributes.set(name, value),
+            getAttribute: (name: string) => attributes.get(name) || null,
+            appendChild: (child: MockElement | { textContent: string }) => {
+                children.push(child);
+                return child;
+            },
+            replaceChildren: (...newChildren: Array<MockElement | { textContent: string }>) => {
+                children.length = 0;
+                children.push(...newChildren);
+            },
+            querySelectorAll: (selector: string) => {
+                if (selector === 'button')
+                    return children.filter((c): c is MockElement => 'tagName' in c && c.tagName === 'BUTTON');
+                return [];
+            },
+            get textContent() {
+                return children.map((c) => c.textContent || '').join('');
+            },
+            set textContent(val: string) {
+                children.length = 0;
+                children.push({ textContent: val });
+            },
+        };
+        return element;
+    }
+
+    class MockDOMParser {
+        parseFromString() {
+            return {
+                documentElement: {
+                    localName: 'svg',
+                    querySelector: () => null,
+                    querySelectorAll: () => [],
+                    attributes: [],
+                },
+            };
+        }
+    }
+
+    const originalDocument = globalThis.document;
+    const originalDOMParser = globalThis.DOMParser;
+    vi.stubGlobal('DOMParser', MockDOMParser);
+    vi.stubGlobal('document', {
+        createElement: (tag: string) => createMockElement(tag),
+        createTextNode: (text: string) => ({ textContent: text }),
+        importNode: (node: unknown) => node,
+    });
+
+    try {
+        const actionsContainer = createMockElement('div');
+        const headerTitle = createMockElement('div');
+        const showStatus = vi.fn();
+        const setTimeoutFn = vi.fn();
+
+        // Режим OCR без выделения текста
+        renderPrimaryResultActions({
+            mode: 'ocr',
+            selection: {
+                text: 'OCR text',
+                context: '',
+                range: null,
+                activeElement: null,
+                start: null,
+                end: null,
+                isInput: false,
+            },
+            actionsContainer: actionsContainer as unknown as HTMLElement,
+            headerTitle: headerTitle as unknown as HTMLElement,
+            getResult: () => 'OCR result text',
+            showStatus,
+            setTimeout: setTimeoutFn,
+        });
+
+        const buttons = actionsContainer.querySelectorAll('button');
+        expect(buttons).toHaveLength(1);
+        expect(buttons[0].textContent).toContain('Копировать');
+        expect(buttons[0].classList.contains('lexisync-result-button--primary')).toBe(true);
+
+        // Режим с активным полем ввода: показывает кнопку замены и кнопку копирования
+        const input = createMockElement('input');
+        const inputActionsContainer = createMockElement('div');
+        renderPrimaryResultActions({
+            mode: 'translate',
+            selection: {
+                text: 'Hello',
+                context: 'Hello',
+                range: null,
+                activeElement: input as unknown as HTMLInputElement,
+                start: 0,
+                end: 5,
+                isInput: true,
+            },
+            actionsContainer: inputActionsContainer as unknown as HTMLElement,
+            headerTitle: headerTitle as unknown as HTMLElement,
+            getResult: () => 'Привет',
+            showStatus,
+            setTimeout: setTimeoutFn,
+        });
+
+        const inputButtons = inputActionsContainer.querySelectorAll('button');
+        expect(inputButtons).toHaveLength(2);
+        expect(inputButtons[0].textContent).toContain('Заменить текст');
+        expect(inputButtons[1].getAttribute('aria-label')).toBe('Копировать');
+    } finally {
+        vi.stubGlobal('document', originalDocument);
+        vi.stubGlobal('DOMParser', originalDOMParser);
+    }
+});
+
+test('shouldStoreOnCurrentPage корректно обрабатывает отсутствие chrome.extension без исключений', async () => {
+    const originalChrome = globalThis.chrome;
+    vi.stubGlobal('chrome', {
+        storage: {
+            local: {
+                get: vi.fn().mockResolvedValue({
+                    historyEnabled: true,
+                    historyRetentionDays: 30,
+                    disabledSites: [],
+                }),
+            },
+        },
+    });
+
+    try {
+        const canStore = await shouldStoreOnCurrentPage('example.com');
+        expect(canStore).toBe(true);
+    } finally {
+        vi.stubGlobal('chrome', originalChrome);
+    }
+});
+
+test('logger корректно форматирует сообщения и префикс [LexiSync]', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    logger.warn('Test warning');
+    logger.error('Test error');
+
+    expect(warnSpy).toHaveBeenCalledWith('[LexiSync] Test warning');
+    expect(errorSpy).toHaveBeenCalledWith('[LexiSync] Test error');
+
+    warnSpy.mockRestore();
+    errorSpy.mockRestore();
+});
+
+test('clampInterfaceScale ограничивает масштаб шагом 5% в диапазоне 75-110%', () => {
+    expect(clampInterfaceScale(50)).toBe(75);
+    expect(clampInterfaceScale(73)).toBe(75);
+    expect(clampInterfaceScale(91)).toBe(90);
+    expect(clampInterfaceScale(94)).toBe(95);
+    expect(clampInterfaceScale(120)).toBe(110);
+});
+
+test('SETTINGS_TAB_GUIDES содержит описания для всех основных разделов настроек', () => {
+    expect(Object.keys(SETTINGS_TAB_GUIDES)).toEqual([
+        'main',
+        'ai',
+        'appearance',
+        'suggestions',
+        'privacy',
+        'commands',
+    ]);
+    expect(SETTINGS_TAB_GUIDES.main.icon).toBe('✦');
+    expect(SETTINGS_TAB_GUIDES.commands.icon).toBe('⌘');
+});
+
+test('createDiagnosticReport формирует валидный отчёт без ошибок при отсутствии getBytesInUse', async () => {
+    const originalChrome = globalThis.chrome;
+    const mockBrowser = {
+        storage: {
+            local: {
+                get: vi.fn().mockResolvedValue({
+                    selectedTheme: 'dark',
+                    visualStyle: 'liquid-glass',
+                    usageStats: { requests: 10, cacheHits: 3, failures: 0, totalLatencyMs: 5000 },
+                }),
+            },
+        },
+        permissions: {
+            getAll: vi.fn().mockResolvedValue({ permissions: ['storage', 'contextMenus'] }),
+        },
+        runtime: {
+            getManifest: () => ({ version: '5.2.6', manifest_version: 3 }),
+        },
+    };
+    vi.stubGlobal('chrome', mockBrowser);
+    vi.stubGlobal('browser', mockBrowser);
+
+    try {
+        const report = await createDiagnosticReport();
+        expect(report.format).toBe('lexisync-diagnostics');
+        expect(report.extension.version).toBe('5.2.6');
+        expect(report.extension.manifestVersion).toBe(3);
+        expect(report.permissions).toContain('storage');
+        expect(report.usage.requests).toBe(10);
+        expect(report.usage.cacheHits).toBe(3);
+    } finally {
+        vi.stubGlobal('chrome', originalChrome);
+    }
 });

@@ -1,3 +1,4 @@
+import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { addHistoryItem, applyHistoryMutation, getHistory } from '../src/history-store';
 import { applyUsageMutation } from '../src/usage-stats';
@@ -13,6 +14,7 @@ import {
     reserveBudgetIfActive,
 } from '../src/budget-reservations';
 import { initializeSettingsSync, retrySettingsSync } from '../src/settings-transfer';
+import { restoreV4Settings } from '../src/v4-settings';
 
 let storage: Record<string, unknown>;
 let storageGetCalls: unknown[];
@@ -105,7 +107,7 @@ test('очищает повреждённую и устаревшую истор
     ];
 
     await expect(getHistory()).resolves.toMatchObject([{ id: 1 }, { id: 2, favorite: true }]);
-    expect(storage.aiHistory).toHaveLength(2);
+    expect(storage.aiHistory).toBeUndefined();
 });
 
 test('отправляет пользовательские изменения истории через фоновый обработчик', async () => {
@@ -167,7 +169,7 @@ test('не теряет историю при параллельных запи�
             }),
         ),
     );
-    expect(storage.aiHistory).toHaveLength(20);
+    await expect(getHistory()).resolves.toHaveLength(20);
 });
 
 test('не теряет статистику при параллельных запросах', async () => {
@@ -449,4 +451,63 @@ test('отклоняет некорректный hostname настройки с
             enabled: false,
         }),
     ).rejects.toThrow('INVALID_SITE_HOSTNAME');
+});
+
+test('restoreV4Settings корректно заполняет элементы формы при импорте или загрузке', async () => {
+    const elements: Record<
+        string,
+        {
+            value?: string;
+            checked?: boolean;
+            style?: { setProperty: ReturnType<typeof vi.fn> };
+            textContent?: string;
+        }
+    > = {
+        liveProofreadEnabled: { checked: false },
+        liveProofreadDelay: { value: '900' },
+        liveProofreadDisabledSites: { value: '' },
+        dailyRequestLimit: { value: '0' },
+        monthlyTokenLimit: { value: '0' },
+        warnLargeText: { checked: true },
+        autoFastMode: { checked: true },
+        themeAccent: { value: '' },
+        themeRadius: { value: '' },
+        themeDensity: { value: '' },
+        themeTransparency: { value: '' },
+        themeFontScale: { value: '' },
+        themeEditorPreview: { style: { setProperty: vi.fn() } },
+        themeRadiusValue: { textContent: '' },
+        themeDensityValue: { textContent: '' },
+        themeTransparencyValue: { textContent: '' },
+        themeFontScaleValue: { textContent: '' },
+    };
+
+    vi.stubGlobal('document', {
+        getElementById: (id: string) => elements[id] || null,
+    });
+
+    try {
+        await restoreV4Settings({
+            liveProofreadEnabled: true,
+            liveProofreadDelay: 1500,
+            liveProofreadDisabledSites: ['mail.example.com'],
+            dailyRequestLimit: 50,
+            monthlyTokenLimit: 100000,
+            warnLargeText: false,
+            autoFastMode: false,
+            themeCustomization: { accent: '#ff5500', radius: 12, density: 95, transparency: 85, fontScale: 105 },
+        });
+
+        expect(elements.liveProofreadEnabled.checked).toBe(true);
+        expect(elements.liveProofreadDelay.value).toBe('1500');
+        expect(elements.liveProofreadDisabledSites.value).toBe('mail.example.com');
+        expect(elements.dailyRequestLimit.value).toBe('50');
+        expect(elements.monthlyTokenLimit.value).toBe('100000');
+        expect(elements.warnLargeText.checked).toBe(false);
+        expect(elements.autoFastMode.checked).toBe(false);
+        expect(elements.themeAccent.value).toBe('#ff5500');
+        expect(elements.themeRadius.value).toBe('12');
+    } finally {
+        vi.unstubAllGlobals();
+    }
 });

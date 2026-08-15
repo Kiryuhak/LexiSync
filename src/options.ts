@@ -11,90 +11,23 @@ import { restoreStyleProfileSettings, setupStyleProfileSettings } from './style-
 import { restoreCustomCommandSettings, setupCustomCommandSettings } from './custom-command-settings';
 import { normalizeResultDisplayMode } from './result-display-mode';
 import { normalizeSiteEntries } from './privacy';
-import { applyAppearanceStyle, normalizeAppearanceStyle } from './appearance-style';
-import { setupV4Settings } from './v4-settings';
+import { normalizeAppearanceStyle } from './appearance-style';
+import { restoreV4Settings, setupV4Settings } from './v4-settings';
 import { applyThemeCustomization } from './theme-customization';
 import { validateApiKey } from './mistral-client';
-import { POPUP_STYLE_TEXT } from './content-ui-style';
-import { renderCompactResultPreview } from './result-dialog-view';
+import { logger } from './logger';
+import { setupSettingsTabs } from './options-tabs';
+import {
+    clampInterfaceScale,
+    installResultPreviewStyles,
+    systemDarkTheme,
+    updateAppearancePreview,
+} from './options-appearance';
+import { setupOnboarding } from './options-onboarding';
 
-type AppearanceTheme = 'auto' | 'light' | 'dark';
-
-const systemDarkTheme = window.matchMedia('(prefers-color-scheme: dark)');
 let restoredApiKey = '';
 let savedOptionsState = '';
 let saveInProgress = false;
-
-const SETTINGS_TAB_GUIDES = {
-    main: {
-        icon: '✦',
-        titleKey: 'tabGuideMainTitle',
-        title: 'Начните с основных параметров',
-        descriptionKey: 'tabGuideMainDescription',
-        description: 'Подключите Mistral, выберите стиль ответа и поисковую систему.',
-    },
-    ai: {
-        icon: '◆',
-        titleKey: 'tabGuideAiTitle',
-        title: 'Управляйте качеством и расходами',
-        descriptionKey: 'tabGuideAiDescription',
-        description: 'Выберите модель, настройте словарь, профили стиля и лимиты запросов.',
-    },
-    appearance: {
-        icon: '◐',
-        titleKey: 'tabGuideAppearanceTitle',
-        title: 'Настройте LexiSync под себя',
-        descriptionKey: 'tabGuideAppearanceDescription',
-        description: 'Меняйте тему, стиль окон, размер интерфейса, плотность и прозрачность.',
-    },
-    suggestions: {
-        icon: '✧',
-        titleKey: 'tabGuideSuggestionsTitle',
-        title: 'Помощь прямо во время ввода',
-        descriptionKey: 'tabGuideSuggestionsDescription',
-        description: 'Управляйте локальными подсказками и автоматической проверкой текста.',
-    },
-    privacy: {
-        icon: '◈',
-        titleKey: 'tabGuidePrivacyTitle',
-        title: 'Ваши данные под контролем',
-        descriptionKey: 'tabGuidePrivacyDescription',
-        description: 'Решите, что сохранять, какие сайты исключить и когда передавать контекст страницы.',
-    },
-    commands: {
-        icon: '⌘',
-        titleKey: 'tabGuideCommandsTitle',
-        title: 'Соберите свои быстрые действия',
-        descriptionKey: 'tabGuideCommandsDescription',
-        description: 'Создавайте понятные команды для повторяющихся задач с текстом.',
-    },
-} as const;
-
-type SettingsTabName = keyof typeof SETTINGS_TAB_GUIDES;
-
-function updateSettingsTabGuide(tabName: string): void {
-    const selectedTab = tabName in SETTINGS_TAB_GUIDES ? (tabName as SettingsTabName) : 'main';
-    const guide = SETTINGS_TAB_GUIDES[selectedTab];
-    const panel = document.getElementById('settingsSectionGuide');
-    const icon = document.getElementById('settingsSectionGuideIcon');
-    const title = document.getElementById('settingsSectionGuideTitle');
-    const description = document.getElementById('settingsSectionGuideDescription');
-    if (!panel || !icon || !title || !description) return;
-    panel.dataset.section = selectedTab;
-    document.querySelector<HTMLElement>('.container')?.setAttribute('data-active-tab', selectedTab);
-    icon.textContent = guide.icon;
-    title.textContent = t(guide.titleKey, guide.title);
-    description.textContent = t(guide.descriptionKey, guide.description);
-    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        panel.animate(
-            [
-                { opacity: 0.72, transform: 'translateY(4px)' },
-                { opacity: 1, transform: 'translateY(0)' },
-            ],
-            { duration: 220, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' },
-        );
-    }
-}
 
 function setupReleaseNotesTrigger(): void {
     const trigger = document.getElementById('app-version') as HTMLButtonElement | null;
@@ -115,14 +48,6 @@ function setupReleaseNotesTrigger(): void {
             trigger.removeAttribute('aria-busy');
         }
     });
-}
-
-function installResultPreviewStyles(): void {
-    if (document.getElementById('lexisync-result-preview-styles')) return;
-    const style = document.createElement('style');
-    style.id = 'lexisync-result-preview-styles';
-    style.textContent = POPUP_STYLE_TEXT.replaceAll('#lexisync-extension-ui', '#compactResultPreview');
-    document.head.appendChild(style);
 }
 
 async function readPrivateApiKey(): Promise<string> {
@@ -186,74 +111,6 @@ function showOptionsStatus(message: string, kind: 'success' | 'warning' | 'error
     status.dataset.kind = kind;
     status.style.color = kind === 'success' ? '#10b981' : kind === 'warning' ? '#d97706' : '#dc2626';
     status.style.display = 'block';
-}
-
-function clampInterfaceScale(value: number): number {
-    return Math.min(110, Math.max(75, Math.round(value / 5) * 5));
-}
-
-function updateAppearancePreview(): void {
-    const themeSelect = document.getElementById('themeSelect') as HTMLSelectElement | null;
-    const visualStyleSelect = document.getElementById('visualStyleSelect') as HTMLSelectElement | null;
-    const scaleInput = document.getElementById('interfaceScale') as HTMLInputElement | null;
-    const scaleValue = document.getElementById('interfaceScaleValue') as HTMLOutputElement | null;
-    const previewStage = document.getElementById('interfacePreview');
-    const previewToolbar = document.getElementById('previewToolbar');
-    const resultDisplayModeSelect = document.getElementById('resultDisplayMode') as HTMLSelectElement | null;
-    const compactPreviewStage = document.getElementById('compactResultPreviewStage');
-    const compactResultPreview = document.getElementById('compactResultPreview');
-    if (
-        !themeSelect ||
-        !visualStyleSelect ||
-        !scaleInput ||
-        !scaleValue ||
-        !previewStage ||
-        !previewToolbar ||
-        !resultDisplayModeSelect ||
-        !compactPreviewStage ||
-        !compactResultPreview
-    )
-        return;
-
-    const scale = clampInterfaceScale(Number(scaleInput.value) || 90);
-    const theme = themeSelect.value as AppearanceTheme;
-    const isDark = theme === 'dark' || (theme === 'auto' && systemDarkTheme.matches);
-
-    scaleInput.value = String(scale);
-    scaleValue.value = `${scale}%`;
-    scaleValue.textContent = `${scale}%`;
-    previewToolbar.style.transform = `scale(${scale / 100})`;
-    compactResultPreview.style.transform = `scale(${scale / 100})`;
-    previewStage.dataset.theme = isDark ? 'dark' : 'light';
-    compactPreviewStage.dataset.theme = isDark ? 'dark' : 'light';
-    const resultDisplayMode = normalizeResultDisplayMode(resultDisplayModeSelect.value);
-    compactPreviewStage.dataset.mode = resultDisplayMode;
-    document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
-    const visualStyle = applyAppearanceStyle(document.documentElement, visualStyleSelect.value);
-    previewStage.dataset.uiStyle = visualStyle;
-    compactPreviewStage.dataset.uiStyle = visualStyle;
-    compactResultPreview.dataset.surface = 'result';
-    compactResultPreview.dataset.uiStyle = visualStyle;
-    compactResultPreview.style.width =
-        resultDisplayMode === 'detailed' ? 'min(340px, calc(100% - 24px))' : 'min(300px, calc(100% - 24px))';
-    if (isDark) compactResultPreview.dataset.theme = 'dark';
-    else delete compactResultPreview.dataset.theme;
-    if (resultDisplayMode === 'detailed') delete compactResultPreview.dataset.compactResult;
-    else compactResultPreview.dataset.compactResult = 'true';
-    renderCompactResultPreview(
-        compactResultPreview,
-        {
-            title: t('spellcheckDone', 'Ошибки исправлены'),
-            before: t('compactResultPreviewBefore', 'Готовый текст без '),
-            correction: t('compactResultPreviewCorrection', 'ошибок'),
-            after: t('compactResultPreviewAfter', '.'),
-            replace: t('replaceText', 'Заменить текст'),
-            beforeAfter: t('beforeAfter', 'До / После'),
-            repeat: t('repeat', 'Повторить'),
-            shorter: t('shorter', 'Короче'),
-        },
-        resultDisplayMode === 'detailed',
-    );
 }
 
 function updateAdaptiveControls(): void {
@@ -340,132 +197,6 @@ function renderDisabledSites(): void {
     }
 }
 
-function activateSettingsTab(tabName: string): void {
-    document.querySelectorAll<HTMLElement>('[data-settings-group]').forEach((element) => {
-        element.hidden = element.dataset.settingsGroup !== tabName;
-    });
-    const saveActions = document.getElementById('saveActions');
-    if (saveActions) saveActions.hidden = tabName === 'commands';
-    document.querySelectorAll<HTMLButtonElement>('.settings-tab').forEach((button) => {
-        const active = button.dataset.tab === tabName;
-        button.classList.toggle('is-active', active);
-        button.setAttribute('aria-selected', String(active));
-        button.tabIndex = active ? 0 : -1;
-    });
-    updateSettingsTabGuide(tabName);
-}
-
-async function setupOnboarding(): Promise<void> {
-    const onboarding = document.getElementById('onboarding');
-    const nextButton = document.getElementById('onboardingNext') as HTMLButtonElement | null;
-    const skipButton = document.getElementById('onboardingSkip') as HTMLButtonElement | null;
-    const openButton = document.getElementById('openOnboarding') as HTMLButtonElement | null;
-    const keyInput = document.getElementById('onboardingApiKey') as HTMLInputElement | null;
-    const saveKeyButton = document.getElementById('onboardingSaveKey') as HTMLButtonElement | null;
-    const keyStatus = document.getElementById('onboardingKeyStatus');
-    const progress = document.getElementById('onboardingProgress');
-    const progressBar = document.getElementById('onboardingProgressBar') as HTMLElement | null;
-    const steps = [...document.querySelectorAll<HTMLElement>('[data-onboarding-step]')];
-    if (!onboarding || !nextButton || !skipButton || !progress || steps.length === 0) return;
-    const stored = await chrome.storage.local.get({ onboardingCompleted: false });
-
-    let activeStep = 0;
-    let previousFocus: HTMLElement | null = null;
-    const render = () => {
-        steps.forEach((step, index) => step.classList.toggle('is-active', index === activeStep));
-        progress.textContent = `${activeStep + 1} ${t('of', 'из')} ${steps.length}`;
-        if (progressBar) progressBar.style.width = `${((activeStep + 1) / steps.length) * 100}%`;
-        nextButton.textContent = activeStep === steps.length - 1 ? t('start', 'Начать работу') : t('next', 'Далее');
-    };
-    const open = () => {
-        previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-        activeStep = 0;
-        if (keyInput) keyInput.value = restoredApiKey;
-        if (keyStatus) {
-            keyStatus.textContent = '';
-            delete keyStatus.dataset.kind;
-        }
-        onboarding.hidden = false;
-        render();
-        nextButton.focus();
-    };
-    const complete = async () => {
-        onboarding.hidden = true;
-        await chrome.storage.local.set({ onboardingCompleted: true });
-        previousFocus?.focus();
-    };
-    nextButton.addEventListener('click', () => {
-        if (activeStep >= steps.length - 1) void complete();
-        else {
-            activeStep++;
-            render();
-        }
-    });
-    skipButton.addEventListener('click', () => void complete());
-    openButton?.addEventListener('click', open);
-    saveKeyButton?.addEventListener('click', async () => {
-        if (!keyInput || !keyStatus) return;
-        const apiKey = keyInput.value.trim();
-        if (!apiKey) {
-            keyStatus.textContent = t('tutorialKeyRequired', 'Сначала вставьте API-ключ.');
-            keyStatus.dataset.kind = 'error';
-            keyInput.focus();
-            return;
-        }
-        const originalText = saveKeyButton.textContent;
-        saveKeyButton.disabled = true;
-        saveKeyButton.textContent = t('checkingKey', 'Проверка…');
-        keyStatus.textContent = '';
-        delete keyStatus.dataset.kind;
-        try {
-            const validation = await verifyMistralApiKey(apiKey);
-            if (!validation.ok) {
-                keyStatus.textContent = validation.message;
-                keyStatus.dataset.kind = 'error';
-                return;
-            }
-            await writePrivateApiKey(apiKey);
-            restoredApiKey = apiKey;
-            const settingsKeyInput = document.getElementById('apiKey') as HTMLInputElement | null;
-            if (settingsKeyInput) settingsKeyInput.value = apiKey;
-            savedOptionsState = captureOptionsState();
-            updateSaveButtonState();
-            keyStatus.textContent = validation.message;
-            keyStatus.dataset.kind = 'success';
-        } catch (error) {
-            console.error('Ошибка проверки API-ключа в обучении', error);
-            keyStatus.textContent = t('keyCheckUnavailable', 'Сейчас не удалось проверить ключ. Попробуйте ещё раз.');
-            keyStatus.dataset.kind = 'error';
-        } finally {
-            saveKeyButton.disabled = false;
-            saveKeyButton.textContent = originalText;
-        }
-    });
-    onboarding.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') {
-            event.preventDefault();
-            void complete();
-            return;
-        }
-        if (event.key !== 'Tab') return;
-        const focusable = [
-            ...onboarding.querySelectorAll<HTMLElement>('button, input, select, textarea, a[href]'),
-        ].filter((element) => element.offsetParent !== null && !element.hasAttribute('disabled'));
-        if (!focusable.length) return;
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-        if (event.shiftKey && document.activeElement === first) {
-            event.preventDefault();
-            last.focus();
-        } else if (!event.shiftKey && document.activeElement === last) {
-            event.preventDefault();
-            first.focus();
-        }
-    });
-    const forcedByUrl = new URLSearchParams(window.location.search).get('tutorial') === '1';
-    if (stored.onboardingCompleted !== true || forcedByUrl) open();
-}
-
 async function saveOptions(): Promise<void> {
     const apiKeyInput = document.getElementById('apiKey') as HTMLInputElement;
     const toneSelect = document.getElementById('toneSelect') as HTMLSelectElement;
@@ -525,7 +256,7 @@ async function saveOptions(): Promise<void> {
                 .split(/\r?\n/)
                 .map((word) => word.trim())
                 .filter(Boolean)
-                .slice(0, 500);
+                .slice(0, 2000);
         if (changed('aiMode')) updates.aiMode = aiModeSelect.value === 'fast' ? 'fast' : 'quality';
         if (changed('glossary'))
             updates.glossary = glossaryInput.value
@@ -549,7 +280,7 @@ async function saveOptions(): Promise<void> {
                     apiKeyInput.value = restoredApiKey;
                 }
             } catch (error) {
-                console.error('Ошибка сети при проверке ключа', error);
+                logger.error('Ошибка сети при проверке ключа', error);
                 apiKeyStatus = t('keyCheckUnavailable', 'Настройки сохранены. Проверить API-ключ сейчас не удалось.');
                 apiKeyInput.value = restoredApiKey;
             }
@@ -578,7 +309,6 @@ async function saveOptions(): Promise<void> {
     }
 }
 
-// Функция для восстановления настроек (Promise-based)
 async function restoreOptions(): Promise<void> {
     const apiKeyInput = document.getElementById('apiKey') as HTMLInputElement;
     const toneSelect = document.getElementById('toneSelect') as HTMLSelectElement;
@@ -644,6 +374,7 @@ async function restoreOptions(): Promise<void> {
     glossaryInput.value = Array.isArray(items.glossary) ? items.glossary.join('\n') : '';
     restoreCustomCommandSettings(items.customCommands);
     restoreStyleProfileSettings(items.styleProfiles, items.activeStyleProfileId);
+    await restoreV4Settings(items);
     renderUsageStats(items.usageStats as UsageStats);
     renderSettingsSyncStatus(items.settingsSyncStatus);
     renderDisabledSites();
@@ -658,7 +389,19 @@ document.addEventListener('DOMContentLoaded', () => {
     localizeDocument();
     setupReleaseNotesTrigger();
     installResultPreviewStyles();
-    void restoreOptions().then(() => setupOnboarding());
+    void restoreOptions().then(() =>
+        setupOnboarding({
+            getApiKey: () => restoredApiKey,
+            onApiKeySaved: async (apiKey) => {
+                await writePrivateApiKey(apiKey);
+                restoredApiKey = apiKey;
+                const settingsKeyInput = document.getElementById('apiKey') as HTMLInputElement | null;
+                if (settingsKeyInput) settingsKeyInput.value = apiKey;
+                savedOptionsState = captureOptionsState();
+                updateSaveButtonState();
+            },
+        }),
+    );
     void setupV4Settings();
     void chrome.storage.local
         .get({ themeCustomization: {} })
@@ -706,19 +449,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     setupCustomCommandSettings();
     setupStyleProfileSettings();
-    document.querySelectorAll<HTMLButtonElement>('.settings-tab').forEach((button) => {
-        button.addEventListener('click', () => activateSettingsTab(button.dataset.tab || 'main'));
-        button.addEventListener('keydown', (event) => {
-            if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
-            const tabs = [...document.querySelectorAll<HTMLButtonElement>('.settings-tab')];
-            const currentIndex = tabs.indexOf(button);
-            const offset = event.key === 'ArrowRight' ? 1 : -1;
-            const next = tabs[(currentIndex + offset + tabs.length) % tabs.length];
-            activateSettingsTab(next.dataset.tab || 'main');
-            next.focus();
-        });
-    });
-    activateSettingsTab('main');
+    setupSettingsTabs();
 
     const clearAdaptiveDataButton = document.getElementById('clearAdaptiveData') as HTMLButtonElement | null;
     clearAdaptiveDataButton?.addEventListener('click', async () => {
@@ -783,7 +514,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // НОВАЯ ЧИСТАЯ ЛОГИКА ДЛЯ ГЛАЗКА ПАРОЛЯ
     const toggleBtn = document.getElementById('toggleApiKey');
     const eyeOpen = document.getElementById('eyeOpen');
     const eyeClosed = document.getElementById('eyeClosed');
@@ -793,8 +523,11 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleBtn.addEventListener('click', () => {
             const isPassword = apiKeyInput.getAttribute('type') === 'password';
             apiKeyInput.setAttribute('type', isPassword ? 'text' : 'password');
+            toggleBtn.setAttribute('aria-pressed', String(isPassword));
+            const newLabel = isPassword ? t('hideApiKey', 'Скрыть API-ключ') : t('showApiKey', 'Показать API-ключ');
+            toggleBtn.setAttribute('aria-label', newLabel);
+            toggleBtn.title = newLabel;
 
-            // Переключаем видимость SVG-иконок
             if (isPassword) {
                 eyeOpen.style.display = 'none';
                 eyeClosed.style.display = 'block';

@@ -36,6 +36,31 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.2.6',
+        '2026-08-15',
+        'fixed',
+        'Точные действия и доступность меню',
+        'Precise actions and menu accessibility',
+        [
+            [
+                'При импорте настроек форма в настройках теперь сразу показывает новые значения лимитов и параметров темы.',
+                'Importing settings now immediately updates the budget limits and theme options in the settings page.',
+            ],
+            [
+                'В режиме распознавания текста (OCR) показывается кнопка копирования вместо неработающей кнопки замены, а текст можно редактировать.',
+                'OCR mode now shows a copy action instead of an inactive replace button, and the recognized text can be edited directly.',
+            ],
+            [
+                'В тулбаре и AI-меню выделения добавлена навигация стрелками на клавиатуре и закрытие по Escape.',
+                'Selection toolbar and AI menus now support arrow key navigation and Escape key dismissal.',
+            ],
+            [
+                'Кнопка скрытия и показа API-ключа получила корректные атрибуты доступности для программ чтения с экрана.',
+                'The show/hide API key button now announces its state properly to screen readers.',
+            ],
+        ],
+    ),
+    note(
         '5.2.5',
         '2026-08-14',
         'fixed',

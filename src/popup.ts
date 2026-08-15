@@ -3,6 +3,7 @@ import { localizeDocument, t } from './i18n';
 import { setSitePreference, type SitePreference } from './settings-store';
 import { applyAppearanceStyle, normalizeAppearanceStyle, type AppearanceStyle } from './appearance-style';
 import { applyThemeCustomization } from './theme-customization';
+import { logger } from './logger';
 
 type Theme = 'auto' | 'light' | 'dark';
 
@@ -161,7 +162,7 @@ async function initializeSiteControls(): Promise<void> {
         } catch (error) {
             input.checked = previous;
             showStatus(t('siteSettingUpdateFailed', 'Не удалось изменить настройку сайта.'), true);
-            console.error('LexiSync site preference update failed:', error);
+            logger.error('LexiSync site preference update failed:', error);
         } finally {
             setBusy(false);
         }
@@ -210,7 +211,7 @@ async function initializeSiteControls(): Promise<void> {
                         enabled: previousState,
                     });
                 } catch (rollbackError) {
-                    console.error('LexiSync site access rollback failed:', rollbackError);
+                    logger.error('LexiSync site access rollback failed:', rollbackError);
                 }
             }
             if (requestedState && permissionChecked && !permissionBefore)
@@ -222,7 +223,7 @@ async function initializeSiteControls(): Promise<void> {
                     : t('siteSettingUpdateFailed', 'Не удалось изменить настройку сайта.'),
                 true,
             );
-            console.error('LexiSync site access update failed:', error);
+            logger.error('LexiSync site access update failed:', error);
         } finally {
             setBusy(false);
         }

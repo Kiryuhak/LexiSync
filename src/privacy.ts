@@ -86,8 +86,9 @@ export function isSiteDisabled(hostname: string, disabledSites: string[]): boole
     return disabledSites.some((site) => host === site || host.endsWith(`.${site}`));
 }
 
-export async function shouldStoreOnCurrentPage(): Promise<boolean> {
-    if (chrome.extension.inIncognitoContext) return false;
+export async function shouldStoreOnCurrentPage(currentHostname?: string): Promise<boolean> {
+    if (chrome.extension?.inIncognitoContext === true) return false;
     const settings = await getPrivacySettings();
-    return settings.historyEnabled && !isSiteDisabled(location.hostname, settings.disabledSites);
+    const hostname = currentHostname ?? (typeof location !== 'undefined' ? location.hostname : '');
+    return settings.historyEnabled && !isSiteDisabled(hostname, settings.disabledSites);
 }

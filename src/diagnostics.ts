@@ -15,8 +15,13 @@ export interface DiagnosticReport {
 }
 
 export async function createDiagnosticReport(): Promise<DiagnosticReport> {
+    const api = typeof chrome !== 'undefined' && chrome.storage ? chrome : browser;
+    const storageBytesPromise =
+        typeof api?.storage?.local?.getBytesInUse === 'function'
+            ? api.storage.local.getBytesInUse(null).catch(() => 0)
+            : Promise.resolve(0);
     const [stored, permissions, storageBytes] = await Promise.all([
-        browser.storage.local.get({
+        api.storage.local.get({
             selectedTheme: 'auto',
             visualStyle: 'liquid-glass',
             resultDisplayMode: 'compact',
@@ -30,20 +35,20 @@ export async function createDiagnosticReport(): Promise<DiagnosticReport> {
             aiHistory: [],
             usageStats: EMPTY_USAGE_STATS,
         }),
-        browser.permissions.getAll(),
-        browser.storage.local.getBytesInUse(null),
+        api.permissions.getAll(),
+        storageBytesPromise,
     ]);
     const stats = stored.usageStats as UsageStats;
     return {
         format: 'lexisync-diagnostics',
         generatedAt: new Date().toISOString(),
         extension: {
-            version: browser.runtime.getManifest().version,
-            manifestVersion: browser.runtime.getManifest().manifest_version,
+            version: api.runtime.getManifest().version,
+            manifestVersion: api.runtime.getManifest().manifest_version,
         },
         environment: {
-            userAgent: navigator.userAgent,
-            language: navigator.language,
+            userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+            language: typeof navigator !== 'undefined' ? navigator.language : '',
         },
         permissions: [...(permissions.permissions || [])].sort(),
         storageBytes,

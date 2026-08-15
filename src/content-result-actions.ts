@@ -24,32 +24,40 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
     const replaceIcon = mode === 'translate' || mode === 'layout' ? ICONS.replaceCurved : ICONS.replace;
     const copyIcon = mode === 'translate' || mode === 'layout' ? ICONS.copyStandard : ICONS.copy;
 
-    const replaceButton = document.createElement('button');
-    replaceButton.type = 'button';
-    replaceButton.className = `${btnClass} lexisync-result-button lexisync-result-button--primary`;
-    appendIconAndText(replaceButton, replaceIcon, t('replaceText', 'Заменить текст'));
-    replaceButton.onclick = (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        const undo = replaceSelectedText(selection, getResult());
-        appendIconAndText(replaceButton, ICONS.check, t('replaced', 'Заменено!'));
-        replaceButton.classList.add('lexisync-result-button--success');
-        if (undo) {
-            const undoButton = document.createElement('button');
-            undoButton.type = 'button';
-            undoButton.className = `${btnClass} lexisync-result-button`;
-            undoButton.textContent = t('undoReplacement', 'Отменить замену');
-            undoButton.onclick = () => {
-                undo();
-                undoButton.remove();
-                replaceButton.disabled = false;
-                replaceButton.classList.remove('lexisync-result-button--success');
-                appendIconAndText(replaceButton, replaceIcon, t('replaceText', 'Заменить текст'));
-            };
-            actionsContainer.appendChild(undoButton);
-        }
-        replaceButton.disabled = true;
-    };
+    const hasReplaceTarget =
+        mode !== 'ocr' && Boolean((selection.isInput && selection.activeElement) || selection.range);
+
+    if (hasReplaceTarget) {
+        const replaceButton = document.createElement('button');
+        replaceButton.type = 'button';
+        replaceButton.className = `${btnClass} lexisync-result-button lexisync-result-button--primary`;
+        appendIconAndText(replaceButton, replaceIcon, t('replaceText', 'Заменить текст'));
+        replaceButton.onclick = (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const undo = replaceSelectedText(selection, getResult());
+            if (undo) {
+                appendIconAndText(replaceButton, ICONS.check, t('replaced', 'Заменено!'));
+                replaceButton.classList.add('lexisync-result-button--success');
+                replaceButton.disabled = true;
+                const undoButton = document.createElement('button');
+                undoButton.type = 'button';
+                undoButton.className = `${btnClass} lexisync-result-button`;
+                undoButton.textContent = t('undoReplacement', 'Отменить замену');
+                undoButton.onclick = () => {
+                    undo();
+                    undoButton.remove();
+                    replaceButton.disabled = false;
+                    replaceButton.classList.remove('lexisync-result-button--success');
+                    appendIconAndText(replaceButton, replaceIcon, t('replaceText', 'Заменить текст'));
+                };
+                actionsContainer.appendChild(undoButton);
+            } else {
+                showStatus(t('copied', 'Текст скопирован!'));
+            }
+        };
+        actionsContainer.appendChild(replaceButton);
+    }
 
     if (mode === 'ocr') {
         void copyText(getResult())
@@ -64,18 +72,35 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
 
     const copyButton = document.createElement('button');
     copyButton.type = 'button';
-    copyButton.className = `${btnClass} lexisync-result-button icon-only`;
-    copyButton.setAttribute('aria-label', t('copy', 'Копировать'));
-    setIcon(copyButton, copyIcon);
+    if (hasReplaceTarget) {
+        copyButton.className = `${btnClass} lexisync-result-button icon-only`;
+        copyButton.setAttribute('aria-label', t('copy', 'Копировать'));
+        setIcon(copyButton, copyIcon);
+    } else {
+        copyButton.className = `${btnClass} lexisync-result-button lexisync-result-button--primary`;
+        appendIconAndText(copyButton, copyIcon, t('copy', 'Копировать'));
+    }
     copyButton.onclick = async (event) => {
         event.preventDefault();
         event.stopPropagation();
         copyButton.disabled = true;
         try {
             await copyText(getResult());
-            setIcon(copyButton, ICONS.check);
+            if (hasReplaceTarget) {
+                setIcon(copyButton, ICONS.check);
+            } else {
+                appendIconAndText(copyButton, ICONS.check, t('copied', 'Текст скопирован!'));
+                copyButton.classList.add('lexisync-result-button--success');
+            }
             showStatus(t('copied', 'Текст скопирован!'));
-            options.setTimeout(() => setIcon(copyButton, copyIcon), 1500);
+            options.setTimeout(() => {
+                if (hasReplaceTarget) {
+                    setIcon(copyButton, copyIcon);
+                } else {
+                    copyButton.classList.remove('lexisync-result-button--success');
+                    appendIconAndText(copyButton, copyIcon, t('copy', 'Копировать'));
+                }
+            }, 1500);
         } catch {
             showStatus(t('copyFailed', 'Не удалось скопировать текст'), true);
         } finally {
@@ -83,5 +108,5 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
         }
     };
 
-    actionsContainer.append(replaceButton, copyButton);
+    actionsContainer.appendChild(copyButton);
 }

@@ -1,3 +1,5 @@
+import { logger } from './logger';
+
 const REGISTERED_SCRIPT_ID = 'lexisync-enabled-sites';
 const INJECT_SCRIPT_FILE = 'inject.js';
 const OPTIONAL_SCRIPT_FILES = {
@@ -156,11 +158,11 @@ export async function injectOptionalContentFeature(
 }
 
 export function initializeSiteAccess(): void {
-    void syncRegisteredSiteScripts().catch((error) => console.error('Не удалось обновить сценарии LexiSync:', error));
+    void syncRegisteredSiteScripts().catch((error) => logger.error('Не удалось обновить сценарии LexiSync:', error));
     chrome.permissions.onAdded.addListener(() => {
-        void syncRegisteredSiteScripts().catch((error) => console.error('Не удалось добавить доступ LexiSync:', error));
+        void syncRegisteredSiteScripts().catch((error) => logger.error('Не удалось добавить доступ LexiSync:', error));
     });
     chrome.permissions.onRemoved.addListener(() => {
-        void syncRegisteredSiteScripts().catch((error) => console.error('Не удалось удалить доступ LexiSync:', error));
+        void syncRegisteredSiteScripts().catch((error) => logger.error('Не удалось удалить доступ LexiSync:', error));
     });
 }

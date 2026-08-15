@@ -1,5 +1,6 @@
 import type { SelectionData } from './types';
 import { copyText } from './clipboard';
+import { logger } from './logger';
 
 export function dispatchValueEvents(element: HTMLInputElement | HTMLTextAreaElement): void {
     element.dispatchEvent(new Event('input', { bubbles: true }));
@@ -44,7 +45,7 @@ export function replaceSelectedText(selection: SelectionData, newText: string): 
             return () => document.execCommand('undo');
         }
     } catch (error) {
-        console.error('Ошибка при вставке текста:', error);
+        logger.error('Ошибка при вставке текста:', error);
         void copyText(newText).catch(() => undefined);
     }
     return null;

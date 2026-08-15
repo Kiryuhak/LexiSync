@@ -24,6 +24,7 @@ import { ensureOptionalContentFeature, OCR_IMAGE_EVENT, OCR_START_EVENT } from '
 import { applyAppearanceStyle, normalizeAppearanceStyle, type AppearanceStyle } from './appearance-style';
 import { applyThemeCustomization, DEFAULT_THEME_CUSTOMIZATION } from './theme-customization';
 import type { ThemeCustomization } from './types';
+import { logger } from './logger';
 
 const contentRuntime = globalThis as typeof globalThis & { __lexisyncContentInitialized?: boolean };
 if (!contentRuntime.__lexisyncContentInitialized) {
@@ -37,7 +38,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             await ensureOptionalContentFeature('adaptive');
         } catch (error) {
             adaptiveSuggestionsInitialized = false;
-            console.error(t('adaptiveLoadFailed', 'Не удалось загрузить персональные подсказки.'), error);
+            logger.error(t('adaptiveLoadFailed', 'Не удалось загрузить персональные подсказки.'), error);
         }
     };
     let liveProofreadInitialized = false;
@@ -48,7 +49,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             await ensureOptionalContentFeature('liveProofread');
         } catch (error) {
             liveProofreadInitialized = false;
-            console.error(t('liveProofLoadFailed', 'Не удалось загрузить автоматическую проверку.'), error);
+            logger.error(t('liveProofLoadFailed', 'Не удалось загрузить автоматическую проверку.'), error);
         }
     };
     void chrome.storage.local.get({ adaptiveSuggestionsEnabled: false, liveProofreadEnabled: false }).then((stored) => {
@@ -423,14 +424,24 @@ if (!contentRuntime.__lexisyncContentInitialized) {
         return popupShadow?.getElementById(id) as T | null;
     }
 
+    if (!customElements.get('lexisync-ui')) {
+        class LexiSyncUI extends HTMLElement {
+            constructor() {
+                super();
+                this.attachShadow({ mode: 'open' });
+            }
+        }
+        customElements.define('lexisync-ui', LexiSyncUI);
+    }
+
     function createPopupElement(): HTMLElement {
         injectStyles();
         if (!popupHost && document.activeElement instanceof HTMLElement) previousFocus = document.activeElement;
-        popupHost = document.createElement('div');
+        popupHost = document.createElement('lexisync-ui');
         popupHost.id = 'lexisync-shadow-host';
         popupHost.style.cssText =
             'all: initial !important; position: fixed !important; inset: 0 !important; width: 0 !important; height: 0 !important; z-index: 2147483647 !important; pointer-events: auto !important;';
-        popupShadow = popupHost.attachShadow({ mode: 'open' });
+        popupShadow = popupHost.shadowRoot!;
 
         const style = document.createElement('style');
         style.textContent = `:host { all: initial; } ${popupStyleText}`;
@@ -448,7 +459,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
     }
 
     function showToast(message: string): void {
-        closePopup();
+        closePopup(true);
         popupUI = createPopupElement();
         applyThemeToPopup(popupUI);
         popupUI.dataset.surface = 'toast';
@@ -619,7 +630,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
         };
         lastAnchorX = Number(detail.rect.left || 0) + Number(detail.rect.width || 0) / 2;
         lastAnchorY = Number(detail.rect.bottom || 0) + 10;
-        closePopup();
+        closePopup(true);
         injectStyles();
         popupUI = createPopupElement();
         applyThemeToPopup(popupUI);

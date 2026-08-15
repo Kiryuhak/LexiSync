@@ -16,6 +16,7 @@ import { createSpellcheckUi } from './content-spellcheck-ui';
 import { renderPrimaryResultActions } from './content-result-actions';
 import { formatRequestDuration } from './request-duration';
 import { mountResultDialogFrame } from './result-dialog-view';
+import { logger } from './logger';
 
 export interface ContentRequestContext {
     getPopup: () => HTMLElement | null;
@@ -511,12 +512,12 @@ export function executeRequest(
                     const cacheModeKey = `v${REQUEST_CACHE_VERSION}:${baseCacheMode}:${cacheSettingsFingerprint}`;
                     void getCacheHash(cacheModeKey, getCacheSource())
                         .then((cacheKey) => setCachedText(cacheKey, fullResult))
-                        .catch((error) => console.error('Ошибка сохранения кэша:', error));
+                        .catch((error) => logger.error('Ошибка сохранения кэша:', error));
                     void addHistoryItem(historyItem)
                         .then(() => {
                             savedHistoryId = historyItem.id;
                         })
-                        .catch((error) => console.error('Ошибка сохранения истории:', error));
+                        .catch((error) => logger.error('Ошибка сохранения истории:', error));
                 }
             } else if (response.status === 'error') {
                 requestStartedAt = null;
@@ -549,7 +550,7 @@ export function executeRequest(
         loaderOrClose.appendChild(closeBtn);
 
         if (success && fullResult.trim().length > 0) {
-            if (!compactResultMode && mode !== 'spellcheck' && mode !== 'ocr') {
+            if (!compactResultMode && mode !== 'spellcheck') {
                 contentPane.contentEditable = 'true';
                 contentPane.setAttribute('aria-label', t('editableResult', 'Результат можно редактировать'));
                 resultTools.style.display = 'flex';
@@ -562,27 +563,30 @@ export function executeRequest(
                     button.onclick = action;
                     return button;
                 };
-                const compareButton = createTool(t('beforeAfter', 'До / После'), () => {
-                    if (!comparisonOriginalVisible) {
-                        editedResultSnapshot = getEffectiveResult();
-                        contentPane.contentEditable = 'false';
-                        contentPane.textContent = originalText;
-                        compareButton.textContent = t('showResult', 'Показать результат');
-                    } else {
-                        contentPane.textContent = editedResultSnapshot;
-                        contentPane.contentEditable = 'true';
-                        compareButton.textContent = t('beforeAfter', 'До / После');
-                    }
-                    comparisonOriginalVisible = !comparisonOriginalVisible;
-                });
+                const tools: HTMLButtonElement[] = [];
+                if (mode !== 'ocr') {
+                    const compareButton = createTool(t('beforeAfter', 'До / После'), () => {
+                        if (!comparisonOriginalVisible) {
+                            editedResultSnapshot = getEffectiveResult();
+                            contentPane.contentEditable = 'false';
+                            contentPane.textContent = originalText;
+                            compareButton.textContent = t('showResult', 'Показать результат');
+                        } else {
+                            contentPane.textContent = editedResultSnapshot;
+                            contentPane.contentEditable = 'true';
+                            compareButton.textContent = t('beforeAfter', 'До / После');
+                        }
+                        comparisonOriginalVisible = !comparisonOriginalVisible;
+                    });
+                    tools.push(compareButton);
+                }
                 const refine = (name: string, prompt: string) => {
                     const source = getEffectiveResult();
                     currentSelection.text = source;
                     currentSelection.context = source;
                     void executeRequest('custom', { id: `refine-${name}`, name, prompt }, context);
                 };
-                resultTools.replaceChildren(
-                    compareButton,
+                tools.push(
                     createTool(
                         t('repeat', 'Повторить'),
                         () => void executeRequest(mode, customCommand, context, { bypassCache: true }),
@@ -609,6 +613,7 @@ export function executeRequest(
                         ),
                     ),
                 );
+                resultTools.replaceChildren(...tools);
             }
             renderPrimaryResultActions({
                 mode,

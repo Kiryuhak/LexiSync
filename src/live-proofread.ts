@@ -53,10 +53,19 @@ export function startLiveProofread(): () => void {
         const corrections = getWordCorrections(original, corrected);
         if (!corrections.length || editor.value !== original) return;
         const rejected = new Set<number>();
-        host = document.createElement('div');
+        if (!customElements.get('lexisync-proofread')) {
+            class LexiSyncProofread extends HTMLElement {
+                constructor() {
+                    super();
+                    this.attachShadow({ mode: 'open' });
+                }
+            }
+            customElements.define('lexisync-proofread', LexiSyncProofread);
+        }
+        host = document.createElement('lexisync-proofread');
         host.dataset.lexisyncLiveProof = '';
         host.style.cssText = 'all:initial;position:fixed;z-index:2147483646;';
-        const shadow = host.attachShadow({ mode: 'open' });
+        const shadow = host.shadowRoot!;
         const style = document.createElement('style');
         style.textContent = `
             .card{box-sizing:border-box;width:min(340px,calc(100vw - 24px));padding:10px;border:1px solid #dfe5df;border-radius:14px;background:#fff;color:#202523;box-shadow:0 12px 34px #17211b2b;font:13px/1.45 system-ui,sans-serif}
