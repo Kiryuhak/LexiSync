@@ -36,6 +36,39 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.2.7',
+        '2026-08-17',
+        'improved',
+        'Удобство использования, оптимизация и IndexedDB',
+        'Usability enhancements, optimizations, and IndexedDB',
+        [
+            [
+                'Горячая клавиша Ctrl+Enter (Cmd+Enter) во всплывающем окне для быстрой вставки или копирования результата.',
+                'Ctrl+Enter (Cmd+Enter) shortcut in popup window for instant text replacement or copying.',
+            ],
+            [
+                'Наглядный счётчик изменений текста (слова, символы, процент сжатия/расширения) в строке статуса.',
+                'Visual text change metrics (words, chars, compression/expansion percentage) in the status bar.',
+            ],
+            [
+                'Быстрый сброс всех фильтров на странице Истории в один клик и порционный плавный рендеринг через IndexedDB.',
+                'One-click reset of all filters in History and smooth batch rendering backed by IndexedDB.',
+            ],
+            [
+                'Улучшено взаимодействие с Live-Proofread: закрытие по Escape и клику снаружи без сброса полей ввода, быстрое применение по Ctrl+Enter.',
+                'Improved Live-Proofread interaction: Escape key and outside click dismissal without field resets, quick apply with Ctrl+Enter.',
+            ],
+            [
+                'Кнопка быстрого повтора последнего действия (Quick Re-run) в тулбаре выделения текста.',
+                'Quick Re-run action button in the text selection toolbar.',
+            ],
+            [
+                'Индикатор токенов для длинных текстов (>4000 знаков), автоочистка устаревшего кэша и плавные микро-анимации.',
+                'Token count badge for large texts (>4000 chars), automated expired cache cleanup, and smooth micro-animations.',
+            ],
+        ],
+    ),
+    note(
         '5.2.6',
         '2026-08-15',
         'fixed',
