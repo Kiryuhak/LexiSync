@@ -75,10 +75,36 @@ jobs:
               env:
                   GH_TOKEN: ${{ github.token }}
                   RELEASE_TAG: ${{ steps.release_meta.outputs.tag }}
+              shell: bash
               run: |
-                  gh release view "$RELEASE_TAG" >/dev/null 2>&1 || \
-                    gh release create "$RELEASE_TAG" --target "$GITHUB_SHA" --generate-notes --title "LexiSync ${RELEASE_TAG#v}"
-                  gh release upload "$RELEASE_TAG" .output/release/*.zip --clobber
+                  # Попытка создания релиза с повторами при сбоях GitHub API (503 / network)
+                  for attempt in {1..5}; do
+                    if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+                      break
+                    fi
+                    if gh release create "$RELEASE_TAG" --target "$GITHUB_SHA" --generate-notes --title "LexiSync ${RELEASE_TAG#v}"; then
+                      break
+                    fi
+                    if [[ "$attempt" -eq 5 ]]; then
+                      echo "Не удалось создать GitHub Release после 5 попыток" >&2
+                      exit 1
+                    fi
+                    echo "Попытка $attempt создания GitHub Release не удалась, ожидание перед повтором..." >&2
+                    sleep 5
+                  done
+
+                  # Попытка загрузки архивов с повторами
+                  for attempt in {1..5}; do
+                    if gh release upload "$RELEASE_TAG" .output/release/*.zip --clobber; then
+                      break
+                    fi
+                    if [[ "$attempt" -eq 5 ]]; then
+                      echo "Не удалось загрузить архивы в GitHub Release после 5 попыток" >&2
+                      exit 1
+                    fi
+                    echo "Попытка $attempt загрузки ассетов не удалась, ожидание перед повтором..." >&2
+                    sleep 5
+                  done
 
     publish-firefox:
         needs: verify-and-release
