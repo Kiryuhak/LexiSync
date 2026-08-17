@@ -146,6 +146,11 @@
     "copied": { "message": "Текст скопирован!" },
     "showResult": { "message": "Показать результат" },
     "enableOnSite": { "message": "LexiSync включён" },
+    "enableAllSites": { "message": "На всех сайтах и фреймах" },
+    "allSitesAccessEnable": { "message": "Разрешить работу на всех сайтах и во встроенных фреймах" },
+    "allSitesAccessHint": {
+        "message": "LexiSync будет автоматически доступен во всех онлайн-редакторах, учебных тренажёрах (Stepik, Coursera) и документах без необходимости отдельного включения каждого домена."
+    },
     "commandNotFound": { "message": "Исходная пользовательская команда не найдена." },
     "apiKeyLabel": { "message": "Ваш Mistral API Key:" },
     "apiKeyPlaceholder": { "message": "Вставьте ключ…" },

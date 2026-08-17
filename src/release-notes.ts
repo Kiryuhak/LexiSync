@@ -63,6 +63,10 @@ export const RELEASE_NOTES: ReleaseNote[] = [
                 'Quick Re-run action button in the text selection toolbar.',
             ],
             [
+                'Доступ ко всем сайтам и встроенным тренажёрам (Stepik, Coursera и др.) с автоопределением сторонних фреймов и точным позиционированием в полях ввода.',
+                'Access to all websites and embedded learning platforms (Stepik, Coursera, etc.) with automatic cross-origin iframe detection and accurate input positioning.',
+            ],
+            [
                 'Индикатор токенов для длинных текстов (>4000 знаков), автоочистка устаревшего кэша и плавные микро-анимации.',
                 'Token count badge for large texts (>4000 chars), automated expired cache cleanup, and smooth micro-animations.',
             ],

@@ -23,6 +23,7 @@ import {
     systemDarkTheme,
     updateAppearancePreview,
 } from './options-appearance';
+import { hasAllSitesAccess, requestAllSitesAccess, removeAllSitesAccess } from './site-access';
 import { setupOnboarding } from './options-onboarding';
 
 let restoredApiKey = '';
@@ -372,6 +373,32 @@ async function restoreOptions(): Promise<void> {
     personalDictionaryInput.value = Array.isArray(items.personalDictionary) ? items.personalDictionary.join('\n') : '';
     aiModeSelect.value = items.aiMode === 'fast' ? 'fast' : 'quality';
     glossaryInput.value = Array.isArray(items.glossary) ? items.glossary.join('\n') : '';
+    const allSitesAccessInput = document.getElementById('allSitesAccess') as HTMLInputElement | null;
+    if (allSitesAccessInput) {
+        allSitesAccessInput.checked = await hasAllSitesAccess();
+        allSitesAccessInput.onchange = async () => {
+            const next = allSitesAccessInput.checked;
+            const prev = !next;
+            try {
+                if (next) {
+                    const granted = await requestAllSitesAccess();
+                    if (!granted) {
+                        allSitesAccessInput.checked = prev;
+                        showOptionsStatus(t('sitePermissionDenied', 'Доступ к сайту не предоставлен.'), 'error');
+                    } else {
+                        showOptionsStatus(t('siteSettingSaved', 'Настройка сайта сохранена.'), 'success');
+                    }
+                } else {
+                    await removeAllSitesAccess();
+                    showOptionsStatus(t('siteSettingSaved', 'Настройка сайта сохранена.'), 'success');
+                }
+            } catch (error) {
+                allSitesAccessInput.checked = prev;
+                showOptionsStatus(t('siteSettingUpdateFailed', 'Не удалось изменить настройку сайта.'), 'error');
+                logger.error('Failed to change all sites access:', error);
+            }
+        };
+    }
     restoreCustomCommandSettings(items.customCommands);
     restoreStyleProfileSettings(items.styleProfiles, items.activeStyleProfileId);
     await restoreV4Settings(items);

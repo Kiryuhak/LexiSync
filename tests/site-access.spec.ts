@@ -1,8 +1,13 @@
 import { beforeEach, expect, test, vi } from 'vitest';
 import {
+    ALL_WEB_ORIGINS,
+    detectTabFrameOrigins,
     ensureContentScript,
     findCommandTargetFrame,
+    hasAllSitesAccess,
     injectOptionalContentFeature,
+    removeAllSitesAccess,
+    requestAllSitesAccess,
     sendToTabWithInjection,
     syncRegisteredSiteScripts,
 } from '../src/site-access';
@@ -37,6 +42,9 @@ beforeEach(() => {
             async getAll() {
                 return { origins: ['https://example.com/*', 'https://api.mistral.ai/*', 'https://example.com/*'] };
             },
+            contains: vi.fn().mockResolvedValue(false),
+            request: vi.fn().mockResolvedValue(true),
+            remove: vi.fn().mockResolvedValue(true),
         },
     });
 });
@@ -109,4 +117,39 @@ test('сохраняет отправку в основной фрейм, есл
     executeScript.mockRejectedValueOnce(new Error('Cannot access contents of the page'));
 
     await expect(findCommandTargetFrame(42)).resolves.toBeUndefined();
+});
+
+test('проверяет, запрашивает и удаляет доступ ко всем сайтам', async () => {
+    const permissions = chrome.permissions as unknown as {
+        contains: ReturnType<typeof vi.fn>;
+        request: ReturnType<typeof vi.fn>;
+        remove: ReturnType<typeof vi.fn>;
+    };
+
+    permissions.contains.mockResolvedValueOnce(true);
+    await expect(hasAllSitesAccess()).resolves.toBe(true);
+    expect(permissions.contains).toHaveBeenCalledWith({ origins: ALL_WEB_ORIGINS });
+
+    permissions.request.mockResolvedValueOnce(true);
+    await expect(requestAllSitesAccess()).resolves.toBe(true);
+    expect(permissions.request).toHaveBeenCalledWith({ origins: ALL_WEB_ORIGINS });
+
+    permissions.remove.mockResolvedValueOnce(true);
+    await expect(removeAllSitesAccess()).resolves.toBe(true);
+    expect(permissions.remove).toHaveBeenCalledWith({ origins: ALL_WEB_ORIGINS });
+});
+
+test('обнаруживает происхождение сторонних iframe на вкладке', async () => {
+    executeScript.mockResolvedValueOnce([
+        {
+            result: ['https://qa-homeworks.org/*'],
+        },
+    ]);
+
+    const origins = await detectTabFrameOrigins(12);
+    expect(origins).toEqual(['https://qa-homeworks.org/*']);
+    expect(executeScript).toHaveBeenCalledWith({
+        target: { tabId: 12, allFrames: false },
+        func: expect.any(Function),
+    });
 });

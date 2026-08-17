@@ -318,6 +318,19 @@
             </section>
 
             <div class="privacy-option" data-settings-group="privacy" hidden>
+                <input type="checkbox" id="allSitesAccess" />
+                <label for="allSitesAccess">
+                    <span data-i18n="allSitesAccessEnable"
+                        >Разрешить работу на всех сайтах и во встроенных фреймах</span
+                    >
+                    <small data-i18n="allSitesAccessHint"
+                        >LexiSync будет автоматически доступен во всех онлайн-редакторах, учебных тренажёрах (Stepik,
+                        Coursera) и документах без необходимости отдельного включения каждого домена.</small
+                    >
+                </label>
+            </div>
+
+            <div class="privacy-option" data-settings-group="privacy" hidden>
                 <input type="checkbox" id="sendPageContext" />
                 <label for="sendPageContext">
                     <span data-i18n="sendContextLong">Передавать контекст страницы в Mistral</span>

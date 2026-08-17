@@ -28,7 +28,7 @@ import { copyText } from '../src/clipboard';
 import { renderPrimaryResultActions } from '../src/content-result-actions';
 import { shouldStoreOnCurrentPage } from '../src/privacy';
 import { shouldAutoProofreadField } from '../src/live-proofread-privacy';
-import { shouldShowSelectionMenu } from '../src/selection-state';
+import { shouldShowSelectionMenu, getSelectionCoords } from '../src/selection-state';
 import { calculatePopupPosition } from '../src/popup-position';
 import { sortHistoryItems } from '../src/history-sort';
 import { formatRequestDuration } from '../src/request-duration';
@@ -1173,5 +1173,44 @@ test('cleanupExpiredAiCacheLocally удаляет только просроче�
         expect(mockStorage[expiredKey]).toBeUndefined();
     } finally {
         globalThis.chrome = origChrome;
+    }
+});
+
+test('getSelectionCoords точно рассчитывает координаты для активного textarea/input', () => {
+    class MockHTMLTextAreaElement {}
+    const origHTMLTextArea = globalThis.HTMLTextAreaElement;
+    const origDocument = globalThis.document;
+    const origWindow = globalThis.window;
+
+    const mockTextarea = Object.assign(new MockHTMLTextAreaElement(), {
+        tagName: 'TEXTAREA',
+        getBoundingClientRect: vi.fn().mockReturnValue({
+            left: 150,
+            top: 200,
+            right: 400,
+            bottom: 350,
+            width: 250,
+            height: 150,
+        }),
+    });
+
+    globalThis.HTMLTextAreaElement = MockHTMLTextAreaElement as unknown as typeof HTMLTextAreaElement;
+    vi.stubGlobal('document', {
+        activeElement: mockTextarea,
+    });
+    vi.stubGlobal('window', {
+        innerWidth: 1000,
+        innerHeight: 800,
+        getSelection: () => null,
+    });
+
+    try {
+        const coords = getSelectionCoords();
+        expect(coords.x).toBe(174);
+        expect(coords.y).toBe(232);
+    } finally {
+        globalThis.HTMLTextAreaElement = origHTMLTextArea;
+        globalThis.document = origDocument;
+        globalThis.window = origWindow;
     }
 });

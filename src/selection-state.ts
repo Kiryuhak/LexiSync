@@ -1,7 +1,11 @@
 import type { SelectionData } from './types';
 
 function isTextInput(element: Element | null): element is HTMLInputElement | HTMLTextAreaElement {
-    return element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement;
+    if (!element) return false;
+    if (typeof HTMLInputElement !== 'undefined' && element instanceof HTMLInputElement) return true;
+    if (typeof HTMLTextAreaElement !== 'undefined' && element instanceof HTMLTextAreaElement) return true;
+    const tag = (element as HTMLElement).tagName?.toLowerCase?.();
+    return tag === 'input' || tag === 'textarea';
 }
 
 export function getSelectedText(): string {
@@ -80,10 +84,22 @@ export function captureSelection(fallbackText = ''): SelectionData {
 }
 
 export function getSelectionCoords(fallbackX = 0, fallbackY = 0): { x: number; y: number } {
+    const activeElement = document.activeElement;
+    if (isTextInput(activeElement)) {
+        const rect = activeElement.getBoundingClientRect();
+        if (rect.width > 0 || rect.height > 0) {
+            return {
+                x: fallbackX || Math.max(10, Math.min(window.innerWidth - 120, rect.left + 24)),
+                y: fallbackY || Math.max(10, Math.min(window.innerHeight - 60, rect.top + 32)),
+            };
+        }
+    }
     const selection = window.getSelection();
     if (selection?.rangeCount) {
         const rect = selection.getRangeAt(0).getBoundingClientRect();
-        return { x: rect.left, y: rect.bottom };
+        if (rect.width > 0 || rect.height > 0) {
+            return { x: rect.left, y: rect.bottom };
+        }
     }
     return { x: fallbackX || window.innerWidth / 2, y: fallbackY || window.innerHeight / 2 };
 }

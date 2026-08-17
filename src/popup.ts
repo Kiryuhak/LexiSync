@@ -3,6 +3,7 @@ import { localizeDocument, t } from './i18n';
 import { setSitePreference, type SitePreference } from './settings-store';
 import { applyAppearanceStyle, normalizeAppearanceStyle, type AppearanceStyle } from './appearance-style';
 import { applyThemeCustomization } from './theme-customization';
+import { hasAllSitesAccess, requestAllSitesAccess, removeAllSitesAccess, detectTabFrameOrigins } from './site-access';
 import { logger } from './logger';
 
 type Theme = 'auto' | 'light' | 'dark';
@@ -93,6 +94,7 @@ async function initializeSiteControls(): Promise<void> {
     const siteCard = document.getElementById('site-card');
     const siteSummary = document.getElementById('site-summary') as HTMLButtonElement | null;
     const domainLabel = document.getElementById('site-domain');
+    const allAccessInput = document.getElementById('site-all-access') as HTMLInputElement | null;
     const suggestionsInput = document.getElementById('site-suggestions') as HTMLInputElement | null;
     const enabledInput = document.getElementById('site-enabled') as HTMLInputElement | null;
     const historyInput = document.getElementById('site-history') as HTMLInputElement | null;
@@ -102,6 +104,7 @@ async function initializeSiteControls(): Promise<void> {
         !siteSummary ||
         !domainLabel ||
         !enabledInput ||
+        !allAccessInput ||
         !suggestionsInput ||
         !historyInput ||
         !contextInput
@@ -117,7 +120,9 @@ async function initializeSiteControls(): Promise<void> {
         blockedSites: [],
     });
     domainLabel.textContent = hostname;
-    const hasSiteAccess = await chrome.permissions.contains({ origins: [originPattern] });
+    const hasAllAccess = await hasAllSitesAccess();
+    const hasSiteAccess = hasAllAccess || (await chrome.permissions.contains({ origins: [originPattern] }));
+    allAccessInput.checked = hasAllAccess;
     enabledInput.checked = hasSiteAccess && !isSiteDisabled(hostname, normalizeDisabledSites(stored.blockedSites));
     suggestionsInput.checked =
         stored.adaptiveSuggestionsEnabled === true &&
@@ -134,7 +139,8 @@ async function initializeSiteControls(): Promise<void> {
     document.getElementById('site-panel')?.appendChild(status);
     let busy = false;
     const updateDependentControls = () => {
-        enabledInput.disabled = busy;
+        enabledInput.disabled = busy || allAccessInput.checked;
+        allAccessInput.disabled = busy;
         for (const input of [suggestionsInput, historyInput, contextInput])
             input.disabled = busy || !enabledInput.checked;
     };
@@ -175,6 +181,44 @@ async function initializeSiteControls(): Promise<void> {
         siteSummary.setAttribute('aria-expanded', String(isOpen));
     });
 
+    allAccessInput.addEventListener('change', async () => {
+        const requestedState = allAccessInput.checked;
+        const previousState = !requestedState;
+        setBusy(true);
+        showStatus();
+        try {
+            if (requestedState) {
+                const granted = await requestAllSitesAccess();
+                if (!granted) throw new Error('ALL_SITES_PERMISSION_DENIED');
+                enabledInput.checked = true;
+            } else {
+                await removeAllSitesAccess();
+                const hasLocal = await chrome.permissions.contains({ origins: [originPattern] });
+                enabledInput.checked = hasLocal;
+            }
+            if (activeTab.id) {
+                await chrome.runtime.sendMessage({
+                    action: 'siteAccessChanged',
+                    tabId: activeTab.id,
+                    enabled: enabledInput.checked,
+                });
+            }
+            showStatus(t('siteSettingSaved', 'Настройка сайта сохранена.'));
+        } catch (error) {
+            allAccessInput.checked = previousState;
+            const denied = error instanceof Error && error.message === 'ALL_SITES_PERMISSION_DENIED';
+            showStatus(
+                denied
+                    ? t('sitePermissionDenied', 'Доступ к сайту не предоставлен.')
+                    : t('siteSettingUpdateFailed', 'Не удалось изменить настройку сайта.'),
+                true,
+            );
+            logger.error('LexiSync all sites access update failed:', error);
+        } finally {
+            setBusy(false);
+        }
+    });
+
     enabledInput.addEventListener('change', async () => {
         const requestedState = enabledInput.checked;
         const previousState = !requestedState;
@@ -183,11 +227,13 @@ async function initializeSiteControls(): Promise<void> {
         let storageChanged = false;
         setBusy(true);
         showStatus();
+        const detectedFrames = typeof activeTab.id === 'number' ? await detectTabFrameOrigins(activeTab.id) : [];
+        const originsToManage = [...new Set([originPattern, ...detectedFrames])];
         try {
             permissionBefore = await chrome.permissions.contains({ origins: [originPattern] });
             permissionChecked = true;
             if (requestedState && !permissionBefore) {
-                const granted = await chrome.permissions.request({ origins: [originPattern] });
+                const granted = await chrome.permissions.request({ origins: originsToManage });
                 if (!granted) throw new Error('SITE_PERMISSION_DENIED');
             }
             await setSitePreference('access', hostname, requestedState);
@@ -198,7 +244,7 @@ async function initializeSiteControls(): Promise<void> {
                 enabled: requestedState,
             });
             if (response?.ok !== true) throw new Error(response?.error || 'SITE_ACCESS_UPDATE_FAILED');
-            if (!requestedState) await chrome.permissions.remove({ origins: [originPattern] });
+            if (!requestedState) await chrome.permissions.remove({ origins: originsToManage }).catch(() => false);
             showStatus(t('siteSettingSaved', 'Настройка сайта сохранена.'));
         } catch (error) {
             enabledInput.checked = previousState;
@@ -215,7 +261,7 @@ async function initializeSiteControls(): Promise<void> {
                 }
             }
             if (requestedState && permissionChecked && !permissionBefore)
-                await chrome.permissions.remove({ origins: [originPattern] }).catch(() => false);
+                await chrome.permissions.remove({ origins: originsToManage }).catch(() => false);
             const denied = error instanceof Error && error.message === 'SITE_PERMISSION_DENIED';
             showStatus(
                 denied

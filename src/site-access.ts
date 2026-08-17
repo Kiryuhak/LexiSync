@@ -69,6 +69,61 @@ export async function findCommandTargetFrame(tabId: number): Promise<number | un
     }
 }
 
+export const ALL_WEB_ORIGINS = ['http://*/*', 'https://*/*'];
+
+export async function hasAllSitesAccess(): Promise<boolean> {
+    try {
+        return await chrome.permissions.contains({ origins: ALL_WEB_ORIGINS });
+    } catch {
+        return false;
+    }
+}
+
+export async function requestAllSitesAccess(): Promise<boolean> {
+    try {
+        return await chrome.permissions.request({ origins: ALL_WEB_ORIGINS });
+    } catch {
+        return false;
+    }
+}
+
+export async function removeAllSitesAccess(): Promise<boolean> {
+    try {
+        return await chrome.permissions.remove({ origins: ALL_WEB_ORIGINS });
+    } catch {
+        return false;
+    }
+}
+
+export async function detectTabFrameOrigins(tabId: number): Promise<string[]> {
+    try {
+        const results = await chrome.scripting.executeScript({
+            target: { tabId, allFrames: false },
+            func: () => {
+                const origins = new Set<string>();
+                const iframes = Array.from(document.querySelectorAll('iframe'));
+                for (const frame of iframes) {
+                    try {
+                        const src = frame.src || frame.getAttribute('src');
+                        if (src && /^https?:\/\//i.test(src)) {
+                            const parsed = new URL(src);
+                            if (['http:', 'https:'].includes(parsed.protocol) && parsed.origin !== location.origin) {
+                                origins.add(`${parsed.origin}/*`);
+                            }
+                        }
+                    } catch {
+                        // ignore malformed iframe sources
+                    }
+                }
+                return Array.from(origins);
+            },
+        });
+        return results[0]?.result || [];
+    } catch {
+        return [];
+    }
+}
+
 export function getOriginPattern(urlValue: string): string | null {
     try {
         const url = new URL(urlValue);
