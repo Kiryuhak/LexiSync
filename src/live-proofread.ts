@@ -6,22 +6,81 @@ import { t } from './i18n';
 import { shouldAutoProofreadField } from './live-proofread-privacy';
 import { calculatePopupPosition } from './popup-position';
 
-function isSafeEditor(value: EventTarget | null): value is HTMLInputElement | HTMLTextAreaElement {
-    if (!(value instanceof HTMLInputElement || value instanceof HTMLTextAreaElement)) return false;
+type EditableElement = HTMLInputElement | HTMLTextAreaElement | HTMLElement;
+
+function isSafeEditor(value: EventTarget | null): value is EditableElement {
+    if (!value || !(value instanceof HTMLElement)) return false;
+    const isInput = value instanceof HTMLInputElement || value instanceof HTMLTextAreaElement;
+    const isContentEditable = value.isContentEditable || value.getAttribute('contenteditable') === 'true';
+    if (!isInput && !isContentEditable) return false;
+
     const inputType = value instanceof HTMLInputElement ? value.type : null;
+    const autocomplete =
+        value instanceof HTMLInputElement || value instanceof HTMLTextAreaElement ? value.autocomplete : '';
+    const placeholder =
+        value instanceof HTMLInputElement || value instanceof HTMLTextAreaElement
+            ? value.placeholder
+            : value.getAttribute('placeholder') || '';
     const fieldIdentity = [
-        value.name,
+        value.getAttribute('name'),
         value.id,
         value.getAttribute('aria-label'),
         value.getAttribute('aria-labelledby'),
-        value.placeholder,
+        placeholder,
         value.title,
+        value.className,
     ]
         .filter(Boolean)
         .join(' ');
-    if (!shouldAutoProofreadField(inputType, value.autocomplete, fieldIdentity)) return false;
-    if (value.readOnly || value.disabled || value.closest('[data-lexisync-ignore]')) return false;
+    if (!shouldAutoProofreadField(inputType, autocomplete, fieldIdentity)) return false;
+    if (
+        (value instanceof HTMLInputElement || value instanceof HTMLTextAreaElement) &&
+        (value.readOnly || value.disabled)
+    )
+        return false;
+    if (value.closest('[data-lexisync-ignore]')) return false;
     return true;
+}
+
+function getEditorText(editor: EditableElement): string {
+    if (editor instanceof HTMLInputElement || editor instanceof HTMLTextAreaElement) {
+        return editor.value;
+    }
+    return editor.innerText || editor.textContent || '';
+}
+
+function setEditorText(editor: EditableElement, text: string): void {
+    if (editor instanceof HTMLInputElement || editor instanceof HTMLTextAreaElement) {
+        setNativeValue(editor, text);
+        dispatchValueEvents(editor);
+        return;
+    }
+    editor.focus();
+    const selection = window.getSelection();
+    let handled = false;
+    if (selection) {
+        const range = document.createRange();
+        range.selectNodeContents(editor);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        try {
+            handled = document.execCommand('insertText', false, text);
+        } catch {
+            handled = false;
+        }
+    }
+    if (!handled) {
+        editor.innerText = text;
+    }
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+    editor.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function enableNativeSpellcheck(editor: EditableElement): void {
+    if (editor.getAttribute('spellcheck') !== 'true') {
+        editor.spellcheck = true;
+        editor.setAttribute('spellcheck', 'true');
+    }
 }
 
 export function startLiveProofread(): () => void {
@@ -33,7 +92,7 @@ export function startLiveProofread(): () => void {
     let activeRequest: CancellableTextRequest | null = null;
     let disabledSites: string[] = [];
     let dismissListeners: (() => void) | null = null;
-    const ignoredInputEvents = new WeakSet<HTMLInputElement | HTMLTextAreaElement>();
+    const ignoredInputEvents = new WeakSet<HTMLElement>();
 
     const close = () => {
         dismissListeners?.();
@@ -51,10 +110,10 @@ export function startLiveProofread(): () => void {
         close();
     };
 
-    const showSuggestion = (editor: HTMLInputElement | HTMLTextAreaElement, original: string, corrected: string) => {
+    const showSuggestion = (editor: EditableElement, original: string, corrected: string) => {
         close();
         const corrections = getWordCorrections(original, corrected);
-        if (!corrections.length || editor.value !== original) return;
+        if (!corrections.length || getEditorText(editor) !== original) return;
         const rejected = new Set<number>();
         host = document.createElement('div');
         host.dataset.lexisyncLiveProof = '';
@@ -64,7 +123,7 @@ export function startLiveProofread(): () => void {
         style.textContent = `
             .card{box-sizing:border-box;width:min(340px,calc(100vw - 24px));padding:10px;border:1px solid #dfe5df;border-radius:14px;background:#fff;color:#202523;box-shadow:0 12px 34px #17211b2b;font:13px/1.45 system-ui,sans-serif}
             .head,.actions{display:flex;align-items:center;justify-content:space-between;gap:8px}.head strong{color:#176b3a}.preview{max-height:110px;overflow:auto;margin:9px 0;padding:9px;border-radius:9px;background:#f7faf7;white-space:pre-wrap}.preview mark{padding:1px 2px;border-radius:4px;color:#176b3a;background:#d9f8e5;cursor:pointer}.preview mark:focus{outline:2px solid #247a47}
-            button{padding:7px 10px;border:0;border-radius:8px;font:inherit;cursor:pointer}.apply{color:#fff;background:#247a47}.close,.exclude{color:#58615b;background:#eef2ef}.note{display:grid;gap:2px;color:#58615b;font-size:11px}
+            button{padding:7px 10px;border:0;border-radius:8px;font:inherit;cursor:pointer}.apply{color:#fff;background:#247a47;display:flex;align-items:center;gap:6px;font-weight:600}.apply kbd{font-size:10px;opacity:0.85;padding:1px 4px;border-radius:4px;background:rgba(255,255,255,0.25)}.close,.exclude{color:#58615b;background:#eef2ef}.note{display:grid;gap:2px;color:#58615b;font-size:11px}
             @media (prefers-color-scheme: dark){.card{background:#1e2620;color:#d4e0d6;border-color:#3a4a3d;box-shadow:0 12px 34px #0008}.preview{background:#252e27}.preview mark{color:#7dd4a0;background:#1a3d28}.close,.exclude{color:#a8b8aa;background:#2c3a2f}.note{color:#8a9e8d}}
         `;
         const card = document.createElement('div');
@@ -122,13 +181,15 @@ export function startLiveProofread(): () => void {
         const apply = document.createElement('button');
         apply.className = 'apply';
         apply.type = 'button';
-        apply.textContent = t('applyResult', 'Применить');
+        const applyText = document.createTextNode(t('applyResult', 'Применить') + ' ');
+        const kbd = document.createElement('kbd');
+        kbd.textContent = 'Ctrl+↵';
+        apply.append(applyText, kbd);
         apply.onclick = () => {
-            if (editor.value !== original) return close();
+            if (getEditorText(editor) !== original) return close();
             const resolved = resolveCorrections(corrected, corrections, rejected);
-            setNativeValue(editor, resolved);
             ignoredInputEvents.add(editor);
-            dispatchValueEvents(editor);
+            setEditorText(editor, resolved);
             close();
         };
         actions.append(note, apply);
@@ -180,16 +241,24 @@ export function startLiveProofread(): () => void {
         };
     };
 
+    const onFocusIn = (event: FocusEvent) => {
+        if (isSafeEditor(event.target)) {
+            enableNativeSpellcheck(event.target);
+        }
+    };
+
     const onInput = (event: Event) => {
-        if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+        if (event.target instanceof HTMLElement) {
             if (ignoredInputEvents.delete(event.target)) return;
         }
-        if (!enabled || !isSafeEditor(event.target)) return;
+        if (!isSafeEditor(event.target)) return;
+        enableNativeSpellcheck(event.target);
+        if (!enabled) return;
         if (isSiteDisabled(location.hostname, disabledSites)) return;
         const editor = event.target;
-        const original = editor.value;
+        const original = getEditorText(editor);
         cancelPendingProofread();
-        if (original.trim().length < 12 || original.length > 5000) return;
+        if (original.trim().length < 4 || original.length > 5000) return;
         const version = requestVersion;
         timer = window.setTimeout(async () => {
             timer = 0;
@@ -237,10 +306,12 @@ export function startLiveProofread(): () => void {
     };
     const onPageHide = cancelPendingProofread;
     void updateSettings();
+    document.addEventListener('focusin', onFocusIn, true);
     document.addEventListener('input', onInput, true);
     window.addEventListener('pagehide', onPageHide);
     chrome.storage.onChanged.addListener(onStorage);
     return () => {
+        document.removeEventListener('focusin', onFocusIn, true);
         document.removeEventListener('input', onInput, true);
         chrome.storage.onChanged.removeListener(onStorage);
         window.removeEventListener('pagehide', onPageHide);

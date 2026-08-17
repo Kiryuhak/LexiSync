@@ -119,6 +119,8 @@ test('исключает чувствительные поля из фоново
     expect(shouldAutoProofreadField('search', 'off')).toBe(true);
     expect(shouldAutoProofreadField(null, '')).toBe(true);
     expect(shouldAutoProofreadField(null, '', 'message editor')).toBe(true);
+    expect(shouldAutoProofreadField(null, '', 'cell-input waffle-rich-text-editor')).toBe(true);
+    expect(shouldAutoProofreadField(null, '', 't-formula-bar-input formula-input')).toBe(true);
 });
 
 test('не открывает панель выделения на отключённом сайте', () => {
