@@ -36,6 +36,31 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.2.8',
+        '2026-08-17',
+        'improved',
+        'Поддержка Google Таблиц, автопроверка ячеек и улучшение интерфейса',
+        'Google Sheets support, live cell proofreading, and UI refinements',
+        [
+            [
+                'Поддержка проверки и подсветки опечаток в Google Таблицах, Google Docs, Notion и contenteditable-редакторах.',
+                'Support for spellchecking and error highlighting in Google Sheets, Google Docs, Notion, and contenteditable editors.',
+            ],
+            [
+                'Мгновенная активация нативной проверки орфографии прямо во время ввода текста в ячейках Google Таблиц.',
+                'Instant native spellcheck activation right as you type in Google Sheets cells and formula bar.',
+            ],
+            [
+                'Быстрое применение исправлений по Ctrl+Enter (Cmd+Enter) в окне автопроверки без нарушения фокуса ввода.',
+                'Quick apply of corrections via Ctrl+Enter (Cmd+Enter) in Live-Proofread without disrupting editing focus.',
+            ],
+            [
+                'Адаптивный перенос кнопок в окне результата и устранение переполнения кнопки «Отменить замену».',
+                'Responsive action buttons wrapping in the result modal and fix for the "Undo replacement" button overflow.',
+            ],
+        ],
+    ),
+    note(
         '5.2.7',
         '2026-08-17',
         'improved',
