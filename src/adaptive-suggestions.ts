@@ -504,6 +504,9 @@ export function initializeAdaptiveSuggestions(): void {
         'keydown',
         (event) => {
             if (event.key === 'Escape' && activeSuggestions.length) {
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation();
                 rejectSelectedSuggestion();
                 hideSuggestions();
             } else if (
@@ -512,6 +515,8 @@ export function initializeAdaptiveSuggestions(): void {
                 activeEditable === event.target
             ) {
                 event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation();
                 activeSuggestionIndex = (activeSuggestionIndex + 1) % activeSuggestions.length;
                 updateSelectedSuggestion();
             } else if (
@@ -520,6 +525,8 @@ export function initializeAdaptiveSuggestions(): void {
                 activeEditable === event.target
             ) {
                 event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation();
                 activeSuggestionIndex =
                     (activeSuggestionIndex - 1 + activeSuggestions.length) % activeSuggestions.length;
                 updateSelectedSuggestion();
@@ -530,6 +537,7 @@ export function initializeAdaptiveSuggestions(): void {
             ) {
                 event.preventDefault();
                 event.stopPropagation();
+                event.stopImmediatePropagation();
                 acceptSuggestion(activeSuggestionIndex);
             }
         },
