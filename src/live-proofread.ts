@@ -32,9 +32,12 @@ export function startLiveProofread(): () => void {
     let requestVersion = 0;
     let activeRequest: CancellableTextRequest | null = null;
     let disabledSites: string[] = [];
+    let dismissListeners: (() => void) | null = null;
     const ignoredInputEvents = new WeakSet<HTMLInputElement | HTMLTextAreaElement>();
 
     const close = () => {
+        dismissListeners?.();
+        dismissListeners = null;
         host?.remove();
         host = null;
     };
@@ -147,6 +150,34 @@ export function startLiveProofread(): () => void {
         });
         host.style.left = `${position.x}px`;
         host.style.top = `${position.y}px`;
+
+        const currentHost = host;
+        const onPointerDown = (event: PointerEvent) => {
+            if (currentHost && !event.composedPath().includes(currentHost)) {
+                close();
+            }
+        };
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation();
+                close();
+                return;
+            }
+            if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+                event.preventDefault();
+                event.stopPropagation();
+                apply.click();
+                return;
+            }
+        };
+        document.addEventListener('pointerdown', onPointerDown, true);
+        document.addEventListener('keydown', onKeyDown, true);
+        dismissListeners = () => {
+            document.removeEventListener('pointerdown', onPointerDown, true);
+            document.removeEventListener('keydown', onKeyDown, true);
+        };
     };
 
     const onInput = (event: Event) => {

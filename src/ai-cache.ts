@@ -91,13 +91,30 @@ export async function clearAiCache(): Promise<void> {
     if (response?.ok !== true) throw new Error(response?.error || 'CACHE_MUTATION_FAILED');
 }
 
+export async function cleanupExpiredAiCacheLocally(): Promise<number> {
+    const now = Date.now();
+    const result = await chrome.storage.local.get([CACHE_INDEX_KEY]);
+    const previousIndex = Array.isArray(result[CACHE_INDEX_KEY])
+        ? result[CACHE_INDEX_KEY].filter(isCacheIndexItem)
+        : [];
+    const activeIndex = previousIndex.filter((item) => item.expiresAt > now);
+    const activeKeys = new Set(activeIndex.map((item) => item.key));
+    const expiredKeys = previousIndex.filter((item) => !activeKeys.has(item.key)).map((item) => item.key);
+
+    if (expiredKeys.length > 0) {
+        await chrome.storage.local.remove(expiredKeys);
+        await chrome.storage.local.set({ [CACHE_INDEX_KEY]: activeIndex });
+    }
+    return expiredKeys.length;
+}
+
 async function clearAiCacheLocally(): Promise<void> {
     const result = await chrome.storage.local.get([CACHE_INDEX_KEY]);
     const index = Array.isArray(result[CACHE_INDEX_KEY]) ? result[CACHE_INDEX_KEY].filter(isCacheIndexItem) : [];
     await chrome.storage.local.remove([...index.map((item) => item.key), CACHE_INDEX_KEY]);
 }
 
-export type CacheMutation = 'set' | 'clear';
+export type CacheMutation = 'set' | 'clear' | 'cleanup';
 
 export function applyCacheMutation(
     mutation: CacheMutation,
@@ -106,6 +123,8 @@ export function applyCacheMutation(
     return enqueueStorageMutation(async () => {
         if (mutation === 'clear') {
             await clearAiCacheLocally();
+        } else if (mutation === 'cleanup') {
+            await cleanupExpiredAiCacheLocally();
         } else if (
             mutation === 'set' &&
             isCacheKey(payload.key) &&

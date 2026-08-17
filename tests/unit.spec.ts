@@ -48,6 +48,8 @@ import {
 } from '../src/dom-rendering';
 import { formatTextStats } from '../src/text-stats';
 import { activateDialogKeyboard } from '../src/content-dialog-accessibility';
+import { cleanupExpiredAiCacheLocally } from '../src/ai-cache';
+import { getLastUsedAction, setLastUsedAction } from '../src/content-menus';
 
 test('история обновлений содержит все выпуски и поддерживает поиск', () => {
     expect(RELEASE_NOTES[0].version).toBe('5.2.6');
@@ -1128,4 +1130,48 @@ test('activateDialogKeyboard вызывает onPrimaryAction при нажат�
 
     deactivate();
     expect(listeners['keydown']).toBeUndefined();
+});
+
+test('setLastUsedAction и getLastUsedAction сохраняют и возвращают последнее выбранное действие', () => {
+    expect(getLastUsedAction()).toBeNull();
+    setLastUsedAction('spellcheck');
+    expect(getLastUsedAction()).toBe('spellcheck');
+    setLastUsedAction('translate');
+    expect(getLastUsedAction()).toBe('translate');
+});
+
+test('cleanupExpiredAiCacheLocally удаляет только просроченные записи', async () => {
+    const mockStorage: Record<string, unknown> = {};
+    const origChrome = globalThis.chrome;
+    globalThis.chrome = {
+        storage: {
+            local: {
+                get: vi.fn(async () => mockStorage),
+                set: vi.fn(async (items) => Object.assign(mockStorage, items)),
+                remove: vi.fn(async (keys: string[]) => {
+                    for (const k of keys) delete mockStorage[k];
+                }),
+            },
+        },
+    } as unknown as typeof chrome;
+
+    try {
+        const now = Date.now();
+        const validKey = `ai_cache_${'a'.repeat(64)}`;
+        const expiredKey = `ai_cache_${'b'.repeat(64)}`;
+
+        mockStorage['ai_cache_index'] = [
+            { key: validKey, expiresAt: now + 100_000 },
+            { key: expiredKey, expiresAt: now - 100_000 },
+        ];
+        mockStorage[validKey] = { value: 'valid', expiresAt: now + 100_000 };
+        mockStorage[expiredKey] = { value: 'expired', expiresAt: now - 100_000 };
+
+        const removedCount = await cleanupExpiredAiCacheLocally();
+        expect(removedCount).toBe(1);
+        expect(mockStorage[validKey]).toBeDefined();
+        expect(mockStorage[expiredKey]).toBeUndefined();
+    } finally {
+        globalThis.chrome = origChrome;
+    }
 });

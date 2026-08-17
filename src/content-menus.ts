@@ -17,6 +17,16 @@ export interface ContentMenuContext {
     executeCustom: (command: CustomCommand) => void;
 }
 
+let lastUsedAction: RequestMode | null = null;
+
+export function getLastUsedAction(): RequestMode | null {
+    return lastUsedAction;
+}
+
+export function setLastUsedAction(mode: RequestMode): void {
+    lastUsedAction = mode;
+}
+
 function setupToolbarKeyboardNavigation(container: HTMLElement, onClose: () => void): void {
     container.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
@@ -177,6 +187,33 @@ export function showToolbarMenu(x: number, y: number, context: ContentMenuContex
             'edit',
         ),
     );
+
+    const ACTION_INFOS: Partial<Record<RequestMode, { icon: string; title: string }>> = {
+        spellcheck: { icon: ICONS.spell, title: t('fixErrors', 'Исправить ошибки') },
+        style: { icon: ICONS.style, title: t('rewriteText', 'Переписать текст') },
+        emoji: { icon: ICONS.emoji, title: t('addEmoji', 'Подобрать эмодзи') },
+        translate: { icon: ICONS.translate, title: t('translate', 'Перевести') },
+        layout: { icon: ICONS.keyboard, title: t('fixLayout', 'Исправить раскладку') },
+    };
+
+    const quickAction = lastUsedAction ? ACTION_INFOS[lastUsedAction] : undefined;
+    if (quickAction && lastUsedAction) {
+        const actionToRun = lastUsedAction;
+        popupUI.appendChild(divider());
+        popupUI.appendChild(
+            createBtn(
+                quickAction.icon,
+                '',
+                `${t('runAgain', 'Повторить')}: ${quickAction.title}`,
+                () => {
+                    setLastUsedAction(actionToRun);
+                    context.handleAction(actionToRun);
+                },
+                'quick-rerun',
+            ),
+        );
+    }
+
     popupUI.appendChild(divider());
     popupUI.appendChild(
         createBtn(ICONS.copy, '', t('copy', 'Копировать'), (_event, btn) => {
@@ -262,10 +299,16 @@ export function showToolbarMenu(x: number, y: number, context: ContentMenuContex
     };
 
     moreDropdown.appendChild(
-        createDropdownItem(ICONS.translate, t('translate', 'Перевести'), () => context.handleAction('translate')),
+        createDropdownItem(ICONS.translate, t('translate', 'Перевести'), () => {
+            setLastUsedAction('translate');
+            context.handleAction('translate');
+        }),
     );
     moreDropdown.appendChild(
-        createDropdownItem(ICONS.keyboard, t('fixLayout', 'Исправить раскладку'), () => context.handleAction('layout')),
+        createDropdownItem(ICONS.keyboard, t('fixLayout', 'Исправить раскладку'), () => {
+            setLastUsedAction('layout');
+            context.handleAction('layout');
+        }),
     );
     moreDropdown.appendChild(
         createDropdownItem(ICONS.history, t('history', 'История'), () => {
@@ -341,15 +384,34 @@ export function showAIMenu(x: number, y: number, context: ContentMenuContext): v
         createMenuBtn(
             ICONS.spell,
             t('fixErrors', 'Исправить ошибки'),
-            () => context.handleAction('spellcheck'),
+            () => {
+                setLastUsedAction('spellcheck');
+                context.handleAction('spellcheck');
+            },
             'Alt+R',
         ),
     );
     popupUI.appendChild(
-        createMenuBtn(ICONS.style, t('rewriteText', 'Переписать текст'), () => context.handleAction('style'), 'Alt+Y'),
+        createMenuBtn(
+            ICONS.style,
+            t('rewriteText', 'Переписать текст'),
+            () => {
+                setLastUsedAction('style');
+                context.handleAction('style');
+            },
+            'Alt+Y',
+        ),
     );
     popupUI.appendChild(
-        createMenuBtn(ICONS.emoji, t('addEmoji', 'Подобрать эмодзи'), () => context.handleAction('emoji'), 'Alt+T'),
+        createMenuBtn(
+            ICONS.emoji,
+            t('addEmoji', 'Подобрать эмодзи'),
+            () => {
+                setLastUsedAction('emoji');
+                context.handleAction('emoji');
+            },
+            'Alt+T',
+        ),
     );
 
     void chrome.storage.local

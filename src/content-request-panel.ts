@@ -18,6 +18,7 @@ import { formatRequestDuration } from './request-duration';
 import { mountResultDialogFrame } from './result-dialog-view';
 import { createLanguagePicker } from './content-language-picker';
 import { formatTextStats } from './text-stats';
+import { estimateTokens } from './budget';
 import { logger } from './logger';
 
 export interface ContentRequestContext {
@@ -159,6 +160,17 @@ export function executeRequest(
         if (headerIcon) headerTitleWrapper.appendChild(createSvgIcon(headerIcon));
         if (headerEmoji) headerTitleWrapper.appendChild(document.createTextNode(headerEmoji));
         headerTitleWrapper.appendChild(document.createTextNode(headerLabel));
+    }
+
+    if (originalText.length > 4000) {
+        const tokenCount = estimateTokens(originalText);
+        const tokenBadge = document.createElement('span');
+        tokenBadge.className = 'lexisync-token-badge';
+        tokenBadge.style.cssText =
+            'font-size:10px;padding:2px 6px;border-radius:6px;background:var(--primary-soft);color:var(--primary-strong);margin-left:8px;font-weight:600;white-space:nowrap;';
+        tokenBadge.textContent = `~${tokenCount} tok`;
+        tokenBadge.title = `${originalText.length} симв. (~${tokenCount} токенов)`;
+        headerTitleWrapper.appendChild(tokenBadge);
     }
 
     const initialLoader = document.createElement('div');

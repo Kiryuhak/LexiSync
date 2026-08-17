@@ -4,7 +4,13 @@ import { migrateSettings } from './settings-migrations';
 import { fixKeyboardLayout } from './keyboard-layout';
 import { applyUsageMutation, type UsageMutation } from './usage-stats';
 import { applyHistoryMutation, type HistoryMutation } from './history-store';
-import { applyCacheMutation, getCacheHash, getCachedText, type CacheMutation } from './ai-cache';
+import {
+    applyCacheMutation,
+    cleanupExpiredAiCacheLocally,
+    getCacheHash,
+    getCachedText,
+    type CacheMutation,
+} from './ai-cache';
 import { applyAdaptiveMutation, type AdaptiveMutation } from './adaptive-model-store';
 import { createSettingsFingerprint } from './request-cache';
 import { applySettingsMutation, type SettingsMutation } from './settings-store';
@@ -65,6 +71,7 @@ async function canMutateAdaptiveForSender(sender: chrome.runtime.MessageSender):
 const initializationPromise = restoreSyncedSettings()
     .then(migrateSettings)
     .then(migrateApiKeyToSecretStore)
+    .then(() => cleanupExpiredAiCacheLocally())
     .catch((error) => {
         logger.error('Background initialization error:', error);
     });

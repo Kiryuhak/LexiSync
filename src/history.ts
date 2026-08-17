@@ -209,8 +209,12 @@ function getFilteredHistory(): HistoryItem[] {
     return sortHistoryItems(filtered, sort === 'oldest' || sort === 'favorites' ? sort : 'newest');
 }
 
+let activeHistoryObserver: IntersectionObserver | null = null;
+
 function renderHistory(): void {
     if (!historyList) return;
+    activeHistoryObserver?.disconnect();
+    activeHistoryObserver = null;
     historyList.replaceChildren();
     const filtered = getFilteredHistory();
     clearBtn?.classList.toggle('hidden', history.length === 0);
@@ -226,7 +230,34 @@ function renderHistory(): void {
         historyList.appendChild(empty);
         return;
     }
-    historyList.append(...filtered.map(createHistoryCard));
+
+    const BATCH_SIZE = 40;
+    const initialBatch = filtered.slice(0, BATCH_SIZE);
+    historyList.append(...initialBatch.map(createHistoryCard));
+
+    if (filtered.length > BATCH_SIZE && typeof IntersectionObserver !== 'undefined') {
+        let renderedCount = BATCH_SIZE;
+        const sentinel = document.createElement('div');
+        sentinel.style.height = '10px';
+        historyList.appendChild(sentinel);
+
+        activeHistoryObserver = new IntersectionObserver((entries) => {
+            if (entries[0]?.isIntersecting && renderedCount < filtered.length) {
+                const nextBatch = filtered.slice(renderedCount, renderedCount + BATCH_SIZE);
+                renderedCount += nextBatch.length;
+                sentinel.before(...nextBatch.map(createHistoryCard));
+                if (renderedCount >= filtered.length) {
+                    activeHistoryObserver?.disconnect();
+                    activeHistoryObserver = null;
+                    sentinel.remove();
+                }
+            }
+        });
+        activeHistoryObserver.observe(sentinel);
+    } else if (filtered.length > BATCH_SIZE) {
+        const remainingBatch = filtered.slice(BATCH_SIZE);
+        historyList.append(...remainingBatch.map(createHistoryCard));
+    }
 }
 
 async function initialize(): Promise<void> {
@@ -247,12 +278,16 @@ function handleSearchInput(): void {
     searchDebounceTimer = setTimeout(() => {
         searchDebounceTimer = null;
         renderHistory();
-    }, 80);
+    }, 120);
 }
 
 searchInput?.addEventListener('input', handleSearchInput);
 searchInput?.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && searchInput.value) {
+        if (searchDebounceTimer) {
+            clearTimeout(searchDebounceTimer);
+            searchDebounceTimer = null;
+        }
         searchInput.value = '';
         renderHistory();
     }
