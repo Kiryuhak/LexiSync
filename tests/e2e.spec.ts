@@ -2,6 +2,7 @@ import { test as base, expect, chromium, type BrowserContext, type Page } from '
 import fs from 'node:fs/promises';
 import path from 'path';
 import AxeBuilder from '@axe-core/playwright';
+import { RELEASE_NOTES } from '../src/release-notes';
 
 // ==========================================
 // 1. НАСТРОЙКА БРАУЗЕРА И ВЫДАЧА ПРАВ
@@ -902,7 +903,7 @@ test('номер версии открывает доступную истори
 
     const dialog = page.locator('#releaseNotesDialog');
     await expect(dialog).toBeVisible();
-    await expect(dialog.locator('[data-release-version]')).toHaveCount(41);
+    await expect(dialog.locator('[data-release-version]')).toHaveCount(RELEASE_NOTES.length);
     await expect(dialog.locator(`[data-release-version="${currentVersion}"]`)).toHaveAttribute('open', '');
 
     for (const style of ['magicos-11', 'aurora-glass']) {
