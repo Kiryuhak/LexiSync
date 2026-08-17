@@ -16,6 +16,7 @@ import { createSpellcheckUi } from './content-spellcheck-ui';
 import { renderPrimaryResultActions } from './content-result-actions';
 import { formatRequestDuration } from './request-duration';
 import { mountResultDialogFrame } from './result-dialog-view';
+import { createLanguagePicker } from './content-language-picker';
 import { logger } from './logger';
 
 export interface ContentRequestContext {
@@ -57,7 +58,7 @@ export function executeRequest(
     if (!popupUI) return;
     const currentSelection = context.getSelection();
     let currentTargetLang = context.getTargetLanguage();
-    const { getLanguageName, getPopupElementById, adjustPopupPosition, closePopup, registerRequestCleanup } = context;
+    const { getLanguageName, adjustPopupPosition, closePopup, registerRequestCleanup } = context;
     const originalText = currentSelection.text;
     let streamPort: chrome.runtime.Port | null = null;
     let streamDisconnectGuard: PortDisconnectGuard | null = null;
@@ -143,75 +144,15 @@ export function executeRequest(
 
     if (mode === 'translate') {
         headerTitleWrapper.style.pointerEvents = 'auto';
-        const langWrap = document.createElement('div');
-        langWrap.style.cssText =
-            'display: flex; align-items: center; position: relative; user-select: none; margin-left: -10px;';
-        const langTrigger = document.createElement('button');
-        langTrigger.type = 'button';
-        langTrigger.setAttribute('aria-haspopup', 'listbox');
-        langTrigger.setAttribute('aria-expanded', 'false');
-        langTrigger.setAttribute('aria-label', t('selectTranslationLanguage', 'Выбрать язык перевода'));
-        langTrigger.style.cssText =
-            'display:flex;align-items:center;gap:4px;padding:6px 10px;border:0;border-radius:8px;background:transparent;color:var(--text-primary);font:inherit;font-weight:600;cursor:pointer;';
-        const languageLabel = document.createElement('span');
-        languageLabel.id = 'lexisync-lang-label';
-        languageLabel.textContent = currentTargetLang;
-        const chevron = document.createElement('span');
-        chevron.style.marginTop = '2px';
-        setIcon(chevron, ICONS.chevronDown);
-        langTrigger.append(languageLabel, chevron);
-        langWrap.append(langTrigger);
-
-        const langDropdown = document.createElement('div');
-        langDropdown.className = 'lexisync-scroll';
-        langDropdown.setAttribute('role', 'listbox');
-        langDropdown.setAttribute('aria-label', t('translationLanguages', 'Языки перевода'));
-        langDropdown.style.cssText =
-            'display: none; position: absolute; top: 100%; left: -4px; margin-top: 8px; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 12px; box-shadow: 0 12px 24px var(--shadow-color); flex-direction: column; min-width: 140px; z-index: 9999; padding: 8px 0; max-height: 220px; overflow-y: auto; font-weight: normal;';
-
-        const popularLangs = ['en', 'ru', 'de', 'fr', 'es', 'it', 'pl', 'zh', 'tr', 'ja'].map(getLanguageName);
-
-        popularLangs.forEach((lang) => {
-            const langItem = document.createElement('button');
-            langItem.type = 'button';
-            langItem.setAttribute('role', 'option');
-            langItem.setAttribute('aria-selected', String(lang === currentTargetLang));
-            langItem.textContent = lang;
-            langItem.style.cssText =
-                'width:100%;padding:10px 16px;border:0;background:transparent;text-align:left;font-size:13px;cursor:pointer;transition:background 0.1s;color:var(--text-primary);';
-            if (lang === currentTargetLang) {
-                langItem.style.background = 'var(--hover-bg)';
-                langItem.style.fontWeight = '600';
-            }
-            langItem.onmouseover = () => {
-                if (lang !== currentTargetLang) langItem.style.background = 'var(--hover-bg)';
-            };
-            langItem.onmouseout = () => {
-                if (lang !== currentTargetLang) langItem.style.background = 'transparent';
-            };
-            langItem.onclick = (e) => {
-                e.stopPropagation();
-                langDropdown.style.display = 'none';
-                langTrigger.setAttribute('aria-expanded', 'false');
-                if (lang !== currentTargetLang) {
-                    currentTargetLang = lang;
-                    context.setTargetLanguage(lang);
-                    const languageLabel = getPopupElementById<HTMLElement>('lexisync-lang-label');
-                    if (languageLabel) languageLabel.textContent = lang;
-                    startStream();
-                }
-            };
-            langDropdown.appendChild(langItem);
+        const langWrap = createLanguagePicker({
+            currentLanguage: currentTargetLang,
+            getLanguageName,
+            onLanguageChange: (lang) => {
+                currentTargetLang = lang;
+                context.setTargetLanguage(lang);
+                startStream();
+            },
         });
-
-        langWrap.appendChild(langDropdown);
-        langTrigger.onclick = (e) => {
-            e.stopPropagation();
-            const open = langDropdown.style.display !== 'flex';
-            langDropdown.style.display = open ? 'flex' : 'none';
-            langTrigger.setAttribute('aria-expanded', String(open));
-            if (open) langDropdown.querySelector<HTMLElement>('[aria-selected="true"]')?.focus();
-        };
         headerTitleWrapper.appendChild(langWrap);
     } else {
         if (headerIcon) headerTitleWrapper.appendChild(createSvgIcon(headerIcon));

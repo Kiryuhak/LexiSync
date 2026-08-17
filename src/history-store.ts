@@ -39,24 +39,33 @@ function getDB(): Promise<IDBDatabase> {
             if (!db.objectStoreNames.contains(STORE_NAME)) {
                 db.createObjectStore(STORE_NAME, { keyPath: 'id' });
             }
-        }).then(async (db) => {
-            try {
-                const data = await chrome.storage.local.get('aiHistory');
-                if (data.aiHistory && Array.isArray(data.aiHistory)) {
-                    logger.info('Migrating history to IndexedDB...');
-                    for (const item of data.aiHistory) {
-                        if (isHistoryItem(item)) {
-                            await idbPut(db, STORE_NAME, item);
+        })
+            .then(async (db) => {
+                try {
+                    const data = await chrome.storage.local.get('aiHistory');
+                    if (data.aiHistory && Array.isArray(data.aiHistory)) {
+                        logger.info('Migrating history to IndexedDB...');
+                        for (const item of data.aiHistory) {
+                            if (isHistoryItem(item)) {
+                                try {
+                                    await idbPut(db, STORE_NAME, item);
+                                } catch (putError) {
+                                    logger.error('Failed to migrate history item', putError);
+                                }
+                            }
                         }
+                        await chrome.storage.local.remove('aiHistory');
+                        logger.info('History migration complete.');
                     }
-                    await chrome.storage.local.remove('aiHistory');
-                    logger.info('History migration complete.');
+                } catch (e) {
+                    logger.error('History migration error', e);
                 }
-            } catch (e) {
-                logger.error('History migration error', e);
-            }
-            return db;
-        });
+                return db;
+            })
+            .catch((error) => {
+                dbPromise = null;
+                throw error;
+            });
     }
     return dbPromise;
 }

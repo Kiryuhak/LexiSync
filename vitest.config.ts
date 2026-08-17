@@ -37,6 +37,8 @@ export default defineConfig({
                 'src/budget.ts',
                 'src/budget-reservations.ts',
                 'src/theme-customization.ts',
+                'src/idb.ts',
+                'src/content-language-picker.ts',
             ],
             thresholds: { lines: 68, functions: 58, statements: 62, branches: 53 },
         },

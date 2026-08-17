@@ -1,3 +1,4 @@
+import 'fake-indexeddb/auto';
 import { expect, test, vi } from 'vitest';
 import { detectLayoutDirection, fixKeyboardLayout } from '../src/keyboard-layout';
 import { buildMessages } from '../src/prompt-builder';
@@ -36,6 +37,8 @@ import { logger } from '../src/logger';
 import { clampInterfaceScale } from '../src/options-appearance';
 import { SETTINGS_TAB_GUIDES } from '../src/options-tabs';
 import { createDiagnosticReport } from '../src/diagnostics';
+import { createLanguagePicker, POPULAR_LANGUAGE_CODES } from '../src/content-language-picker';
+import { openDatabase, idbGet, idbGetAll, idbPut, idbDelete, idbClear } from '../src/idb';
 
 test('история обновлений содержит все выпуски и поддерживает поиск', () => {
     expect(RELEASE_NOTES[0].version).toBe('5.2.6');
@@ -785,4 +788,170 @@ test('createDiagnosticReport формирует валидный отчёт бе
     } finally {
         vi.stubGlobal('chrome', originalChrome);
     }
+});
+
+test('POPULAR_LANGUAGE_CODES содержит основные мировые языки', () => {
+    expect(POPULAR_LANGUAGE_CODES).toContain('en');
+    expect(POPULAR_LANGUAGE_CODES).toContain('ru');
+    expect(POPULAR_LANGUAGE_CODES).toContain('de');
+    expect(POPULAR_LANGUAGE_CODES).toContain('fr');
+    expect(POPULAR_LANGUAGE_CODES).toContain('zh');
+    expect(POPULAR_LANGUAGE_CODES.length).toBeGreaterThanOrEqual(10);
+});
+
+test('createLanguagePicker создает доступный UI выбора языка с возможностью переключения', () => {
+    interface MockNode {
+        id?: string;
+        type?: string;
+        tagName: string;
+        style: Record<string, string>;
+        attributes: Map<string, string>;
+        children: MockNode[];
+        textContent: string;
+        onclick?: (e: { stopPropagation: () => void }) => void;
+        onmouseover?: () => void;
+        onmouseout?: () => void;
+        setAttribute: (name: string, value: string) => void;
+        getAttribute: (name: string) => string | null;
+        append: (...nodes: Array<MockNode | { textContent: string }>) => void;
+        appendChild: (node: MockNode) => MockNode;
+        replaceChildren: (...nodes: Array<MockNode | { textContent: string }>) => void;
+        querySelector: (selector: string) => MockNode | null;
+        querySelectorAll: (selector: string) => MockNode[];
+        click: () => void;
+        focus: () => void;
+    }
+
+    function createMock(tagName: string): MockNode {
+        const attributes = new Map<string, string>();
+        let children: MockNode[] = [];
+        const node: MockNode = {
+            tagName: tagName.toUpperCase(),
+            style: {},
+            attributes,
+            get children() {
+                return children;
+            },
+            textContent: '',
+            setAttribute: (name, val) => attributes.set(name, val),
+            getAttribute: (name) => attributes.get(name) || null,
+            append: (...newNodes) => {
+                for (const n of newNodes) {
+                    if ('tagName' in n) children.push(n as MockNode);
+                }
+            },
+            appendChild: (n) => {
+                children.push(n);
+                return n;
+            },
+            replaceChildren: (...newNodes) => {
+                children = [];
+                for (const n of newNodes) {
+                    if ('tagName' in n) children.push(n as MockNode);
+                }
+            },
+            querySelector: (sel) => {
+                if (sel === 'button') return children.find((c) => c.tagName === 'BUTTON') || null;
+                if (sel === '#lexisync-lang-label')
+                    return (
+                        children.find((c) => c.id === 'lexisync-lang-label') ||
+                        children[0]?.children.find((c) => c.id === 'lexisync-lang-label') ||
+                        null
+                    );
+                if (sel === '[aria-selected="true"]')
+                    return children.find((c) => c.attributes.get('aria-selected') === 'true') || null;
+                return null;
+            },
+            querySelectorAll: (sel) => {
+                if (sel === '[role="option"]') return children.filter((c) => c.attributes.get('role') === 'option');
+                return [];
+            },
+            click: () => {
+                node.onclick?.({ stopPropagation: () => {} });
+            },
+            focus: () => {},
+        };
+        return node;
+    }
+
+    const originalDocument = globalThis.document;
+    const originalDOMParser = globalThis.DOMParser;
+    globalThis.document = {
+        createElement: (tag: string) => createMock(tag),
+        createElementNS: (_ns: string, tag: string) => createMock(tag),
+    } as unknown as Document;
+    globalThis.DOMParser = class {
+        parseFromString() {
+            return {
+                documentElement: createMock('svg'),
+            };
+        }
+    } as unknown as typeof DOMParser;
+
+    try {
+        let changedLanguage = '';
+        const picker = createLanguagePicker({
+            currentLanguage: 'Русский',
+            getLanguageName: (code) => (code === 'ru' ? 'Русский' : code === 'en' ? 'Английский' : code),
+            onLanguageChange: (lang) => {
+                changedLanguage = lang;
+            },
+        }) as unknown as MockNode;
+
+        expect(picker.tagName).toBe('DIV');
+        const trigger = picker.querySelector('button');
+        expect(trigger).toBeTruthy();
+        expect(trigger?.getAttribute('aria-haspopup')).toBe('listbox');
+        expect(trigger?.getAttribute('aria-expanded')).toBe('false');
+
+        // Клик по триггеру открывает список
+        trigger?.click();
+        expect(trigger?.getAttribute('aria-expanded')).toBe('true');
+
+        // Поиск опции "Английский" и клик
+        const dropdown = picker.children[1];
+        expect(dropdown).toBeTruthy();
+        const options = dropdown.querySelectorAll('[role="option"]');
+        const enOption = options.find((opt) => opt.textContent === 'Английский');
+        expect(enOption).toBeTruthy();
+        enOption?.click();
+
+        expect(changedLanguage).toBe('Английский');
+        expect(trigger?.getAttribute('aria-expanded')).toBe('false');
+    } finally {
+        globalThis.document = originalDocument;
+        globalThis.DOMParser = originalDOMParser;
+    }
+});
+
+test('idb обёртки корректно выполняют CRUD операции с базой данных', async () => {
+    const db = await openDatabase('test_unit_db', 1, (database) => {
+        database.createObjectStore('items', { keyPath: 'id' });
+    });
+
+    expect(db.name).toBe('test_unit_db');
+
+    // Put
+    await idbPut(db, 'items', { id: 1, name: 'Item 1' });
+    await idbPut(db, 'items', { id: 2, name: 'Item 2' });
+
+    // Get
+    const item1 = await idbGet<{ id: number; name: string }>(db, 'items', 1);
+    expect(item1).toEqual({ id: 1, name: 'Item 1' });
+
+    // GetAll
+    const all = await idbGetAll<{ id: number; name: string }>(db, 'items');
+    expect(all).toHaveLength(2);
+
+    // Delete
+    await idbDelete(db, 'items', 1);
+    const item1After = await idbGet<{ id: number; name: string }>(db, 'items', 1);
+    expect(item1After).toBeUndefined();
+
+    // Clear
+    await idbClear(db, 'items');
+    const allAfter = await idbGetAll(db, 'items');
+    expect(allAfter).toEqual([]);
+
+    db.close();
 });

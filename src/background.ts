@@ -62,7 +62,12 @@ async function canMutateAdaptiveForSender(sender: chrome.runtime.MessageSender):
     }
 }
 
-const initializationPromise = restoreSyncedSettings().then(migrateSettings).then(migrateApiKeyToSecretStore);
+const initializationPromise = restoreSyncedSettings()
+    .then(migrateSettings)
+    .then(migrateApiKeyToSecretStore)
+    .catch((error) => {
+        logger.error('Background initialization error:', error);
+    });
 initializeSettingsSync();
 initializeSiteAccess();
 
@@ -70,7 +75,11 @@ let settingsCache: Record<string, unknown> = {};
 const cacheReady = initializationPromise
     .then(() => chrome.storage.local.get(null))
     .then((all) => {
-        settingsCache = all;
+        settingsCache = all || {};
+    })
+    .catch((error) => {
+        logger.error('Failed to pre-cache settings in service worker:', error);
+        settingsCache = {};
     });
 
 chrome.storage.onChanged.addListener((changes, area) => {
@@ -83,7 +92,16 @@ chrome.storage.onChanged.addListener((changes, area) => {
 });
 
 export async function getCachedSettings(keys: Record<string, unknown>): Promise<Record<string, unknown>> {
-    await cacheReady;
+    try {
+        await cacheReady;
+    } catch {
+        // Fallback to direct read if cache failed
+        try {
+            return await chrome.storage.local.get(keys);
+        } catch {
+            return { ...keys };
+        }
+    }
     const result: Record<string, unknown> = {};
     for (const key of Object.keys(keys)) {
         result[key] = settingsCache[key] !== undefined ? settingsCache[key] : keys[key];
