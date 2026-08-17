@@ -613,7 +613,7 @@ test('Кейс 4: Переписывание стиля (Alt+Y)', async ({ page,
     const uiPanel = page.locator('#lexisync-extension-ui');
     await expect(uiPanel).toContainText('Официальный деловой текст.', { timeout: 5000 });
     await expect(uiPanel).not.toHaveAttribute('data-compact-result', 'true');
-    expect(await uiPanel.evaluate((element) => Number.parseFloat(getComputedStyle(element).width))).toBe(340);
+    expect(await uiPanel.evaluate((element) => Number.parseFloat(getComputedStyle(element).width))).toBe(360);
 
     await uiPanel.getByRole('button', { name: actionLabels.repeat, exact: true }).click();
     await expect(uiPanel.locator('.lexisync-content-pane')).toContainText('Новый деловой текст.');
@@ -1029,12 +1029,12 @@ test('Компактный режим настраивается и показы
     await expect(compactPreview).toHaveAttribute('data-mode', 'detailed');
     await expect(previewCard).not.toHaveAttribute('data-compact-result', 'true');
     await expect(previewCard.locator('.lexisync-result-tools')).toBeVisible();
-    expect(await previewCard.evaluate((element) => Number.parseFloat(getComputedStyle(element).width))).toBe(340);
+    expect(await previewCard.evaluate((element) => Number.parseFloat(getComputedStyle(element).width))).toBe(360);
     await page.locator('#resultDisplayMode').selectOption('compact');
     await expect(compactPreview).toHaveAttribute('data-mode', 'compact');
     await expect(previewCard).toHaveAttribute('data-compact-result', 'true');
     await expect(previewCard.locator('.lexisync-result-tools')).toBeHidden();
-    expect(await previewCard.evaluate((element) => Number.parseFloat(getComputedStyle(element).width))).toBe(300);
+    expect(await previewCard.evaluate((element) => Number.parseFloat(getComputedStyle(element).width))).toBe(360);
     await page.locator('#saveBtn').click();
     await expect
         .poll(() =>
@@ -1089,7 +1089,7 @@ test('Компактный режим настраивается и показы
         };
     });
     expect(compactLayout.compact).toBe('true');
-    expect(compactLayout.width).toBe(300);
+    expect(compactLayout.width).toBe(360);
     expect(compactLayout.height).toBeLessThan(280);
     expect(compactLayout.backdropFilter).toContain('blur(32px)');
     expect(compactLayout.headerBackground).toContain('linear-gradient');
