@@ -14,13 +14,23 @@ function getFocusableElements(dialog: HTMLElement): HTMLElement[] {
     );
 }
 
-export function activateDialogKeyboard(dialog: HTMLElement, close: () => void): () => void {
+export function activateDialogKeyboard(
+    dialog: HTMLElement,
+    close: () => void,
+    onPrimaryAction?: () => void,
+): () => void {
     dialog.tabIndex = -1;
     const onKeyDown = (event: KeyboardEvent) => {
         if (event.key === 'Escape') {
             event.preventDefault();
             event.stopPropagation();
             close();
+            return;
+        }
+        if ((event.ctrlKey || event.metaKey) && event.key === 'Enter' && onPrimaryAction) {
+            event.preventDefault();
+            event.stopPropagation();
+            onPrimaryAction();
             return;
         }
         if (event.key !== 'Tab') return;

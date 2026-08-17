@@ -8,7 +8,7 @@ export const POPUP_STYLE_TEXT = `
                 --error-color: #d32f2f; --success-color: #166534; --warning-bg: #fff8f0; --warning-border: #ffe8cc; --warning-text: #b06000;
                 transition: opacity 0.15s ease; border-radius: 18px;
                 border: 1px solid var(--border-color);
-                animation: lexiSyncFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+                animation: lexiSyncFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
                 box-shadow: 0 20px 52px var(--shadow-color), 0 3px 10px rgba(38, 40, 72, 0.08), inset 0 1px 0 rgba(255,255,255,0.42);
                 backdrop-filter: blur(22px) saturate(155%);
                 -webkit-backdrop-filter: blur(22px) saturate(155%);
@@ -91,8 +91,9 @@ export const POPUP_STYLE_TEXT = `
             #lexisync-extension-ui span { flex-shrink: 0 !important; }
             #lexisync-extension-ui svg { width: 16px !important; height: 16px !important; min-width: 16px !important; min-height: 16px !important; max-width: 16px !important; max-height: 16px !important; flex-shrink: 0 !important; display: block !important; }
             @keyframes lexisync-spin { to { transform: rotate(360deg); } }
-            @keyframes lexisync-flip { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(180deg); } }
-            @keyframes lexiSyncFadeIn { 0% { opacity: 0; transform: translateY(12px) scale(0.98); } 100% { opacity: 1; transform: translateY(0) scale(1); }}
+            @keyframes lexiSyncFadeIn { 0% { opacity: 0; transform: translateY(4px) scale(0.98); } 100% { opacity: 1; transform: translateY(0) scale(1); }}
+            @keyframes lexiSyncDropdownIn { 0% { opacity: 0; transform: translateY(-4px) scale(0.97); } 100% { opacity: 1; transform: translateY(0) scale(1); }}
+            .lexisync-dropdown { animation: lexiSyncDropdownIn 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
             .lexisync-loader { width: 14px; height: 14px; border: 2.5px solid var(--text-secondary); border-top-color: transparent; border-radius: 50%; animation: lexisync-spin 0.8s linear infinite; }
             .lexisync-hourglass { animation: lexisync-flip 2s ease-in-out infinite; display: flex; align-items: center; justify-content: center; }
             #lexisync-extension-ui mark { background: #dcfce7; color: #166534; padding: 2px 4px; border-radius: 4px; font-weight: 500; }

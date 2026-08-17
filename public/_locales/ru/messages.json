@@ -460,5 +460,14 @@
     },
     "searchEngineSimpleHint": {
         "message": "Откроется, когда вы выберете команду поиска выделенного текста в интернете."
+    },
+    "statsWords": {
+        "message": "слов"
+    },
+    "statsChars": {
+        "message": "симв."
+    },
+    "resetFilters": {
+        "message": "Сбросить фильтры"
     }
 }

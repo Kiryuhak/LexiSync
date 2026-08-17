@@ -17,6 +17,7 @@ import { renderPrimaryResultActions } from './content-result-actions';
 import { formatRequestDuration } from './request-duration';
 import { mountResultDialogFrame } from './result-dialog-view';
 import { createLanguagePicker } from './content-language-picker';
+import { formatTextStats } from './text-stats';
 import { logger } from './logger';
 
 export interface ContentRequestContext {
@@ -164,7 +165,13 @@ export function executeRequest(
     initialLoader.className = 'lexisync-loader';
     loaderOrClose.appendChild(initialLoader);
     adjustPopupPosition();
-    deactivateDialogKeyboard = activateDialogKeyboard(popupUI, closePopup);
+    deactivateDialogKeyboard = activateDialogKeyboard(popupUI, closePopup, () => {
+        const primaryBtn = actionsContainer.querySelector<HTMLButtonElement>('.lexisync-result-button--primary');
+        if (primaryBtn && !primaryBtn.disabled) {
+            primaryBtn.click();
+            lifecycle.setTimeout(() => closePopup(), 700);
+        }
+    });
 
     let fullResult = '';
     let compactResultMode = false;
@@ -431,7 +438,12 @@ export function executeRequest(
                 if (requestStartedAt !== null) {
                     const duration = formatRequestDuration(performance.now() - requestStartedAt);
                     requestStartedAt = null;
-                    showActionStatus(t('requestCompletedIn', 'Ready in $1 s').replace('$1', duration));
+                    const stats = formatTextStats(originalText, fullResult, {
+                        words: t('statsWords', 'слов'),
+                        chars: t('statsChars', 'симв.'),
+                    });
+                    const durationText = t('requestCompletedIn', 'Ready in $1 s').replace('$1', duration);
+                    showActionStatus(stats ? `${durationText} • ${stats}` : durationText);
                 }
 
                 const historyItem: HistoryItem = {

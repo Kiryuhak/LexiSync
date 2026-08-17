@@ -23,6 +23,7 @@ const modeFilter = document.getElementById('modeFilter') as HTMLSelectElement | 
 const exportBtn = document.getElementById('exportBtn') as HTMLButtonElement | null;
 const favoriteFilter = document.getElementById('favoriteFilter') as HTMLButtonElement | null;
 const sortFilter = document.getElementById('historySort') as HTMLSelectElement | null;
+const resetFilterBtn = document.getElementById('resetFilterBtn') as HTMLButtonElement | null;
 const historyStatus = document.getElementById('historyStatus');
 let history: HistoryItem[] = [];
 let favoritesOnly = false;
@@ -261,6 +262,14 @@ sortFilter?.addEventListener('change', renderHistory);
 favoriteFilter?.addEventListener('click', () => {
     favoritesOnly = !favoritesOnly;
     favoriteFilter.setAttribute('aria-pressed', String(favoritesOnly));
+    renderHistory();
+});
+resetFilterBtn?.addEventListener('click', () => {
+    if (searchInput) searchInput.value = '';
+    if (modeFilter) modeFilter.value = 'all';
+    if (sortFilter) sortFilter.value = 'newest';
+    favoritesOnly = false;
+    favoriteFilter?.setAttribute('aria-pressed', 'false');
     renderHistory();
 });
 clearBtn?.addEventListener('click', async () => {

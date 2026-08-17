@@ -460,5 +460,14 @@
     },
     "searchEngineSimpleHint": {
         "message": "Opens when you choose the command to search the web for selected text."
+    },
+    "statsWords": {
+        "message": "words"
+    },
+    "statsChars": {
+        "message": "chars"
+    },
+    "resetFilters": {
+        "message": "Reset filters"
     }
 }

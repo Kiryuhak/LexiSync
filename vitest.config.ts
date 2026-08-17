@@ -40,6 +40,8 @@ export default defineConfig({
                 'src/idb.ts',
                 'src/content-language-picker.ts',
                 'src/dom-rendering.ts',
+                'src/text-stats.ts',
+                'src/content-dialog-accessibility.ts',
             ],
             thresholds: { lines: 68, functions: 58, statements: 62, branches: 53 },
         },

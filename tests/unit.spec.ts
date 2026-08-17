@@ -46,6 +46,8 @@ import {
     createMarkdownFragment,
     renderMarkdown,
 } from '../src/dom-rendering';
+import { formatTextStats } from '../src/text-stats';
+import { activateDialogKeyboard } from '../src/content-dialog-accessibility';
 
 test('история обновлений содержит все выпуски и поддерживает поиск', () => {
     expect(RELEASE_NOTES[0].version).toBe('5.2.6');
@@ -1060,4 +1062,70 @@ test('createSvgIcon очищает опасные теги и кэширует �
         globalThis.document = origDoc;
         globalThis.DOMParser = origDOMParser;
     }
+});
+
+test('formatTextStats корректно рассчитывает количество слов, символов и процент изменения', () => {
+    expect(formatTextStats('', '')).toBe('');
+    expect(formatTextStats('hello world', 'hello')).toBe('1 слов (-50%) • 5 симв.');
+    expect(formatTextStats('hello', 'hello beautiful world')).toBe('3 слов (+200%) • 21 симв.');
+    expect(formatTextStats('один два', 'три четыре')).toBe('2 слов • 10 симв.');
+});
+
+test('activateDialogKeyboard вызывает onPrimaryAction при нажатии Ctrl+Enter / Cmd+Enter', () => {
+    let closed = false;
+    let primaryActionCalled = false;
+
+    const listeners: Record<string, (e: unknown) => void> = {};
+    const mockDialog = {
+        tabIndex: 0,
+        isConnected: true,
+        focus: vi.fn(),
+        addEventListener: (event: string, handler: (e: unknown) => void) => {
+            listeners[event] = handler;
+        },
+        removeEventListener: (event: string) => {
+            delete listeners[event];
+        },
+        querySelectorAll: () => [],
+        getRootNode: () => ({ activeElement: null }),
+    } as unknown as HTMLElement;
+
+    const deactivate = activateDialogKeyboard(
+        mockDialog,
+        () => {
+            closed = true;
+        },
+        () => {
+            primaryActionCalled = true;
+        },
+    );
+
+    const keydownHandler = listeners['keydown'];
+    expect(keydownHandler).toBeDefined();
+
+    // Нажатие Ctrl+Enter
+    const ctrlEnterEvent = {
+        key: 'Enter',
+        ctrlKey: true,
+        metaKey: false,
+        preventDefault: vi.fn(),
+        stopPropagation: vi.fn(),
+    };
+    keydownHandler(ctrlEnterEvent);
+    expect(primaryActionCalled).toBe(true);
+    expect(ctrlEnterEvent.preventDefault).toHaveBeenCalled();
+
+    // Нажатие Escape
+    const escapeEvent = {
+        key: 'Escape',
+        ctrlKey: false,
+        metaKey: false,
+        preventDefault: vi.fn(),
+        stopPropagation: vi.fn(),
+    };
+    keydownHandler(escapeEvent);
+    expect(closed).toBe(true);
+
+    deactivate();
+    expect(listeners['keydown']).toBeUndefined();
 });
