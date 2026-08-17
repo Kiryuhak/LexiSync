@@ -69,8 +69,8 @@ export function updateAppearancePreview(): void {
     compactPreviewStage.dataset.uiStyle = visualStyle;
     compactResultPreview.dataset.surface = 'result';
     compactResultPreview.dataset.uiStyle = visualStyle;
-    compactResultPreview.style.width =
-        resultDisplayMode === 'detailed' ? 'min(340px, calc(100% - 24px))' : 'min(300px, calc(100% - 24px))';
+    compactResultPreview.style.width = 'min(360px, calc(100% - 24px))';
+    compactResultPreview.style.boxSizing = 'border-box';
     if (isDark) compactResultPreview.dataset.theme = 'dark';
     else delete compactResultPreview.dataset.theme;
     if (resultDisplayMode === 'detailed') delete compactResultPreview.dataset.compactResult;

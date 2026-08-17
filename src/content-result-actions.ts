@@ -42,8 +42,8 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
                 replaceButton.disabled = true;
                 const undoButton = document.createElement('button');
                 undoButton.type = 'button';
-                undoButton.className = `${btnClass} lexisync-result-button`;
-                undoButton.textContent = t('undoReplacement', 'Отменить замену');
+                undoButton.className = `${btnClass} lexisync-result-button lexisync-undo-button`;
+                appendIconAndText(undoButton, ICONS.replaceCurved, t('undoReplacement', 'Отменить замену'));
                 undoButton.onclick = () => {
                     undo();
                     undoButton.remove();

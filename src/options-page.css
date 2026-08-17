@@ -842,7 +842,8 @@ textarea {
 .compact-result-preview-card {
     position: relative;
     z-index: 1;
-    width: min(300px, calc(100% - 24px));
+    width: min(360px, calc(100% - 24px));
+    box-sizing: border-box;
     transform-origin: center;
     transition:
         transform 0.18s ease,
