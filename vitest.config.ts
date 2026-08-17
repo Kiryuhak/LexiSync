@@ -39,6 +39,7 @@ export default defineConfig({
                 'src/theme-customization.ts',
                 'src/idb.ts',
                 'src/content-language-picker.ts',
+                'src/dom-rendering.ts',
             ],
             thresholds: { lines: 68, functions: 58, statements: 62, branches: 53 },
         },

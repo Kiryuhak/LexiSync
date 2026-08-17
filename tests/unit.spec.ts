@@ -39,6 +39,13 @@ import { SETTINGS_TAB_GUIDES } from '../src/options-tabs';
 import { createDiagnosticReport } from '../src/diagnostics';
 import { createLanguagePicker, POPULAR_LANGUAGE_CODES } from '../src/content-language-picker';
 import { openDatabase, idbGet, idbGetAll, idbPut, idbDelete, idbClear } from '../src/idb';
+import {
+    createSvgIcon,
+    setIcon,
+    appendIconAndText,
+    createMarkdownFragment,
+    renderMarkdown,
+} from '../src/dom-rendering';
 
 test('история обновлений содержит все выпуски и поддерживает поиск', () => {
     expect(RELEASE_NOTES[0].version).toBe('5.2.6');
@@ -954,4 +961,103 @@ test('idb обёртки корректно выполняют CRUD операц
     expect(allAfter).toEqual([]);
 
     db.close();
+});
+
+test('createSvgIcon очищает опасные теги и кэширует шаблон', () => {
+    interface MockElement {
+        localName: string;
+        attributes: Array<{ name: string; value: string }>;
+        children: unknown[];
+        textContent?: string;
+        remove: () => void;
+        removeAttribute: (name: string) => void;
+        appendChild: (child: unknown) => unknown;
+        style: Record<string, string>;
+        querySelectorAll: (sel: string) => MockElement[];
+        querySelector: (sel: string) => MockElement | null;
+        cloneNode: (deep: boolean) => MockElement;
+        setAttribute: (name: string, val: string) => void;
+    }
+
+    function createMockElem(tag: string): MockElement {
+        const attributes: Array<{ name: string; value: string }> = [];
+        const children: unknown[] = [];
+        const elem: MockElement = {
+            localName: tag.toLowerCase(),
+            attributes,
+            children,
+            textContent: '',
+            style: {},
+            remove: () => {},
+            removeAttribute: (name) => {
+                const idx = attributes.findIndex((a) => a.name === name);
+                if (idx >= 0) attributes.splice(idx, 1);
+            },
+            appendChild: (child) => {
+                children.push(child);
+                return child;
+            },
+            querySelectorAll: () => children as MockElement[],
+            querySelector: () => null,
+            cloneNode: () => createMockElem(tag),
+            setAttribute: (name, val) => attributes.push({ name, value: val }),
+        };
+        return elem;
+    }
+
+    const origDoc = globalThis.document;
+    const origDOMParser = globalThis.DOMParser;
+    globalThis.document = {
+        createElement: (tag: string) => createMockElem(tag),
+        createElementNS: (_ns: string, tag: string) => createMockElem(tag),
+        importNode: (node: MockElement) => node,
+        createTextNode: (text: string) => ({ textContent: text }),
+        createDocumentFragment: () => {
+            const frag = createMockElem('fragment');
+            return frag;
+        },
+    } as unknown as Document;
+
+    globalThis.DOMParser = class {
+        parseFromString() {
+            const svg = createMockElem('svg');
+            const script = createMockElem('script');
+            svg.children.push(script);
+            return { documentElement: svg };
+        }
+    } as unknown as typeof DOMParser;
+
+    try {
+        const svg1 = createSvgIcon('<svg><path d="M0 0"/></svg>');
+        expect(svg1).toBeTruthy();
+        // Второе обращение должно использовать кэш
+        const svg2 = createSvgIcon('<svg><path d="M0 0"/></svg>');
+        expect(svg2).toBeTruthy();
+
+        interface MockTarget {
+            children: unknown[];
+            replaceChildren: (...nodes: unknown[]) => void;
+        }
+        const target: MockTarget = {
+            children: [],
+            replaceChildren: (...nodes: unknown[]) => {
+                target.children = nodes;
+            },
+        };
+
+        setIcon(target as unknown as Element, '<svg><circle r="5"/></svg>');
+        expect(target.children.length).toBe(1);
+
+        appendIconAndText(target as unknown as Element, '<svg><rect/></svg>', 'Label');
+        expect(target.children.length).toBe(2);
+
+        const fragment = createMarkdownFragment('**bold** item\n- bullet 1\n- bullet 2');
+        expect(fragment).toBeTruthy();
+
+        renderMarkdown(target as unknown as Element, 'Markdown content');
+        expect(target.children.length).toBe(1);
+    } finally {
+        globalThis.document = origDoc;
+        globalThis.DOMParser = origDOMParser;
+    }
 });

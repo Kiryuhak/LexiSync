@@ -1,7 +1,14 @@
 const FORBIDDEN_SVG_ELEMENTS = new Set(['script', 'foreignObject', 'iframe', 'object', 'embed']);
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
+const svgTemplateCache = new Map<string, SVGElement>();
+const MAX_CACHED_TEMPLATES = 100;
 
 export function createSvgIcon(markup: string): SVGElement {
+    const cached = svgTemplateCache.get(markup);
+    if (cached) {
+        return cached.cloneNode(true) as SVGElement;
+    }
+
     const namespacedMarkup = markup.replace(/<svg\b(?![^>]*\bxmlns=)/i, `<svg xmlns="${SVG_NAMESPACE}"`);
     const parsed = new DOMParser().parseFromString(namespacedMarkup, 'image/svg+xml');
     const root = parsed.documentElement;
@@ -18,7 +25,16 @@ export function createSvgIcon(markup: string): SVGElement {
             }
         }
     }
-    return document.importNode(root, true) as unknown as SVGElement;
+    const imported = document.importNode(root, true) as unknown as SVGElement;
+    if (typeof imported?.cloneNode === 'function') {
+        if (svgTemplateCache.size >= MAX_CACHED_TEMPLATES) {
+            const firstKey = svgTemplateCache.keys().next().value;
+            if (firstKey) svgTemplateCache.delete(firstKey);
+        }
+        svgTemplateCache.set(markup, imported);
+        return imported.cloneNode(true) as SVGElement;
+    }
+    return imported;
 }
 
 export function setIcon(element: Element, markup: string): void {
