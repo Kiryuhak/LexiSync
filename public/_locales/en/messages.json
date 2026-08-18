@@ -585,5 +585,11 @@
     },
     "historyPromptFormat": {
         "message": "Clean the text of broken line breaks and organize it neatly."
+    },
+    "visualStyleVisionAurora": {
+        "message": "Vision Aurora"
+    },
+    "visualStyleSilkObsidian": {
+        "message": "Silk Obsidian"
     }
 }

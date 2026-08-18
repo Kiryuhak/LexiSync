@@ -322,6 +322,8 @@ test('нормализует поддерживаемые стили интер�
     expect(normalizeAppearanceStyle('material-3')).toBe('material-3');
     expect(normalizeAppearanceStyle('flutter')).toBe('flutter');
     expect(normalizeAppearanceStyle('aurora-glass')).toBe('aurora-glass');
+    expect(normalizeAppearanceStyle('vision-aurora')).toBe('vision-aurora');
+    expect(normalizeAppearanceStyle('silk-obsidian')).toBe('silk-obsidian');
     expect(normalizeAppearanceStyle('bento')).toBe('liquid-glass');
     expect(normalizeAppearanceStyle('неизвестный')).toBe('liquid-glass');
 });

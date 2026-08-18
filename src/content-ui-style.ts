@@ -88,6 +88,46 @@ export const POPUP_STYLE_TEXT = `
                 --primary-soft: rgba(101, 223, 200, .18); --cyan-soft: rgba(108, 184, 255, .16); --border-color: rgba(196, 255, 245, .2); --inner-border: rgba(209, 255, 245, .12);
                 --hover-bg: rgba(63, 115, 113, .75); --shadow-color: rgba(0, 0, 0, .5);
             }
+            #lexisync-extension-ui[data-ui-style="vision-aurora"] {
+                --bg-primary: rgba(246, 250, 255, 0.78); --bg-solid: #f4f8ff; --bg-elevated: rgba(255, 255, 255, 0.92); --bg-secondary: rgba(230, 240, 255, 0.7);
+                --text-primary: #0f172a; --text-secondary: #475569; --primary: #0d9488; --primary-strong: #4f46e5;
+                --primary-soft: rgba(13, 148, 136, 0.14); --cyan-soft: rgba(79, 70, 229, 0.12); --border-color: rgba(255, 255, 255, 0.9); --inner-border: rgba(79, 70, 229, 0.12);
+                --hover-bg: rgba(255, 255, 255, 0.85); --shadow-color: rgba(15, 23, 42, 0.22);
+                border-radius: 24px;
+                box-shadow: 0 24px 60px var(--shadow-color), inset 0 1px 2px rgba(255, 255, 255, 0.9);
+                backdrop-filter: blur(28px) saturate(190%);
+                -webkit-backdrop-filter: blur(28px) saturate(190%);
+            }
+            #lexisync-extension-ui[data-ui-style="vision-aurora"][data-theme="dark"] {
+                --bg-primary: rgba(15, 20, 30, 0.82); --bg-solid: #0f141e; --bg-elevated: rgba(22, 31, 46, 0.9); --bg-secondary: rgba(30, 41, 62, 0.65);
+                --text-primary: #f8fafc; --text-secondary: #94a3b8; --primary: #2dd4bf; --primary-strong: #6366f1;
+                --primary-soft: rgba(45, 212, 191, 0.16); --cyan-soft: rgba(99, 102, 241, 0.15); --border-color: rgba(255, 255, 255, 0.18); --inner-border: rgba(255, 255, 255, 0.08);
+                --hover-bg: rgba(45, 212, 191, 0.12); --shadow-color: rgba(0, 0, 0, 0.6);
+                border-radius: 24px;
+                box-shadow: 0 24px 64px var(--shadow-color), inset 0 1px 1.5px rgba(255, 255, 255, 0.25);
+                backdrop-filter: blur(28px) saturate(190%);
+                -webkit-backdrop-filter: blur(28px) saturate(190%);
+            }
+            #lexisync-extension-ui[data-ui-style="silk-obsidian"] {
+                --bg-primary: #ffffff; --bg-solid: #ffffff; --bg-elevated: #f8fafc; --bg-secondary: #f1f5f9;
+                --text-primary: #0f172a; --text-secondary: #64748b; --primary: #4f46e5; --primary-strong: #4338ca;
+                --primary-soft: rgba(79, 70, 229, 0.1); --cyan-soft: rgba(14, 165, 233, 0.1); --border-color: #e2e8f0; --inner-border: #edf2f7;
+                --hover-bg: #f1f5f9; --shadow-color: rgba(15, 23, 42, 0.18);
+                border-radius: 22px;
+                box-shadow: 0 20px 44px var(--shadow-color), 0 4px 12px rgba(15, 23, 42, 0.06);
+                backdrop-filter: none;
+                -webkit-backdrop-filter: none;
+            }
+            #lexisync-extension-ui[data-ui-style="silk-obsidian"][data-theme="dark"] {
+                --bg-primary: #0c0e14; --bg-solid: #0c0e14; --bg-elevated: #151821; --bg-secondary: #1c202c;
+                --text-primary: #f8fafc; --text-secondary: #8a96a8; --primary: #6366f1; --primary-strong: #4f46e5;
+                --primary-soft: rgba(99, 102, 241, 0.15); --cyan-soft: rgba(45, 212, 191, 0.14); --border-color: rgba(255, 255, 255, 0.12); --inner-border: rgba(255, 255, 255, 0.08);
+                --hover-bg: #232837; --shadow-color: rgba(0, 0, 0, 0.55);
+                border-radius: 22px;
+                box-shadow: 0 20px 48px var(--shadow-color), 0 4px 12px rgba(0, 0, 0, 0.3);
+                backdrop-filter: none;
+                -webkit-backdrop-filter: none;
+            }
             #lexisync-extension-ui span { flex-shrink: 0 !important; }
             #lexisync-extension-ui svg { width: 16px !important; height: 16px !important; min-width: 16px !important; min-height: 16px !important; max-width: 16px !important; max-height: 16px !important; flex-shrink: 0 !important; display: block !important; }
             @keyframes lexisync-spin { to { transform: rotate(360deg); } }

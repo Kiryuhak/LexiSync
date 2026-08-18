@@ -2026,6 +2026,60 @@ input[type='range'] {
     -webkit-backdrop-filter: blur(22px) saturate(145%);
 }
 
+.preview-stage[data-ui-style='vision-aurora'],
+.compact-result-preview-stage[data-ui-style='vision-aurora'] {
+    background:
+        radial-gradient(circle at 10% 12%, rgba(45, 212, 191, 0.6), transparent 36%),
+        radial-gradient(circle at 90% 86%, rgba(99, 102, 241, 0.55), transparent 38%), #e2f0fb;
+}
+.preview-stage[data-ui-style='vision-aurora'][data-theme='dark'],
+.compact-result-preview-stage[data-ui-style='vision-aurora'][data-theme='dark'] {
+    background:
+        radial-gradient(circle at 10% 12%, rgba(45, 212, 191, 0.4), transparent 36%),
+        radial-gradient(circle at 90% 86%, rgba(99, 102, 241, 0.35), transparent 38%), #0b0f17;
+}
+.preview-stage[data-ui-style='vision-aurora'] .preview-toolbar {
+    background: rgba(246, 250, 255, 0.78);
+    border-color: rgba(255, 255, 255, 0.9);
+    border-radius: 20px;
+    box-shadow:
+        0 20px 48px rgba(15, 23, 42, 0.2),
+        inset 0 1px 2px rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(28px) saturate(190%);
+}
+.preview-stage[data-ui-style='vision-aurora'][data-theme='dark'] .preview-toolbar {
+    background: rgba(15, 20, 30, 0.82);
+    border-color: rgba(255, 255, 255, 0.18);
+    box-shadow:
+        0 20px 52px rgba(0, 0, 0, 0.55),
+        inset 0 1px 1.5px rgba(255, 255, 255, 0.25);
+}
+
+.preview-stage[data-ui-style='silk-obsidian'],
+.compact-result-preview-stage[data-ui-style='silk-obsidian'] {
+    background: #e9eef5;
+}
+.preview-stage[data-ui-style='silk-obsidian'][data-theme='dark'],
+.compact-result-preview-stage[data-ui-style='silk-obsidian'][data-theme='dark'] {
+    background: #06080b;
+}
+.preview-stage[data-ui-style='silk-obsidian'] .preview-toolbar {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    box-shadow:
+        0 16px 36px rgba(15, 23, 42, 0.14),
+        0 2px 6px rgba(15, 23, 42, 0.04);
+    backdrop-filter: none;
+}
+.preview-stage[data-ui-style='silk-obsidian'][data-theme='dark'] .preview-toolbar {
+    background: #0c0e14;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow:
+        0 18px 44px rgba(0, 0, 0, 0.6),
+        0 4px 12px rgba(0, 0, 0, 0.35);
+}
+
 @media (max-width: 560px) {
     body {
         padding: 12px;

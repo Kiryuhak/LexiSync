@@ -585,5 +585,11 @@
     },
     "historyPromptFormat": {
         "message": "Очисти текст от лишних переносов и оформи его в аккуратный структурированный вид."
+    },
+    "visualStyleVisionAurora": {
+        "message": "Vision Aurora"
+    },
+    "visualStyleSilkObsidian": {
+        "message": "Silk Obsidian"
     }
 }
