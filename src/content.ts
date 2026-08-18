@@ -433,7 +433,15 @@ if (!contentRuntime.__lexisyncContentInitialized) {
         popupHost = document.createElement('div');
         popupHost.id = 'lexisync-shadow-host';
         popupHost.style.cssText =
-            'all: initial !important; position: fixed !important; inset: 0 !important; width: 0 !important; height: 0 !important; z-index: 2147483647 !important; pointer-events: auto !important;';
+            'all: initial !important; position: fixed !important; inset: 0 !important; width: 0 !important; height: 0 !important; z-index: 2147483647 !important; pointer-events: none !important;';
+
+        const stopEventLeak = (e: Event) => {
+            e.stopPropagation();
+        };
+        for (const evt of ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'dblclick', 'contextmenu']) {
+            popupHost.addEventListener(evt, stopEventLeak, true);
+        }
+
         popupShadow = popupHost.attachShadow({ mode: 'open' });
 
         const style = document.createElement('style');
@@ -446,13 +454,18 @@ if (!contentRuntime.__lexisyncContentInitialized) {
         applyThemeCustomization(popup, currentThemeCustomization);
         popup.style.pointerEvents = 'auto';
         popup.style.setProperty('zoom', String(currentInterfaceScale / 100));
+
+        for (const evt of ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'dblclick', 'contextmenu']) {
+            popup.addEventListener(evt, stopEventLeak, true);
+        }
+
         popupShadow.appendChild(popup);
         getPopupContainer().appendChild(popupHost);
         return popup;
     }
 
     function showToast(message: string): void {
-        closePopup(true);
+        closePopup(true, false);
         popupUI = createPopupElement();
         applyThemeToPopup(popupUI);
         popupUI.dataset.surface = 'toast';
@@ -476,20 +489,23 @@ if (!contentRuntime.__lexisyncContentInitialized) {
     }
 
     function getPopupContainer(): HTMLElement {
-        let container: HTMLElement = document.body;
+        const MODAL_SELECTOR =
+            'dialog, [role="dialog"], [aria-modal="true"], .ComposePopup, .modal-content, .modal, .Popup2, [class*="ComposeManager"]';
         const activeEl = document.activeElement;
-        if (activeEl && activeEl.closest('dialog')) {
-            container = activeEl.closest('dialog') as HTMLElement;
-        } else {
-            const sel = window.getSelection();
-            if (sel && sel.rangeCount > 0) {
-                let node = sel.anchorNode;
-                if (node && node.nodeType === Node.TEXT_NODE) node = node.parentNode;
-                if (node && (node as Element).closest('dialog'))
-                    container = (node as Element).closest('dialog') as HTMLElement;
+        if (activeEl) {
+            const modal = activeEl.closest(MODAL_SELECTOR);
+            if (modal instanceof HTMLElement) return modal;
+        }
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0) {
+            let node: Node | null = sel.anchorNode;
+            if (node && node.nodeType === Node.TEXT_NODE) node = node.parentNode;
+            if (node instanceof Element) {
+                const modal = node.closest(MODAL_SELECTOR);
+                if (modal instanceof HTMLElement) return modal;
             }
         }
-        return container;
+        return document.body || document.documentElement;
     }
 
     function saveSelectionState(fallbackText?: string): void {
@@ -504,7 +520,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
         openPopup: (x, y, top) => {
             // При переходе между панелью выделения, меню и результатом не оставляем
             // старый host в DOM: иначе на короткое время появляются одинаковые id.
-            closePopup(true);
+            closePopup(true, false);
             injectStyles();
             lastAnchorX = x;
             lastAnchorY = y;
@@ -580,7 +596,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
         popupUI.style.setProperty('opacity', '1', 'important');
     }
 
-    function closePopup(removeImmediately = false): void {
+    function closePopup(removeImmediately = false, restoreFocus = true): void {
         activeRequestCleanup?.();
         activeRequestCleanup = null;
         if (popupUI) {
@@ -596,8 +612,10 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             el.style.pointerEvents = 'none';
             if (removeImmediately) host?.remove();
             else setTimeout(() => host?.remove(), 150);
-            previousFocus?.focus({ preventScroll: true });
-            previousFocus = null;
+            if (restoreFocus) {
+                previousFocus?.focus({ preventScroll: true });
+                previousFocus = null;
+            }
         }
     }
 

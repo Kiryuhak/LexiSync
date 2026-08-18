@@ -32,6 +32,8 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
         replaceButton.type = 'button';
         replaceButton.className = `${btnClass} lexisync-result-button lexisync-result-button--primary`;
         appendIconAndText(replaceButton, replaceIcon, t('replaceText', 'Заменить текст'));
+        replaceButton.onpointerdown = (e) => e.stopPropagation();
+        replaceButton.onmousedown = (e) => e.stopPropagation();
         replaceButton.onclick = (event) => {
             event.preventDefault();
             event.stopPropagation();
@@ -44,7 +46,11 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
                 undoButton.type = 'button';
                 undoButton.className = `${btnClass} lexisync-result-button lexisync-undo-button`;
                 appendIconAndText(undoButton, ICONS.replaceCurved, t('undoReplacement', 'Отменить замену'));
-                undoButton.onclick = () => {
+                undoButton.onpointerdown = (e) => e.stopPropagation();
+                undoButton.onmousedown = (e) => e.stopPropagation();
+                undoButton.onclick = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     undo();
                     undoButton.remove();
                     replaceButton.disabled = false;
@@ -80,6 +86,8 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
         copyButton.className = `${btnClass} lexisync-result-button lexisync-result-button--primary`;
         appendIconAndText(copyButton, copyIcon, t('copy', 'Копировать'));
     }
+    copyButton.onpointerdown = (e) => e.stopPropagation();
+    copyButton.onmousedown = (e) => e.stopPropagation();
     copyButton.onclick = async (event) => {
         event.preventDefault();
         event.stopPropagation();
