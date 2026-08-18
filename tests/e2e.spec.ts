@@ -938,10 +938,11 @@ test('номер версии открывает доступную истори
     }
 
     await dialog.locator('#releaseNotesSearch').fill('MagicOS');
-    await expect(dialog.locator('[data-release-version]')).toHaveCount(2);
+    await expect(dialog.locator('[data-release-version]')).toHaveCount(3);
+    await expect(dialog.locator('[data-release-version="5.3.1"]')).toBeVisible();
     await expect(dialog.locator('[data-release-version="5.2.1"]')).toBeVisible();
     await expect(dialog.locator('[data-release-version="5.1.0"]')).toBeVisible();
-    await expect(dialog.locator('#releaseNotesCount')).toContainText('2');
+    await expect(dialog.locator('#releaseNotesCount')).toContainText('3');
 
     const accessibility = await new AxeBuilder({ page }).include('#releaseNotesDialog').analyze();
     expect(accessibility.violations).toEqual([]);
@@ -1094,7 +1095,7 @@ test('Компактный режим настраивается и показы
     expect(compactLayout.compact).toBe('true');
     expect(compactLayout.width).toBe(360);
     expect(compactLayout.height).toBeLessThan(280);
-    expect(compactLayout.backdropFilter).toContain('blur(32px)');
+    expect(compactLayout.backdropFilter).toContain('blur(36px)');
     expect(compactLayout.headerBackground).toContain('linear-gradient');
     expect(compactLayout.contentBackground).toBe('rgba(0, 0, 0, 0)');
     expect(compactLayout.contentRadius).toBe('0px');

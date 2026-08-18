@@ -433,7 +433,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
         popupHost = document.createElement('div');
         popupHost.id = 'lexisync-shadow-host';
         popupHost.style.cssText =
-            'all: initial !important; position: fixed !important; inset: 0 !important; width: 0 !important; height: 0 !important; z-index: 2147483647 !important; pointer-events: none !important;';
+            'all: initial !important; position: fixed !important; inset: 0 !important; width: 0 !important; height: 0 !important; z-index: 2147483647 !important; pointer-events: auto !important;';
 
         const stopEventLeak = (e: Event) => {
             e.stopPropagation();
