@@ -299,7 +299,7 @@ export function showToolbarMenu(x: number, y: number, context: ContentMenuContex
     const moreDropdown = document.createElement('div');
     moreDropdown.id = 'lexisync-more-dropdown';
     moreDropdown.className = 'lexisync-dropdown';
-    moreDropdown.style.cssText = `display: none; position: absolute; top: 100%; right: 0; margin-top: 8px; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 12px; box-shadow: 0 16px 32px rgba(0,0,0,0.15); width: max-content; min-width: 120px; z-index: 9999; padding: 8px 0; flex-direction: column; overflow: hidden;`;
+    moreDropdown.style.cssText = `display: none; position: absolute; top: 100%; right: 0; margin-top: 8px; background: var(--bg-elevated, #ffffff); border: 1px solid var(--border-color); border-radius: 14px; box-shadow: 0 20px 48px rgba(0,0,0,0.24); width: max-content; min-width: 140px; z-index: 9999; padding: 6px 0; flex-direction: column; overflow: hidden; backdrop-filter: blur(36px); -webkit-backdrop-filter: blur(36px);`;
 
     const createDropdownItem = (icon: string, text: string, onClick: () => void) => {
         const item = document.createElement('button');
@@ -314,7 +314,7 @@ export function showToolbarMenu(x: number, y: number, context: ContentMenuContex
         label.style.fontWeight = '500';
         label.textContent = text;
         item.append(iconWrap, label);
-        item.style.cssText = `width: 100%; padding: 10px 14px; font-size: 13px; font-family: inherit; cursor: pointer; display: flex; align-items: center; color: var(--text-primary); background: transparent; border: none; text-align: left; transition: background 0.15s; white-space: nowrap;`;
+        item.style.cssText = `width: 100%; padding: 9px 15px; font-size: 13px; font-family: inherit; cursor: pointer; display: flex; align-items: center; color: var(--text-primary); background: transparent; border: none; text-align: left; transition: background 0.12s; white-space: nowrap;`;
         item.onmousedown = (e) => e.preventDefault();
         item.onmouseover = () => (item.style.backgroundColor = 'var(--hover-bg)');
         item.onmouseout = () => (item.style.backgroundColor = 'transparent');

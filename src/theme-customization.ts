@@ -4,7 +4,7 @@ export const DEFAULT_THEME_CUSTOMIZATION: ThemeCustomization = {
     accent: '#6750a4',
     radius: 16,
     density: 100,
-    transparency: 90,
+    transparency: 96,
     fontScale: 100,
 };
 
@@ -17,7 +17,7 @@ export function normalizeThemeCustomization(value: unknown): ThemeCustomization 
         accent,
         radius: clamp(source.radius, 4, 28, 16),
         density: clamp(source.density, 80, 115, 100),
-        transparency: clamp(source.transparency, 70, 100, 90),
+        transparency: clamp(source.transparency, 70, 100, 96),
         fontScale: clamp(source.fontScale, 85, 120, 100),
     };
 }

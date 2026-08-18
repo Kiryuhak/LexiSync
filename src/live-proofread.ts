@@ -133,19 +133,19 @@ export function startLiveProofread(): () => void {
         style.textContent = `
             :host { all: initial; }
             .card {
-                --bg-primary: rgba(248, 250, 255, 0.88);
+                --bg-primary: rgba(248, 250, 255, 0.95);
                 --bg-solid: #f8faff;
-                --bg-elevated: rgba(248, 250, 255, 0.98);
-                --bg-secondary: rgba(255, 255, 255, 0.75);
+                --bg-elevated: rgba(255, 255, 255, 0.98);
+                --bg-secondary: rgba(240, 244, 255, 0.92);
                 --text-primary: #1c2438;
                 --text-secondary: #69738d;
                 --primary: #6d5ce7;
                 --primary-strong: #5947d2;
                 --primary-soft: rgba(109, 92, 231, 0.12);
                 --cyan-soft: rgba(31, 174, 190, 0.12);
-                --border-color: rgba(255, 255, 255, 0.8);
+                --border-color: rgba(255, 255, 255, 0.85);
                 --inner-border: rgba(83, 91, 126, 0.14);
-                --hover-bg: rgba(255, 255, 255, 0.9);
+                --hover-bg: rgba(255, 255, 255, 0.95);
                 --shadow-color: rgba(41, 43, 77, 0.22);
                 --lexisync-radius: 18px;
                 box-sizing: border-box;
@@ -156,8 +156,8 @@ export function startLiveProofread(): () => void {
                 background: var(--bg-primary);
                 color: var(--text-primary);
                 box-shadow: 0 20px 52px var(--shadow-color), 0 3px 10px rgba(38, 40, 72, 0.08);
-                backdrop-filter: blur(24px) saturate(160%);
-                -webkit-backdrop-filter: blur(24px) saturate(160%);
+                backdrop-filter: blur(28px) saturate(160%);
+                -webkit-backdrop-filter: blur(28px) saturate(160%);
                 font: 13px/1.45 system-ui, -apple-system, sans-serif;
                 animation: lexiSyncFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
             }
@@ -166,45 +166,45 @@ export function startLiveProofread(): () => void {
                 to { opacity: 1; transform: translateY(0) scale(1); }
             }
             .card[data-theme="dark"] {
-                --bg-primary: rgba(27, 30, 49, 0.9);
+                --bg-primary: rgba(23, 26, 42, 0.96);
                 --bg-solid: #1b1e31;
-                --bg-elevated: rgba(27, 30, 49, 0.98);
-                --bg-secondary: rgba(49, 54, 82, 0.75);
+                --bg-elevated: rgba(30, 34, 56, 0.98);
+                --bg-secondary: rgba(42, 47, 74, 0.92);
                 --text-primary: #f5f6fc;
                 --text-secondary: #abb4ce;
                 --primary: #b7a8ff;
                 --primary-strong: #9c89ff;
                 --primary-soft: rgba(183, 168, 255, 0.16);
-                --border-color: rgba(255, 255, 255, 0.16);
+                --border-color: rgba(255, 255, 255, 0.18);
                 --inner-border: rgba(255, 255, 255, 0.1);
                 --hover-bg: rgba(64, 70, 104, 0.9);
                 --shadow-color: rgba(0, 0, 0, 0.55);
             }
             .card[data-ui-style="magicos-11"] {
-                --bg-primary: rgba(246, 250, 255, 0.68);
+                --bg-primary: rgba(246, 250, 255, 0.95);
                 --bg-solid: #f4f8ff;
-                --bg-elevated: rgba(255, 255, 255, 0.88);
-                --bg-secondary: rgba(235, 242, 255, 0.72);
+                --bg-elevated: rgba(255, 255, 255, 0.98);
+                --bg-secondary: rgba(235, 242, 255, 0.92);
                 --text-primary: #19233b;
                 --text-secondary: #5b6881;
                 --primary: #4267f5;
                 --primary-strong: #624fe5;
                 --primary-soft: rgba(72, 108, 246, 0.16);
-                --border-color: rgba(255, 255, 255, 0.9);
+                --border-color: rgba(255, 255, 255, 0.92);
                 --inner-border: rgba(78, 103, 161, 0.16);
-                --hover-bg: rgba(255, 255, 255, 0.85);
+                --hover-bg: rgba(255, 255, 255, 0.9);
                 --shadow-color: rgba(31, 56, 118, 0.28);
                 --lexisync-radius: 28px;
                 border-radius: 28px;
                 box-shadow: 0 26px 68px var(--shadow-color), 0 4px 14px rgba(38, 54, 96, 0.14);
-                backdrop-filter: blur(32px) saturate(185%);
-                -webkit-backdrop-filter: blur(32px) saturate(185%);
+                backdrop-filter: blur(36px) saturate(185%);
+                -webkit-backdrop-filter: blur(36px) saturate(185%);
             }
             .card[data-ui-style="magicos-11"][data-theme="dark"] {
-                --bg-primary: rgba(25, 34, 57, 0.78);
+                --bg-primary: rgba(22, 29, 48, 0.96);
                 --bg-solid: #192239;
-                --bg-elevated: rgba(47, 59, 91, 0.82);
-                --bg-secondary: rgba(58, 72, 108, 0.7);
+                --bg-elevated: rgba(36, 46, 74, 0.98);
+                --bg-secondary: rgba(46, 58, 90, 0.92);
                 --text-primary: #f6f8ff;
                 --text-secondary: #bac5dc;
                 --primary: #a6baff;
@@ -212,7 +212,7 @@ export function startLiveProofread(): () => void {
                 --primary-soft: rgba(145, 171, 255, 0.22);
                 --border-color: rgba(255, 255, 255, 0.22);
                 --inner-border: rgba(255, 255, 255, 0.12);
-                --hover-bg: rgba(80, 96, 140, 0.75);
+                --hover-bg: rgba(80, 96, 140, 0.8);
                 --shadow-color: rgba(0, 0, 0, 0.58);
             }
             .card[data-ui-style="material-3"] {
@@ -249,44 +249,44 @@ export function startLiveProofread(): () => void {
                 --shadow-color: rgba(0, 0, 0, 0.55);
             }
             .card[data-ui-style="vision-aurora"] {
-                --bg-primary: rgba(246, 250, 255, 0.78);
+                --bg-primary: rgba(246, 250, 255, 0.95);
                 --bg-solid: #f4f8ff;
-                --bg-elevated: rgba(255, 255, 255, 0.92);
-                --bg-secondary: rgba(230, 240, 255, 0.7);
+                --bg-elevated: rgba(255, 255, 255, 0.98);
+                --bg-secondary: rgba(230, 240, 255, 0.92);
                 --text-primary: #0f172a;
                 --text-secondary: #475569;
                 --primary: #0d9488;
                 --primary-strong: #4f46e5;
                 --primary-soft: rgba(13, 148, 136, 0.14);
-                --border-color: rgba(255, 255, 255, 0.9);
+                --border-color: rgba(255, 255, 255, 0.94);
                 --inner-border: rgba(79, 70, 229, 0.12);
-                --hover-bg: rgba(255, 255, 255, 0.85);
+                --hover-bg: rgba(255, 255, 255, 0.92);
                 --shadow-color: rgba(15, 23, 42, 0.22);
                 --lexisync-radius: 24px;
                 border-radius: 24px;
-                box-shadow: 0 24px 60px var(--shadow-color), inset 0 1px 2px rgba(255, 255, 255, 0.9);
-                backdrop-filter: blur(28px) saturate(190%);
-                -webkit-backdrop-filter: blur(28px) saturate(190%);
+                box-shadow: 0 24px 60px var(--shadow-color), inset 0 1px 2px rgba(255, 255, 255, 0.95);
+                backdrop-filter: blur(32px) saturate(190%);
+                -webkit-backdrop-filter: blur(32px) saturate(190%);
             }
             .card[data-ui-style="vision-aurora"][data-theme="dark"] {
-                --bg-primary: rgba(15, 20, 30, 0.82);
+                --bg-primary: rgba(13, 17, 26, 0.96);
                 --bg-solid: #0f141e;
-                --bg-elevated: rgba(22, 31, 46, 0.9);
-                --bg-secondary: rgba(30, 41, 62, 0.65);
+                --bg-elevated: rgba(20, 27, 40, 0.98);
+                --bg-secondary: rgba(28, 38, 56, 0.92);
                 --text-primary: #f8fafc;
                 --text-secondary: #94a3b8;
                 --primary: #2dd4bf;
                 --primary-strong: #6366f1;
                 --primary-soft: rgba(45, 212, 191, 0.16);
-                --border-color: rgba(255, 255, 255, 0.18);
-                --inner-border: rgba(255, 255, 255, 0.08);
-                --hover-bg: rgba(45, 212, 191, 0.12);
-                --shadow-color: rgba(0, 0, 0, 0.6);
+                --border-color: rgba(255, 255, 255, 0.2);
+                --inner-border: rgba(255, 255, 255, 0.1);
+                --hover-bg: rgba(45, 212, 191, 0.15);
+                --shadow-color: rgba(0, 0, 0, 0.65);
                 --lexisync-radius: 24px;
                 border-radius: 24px;
-                box-shadow: 0 24px 64px var(--shadow-color), inset 0 1px 1.5px rgba(255, 255, 255, 0.25);
-                backdrop-filter: blur(28px) saturate(190%);
-                -webkit-backdrop-filter: blur(28px) saturate(190%);
+                box-shadow: 0 24px 64px var(--shadow-color), inset 0 1px 1.5px rgba(255, 255, 255, 0.3);
+                backdrop-filter: blur(32px) saturate(190%);
+                -webkit-backdrop-filter: blur(32px) saturate(190%);
             }
             .card[data-ui-style="silk-obsidian"] {
                 --bg-primary: #ffffff;

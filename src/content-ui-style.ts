@@ -1,44 +1,44 @@
 export const POPUP_STYLE_TEXT = `
             #lexisync-extension-ui {
-                --bg-primary: rgba(248, 250, 255, 0.78); --bg-solid: #f8faff; --bg-elevated: rgba(248, 250, 255, 0.96); --bg-secondary: rgba(255, 255, 255, 0.72);
+                --bg-primary: rgba(248, 250, 255, 0.94); --bg-solid: #f8faff; --bg-elevated: rgba(255, 255, 255, 0.98); --bg-secondary: rgba(240, 244, 255, 0.92);
                 --text-primary: #1c2438; --text-secondary: #69738d; --primary: #6d5ce7; --primary-strong: #5947d2;
                 --primary-soft: rgba(109, 92, 231, 0.12); --cyan-soft: rgba(31, 174, 190, 0.12);
-                --border-color: rgba(255,255,255,0.74); --inner-border: rgba(83, 91, 126, 0.12);
-                --hover-bg: rgba(255,255,255,0.9); --shadow-color: rgba(41, 43, 77, 0.18);
+                --border-color: rgba(255,255,255,0.85); --inner-border: rgba(83, 91, 126, 0.12);
+                --hover-bg: rgba(255,255,255,0.95); --shadow-color: rgba(41, 43, 77, 0.22);
                 --error-color: #d32f2f; --success-color: #166534; --warning-bg: #fff8f0; --warning-border: #ffe8cc; --warning-text: #b06000;
                 transition: opacity 0.15s ease; border-radius: 18px;
                 border: 1px solid var(--border-color);
                 animation: lexiSyncFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-                box-shadow: 0 20px 52px var(--shadow-color), 0 3px 10px rgba(38, 40, 72, 0.08), inset 0 1px 0 rgba(255,255,255,0.42);
-                backdrop-filter: blur(22px) saturate(155%);
-                -webkit-backdrop-filter: blur(22px) saturate(155%);
+                box-shadow: 0 20px 52px var(--shadow-color), 0 3px 10px rgba(38, 40, 72, 0.08), inset 0 1px 0 rgba(255,255,255,0.6);
+                backdrop-filter: blur(28px) saturate(160%);
+                -webkit-backdrop-filter: blur(28px) saturate(160%);
             }
             #lexisync-extension-ui[data-theme="dark"] {
-                --bg-primary: rgba(27, 30, 49, 0.82); --bg-solid: #1b1e31; --bg-elevated: rgba(27, 30, 49, 0.96); --bg-secondary: rgba(49, 54, 82, 0.72);
+                --bg-primary: rgba(23, 26, 42, 0.95); --bg-solid: #1b1e31; --bg-elevated: rgba(30, 34, 56, 0.98); --bg-secondary: rgba(42, 47, 74, 0.92);
                 --text-primary: #f5f6fc; --text-secondary: #abb4ce; --primary: #b7a8ff; --primary-strong: #9c89ff;
                 --primary-soft: rgba(183, 168, 255, 0.15); --cyan-soft: rgba(102, 215, 228, 0.14);
-                --border-color: rgba(255,255,255,0.14); --inner-border: rgba(255,255,255,0.08);
-                --hover-bg: rgba(64, 70, 104, 0.9); --shadow-color: rgba(0,0,0,0.48);
+                --border-color: rgba(255,255,255,0.18); --inner-border: rgba(255,255,255,0.1);
+                --hover-bg: rgba(64, 70, 104, 0.9); --shadow-color: rgba(0,0,0,0.55);
                 --error-color: #ff8a80; --success-color: #81c784; --warning-bg: rgba(176, 96, 0, 0.2); --warning-border: rgba(255, 183, 77, 0.3); --warning-text: #ffb74d;
             }
             #lexisync-extension-ui[data-ui-style="magicos-11"] {
-                --bg-primary: rgba(246,250,255,.58); --bg-solid: #f4f8ff; --bg-elevated: rgba(255,255,255,.78); --bg-secondary: rgba(235,242,255,.62);
+                --bg-primary: rgba(246,250,255,.94); --bg-solid: #f4f8ff; --bg-elevated: rgba(255,255,255,.98); --bg-secondary: rgba(235,242,255,.92);
                 --text-primary: #19233b; --text-secondary: #5b6881; --primary: #4267f5; --primary-strong: #624fe5;
                 --primary-soft: rgba(72,108,246,.16); --cyan-soft: rgba(49,194,219,.18);
-                --border-color: rgba(255,255,255,.86); --inner-border: rgba(78,103,161,.14);
-                --hover-bg: rgba(255,255,255,.78); --shadow-color: rgba(31,56,118,.26);
+                --border-color: rgba(255,255,255,.92); --inner-border: rgba(78,103,161,.14);
+                --hover-bg: rgba(255,255,255,.9); --shadow-color: rgba(31,56,118,.26);
                 --error-color: #c92f46; --success-color: #176b48; --warning-bg: rgba(255,244,220,.72); --warning-border: rgba(215,153,45,.24); --warning-text: #99600a;
                 border-radius: 28px;
-                box-shadow: 0 26px 68px var(--shadow-color), 0 4px 14px rgba(38,54,96,.12), inset 0 1px 0 rgba(255,255,255,.82);
-                backdrop-filter: blur(32px) saturate(180%);
-                -webkit-backdrop-filter: blur(32px) saturate(180%);
+                box-shadow: 0 26px 68px var(--shadow-color), 0 4px 14px rgba(38,54,96,.12), inset 0 1px 0 rgba(255,255,255,.9);
+                backdrop-filter: blur(36px) saturate(180%);
+                -webkit-backdrop-filter: blur(36px) saturate(180%);
             }
             #lexisync-extension-ui[data-ui-style="magicos-11"][data-theme="dark"] {
-                --bg-primary: rgba(25,34,57,.66); --bg-solid: #192239; --bg-elevated: rgba(47,59,91,.72); --bg-secondary: rgba(58,72,108,.58);
+                --bg-primary: rgba(22,29,48,.95); --bg-solid: #192239; --bg-elevated: rgba(36,46,74,.98); --bg-secondary: rgba(46,58,90,.92);
                 --text-primary: #f6f8ff; --text-secondary: #bac5dc; --primary: #a6baff; --primary-strong: #b29cff;
                 --primary-soft: rgba(145,171,255,.2); --cyan-soft: rgba(72,198,219,.18);
-                --border-color: rgba(255,255,255,.2); --inner-border: rgba(255,255,255,.11);
-                --hover-bg: rgba(80,96,140,.7); --shadow-color: rgba(0,0,0,.52);
+                --border-color: rgba(255,255,255,.22); --inner-border: rgba(255,255,255,.12);
+                --hover-bg: rgba(80,96,140,.8); --shadow-color: rgba(0,0,0,.58);
             }
             #lexisync-extension-ui[data-ui-style="material-3"] {
                 --bg-primary: #ffffff; --bg-solid: #ffffff; --bg-elevated: #f7f8fa; --bg-secondary: #f1f3f6;
@@ -73,40 +73,40 @@ export const POPUP_STYLE_TEXT = `
                 --hover-bg: #35414c; --shadow-color: rgba(0,0,0,.44);
             }
             #lexisync-extension-ui[data-ui-style="aurora-glass"] {
-                --bg-primary: rgba(247, 255, 253, .66); --bg-solid: #f4fffb; --bg-elevated: rgba(255, 255, 255, .82); --bg-secondary: rgba(233, 250, 245, .72);
+                --bg-primary: rgba(247, 255, 253, .94); --bg-solid: #f4fffb; --bg-elevated: rgba(255, 255, 255, .98); --bg-secondary: rgba(233, 250, 245, .92);
                 --text-primary: #183d39; --text-secondary: #58746f; --primary: #0d9d8a; --primary-strong: #087466;
-                --primary-soft: rgba(41, 190, 161, .15); --cyan-soft: rgba(111, 204, 255, .17); --border-color: rgba(255, 255, 255, .84); --inner-border: rgba(42, 129, 117, .16);
-                --hover-bg: rgba(255, 255, 255, .86); --shadow-color: rgba(23, 108, 98, .22);
+                --primary-soft: rgba(41, 190, 161, .15); --cyan-soft: rgba(111, 204, 255, .17); --border-color: rgba(255, 255, 255, .9); --inner-border: rgba(42, 129, 117, .16);
+                --hover-bg: rgba(255, 255, 255, .92); --shadow-color: rgba(23, 108, 98, .22);
                 border-radius: 24px;
-                box-shadow: 0 20px 48px var(--shadow-color), inset 0 1px 0 rgba(255, 255, 255, .72);
-                backdrop-filter: blur(26px) saturate(145%);
-                -webkit-backdrop-filter: blur(26px) saturate(145%);
+                box-shadow: 0 20px 48px var(--shadow-color), inset 0 1px 0 rgba(255, 255, 255, .85);
+                backdrop-filter: blur(30px) saturate(155%);
+                -webkit-backdrop-filter: blur(30px) saturate(155%);
             }
             #lexisync-extension-ui[data-ui-style="aurora-glass"][data-theme="dark"] {
-                --bg-primary: rgba(18, 47, 52, .72); --bg-solid: #123034; --bg-elevated: rgba(31, 66, 70, .8); --bg-secondary: rgba(40, 82, 83, .7);
+                --bg-primary: rgba(16, 38, 42, .95); --bg-solid: #123034; --bg-elevated: rgba(25, 54, 58, .98); --bg-secondary: rgba(34, 68, 70, .92);
                 --text-primary: #e9fffa; --text-secondary: #b5d2cc; --primary: #65dfc8; --primary-strong: #43c5b1;
-                --primary-soft: rgba(101, 223, 200, .18); --cyan-soft: rgba(108, 184, 255, .16); --border-color: rgba(196, 255, 245, .2); --inner-border: rgba(209, 255, 245, .12);
-                --hover-bg: rgba(63, 115, 113, .75); --shadow-color: rgba(0, 0, 0, .5);
+                --primary-soft: rgba(101, 223, 200, .18); --cyan-soft: rgba(108, 184, 255, .16); --border-color: rgba(196, 255, 245, .22); --inner-border: rgba(209, 255, 245, .12);
+                --hover-bg: rgba(63, 115, 113, .8); --shadow-color: rgba(0, 0, 0, .55);
             }
             #lexisync-extension-ui[data-ui-style="vision-aurora"] {
-                --bg-primary: rgba(246, 250, 255, 0.78); --bg-solid: #f4f8ff; --bg-elevated: rgba(255, 255, 255, 0.92); --bg-secondary: rgba(230, 240, 255, 0.7);
+                --bg-primary: rgba(246, 250, 255, 0.94); --bg-solid: #f4f8ff; --bg-elevated: rgba(255, 255, 255, 0.98); --bg-secondary: rgba(230, 240, 255, 0.92);
                 --text-primary: #0f172a; --text-secondary: #475569; --primary: #0d9488; --primary-strong: #4f46e5;
-                --primary-soft: rgba(13, 148, 136, 0.14); --cyan-soft: rgba(79, 70, 229, 0.12); --border-color: rgba(255, 255, 255, 0.9); --inner-border: rgba(79, 70, 229, 0.12);
-                --hover-bg: rgba(255, 255, 255, 0.85); --shadow-color: rgba(15, 23, 42, 0.22);
+                --primary-soft: rgba(13, 148, 136, 0.14); --cyan-soft: rgba(79, 70, 229, 0.12); --border-color: rgba(255, 255, 255, 0.94); --inner-border: rgba(79, 70, 229, 0.12);
+                --hover-bg: rgba(255, 255, 255, 0.92); --shadow-color: rgba(15, 23, 42, 0.22);
                 border-radius: 24px;
-                box-shadow: 0 24px 60px var(--shadow-color), inset 0 1px 2px rgba(255, 255, 255, 0.9);
-                backdrop-filter: blur(28px) saturate(190%);
-                -webkit-backdrop-filter: blur(28px) saturate(190%);
+                box-shadow: 0 24px 60px var(--shadow-color), inset 0 1px 2px rgba(255, 255, 255, 0.95);
+                backdrop-filter: blur(32px) saturate(190%);
+                -webkit-backdrop-filter: blur(32px) saturate(190%);
             }
             #lexisync-extension-ui[data-ui-style="vision-aurora"][data-theme="dark"] {
-                --bg-primary: rgba(15, 20, 30, 0.82); --bg-solid: #0f141e; --bg-elevated: rgba(22, 31, 46, 0.9); --bg-secondary: rgba(30, 41, 62, 0.65);
+                --bg-primary: rgba(13, 17, 26, 0.95); --bg-solid: #0f141e; --bg-elevated: rgba(20, 27, 40, 0.98); --bg-secondary: rgba(28, 38, 56, 0.92);
                 --text-primary: #f8fafc; --text-secondary: #94a3b8; --primary: #2dd4bf; --primary-strong: #6366f1;
-                --primary-soft: rgba(45, 212, 191, 0.16); --cyan-soft: rgba(99, 102, 241, 0.15); --border-color: rgba(255, 255, 255, 0.18); --inner-border: rgba(255, 255, 255, 0.08);
-                --hover-bg: rgba(45, 212, 191, 0.12); --shadow-color: rgba(0, 0, 0, 0.6);
+                --primary-soft: rgba(45, 212, 191, 0.16); --cyan-soft: rgba(99, 102, 241, 0.15); --border-color: rgba(255, 255, 255, 0.2); --inner-border: rgba(255, 255, 255, 0.1);
+                --hover-bg: rgba(45, 212, 191, 0.15); --shadow-color: rgba(0, 0, 0, 0.65);
                 border-radius: 24px;
-                box-shadow: 0 24px 64px var(--shadow-color), inset 0 1px 1.5px rgba(255, 255, 255, 0.25);
-                backdrop-filter: blur(28px) saturate(190%);
-                -webkit-backdrop-filter: blur(28px) saturate(190%);
+                box-shadow: 0 24px 64px var(--shadow-color), inset 0 1px 1.5px rgba(255, 255, 255, 0.3);
+                backdrop-filter: blur(32px) saturate(190%);
+                -webkit-backdrop-filter: blur(32px) saturate(190%);
             }
             #lexisync-extension-ui[data-ui-style="silk-obsidian"] {
                 --bg-primary: #ffffff; --bg-solid: #ffffff; --bg-elevated: #f8fafc; --bg-secondary: #f1f5f9;
@@ -213,16 +213,23 @@ export const POPUP_STYLE_TEXT = `
             .lexisync-toolbar-divider {
                 background: var(--inner-border) !important;
             }
-            .lexisync-dropdown {
-                background: var(--bg-elevated) !important;
+            .lexisync-dropdown,
+            #lexisync-more-dropdown {
+                background: var(--bg-elevated, #ffffff) !important;
+                border: 1px solid var(--border-color) !important;
+                box-shadow: 0 20px 48px rgba(0, 0, 0, 0.22), 0 4px 14px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255,255,255,.6) !important;
+                backdrop-filter: blur(36px) saturate(160%) !important;
+                -webkit-backdrop-filter: blur(36px) saturate(160%) !important;
+            }
+            #lexisync-extension-ui[data-theme="dark"] .lexisync-dropdown,
+            #lexisync-extension-ui[data-theme="dark"] #lexisync-more-dropdown {
+                background: var(--bg-elevated, #1b1e31) !important;
                 border-color: var(--border-color) !important;
-                box-shadow: 0 18px 42px rgba(37, 39, 68, 0.22), inset 0 1px 0 rgba(255,255,255,.4) !important;
-                backdrop-filter: blur(32px) saturate(125%);
-                -webkit-backdrop-filter: blur(32px) saturate(125%);
+                box-shadow: 0 22px 52px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255,255,255,.1) !important;
             }
 
             #lexisync-extension-ui[data-surface="menu"] {
-                background: var(--bg-primary) !important;
+                background: var(--bg-elevated) !important;
                 border-radius: 18px;
             }
             .lexisync-menu-label {

@@ -188,7 +188,7 @@ function sanitizePortableSetting(key: (typeof PORTABLE_SETTING_KEYS)[number], va
             accent: /^#[0-9a-f]{6}$/i.test(String(theme.accent)) ? String(theme.accent) : '#6750a4',
             radius: Math.min(28, Math.max(4, Number(theme.radius) || 16)),
             density: Math.min(115, Math.max(80, Number(theme.density) || 100)),
-            transparency: Math.min(100, Math.max(70, Number(theme.transparency) || 90)),
+            transparency: Math.min(100, Math.max(70, Number(theme.transparency) || 96)),
             fontScale: Math.min(120, Math.max(85, Number(theme.fontScale) || 100)),
         };
     }
