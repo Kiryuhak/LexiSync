@@ -52,11 +52,12 @@ import { cleanupExpiredAiCacheLocally } from '../src/ai-cache';
 import { getLastUsedAction, setLastUsedAction } from '../src/content-menus';
 
 test('история обновлений содержит все выпуски и поддерживает поиск', () => {
-    expect(RELEASE_NOTES[0].version).toBe('5.3.0');
+    expect(RELEASE_NOTES[0].version).toBe('5.3.1');
     expect(RELEASE_NOTES.at(-1)?.version).toBe('2.5');
-    expect(RELEASE_NOTES).toHaveLength(44);
+    expect(RELEASE_NOTES).toHaveLength(45);
     expect(new Set(RELEASE_NOTES.map((release) => release.version)).size).toBe(RELEASE_NOTES.length);
     expect(filterReleaseNotes(RELEASE_NOTES, 'MagicOS', 'ru').map((release) => release.version)).toEqual([
+        '5.3.1',
         '5.2.1',
         '5.1.0',
     ]);
@@ -801,7 +802,7 @@ test('createDiagnosticReport формирует валидный отчёт бе
             getAll: vi.fn().mockResolvedValue({ permissions: ['storage', 'contextMenus'] }),
         },
         runtime: {
-            getManifest: () => ({ version: '5.3.0', manifest_version: 3 }),
+            getManifest: () => ({ version: '5.3.1', manifest_version: 3 }),
         },
     };
     vi.stubGlobal('chrome', mockBrowser);
@@ -810,7 +811,7 @@ test('createDiagnosticReport формирует валидный отчёт бе
     try {
         const report = await createDiagnosticReport();
         expect(report.format).toBe('lexisync-diagnostics');
-        expect(report.extension.version).toBe('5.3.0');
+        expect(report.extension.version).toBe('5.3.1');
         expect(report.extension.manifestVersion).toBe(3);
         expect(report.permissions).toContain('storage');
         expect(report.usage.requests).toBe(10);

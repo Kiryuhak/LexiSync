@@ -36,6 +36,35 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.3.1',
+        '2026-08-18',
+        'improved',
+        'Изоляция событий в модальных окнах, стабильное позиционирование и повышенная контрастность',
+        'Modal event isolation, stable positioning, and enhanced contrast',
+        [
+            [
+                'Исправлено сворачивание диалоговых окон написания писем (Яндекс.Почта, Gmail, Outlook) при кликах по кнопкам тулбара и меню расширения за счет монтирования в активный контекст модального окна и изоляции pointer-событий.',
+                'Fixed email compose modal collapse (Yandex Mail, Gmail, Outlook) on toolbar/menu clicks by mounting within the active modal context and isolating pointer events.',
+            ],
+            [
+                'Улучшено позиционирование попапов и AI-меню: точный учет верхней и нижней границ выделения предотвращает выталкивание окна в правый нижний угол при нехватке высоты.',
+                'Improved popup and AI menu positioning with upper and lower selection bound tracking, preventing edge-clamping jumps to screen corners.',
+            ],
+            [
+                'Ограничена максимальная высота меню с адаптивным скроллом для гарантированного удобства на экранах любого масштаба и разрешения.',
+                'Added adaptive max-height scrolling for menus to ensure usability across all screen scales and resolutions.',
+            ],
+            [
+                'Повышена плотность и контрастность фонов выпадающих списков и панелей (94–98%) во всех стилях оформления (Liquid Glass, MagicOS 11, Vision Aurora, Silk Obsidian).',
+                'Increased background density and contrast (94-98%) for dropdowns and panels across all visual styles (Liquid Glass, MagicOS 11, Vision Aurora, Silk Obsidian).',
+            ],
+            [
+                'Упрощен заголовок и вывод режима «Выжимка» без технических префиксов TL;DR.',
+                'Cleaned up "Summary" mode header and output without technical TL;DR prefixes.',
+            ],
+        ],
+    ),
+    note(
         '5.3.0',
         '2026-08-18',
         'new',
