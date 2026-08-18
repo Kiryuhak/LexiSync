@@ -132,26 +132,11 @@ export function showToolbarMenu(x: number, y: number, context: ContentMenuContex
         }
         btn.title = title;
         btn.style.cssText = `padding: 6px 8px; cursor: pointer; border-radius: 8px; display: flex; align-items: center; transition: background 0.15s; color: var(--text-primary); background: transparent; border: none; box-sizing: border-box; line-height: 1;`;
-        btn.onpointerdown = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-        };
-        btn.onmousedown = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-        };
-        btn.onpointerup = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-        };
-        btn.onmouseup = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-        };
+        btn.onpointerdown = (e) => e.stopPropagation();
+        btn.onmousedown = (e) => e.stopPropagation();
         btn.onmouseover = () => (btn.style.backgroundColor = 'var(--hover-bg)');
         btn.onmouseout = () => (btn.style.backgroundColor = 'transparent');
         btn.onclick = (e: MouseEvent) => {
-            e.preventDefault();
             e.stopPropagation();
             onClick(e, btn);
         };
@@ -330,26 +315,11 @@ export function showToolbarMenu(x: number, y: number, context: ContentMenuContex
         label.textContent = text;
         item.append(iconWrap, label);
         item.style.cssText = `width: 100%; padding: 9px 15px; font-size: 13px; font-family: inherit; cursor: pointer; display: flex; align-items: center; color: var(--text-primary); background: transparent; border: none; text-align: left; transition: background 0.12s; white-space: nowrap;`;
-        item.onpointerdown = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-        };
-        item.onmousedown = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-        };
-        item.onpointerup = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-        };
-        item.onmouseup = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-        };
+        item.onpointerdown = (e) => e.stopPropagation();
+        item.onmousedown = (e) => e.stopPropagation();
         item.onmouseover = () => (item.style.backgroundColor = 'var(--hover-bg)');
         item.onmouseout = () => (item.style.backgroundColor = 'transparent');
         item.onclick = (e) => {
-            e.preventDefault();
             e.stopPropagation();
             moreDropdown.style.display = 'none';
             onClick();
@@ -455,26 +425,11 @@ export function showAIMenu(x: number, y: number, context: ContentMenuContext, to
             btn.appendChild(shortcutLabel);
         }
         btn.style.cssText = `width: 100%; padding: 8px 12px; cursor: pointer; transition: background 0.15s; display: flex; align-items: center; justify-content: space-between; border-radius: 8px; color: var(--text-primary); background: transparent; border: none;`;
-        btn.onpointerdown = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-        };
-        btn.onmousedown = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-        };
-        btn.onpointerup = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-        };
-        btn.onmouseup = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-        };
+        btn.onpointerdown = (e) => e.stopPropagation();
+        btn.onmousedown = (e) => e.stopPropagation();
         btn.onmouseover = () => (btn.style.backgroundColor = 'var(--hover-bg)');
         btn.onmouseout = () => (btn.style.backgroundColor = 'transparent');
         btn.onclick = (e) => {
-            e.preventDefault();
             e.stopPropagation();
             onClick();
         };

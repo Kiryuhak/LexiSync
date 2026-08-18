@@ -439,7 +439,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             e.stopPropagation();
         };
         for (const evt of ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'dblclick', 'contextmenu']) {
-            popupHost.addEventListener(evt, stopEventLeak, true);
+            popupHost.addEventListener(evt, stopEventLeak, false);
         }
 
         popupShadow = popupHost.attachShadow({ mode: 'open' });
@@ -456,7 +456,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
         popup.style.setProperty('zoom', String(currentInterfaceScale / 100));
 
         for (const evt of ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'dblclick', 'contextmenu']) {
-            popup.addEventListener(evt, stopEventLeak, true);
+            popup.addEventListener(evt, stopEventLeak, false);
         }
 
         popupShadow.appendChild(popup);
