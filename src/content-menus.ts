@@ -194,6 +194,9 @@ export function showToolbarMenu(x: number, y: number, context: ContentMenuContex
         emoji: { icon: ICONS.emoji, title: t('addEmoji', 'Подобрать эмодзи') },
         translate: { icon: ICONS.translate, title: t('translate', 'Перевести') },
         summary: { icon: ICONS.summary, title: t('summaryTitle', 'Выжимка (TL;DR)') },
+        reply: { icon: ICONS.reply, title: t('replyTitle', 'Ответить на сообщение') },
+        explain: { icon: ICONS.lightbulb, title: t('explainTitle', 'Объяснить простыми словами') },
+        format: { icon: ICONS.cleanFormat, title: t('formatTitle', 'Очистить и форматировать') },
         layout: { icon: ICONS.keyboard, title: t('fixLayout', 'Исправить раскладку') },
     };
 
@@ -339,6 +342,24 @@ export function showToolbarMenu(x: number, y: number, context: ContentMenuContex
         }),
     );
     moreDropdown.appendChild(
+        createDropdownItem(ICONS.reply, t('replyTitle', 'Ответить на сообщение'), () => {
+            setLastUsedAction('reply');
+            context.handleAction('reply');
+        }),
+    );
+    moreDropdown.appendChild(
+        createDropdownItem(ICONS.lightbulb, t('explainTitle', 'Объяснить простыми словами'), () => {
+            setLastUsedAction('explain');
+            context.handleAction('explain');
+        }),
+    );
+    moreDropdown.appendChild(
+        createDropdownItem(ICONS.cleanFormat, t('formatTitle', 'Очистить и форматировать'), () => {
+            setLastUsedAction('format');
+            context.handleAction('format');
+        }),
+    );
+    moreDropdown.appendChild(
         createDropdownItem(ICONS.keyboard, t('fixLayout', 'Исправить раскладку'), () => {
             setLastUsedAction('layout');
             context.handleAction('layout');
@@ -451,6 +472,24 @@ export function showAIMenu(x: number, y: number, context: ContentMenuContext): v
         createMenuBtn(ICONS.summary, t('summaryTitle', 'Выжимка (TL;DR)'), () => {
             setLastUsedAction('summary');
             context.handleAction('summary');
+        }),
+    );
+    popupUI.appendChild(
+        createMenuBtn(ICONS.reply, t('replyTitle', 'Ответить на сообщение'), () => {
+            setLastUsedAction('reply');
+            context.handleAction('reply');
+        }),
+    );
+    popupUI.appendChild(
+        createMenuBtn(ICONS.lightbulb, t('explainTitle', 'Объяснить простыми словами'), () => {
+            setLastUsedAction('explain');
+            context.handleAction('explain');
+        }),
+    );
+    popupUI.appendChild(
+        createMenuBtn(ICONS.cleanFormat, t('formatTitle', 'Очистить и форматировать'), () => {
+            setLastUsedAction('format');
+            context.handleAction('format');
         }),
     );
 

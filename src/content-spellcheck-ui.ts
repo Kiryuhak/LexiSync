@@ -124,6 +124,20 @@ export function createSpellcheckUi(options: SpellcheckUiOptions): SpellcheckUiCo
             options.compactDetails.hidden = true;
             options.adjustPosition();
         };
+        const addDictionary = document.createElement('button');
+        addDictionary.type = 'button';
+        addDictionary.className = 'lexisync-tool-chip';
+        addDictionary.textContent = t('addDictionary', '+ Словарь');
+        addDictionary.title = t('dictionaryFuture', 'Не исправлять это слово в будущем');
+        addDictionary.onclick = async () => {
+            await addPersonalDictionaryWord(correction.original.trim());
+            rejected.add(correction.tokenIndex);
+            options.compactDetails.hidden = true;
+            render();
+            options.onResultChange(getResult(corrected));
+            options.adjustPosition();
+        };
+
         const close = document.createElement('button');
         close.type = 'button';
         close.className = 'lexisync-compact-correction-close';
@@ -133,7 +147,7 @@ export function createSpellcheckUi(options: SpellcheckUiOptions): SpellcheckUiCo
             options.compactDetails.hidden = true;
             options.adjustPosition();
         };
-        options.compactDetails.replaceChildren(description, keepOriginal, close);
+        options.compactDetails.replaceChildren(description, keepOriginal, addDictionary, close);
         options.compactDetails.hidden = false;
         keepOriginal.focus({ preventScroll: true });
         options.adjustPosition();

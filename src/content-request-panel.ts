@@ -113,6 +113,15 @@ export function executeRequest(
     else if (mode === 'summary') {
         headerIcon = ICONS.summary;
         headerLabel = t('summaryTitle', 'Выжимка (TL;DR)');
+    } else if (mode === 'reply') {
+        headerIcon = ICONS.reply;
+        headerLabel = t('modeReplyFull', 'Ответ на сообщение');
+    } else if (mode === 'explain') {
+        headerIcon = ICONS.lightbulb;
+        headerLabel = t('modeExplainFull', 'Объяснение простыми словами');
+    } else if (mode === 'format') {
+        headerIcon = ICONS.cleanFormat;
+        headerLabel = t('modeFormatFull', 'Очистка и форматирование');
     } else if (mode === 'ocr') {
         headerEmoji = '📸';
         headerLabel = t('ocrResult', 'Распознанный текст');
@@ -556,51 +565,130 @@ export function executeRequest(
                     currentSelection.context = source;
                     void executeRequest('custom', { id: `refine-${name}`, name, prompt }, context);
                 };
-                tools.push(
-                    createTool(
-                        t('repeat', 'Повторить'),
-                        () => void executeRequest(mode, customCommand, context, { bypassCache: true }),
-                    ),
-                    createTool(t('chipPolite', 'Вежливее'), () =>
-                        refine(
-                            t('chipPolite', 'Вежливее'),
-                            t(
-                                'refinePolitePrompt',
-                                'Перепиши текст в максимально вежливом, тактичном и доброжелательном тоне.',
+                if (mode === 'reply') {
+                    tools.push(
+                        createTool(
+                            t('repeat', 'Повторить'),
+                            () => void executeRequest(mode, customCommand, context, { bypassCache: true }),
+                        ),
+                        createTool(t('chipAgree', 'Согласиться'), () =>
+                            refine(
+                                t('chipAgree', 'Согласиться'),
+                                t('refineAgreePrompt', 'Перепиши ответ в тоне согласия, готовности и подтверждения.'),
                             ),
                         ),
-                    ),
-                    createTool(t('moreFormal', 'Формальнее'), () =>
-                        refine(
-                            t('refineFormalName', 'Сделать формальнее'),
-                            t('refineFormalPrompt', 'Перепиши текст в более формальном и профессиональном стиле.'),
-                        ),
-                    ),
-                    createTool(t('shorter', 'Короче'), () =>
-                        refine(
-                            t('refineShortName', 'Сделать короче'),
-                            t('presetShortPrompt', 'Сократи текст, сохранив ключевые факты и исходный смысл.'),
-                        ),
-                    ),
-                    createTool(t('chipSimple', 'Проще'), () =>
-                        refine(
-                            t('chipSimple', 'Проще'),
-                            t(
-                                'refineSimplePrompt',
-                                'Перепиши текст простым и понятным языком, убрав сложные обороты и канцеляризмы.',
+                        createTool(t('chipDecline', 'Отказать'), () =>
+                            refine(
+                                t('chipDecline', 'Отказать'),
+                                t(
+                                    'refineDeclinePrompt',
+                                    'Перепиши ответ в тоне вежливого, тактичного и аргументированного отказа.',
+                                ),
                             ),
                         ),
-                    ),
-                    createTool(t('longer', 'Подробнее'), () =>
-                        refine(
-                            t('refineLongName', 'Сделать подробнее'),
-                            t(
-                                'refineLongPrompt',
-                                'Раскрой текст подробнее, добавив полезные пояснения без лишней воды.',
+                        createTool(t('chipClarify', 'Уточнить'), () =>
+                            refine(
+                                t('chipClarify', 'Уточнить'),
+                                t(
+                                    'refineClarifyPrompt',
+                                    'Перепиши ответ с вежливым уточнением ключевых деталей, требований или сроков.',
+                                ),
                             ),
                         ),
-                    ),
-                );
+                        createTool(t('chipAlternative', 'Альтернатива'), () =>
+                            refine(
+                                t('chipAlternative', 'Альтернатива'),
+                                t(
+                                    'refineAlternativePrompt',
+                                    'Перепиши ответ с предложением удобной альтернативы или другого решения/времени.',
+                                ),
+                            ),
+                        ),
+                        createTool(t('shorter', 'Короче'), () =>
+                            refine(
+                                t('refineShortName', 'Сделать короче'),
+                                t('presetShortPrompt', 'Сократи текст, сохранив ключевые факты и исходный смысл.'),
+                            ),
+                        ),
+                    );
+                } else if (mode === 'explain') {
+                    tools.push(
+                        createTool(
+                            t('repeat', 'Повторить'),
+                            () => void executeRequest(mode, customCommand, context, { bypassCache: true }),
+                        ),
+                        createTool(t('chipSimpler', 'Ещё проще'), () =>
+                            refine(
+                                t('chipSimpler', 'Ещё проще'),
+                                t(
+                                    'refineSimplerPrompt',
+                                    'Объясни ещё более простыми словами, на понятных бытовых примерах без терминов.',
+                                ),
+                            ),
+                        ),
+                        createTool(t('chipExamples', 'С примерами'), () =>
+                            refine(
+                                t('chipExamples', 'С примерами'),
+                                t(
+                                    'refineExamplesPrompt',
+                                    'Добавь наглядные практические примеры использования из реальной жизни.',
+                                ),
+                            ),
+                        ),
+                        createTool(t('shorter', 'Короче'), () =>
+                            refine(
+                                t('refineShortName', 'Сделать короче'),
+                                t('presetShortPrompt', 'Сократи текст, сохранив ключевые факты и исходный смысл.'),
+                            ),
+                        ),
+                    );
+                } else {
+                    tools.push(
+                        createTool(
+                            t('repeat', 'Повторить'),
+                            () => void executeRequest(mode, customCommand, context, { bypassCache: true }),
+                        ),
+                        createTool(t('chipPolite', 'Вежливее'), () =>
+                            refine(
+                                t('chipPolite', 'Вежливее'),
+                                t(
+                                    'refinePolitePrompt',
+                                    'Перепиши текст в максимально вежливом, тактичном и доброжелательном тоне.',
+                                ),
+                            ),
+                        ),
+                        createTool(t('moreFormal', 'Формальнее'), () =>
+                            refine(
+                                t('refineFormalName', 'Сделать формальнее'),
+                                t('refineFormalPrompt', 'Перепиши текст в более формальном и профессиональном стиле.'),
+                            ),
+                        ),
+                        createTool(t('shorter', 'Короче'), () =>
+                            refine(
+                                t('refineShortName', 'Сделать короче'),
+                                t('presetShortPrompt', 'Сократи текст, сохранив ключевые факты и исходный смысл.'),
+                            ),
+                        ),
+                        createTool(t('chipSimple', 'Проще'), () =>
+                            refine(
+                                t('chipSimple', 'Проще'),
+                                t(
+                                    'refineSimplePrompt',
+                                    'Перепиши текст простым и понятным языком, убрав сложные обороты и канцеляризмы.',
+                                ),
+                            ),
+                        ),
+                        createTool(t('longer', 'Подробнее'), () =>
+                            refine(
+                                t('refineLongName', 'Сделать подробнее'),
+                                t(
+                                    'refineLongPrompt',
+                                    'Раскрой текст подробнее, добавив полезные пояснения без лишней воды.',
+                                ),
+                            ),
+                        ),
+                    );
+                }
                 resultTools.replaceChildren(...tools);
             }
             renderPrimaryResultActions({

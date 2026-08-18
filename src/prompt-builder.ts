@@ -8,6 +8,7 @@ export interface PromptRequest {
     pageTitle?: string;
     pageUrl?: string;
     customPrompt?: string;
+    replyIntent?: 'agree' | 'decline' | 'clarify' | 'alternative';
 }
 
 export interface ChatMessage {
@@ -77,6 +78,23 @@ export function buildMessages(msg: PromptRequest, settings: PromptSettings): Cha
     } else if (msg.mode === 'summary') {
         systemPrompt +=
             ' Сделай структурированную и ёмкую выжимку текста (TL;DR). Выдели ключевые тезисы в виде короткого списка. Сохрани язык оригинала.';
+    } else if (msg.mode === 'reply') {
+        const intentMap: Record<string, string> = {
+            agree: 'согласись и вежливо подтверди готовность или договоренность',
+            decline: 'вежливо и аргументированно откажись, предложив конструктивную альтернативу при возможности',
+            clarify: 'вежливо уточни детали, требования или запроси недостающую информацию',
+            alternative: 'предложи удобную альтернативу или перенос встречи/срока',
+        };
+        const intentPrompt =
+            (msg.replyIntent && intentMap[msg.replyIntent]) ||
+            'напиши вежливый, конструктивный и уместный ответ на это сообщение или письмо';
+        systemPrompt += ` Сформулируй готовый к отправке ответ на входящее сообщение или письмо: ${intentPrompt}. Отвечай от первого лица, в естественном тоне, сохраняя язык оригинала.`;
+    } else if (msg.mode === 'explain') {
+        systemPrompt +=
+            ' Объясни выделенный термин, понятие или сложный текст простыми словами, на понятных жизненных примерах и аналогиях, без сложной терминологии. Сохрани язык оригинала.';
+    } else if (msg.mode === 'format') {
+        systemPrompt +=
+            ' Очисти текст от лишних переносов строк, мусорных символов и артефактов копирования. Структурируй его в аккуратный Markdown (абзацы, списки или таблица, где уместно). Не меняй исходные факты и смысл.';
     } else if (msg.mode === 'custom') {
         const customPrompt = cleanUntrusted(msg.customPrompt, 2000);
         if (!customPrompt) throw new Error('Инструкция пользовательской команды пуста.');

@@ -1265,3 +1265,32 @@ test('генератор промптов поддерживает режим su
     );
     expect(simpleMessages[0].content).toContain('простым');
 });
+
+test('генератор промптов поддерживает режимы reply, explain и format', () => {
+    const replyMessages = buildMessages(
+        { mode: 'reply', text: 'Можете прислать отчёт к пятнице?', replyIntent: 'agree' },
+        { selectedTone: 'business', sendPageContext: false, personalDictionary: [], glossary: [] },
+    );
+    expect(replyMessages[0].content).toContain('готовность');
+
+    const explainMessages = buildMessages(
+        { mode: 'explain', text: 'Квантовая запутанность' },
+        { selectedTone: 'business', sendPageContext: false, personalDictionary: [], glossary: [] },
+    );
+    expect(explainMessages[0].content).toContain('простыми словами');
+
+    const formatMessages = buildMessages(
+        { mode: 'format', text: 'Текст с   кривыми\n\nразрывами' },
+        { selectedTone: 'business', sendPageContext: false, personalDictionary: [], glossary: [] },
+    );
+    expect(formatMessages[0].content).toContain('Markdown');
+});
+
+test('cleanPdfLineBreaksAndWhitespace корректно склеивает переносы строк и дефисы', async () => {
+    const { cleanPdfLineBreaksAndWhitespace } = await import('../src/local-text-rules');
+
+    const rawPdf = 'Это предложе-\nние было разорвано\nв документе PDF.\n\nВторой абзац.';
+    const cleaned = cleanPdfLineBreaksAndWhitespace(rawPdf);
+    expect(cleaned).toContain('предложение было разорвано в документе PDF.');
+    expect(cleaned).toContain('Второй абзац.');
+});

@@ -13,6 +13,9 @@ const MODE_NAMES: Record<RequestMode, string> = {
     layout: t('modeLayout', 'Раскладка'),
     translate: t('modeTranslate', 'Перевод'),
     summary: t('summaryShort', 'Выжимка'),
+    reply: t('modeReply', 'Ответ'),
+    explain: t('modeExplain', 'Объяснить'),
+    format: t('modeFormat', 'Формат'),
     ocr: 'OCR',
     custom: t('commands', 'Команда'),
 };
@@ -168,6 +171,18 @@ function createHistoryCard(item: HistoryItem): HTMLElement {
                     summary: t(
                         'historyPromptSummary',
                         'Сделай структурированную и ёмкую выжимку текста (TL;DR) с ключевыми тезисами.',
+                    ),
+                    reply: t(
+                        'historyPromptReply',
+                        'Сформулируй готовый к отправке вежливый и конструктивный ответ на это сообщение.',
+                    ),
+                    explain: t(
+                        'historyPromptExplain',
+                        'Объясни смысл этого текста или термина простыми словами с наглядными примерами.',
+                    ),
+                    format: t(
+                        'historyPromptFormat',
+                        'Очисти текст от лишних переносов и оформи его в аккуратный структурированный вид.',
                     ),
                     ocr: t('historyPromptOcr', 'Приведи распознанный текст в аккуратный читаемый вид.'),
                     custom: `${t('historyPromptCustom', 'Обработай текст по аналогии с этим результатом:')} ${item.result.slice(0, 500)}`,

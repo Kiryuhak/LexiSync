@@ -513,5 +513,77 @@
     },
     "historyPromptSummary": {
         "message": "Сделай структурированную и ёмкую выжимку текста (TL;DR) с ключевыми тезисами."
+    },
+    "modeReply": {
+        "message": "Ответ"
+    },
+    "modeExplain": {
+        "message": "Объяснить"
+    },
+    "modeFormat": {
+        "message": "Формат"
+    },
+    "modeReplyFull": {
+        "message": "Ответ на сообщение"
+    },
+    "modeExplainFull": {
+        "message": "Объяснение простыми словами"
+    },
+    "modeFormatFull": {
+        "message": "Очистка и форматирование"
+    },
+    "replyTitle": {
+        "message": "Ответить на сообщение"
+    },
+    "explainTitle": {
+        "message": "Объяснить простыми словами"
+    },
+    "formatTitle": {
+        "message": "Очистить и форматировать"
+    },
+    "chipAgree": {
+        "message": "Согласиться"
+    },
+    "chipDecline": {
+        "message": "Отказать"
+    },
+    "chipClarify": {
+        "message": "Уточнить"
+    },
+    "chipAlternative": {
+        "message": "Альтернатива"
+    },
+    "chipSimpler": {
+        "message": "Ещё проще"
+    },
+    "chipExamples": {
+        "message": "С примерами"
+    },
+    "refineAgreePrompt": {
+        "message": "Перепиши ответ в тоне согласия, готовности и подтверждения."
+    },
+    "refineDeclinePrompt": {
+        "message": "Перепиши ответ в тоне вежливого, тактичного и аргументированного отказа."
+    },
+    "refineClarifyPrompt": {
+        "message": "Перепиши ответ с вежливым уточнением ключевых деталей, требований или сроков."
+    },
+    "refineAlternativePrompt": {
+        "message": "Перепиши ответ с предложением удобной альтернативы или другого решения/времени."
+    },
+    "refineSimplerPrompt": {
+        "message": "Объясни ещё более простыми словами, на понятных бытовых примерах без терминов."
+    },
+    "refineExamplesPrompt": {
+        "message": "Добавь наглядные практические примеры использования из реальной жизни."
+    },
+    "historyPromptReply": {
+        "message": "Сформулируй готовый к отправке вежливый и конструктивный ответ на это сообщение."
+    },
+    "historyPromptExplain": {
+        "message": "Объясни смысл этого текста или термина простыми словами с наглядными примерами."
+    },
+    "historyPromptFormat": {
+        "message": "Очисти текст от лишних переносов и оформи его в аккуратный структурированный вид."
     }
 }

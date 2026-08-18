@@ -13,6 +13,7 @@ export interface MistralRequest {
     imageUrl?: string;
     allowPageContext?: boolean;
     customPrompt?: string;
+    replyIntent?: 'agree' | 'decline' | 'clarify' | 'alternative';
 }
 
 export interface MistralSettings {

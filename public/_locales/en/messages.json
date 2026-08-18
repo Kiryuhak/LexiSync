@@ -513,5 +513,77 @@
     },
     "historyPromptSummary": {
         "message": "Create a structured and concise summary of the text (TL;DR) with key takeaways."
+    },
+    "modeReply": {
+        "message": "Reply"
+    },
+    "modeExplain": {
+        "message": "Explain"
+    },
+    "modeFormat": {
+        "message": "Format"
+    },
+    "modeReplyFull": {
+        "message": "Reply to message"
+    },
+    "modeExplainFull": {
+        "message": "Explain simply"
+    },
+    "modeFormatFull": {
+        "message": "Clean and format"
+    },
+    "replyTitle": {
+        "message": "Reply to message"
+    },
+    "explainTitle": {
+        "message": "Explain simply"
+    },
+    "formatTitle": {
+        "message": "Clean and format"
+    },
+    "chipAgree": {
+        "message": "Agree"
+    },
+    "chipDecline": {
+        "message": "Decline"
+    },
+    "chipClarify": {
+        "message": "Clarify"
+    },
+    "chipAlternative": {
+        "message": "Alternative"
+    },
+    "chipSimpler": {
+        "message": "Even simpler"
+    },
+    "chipExamples": {
+        "message": "With examples"
+    },
+    "refineAgreePrompt": {
+        "message": "Rewrite the reply in a tone of agreement, readiness, and confirmation."
+    },
+    "refineDeclinePrompt": {
+        "message": "Rewrite the reply in a tone of polite, tactful, and reasoned decline."
+    },
+    "refineClarifyPrompt": {
+        "message": "Rewrite the reply politely asking to clarify key details, requirements, or deadlines."
+    },
+    "refineAlternativePrompt": {
+        "message": "Rewrite the reply proposing a convenient alternative or different time."
+    },
+    "refineSimplerPrompt": {
+        "message": "Explain in even simpler terms using everyday analogies without jargon."
+    },
+    "refineExamplesPrompt": {
+        "message": "Add clear practical real-life examples of usage."
+    },
+    "historyPromptReply": {
+        "message": "Draft a ready-to-send polite and constructive reply to this message."
+    },
+    "historyPromptExplain": {
+        "message": "Explain the meaning of this text or term simply with clear examples."
+    },
+    "historyPromptFormat": {
+        "message": "Clean the text of broken line breaks and organize it neatly."
     }
 }

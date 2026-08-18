@@ -9,6 +9,9 @@ const ALLOWED_MODES = new Set<RequestMode>([
     'layout',
     'translate',
     'summary',
+    'reply',
+    'explain',
+    'format',
     'ocr',
     'custom',
 ]);

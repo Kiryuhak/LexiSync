@@ -152,3 +152,18 @@ export function applyFastTypographyAndTypoFixes(input: string): RuleFixResult {
         fixesCount,
     };
 }
+
+export function cleanPdfLineBreaksAndWhitespace(input: string): string {
+    if (!input || !input.trim()) return input;
+
+    // 1. Склеивание переносов слов через дефис: "инфор-\nмация" -> "информация"
+    let res = input.replace(/([\p{L}])-[\r\n]+([\p{L}])/gu, '$1$2');
+
+    // 2. Склеивание строк внутри абзацев, сохраняя пустые строки между абзацами
+    res = res.replace(/([^\r\n.!?:])[\r\n]+([^\r\n\s\d\-•*#])/gu, '$1 $2');
+
+    // 3. Удаление множественных пробелов
+    res = res.replace(/[ \t]{2,}/gu, ' ');
+
+    return res.trim();
+}
