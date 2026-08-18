@@ -343,7 +343,10 @@ test('Проверка ошибок подсвечивает только исп
     await expect(uiPanel).toContainText('Пишу кот для проверки.', { timeout: 5000 });
     await expect(uiPanel.locator('mark')).toHaveCount(2);
     await expect(uiPanel.locator('mark').first()).toHaveAttribute('title', /^(?:Пишуу → Пишу|Pisheuu → Pishu)/);
-    await expect(uiPanel.locator('mark').nth(1)).toHaveAttribute('title', /^(?:провирки → проверки|provirki → proverki)/);
+    await expect(uiPanel.locator('mark').nth(1)).toHaveAttribute(
+        'title',
+        /^(?:провирки → проверки|provirki → proverki)/,
+    );
     await expect(page.locator('#lexisync-shadow-host')).toHaveCount(1);
     await expect(uiPanel.locator('.lexisync-close-button').locator('svg line')).toHaveCount(2);
     await expect(uiPanel.locator('.lexisync-result-button.icon-only').locator('svg rect')).toHaveCount(1);
