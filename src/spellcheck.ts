@@ -17,6 +17,10 @@ export interface WordCorrection {
 
 const MAX_LCS_CELLS = 1_000_000;
 
+function isWordChar(char: string | undefined): boolean {
+    return !!char && /[\p{L}\p{N}]/u.test(char);
+}
+
 function getSegmentCorrection(
     original: string,
     corrected: string,
@@ -36,10 +40,33 @@ function getSegmentCorrection(
     )
         commonSuffix++;
 
+    // Если граница префикса разрезает слово изнутри — откатываемся к началу слова
+    if (commonPrefix > 0 && isWordChar(original[commonPrefix - 1]) && isWordChar(original[commonPrefix])) {
+        while (commonPrefix > 0 && isWordChar(original[commonPrefix - 1])) {
+            commonPrefix--;
+        }
+    }
+
+    // Если граница суффикса разрезает слово изнутри — откатываемся к концу слова
+    if (
+        commonSuffix > 0 &&
+        isWordChar(original[original.length - commonSuffix]) &&
+        isWordChar(original[original.length - commonSuffix - 1])
+    ) {
+        while (commonSuffix > 0 && isWordChar(original[original.length - commonSuffix])) {
+            commonSuffix--;
+        }
+    }
+
+    const origSlice = original.slice(commonPrefix, original.length - commonSuffix);
+    const corrSlice = corrected.slice(commonPrefix, corrected.length - commonSuffix);
+
+    if (origSlice === corrSlice) return null;
+
     return {
         tokenIndex,
-        original: original.slice(commonPrefix, original.length - commonSuffix),
-        corrected: corrected.slice(commonPrefix, corrected.length - commonSuffix),
+        original: origSlice,
+        corrected: corrSlice,
         start: correctedOffset + commonPrefix,
         end: correctedOffset + corrected.length - commonSuffix,
     };

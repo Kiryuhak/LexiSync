@@ -121,10 +121,17 @@ export function startLiveProofread(): () => void {
         const shadow = host.attachShadow({ mode: 'open' });
         const style = document.createElement('style');
         style.textContent = `
-            .card{box-sizing:border-box;width:min(340px,calc(100vw - 24px));padding:10px;border:1px solid #dfe5df;border-radius:14px;background:#fff;color:#202523;box-shadow:0 12px 34px #17211b2b;font:13px/1.45 system-ui,sans-serif}
-            .head,.actions{display:flex;align-items:center;justify-content:space-between;gap:8px}.head strong{color:#176b3a}.preview{max-height:110px;overflow:auto;margin:9px 0;padding:9px;border-radius:9px;background:#f7faf7;white-space:pre-wrap}.preview mark{padding:1px 2px;border-radius:4px;color:#176b3a;background:#d9f8e5;cursor:pointer}.preview mark:focus{outline:2px solid #247a47}
-            button{padding:7px 10px;border:0;border-radius:8px;font:inherit;cursor:pointer}.apply{color:#fff;background:#247a47;display:flex;align-items:center;gap:6px;font-weight:600}.apply kbd{font-size:10px;opacity:0.85;padding:1px 4px;border-radius:4px;background:rgba(255,255,255,0.25)}.close,.exclude{color:#58615b;background:#eef2ef}.note{display:grid;gap:2px;color:#58615b;font-size:11px}
-            @media (prefers-color-scheme: dark){.card{background:#1e2620;color:#d4e0d6;border-color:#3a4a3d;box-shadow:0 12px 34px #0008}.preview{background:#252e27}.preview mark{color:#7dd4a0;background:#1a3d28}.close,.exclude{color:#a8b8aa;background:#2c3a2f}.note{color:#8a9e8d}}
+            .card{box-sizing:border-box;width:min(380px,calc(100vw - 24px));padding:12px 14px;border:1px solid #dfe5df;border-radius:14px;background:#fff;color:#202523;box-shadow:0 12px 34px rgba(23,33,27,0.18);font:13px/1.45 system-ui,sans-serif}
+            .head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}.head strong{color:#176b3a;font-size:13px;font-weight:600}
+            .preview{max-height:120px;overflow-y:auto;margin:8px 0 10px;padding:9px 11px;border-radius:9px;background:#f7faf7;white-space:pre-wrap;word-break:break-word;line-height:1.5}.preview mark{display:inline;padding:1px 4px;margin:0 1px;border-radius:4px;color:#176b3a;background:#d9f8e5;font-weight:500;cursor:pointer;text-decoration:none}.preview mark:hover{background:#c3f2d4}.preview mark:focus{outline:2px solid #247a47}
+            button{border:0;font:inherit;cursor:pointer}
+            .close{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#58615b;background:#eef2ef;font-size:14px;line-height:1}.close:hover{background:#dfe5e0;color:#202523}
+            .actions{display:flex;align-items:center;justify-content:space-between;gap:10px}
+            .note{display:flex;flex-direction:column;gap:2px;min-width:0}
+            .note-text{font-size:11px;color:#58615b;line-height:1.2}
+            .exclude{align-self:flex-start;padding:2px 5px;border-radius:4px;background:transparent;color:#58615b;font-size:11px;text-decoration:underline;text-underline-offset:2px}.exclude:hover{background:#eef2ef;color:#202523}
+            .apply{color:#fff;background:#176b3a;display:inline-flex;align-items:center;gap:6px;font-weight:600;padding:7px 12px;border-radius:8px;flex-shrink:0;box-shadow:0 2px 6px rgba(23,107,58,0.2);transition:background 0.15s}.apply:hover{background:#135830}.apply kbd{font-size:10px;opacity:0.9;padding:1px 4px;border-radius:4px;background:rgba(255,255,255,0.25);font-family:inherit}
+            @media (prefers-color-scheme: dark){.card{background:#1e2620;color:#d4e0d6;border-color:#3a4a3d;box-shadow:0 12px 34px rgba(0,0,0,0.5)}.head strong{color:#7dd4a0}.preview{background:#252e27}.preview mark{color:#7dd4a0;background:#1a3d28}.preview mark:hover{background:#224f35}.close{color:#a8b8aa;background:#2c3a2f}.close:hover{background:#384a3c;color:#fff}.note-text,.exclude{color:#8a9e8d}.exclude:hover{background:#2c3a2f;color:#d4e0d6}.apply{background:#247a47}.apply:hover{background:#1c663b}}
         `;
         const card = document.createElement('div');
         card.className = 'card';
@@ -142,7 +149,12 @@ export function startLiveProofread(): () => void {
         const preview = document.createElement('div');
         preview.className = 'preview';
         const renderPreview = () => {
-            preview.replaceChildren(renderSpellcheckDiffFragment(original, corrected, rejected, { corrections }));
+            preview.replaceChildren(
+                renderSpellcheckDiffFragment(original, corrected, rejected, {
+                    corrections,
+                    showDeletionMarkers: false,
+                }),
+            );
             for (const mark of preview.querySelectorAll<HTMLElement>('mark[data-token-index]')) {
                 const tokenIndex = Number(mark.dataset.tokenIndex);
                 mark.tabIndex = 0;
@@ -167,6 +179,7 @@ export function startLiveProofread(): () => void {
         const note = document.createElement('div');
         note.className = 'note';
         const noteText = document.createElement('span');
+        noteText.className = 'note-text';
         noteText.textContent = t('liveProofDismissHint', 'Нажмите на зелёное, чтобы отклонить');
         const exclude = document.createElement('button');
         exclude.className = 'exclude';

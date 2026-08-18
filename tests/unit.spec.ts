@@ -383,6 +383,11 @@ test('раздельно отклоняет замены, вставки и уд
 
     const deletion = getWordCorrections('очень добрый день', 'добрый день');
     expect(resolveCorrections('добрый день', deletion, new Set([deletion[0].tokenIndex]))).toBe('очень добрый день');
+
+    // Проверка целостности слова при опечатке внутри ("кога" -> "когда")
+    const typoInside = getWordCorrections('кога нажимаешь', 'когда нажимаешь');
+    expect(typoInside[0]).toMatchObject({ original: 'кога', corrected: 'когда' });
+    expect(resolveCorrections('когда нажимаешь', typoInside, new Set([0]))).toBe('кога нажимаешь');
 });
 
 test('ограничивает сложность сравнения очень длинного текста', () => {
