@@ -7,6 +7,7 @@ import { normalizeSpellcheckResult } from './spellcheck';
 import type { CustomCommand, HistoryItem, RequestMode, SelectionData, StreamResponse } from './types';
 import { recordCacheHit } from './usage-stats';
 import { createSvgIcon, renderMarkdown, setIcon } from './dom-rendering';
+import { stripSummaryPrefix } from './markdown';
 import { REQUEST_CACHE_VERSION, serializeCacheSource } from './request-cache';
 import { createPortDisconnectGuard, createRequestLifecycle, type PortDisconnectGuard } from './request-lifecycle';
 import { createBatchedUiUpdater, type BatchedUiUpdater } from './content-stream-renderer';
@@ -112,7 +113,7 @@ export function executeRequest(
     } else if (mode === 'translate') headerLabel = t('translation', 'Перевод');
     else if (mode === 'summary') {
         headerIcon = ICONS.summary;
-        headerLabel = t('summaryTitle', 'Выжимка (TL;DR)');
+        headerLabel = t('summaryTitle', 'Выжимка');
     } else if (mode === 'reply') {
         headerIcon = ICONS.reply;
         headerLabel = t('modeReplyFull', 'Ответ на сообщение');
@@ -220,8 +221,9 @@ export function executeRequest(
 
     streamUiUpdater = createBatchedUiUpdater(() => {
         if (lifecycle.disposed) return;
-        if (compactResultMode) contentPane.textContent = fullResult;
-        else renderMarkdown(contentPane, fullResult);
+        const display = mode === 'summary' ? stripSummaryPrefix(fullResult) : fullResult;
+        if (compactResultMode) contentPane.textContent = display;
+        else renderMarkdown(contentPane, display);
         contentPane.setAttribute('aria-live', 'polite');
         contentPane.scrollTop = contentPane.scrollHeight;
         adjustPopupPosition();
@@ -255,7 +257,8 @@ export function executeRequest(
     function getEffectiveResult(): string {
         if (comparisonOriginalVisible && editedResultSnapshot) return editedResultSnapshot;
         if (contentPane.contentEditable === 'true') return contentPane.innerText.trim();
-        const clean = fullResult.replace(/\*/g, '');
+        const base = mode === 'summary' ? stripSummaryPrefix(fullResult) : fullResult;
+        const clean = base.replace(/\*/g, '');
         return mode === 'spellcheck' ? spellcheckUi.getResult(clean) : clean;
     }
 
@@ -451,6 +454,9 @@ export function executeRequest(
                 streamUiUpdater?.request();
             } else if (response.status === 'done') {
                 streamUiUpdater?.cancel();
+                if (mode === 'summary') {
+                    fullResult = stripSummaryPrefix(fullResult);
+                }
                 if (mode === 'spellcheck') {
                     fullResult = normalizeSpellcheckResult(fullResult);
                     spellcheckUi.setResult(currentSelection.text, fullResult);
@@ -795,7 +801,13 @@ export function executeRequest(
         if (lifecycle.disposed) return;
         if (cachedResult) {
             void recordCacheHit();
-            fullResult = mode === 'spellcheck' ? normalizeSpellcheckResult(cachedResult) : cachedResult;
+            if (mode === 'summary') {
+                fullResult = stripSummaryPrefix(cachedResult);
+            } else if (mode === 'spellcheck') {
+                fullResult = normalizeSpellcheckResult(cachedResult);
+            } else {
+                fullResult = cachedResult;
+            }
             if (mode === 'spellcheck') {
                 spellcheckUi.setResult(currentSelection.text, fullResult);
             } else if (compactResultMode) {

@@ -193,7 +193,7 @@ export function showToolbarMenu(x: number, y: number, context: ContentMenuContex
         style: { icon: ICONS.style, title: t('rewriteText', 'Переписать текст') },
         emoji: { icon: ICONS.emoji, title: t('addEmoji', 'Подобрать эмодзи') },
         translate: { icon: ICONS.translate, title: t('translate', 'Перевести') },
-        summary: { icon: ICONS.summary, title: t('summaryTitle', 'Выжимка (TL;DR)') },
+        summary: { icon: ICONS.summary, title: t('summaryTitle', 'Выжимка') },
         reply: { icon: ICONS.reply, title: t('replyTitle', 'Ответить на сообщение') },
         explain: { icon: ICONS.lightbulb, title: t('explainTitle', 'Объяснить простыми словами') },
         format: { icon: ICONS.cleanFormat, title: t('formatTitle', 'Очистить и форматировать') },
@@ -214,7 +214,7 @@ export function showToolbarMenu(x: number, y: number, context: ContentMenuContex
             createBtn(
                 ICONS.summary,
                 t('summaryShort', 'Выжимка'),
-                t('summaryTitle', 'Краткая выжимка (TL;DR)'),
+                t('summaryTitle', 'Выжимка'),
                 () => {
                     setLastUsedAction('summary');
                     context.handleAction('summary');
@@ -336,7 +336,7 @@ export function showToolbarMenu(x: number, y: number, context: ContentMenuContex
         }),
     );
     moreDropdown.appendChild(
-        createDropdownItem(ICONS.summary, t('summaryTitle', 'Выжимка (TL;DR)'), () => {
+        createDropdownItem(ICONS.summary, t('summaryTitle', 'Выжимка'), () => {
             setLastUsedAction('summary');
             context.handleAction('summary');
         }),
@@ -469,7 +469,7 @@ export function showAIMenu(x: number, y: number, context: ContentMenuContext): v
         ),
     );
     popupUI.appendChild(
-        createMenuBtn(ICONS.summary, t('summaryTitle', 'Выжимка (TL;DR)'), () => {
+        createMenuBtn(ICONS.summary, t('summaryTitle', 'Выжимка'), () => {
             setLastUsedAction('summary');
             context.handleAction('summary');
         }),

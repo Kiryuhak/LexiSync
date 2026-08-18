@@ -1,3 +1,10 @@
+export function stripSummaryPrefix(text: string): string {
+    return text.replace(
+        /^(\s*(?:\*\*)?(?:TL;?DR|Выжимка|Краткая выжимка|Краткое содержание|Summary|Overview):?(?:\*\*)?[:\s]*\n*)/i,
+        '',
+    );
+}
+
 export function escapeHTML(text: string): string {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }

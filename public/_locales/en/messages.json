@@ -476,10 +476,10 @@
         "message": "Reset filters"
     },
     "summaryTitle": {
-        "message": "Summary (TL;DR)"
+        "message": "Summary"
     },
     "summaryShort": {
-        "message": "TL;DR"
+        "message": "Summary"
     },
     "clipboardFixTitle": {
         "message": "Fix from clipboard"

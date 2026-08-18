@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto';
 import { expect, test, vi } from 'vitest';
 import { detectLayoutDirection, fixKeyboardLayout } from '../src/keyboard-layout';
 import { buildMessages } from '../src/prompt-builder';
-import { escapeHTML, parseMarkdownToHTML } from '../src/markdown';
+import { escapeHTML, parseMarkdownToHTML, stripSummaryPrefix } from '../src/markdown';
 import {
     formatMistralError,
     isRetryableMistralError,
@@ -244,6 +244,15 @@ test('безопасно экранирует HTML в ответе модели'
 
 test('экранирует сохранённые пользовательские подписи', () => {
     expect(escapeHTML('<img src=x onerror=alert(1)>')).toBe('&lt;img src=x onerror=alert(1)&gt;');
+});
+
+test('удаляет префиксы TL;DR и Выжимка из начала ответа', () => {
+    expect(stripSummaryPrefix('**TL;DR:** Главный тезис статьи.')).toBe('Главный тезис статьи.');
+    expect(stripSummaryPrefix('**TL;DR**:\n- Пункт 1\n- Пункт 2')).toBe('- Пункт 1\n- Пункт 2');
+    expect(stripSummaryPrefix('TL;DR: Краткая суть')).toBe('Краткая суть');
+    expect(stripSummaryPrefix('**Выжимка:** Текст')).toBe('Текст');
+    expect(stripSummaryPrefix('**Summary:** Result')).toBe('Result');
+    expect(stripSummaryPrefix('Обычный текст без префикса')).toBe('Обычный текст без префикса');
 });
 
 test('устойчиво разбирает потоковые SSE-фрагменты Mistral', () => {

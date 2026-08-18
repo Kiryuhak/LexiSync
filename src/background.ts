@@ -147,7 +147,7 @@ chrome.runtime.onInstalled.addListener((details) => {
         chrome.contextMenus.create({ id: 'translate', title: t('translate', 'Перевести'), contexts: ['selection'] });
         chrome.contextMenus.create({
             id: 'summary',
-            title: `📑 ${t('summaryTitle', 'Выжимка (TL;DR)')}`,
+            title: `📑 ${t('summaryTitle', 'Выжимка')}`,
             contexts: ['selection'],
         });
         chrome.contextMenus.create({
