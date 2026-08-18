@@ -6,7 +6,7 @@ import { copyText } from './clipboard';
 import { logger } from './logger';
 
 export interface ContentMenuContext {
-    openPopup: (x: number, y: number) => HTMLElement;
+    openPopup: (x: number, y: number, top?: number) => HTMLElement;
     getPopup: () => HTMLElement | null;
     getSelectionText: () => string;
     getSearchEngine: () => string;
@@ -93,8 +93,8 @@ function setupMenuKeyboardNavigation(container: HTMLElement, onClose: () => void
     });
 }
 
-export function showToolbarMenu(x: number, y: number, context: ContentMenuContext): void {
-    const popupUI = context.openPopup(x, y);
+export function showToolbarMenu(x: number, y: number, context: ContentMenuContext, top?: number): void {
+    const popupUI = context.openPopup(x, y, top);
     const currentSearchEngine = context.getSearchEngine();
     const currentSelectionText = context.getSelectionText();
     popupUI.dataset.surface = 'toolbar';
@@ -106,7 +106,7 @@ export function showToolbarMenu(x: number, y: number, context: ContentMenuContex
     popupUI.addEventListener('click', (e) => e.stopPropagation());
     setupToolbarKeyboardNavigation(popupUI, () => context.closePopup());
 
-    popupUI.style.cssText = `position: fixed !important; left: -9999px; top: -9999px; background: var(--bg-primary); z-index: 2147483647 !important; font-family: system-ui, sans-serif; font-size: 13px; color: var(--text-primary); display: flex; align-items: center; padding: 4px; gap: 2px;`;
+    popupUI.style.cssText = `position: fixed !important; left: 0px; top: 0px; visibility: hidden; opacity: 0; background: var(--bg-primary); z-index: 2147483647 !important; font-family: system-ui, sans-serif; font-size: 13px; color: var(--text-primary); display: flex; align-items: center; padding: 4px; gap: 2px; box-sizing: border-box;`;
 
     const createBtn = (
         icon: string,
@@ -182,7 +182,7 @@ export function showToolbarMenu(x: number, y: number, context: ContentMenuContex
             t('editText', 'Редактировать'),
             t('textFunctions', 'Функции текста'),
             () => {
-                showAIMenu(x, y, context);
+                showAIMenu(x, y, context, top);
             },
             'edit',
         ),
@@ -382,8 +382,8 @@ export function showToolbarMenu(x: number, y: number, context: ContentMenuContex
     context.adjustPopupPosition();
 }
 
-export function showAIMenu(x: number, y: number, context: ContentMenuContext): void {
-    const popupUI = context.openPopup(x, y);
+export function showAIMenu(x: number, y: number, context: ContentMenuContext, top?: number): void {
+    const popupUI = context.openPopup(x, y, top);
     popupUI.dataset.surface = 'menu';
     popupUI.setAttribute('role', 'menu');
     popupUI.setAttribute('aria-label', t('aiMenu', 'AI-инструменты'));
@@ -394,7 +394,7 @@ export function showAIMenu(x: number, y: number, context: ContentMenuContext): v
     popupUI.addEventListener('click', (e) => e.stopPropagation());
     setupMenuKeyboardNavigation(popupUI, () => context.closePopup());
 
-    popupUI.style.cssText = `position: fixed !important; left: -9999px; top: -9999px; background: var(--bg-primary); z-index: 2147483647 !important; font-family: system-ui, sans-serif; font-size: 13px; color: var(--text-primary); width: 250px; padding: 7px;`;
+    popupUI.style.cssText = `position: fixed !important; left: 0px; top: 0px; visibility: hidden; opacity: 0; background: var(--bg-elevated); z-index: 2147483647 !important; font-family: system-ui, sans-serif; font-size: 13px; color: var(--text-primary); width: 250px; max-height: min(480px, calc(100vh - 32px)); overflow-y: auto; overflow-x: hidden; padding: 7px; box-sizing: border-box;`;
 
     const menuLabel = document.createElement('div');
     menuLabel.className = 'lexisync-menu-label';

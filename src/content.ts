@@ -6,6 +6,7 @@ import {
     getSelectedText,
     getSelectionCoords as readSelectionCoords,
     shouldShowSelectionMenu,
+    type SelectionCoords,
 } from './selection-state';
 import {
     showToolbarMenu as showContentToolbar,
@@ -142,6 +143,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             showToolbarMenu(
                 useSelectionCoords ? coords.x : lastMouseX || coords.x,
                 useSelectionCoords ? coords.y : lastMouseY || coords.y,
+                coords.top,
             );
         }, delay);
     }
@@ -177,7 +179,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             saveSelectionState(request.text);
             const x = lastMouseX || window.innerWidth / 2;
             const y = lastMouseY || window.innerHeight / 2;
-            showAIMenu(x, y);
+            showAIMenu(x, y, y);
             handleActionClick(request.mode);
         }
 
@@ -210,7 +212,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
                 if (text && text.trim().length > 0) {
                     saveSelectionState(text);
                     const coords = getSelectionCoords();
-                    showAIMenu(coords.x, coords.y);
+                    showAIMenu(coords.x, coords.y, coords.top);
                     handleActionClick(request.mode);
                 }
             })();
@@ -222,7 +224,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             void (async () => {
                 saveSelectionState(typeof request.text === 'string' ? request.text : '');
                 const coords = getSelectionCoords();
-                showAIMenu(coords.x, coords.y);
+                showAIMenu(coords.x, coords.y, coords.top);
                 if (request.mode === 'custom') {
                     const stored = await chrome.storage.local.get({ customCommands: [] });
                     const commands = Array.isArray(stored.customCommands)
@@ -351,7 +353,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
                     if (text && text.trim().length > 0) {
                         saveSelectionState(text);
                         const coords = getSelectionCoords();
-                        showAIMenu(coords.x, coords.y);
+                        showAIMenu(coords.x, coords.y, coords.top);
                         handleActionClick(mode);
                     }
                 }
@@ -411,6 +413,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
 
     let lastAnchorX: number = 0;
     let lastAnchorY: number = 0;
+    let lastAnchorTop: number = 0;
 
     function injectStyles(): void {
         if (!popupStyleText) popupStyleText = POPUP_STYLE_TEXT;
@@ -493,18 +496,19 @@ if (!contentRuntime.__lexisyncContentInitialized) {
         currentSelection = captureSelection(fallbackText);
     }
 
-    function getSelectionCoords(): { x: number; y: number } {
+    function getSelectionCoords(): SelectionCoords {
         return readSelectionCoords(lastMouseX, lastMouseY);
     }
 
     const menuContext: ContentMenuContext = {
-        openPopup: (x, y) => {
+        openPopup: (x, y, top) => {
             // При переходе между панелью выделения, меню и результатом не оставляем
             // старый host в DOM: иначе на короткое время появляются одинаковые id.
             closePopup(true);
             injectStyles();
             lastAnchorX = x;
             lastAnchorY = y;
+            lastAnchorTop = typeof top === 'number' ? top : y;
             popupUI = createPopupElement();
             applyThemeToPopup(popupUI);
             return popupUI;
@@ -519,12 +523,12 @@ if (!contentRuntime.__lexisyncContentInitialized) {
         executeCustom: (command) => executeRequest('custom', command),
     };
 
-    function showToolbarMenu(x: number, y: number): void {
-        showContentToolbar(x, y, menuContext);
+    function showToolbarMenu(x: number, y: number, top?: number): void {
+        showContentToolbar(x, y, menuContext, top);
     }
 
-    function showAIMenu(x: number, y: number): void {
-        showContentAiMenu(x, y, menuContext);
+    function showAIMenu(x: number, y: number, top?: number): void {
+        showContentAiMenu(x, y, menuContext, top);
     }
 
     const requestContext: ContentRequestContext = {
@@ -564,13 +568,16 @@ if (!contentRuntime.__lexisyncContentInitialized) {
         const position = calculatePopupPosition({
             anchorX: lastAnchorX,
             anchorY: lastAnchorY,
+            anchorTop: lastAnchorTop || lastAnchorY,
             popupWidth: rect.width,
             popupHeight: rect.height,
             viewportWidth: window.innerWidth,
             viewportHeight: window.innerHeight,
         });
-        popupUI.style.left = `${position.x}px`;
-        popupUI.style.top = `${position.y}px`;
+        popupUI.style.setProperty('left', `${position.x}px`, 'important');
+        popupUI.style.setProperty('top', `${position.y}px`, 'important');
+        popupUI.style.setProperty('visibility', 'visible', 'important');
+        popupUI.style.setProperty('opacity', '1', 'important');
     }
 
     function closePopup(removeImmediately = false): void {
@@ -620,12 +627,13 @@ if (!contentRuntime.__lexisyncContentInitialized) {
         };
         lastAnchorX = Number(detail.rect.left || 0) + Number(detail.rect.width || 0) / 2;
         lastAnchorY = Number(detail.rect.bottom || 0) + 10;
+        lastAnchorTop = Number(detail.rect.top || 0);
         closePopup(true);
         injectStyles();
         popupUI = createPopupElement();
         applyThemeToPopup(popupUI);
         popupUI.style.cssText =
-            'position:fixed!important;left:-9999px;top:-9999px;background:var(--bg-primary);z-index:2147483647!important;font-family:system-ui,sans-serif;font-size:13px;color:var(--text-primary);';
+            'position:fixed!important;left:0px;top:0px;visibility:hidden;opacity:0;background:var(--bg-primary);z-index:2147483647!important;font-family:system-ui,sans-serif;font-size:13px;color:var(--text-primary);';
         executeRequest('ocr');
     });
 }

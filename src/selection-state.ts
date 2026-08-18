@@ -83,7 +83,14 @@ export function captureSelection(fallbackText = ''): SelectionData {
     return result;
 }
 
-export function getSelectionCoords(fallbackX = 0, fallbackY = 0): { x: number; y: number } {
+export interface SelectionCoords {
+    x: number;
+    y: number;
+    top?: number;
+    bottom?: number;
+}
+
+export function getSelectionCoords(fallbackX = 0, fallbackY = 0): SelectionCoords {
     const activeElement = document.activeElement;
     if (isTextInput(activeElement)) {
         const rect = activeElement.getBoundingClientRect();
@@ -91,6 +98,8 @@ export function getSelectionCoords(fallbackX = 0, fallbackY = 0): { x: number; y
             return {
                 x: fallbackX || Math.max(10, Math.min(window.innerWidth - 120, rect.left + 24)),
                 y: fallbackY || Math.max(10, Math.min(window.innerHeight - 60, rect.top + 32)),
+                top: rect.top,
+                bottom: rect.bottom,
             };
         }
     }
@@ -98,10 +107,12 @@ export function getSelectionCoords(fallbackX = 0, fallbackY = 0): { x: number; y
     if (selection?.rangeCount) {
         const rect = selection.getRangeAt(0).getBoundingClientRect();
         if (rect.width > 0 || rect.height > 0) {
-            return { x: rect.left, y: rect.bottom };
+            return { x: rect.left, y: rect.bottom, top: rect.top, bottom: rect.bottom };
         }
     }
-    return { x: fallbackX || window.innerWidth / 2, y: fallbackY || window.innerHeight / 2 };
+    const x = fallbackX || window.innerWidth / 2;
+    const y = fallbackY || window.innerHeight / 2;
+    return { x, y, top: y, bottom: y };
 }
 
 export function shouldShowSelectionMenu(extensionEnabled: boolean, hasPopup: boolean, text: string): boolean {
