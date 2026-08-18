@@ -1216,3 +1216,52 @@ test('getSelectionCoords точно рассчитывает координат�
         globalThis.window = origWindow;
     }
 });
+
+test('локальный движок правил мгновенно исправляет опечатки, пробелы и типографику', async () => {
+    const { applyFastTypographyAndTypoFixes } = await import('../src/local-text-rules');
+
+    // 1. Опечатки
+    const typos = applyFastTypographyAndTypoFixes('вообщем здраствуйте, тчо происходит');
+    expect(typos.text).toBe('В общем здравствуйте, что происходит');
+    expect(typos.changed).toBe(true);
+    expect(typos.fixesCount).toBeGreaterThan(0);
+
+    // 2. Регистр
+    const caseCheck = applyFastTypographyAndTypoFixes('ВООБЩЕМ ДЕНЬ РОЖДЕНИЕ');
+    expect(caseCheck.text).toBe('В ОБЩЕМ ДЕНЬ РОЖДЕНИЯ');
+
+    // 3. Пробелы перед пунктуацией и после неё
+    const spacing = applyFastTypographyAndTypoFixes('Привет ,как дела ?Хорошо !');
+    expect(spacing.text).toBe('Привет, как дела? Хорошо!');
+
+    // 4. Тире и русские кавычки
+    const typography = applyFastTypographyAndTypoFixes('Это - пример "цитаты"');
+    expect(typography.text).toBe('Это — пример «цитаты»');
+
+    // 5. Английские опечатки
+    const english = applyFastTypographyAndTypoFixes('teh user dont recieve untill tomorrow');
+    expect(english.text).toBe("The user don't receive until tomorrow");
+
+    // 6. Пустая строка
+    expect(applyFastTypographyAndTypoFixes('').changed).toBe(false);
+});
+
+test('генератор промптов поддерживает режим summary и тона polite/concise/simple', () => {
+    const summaryMessages = buildMessages(
+        { mode: 'summary', text: 'Длинный текст статьи...' },
+        { selectedTone: 'business', sendPageContext: false, personalDictionary: [], glossary: [] },
+    );
+    expect(summaryMessages[0].content).toContain('TL;DR');
+
+    const politeMessages = buildMessages(
+        { mode: 'style', text: 'Сделайте это сейчас' },
+        { selectedTone: 'polite', sendPageContext: false, personalDictionary: [], glossary: [] },
+    );
+    expect(politeMessages[0].content).toContain('вежливом');
+
+    const simpleMessages = buildMessages(
+        { mode: 'style', text: 'Ввиду вышеизложенного...' },
+        { selectedTone: 'simple', sendPageContext: false, personalDictionary: [], glossary: [] },
+    );
+    expect(simpleMessages[0].content).toContain('простым');
+});

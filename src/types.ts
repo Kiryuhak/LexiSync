@@ -1,4 +1,4 @@
-export type TextMode = 'spellcheck' | 'style' | 'emoji' | 'layout' | 'translate';
+export type TextMode = 'spellcheck' | 'style' | 'emoji' | 'layout' | 'translate' | 'summary';
 export type RequestMode = TextMode | 'ocr' | 'custom';
 export type AiMode = 'fast' | 'quality';
 

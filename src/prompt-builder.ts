@@ -60,6 +60,9 @@ export function buildMessages(msg: PromptRequest, settings: PromptSettings): Cha
             friendly: 'в дружелюбном, открытом и разговорном стиле',
             persuasive: 'в убедительном и продающем стиле',
             creative: 'в креативном стиле с яркими метафорами',
+            polite: 'в максимально вежливом, дипломатичном и тактичном тоне',
+            concise: 'в максимально сжатом, ёмком и понятном виде без лишней воды',
+            simple: 'простым, ясным языком без канцеляризмов и громоздких оборотов',
         };
         systemPrompt += ` Перепиши текст ${toneMap[settings.selectedTone] || toneMap.business}, сделав его естественнее. Изменённые фразы оборачивай в двойные звёздочки.`;
         const profileInstruction = cleanUntrusted(settings.activeStyleProfile?.instruction, 1000);
@@ -71,6 +74,9 @@ export function buildMessages(msg: PromptRequest, settings: PromptSettings): Cha
         const glossary = serializeList(settings.glossary, 200);
         if (glossary)
             systemPrompt += ` Соблюдай пользовательский глоссарий в формате «исходный термин = перевод»: ${glossary}.`;
+    } else if (msg.mode === 'summary') {
+        systemPrompt +=
+            ' Сделай структурированную и ёмкую выжимку текста (TL;DR). Выдели ключевые тезисы в виде короткого списка. Сохрани язык оригинала.';
     } else if (msg.mode === 'custom') {
         const customPrompt = cleanUntrusted(msg.customPrompt, 2000);
         if (!customPrompt) throw new Error('Инструкция пользовательской команды пуста.');

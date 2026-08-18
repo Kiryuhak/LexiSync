@@ -12,6 +12,7 @@ const MODE_NAMES: Record<RequestMode, string> = {
     emoji: t('modeEmoji', 'Эмодзи'),
     layout: t('modeLayout', 'Раскладка'),
     translate: t('modeTranslate', 'Перевод'),
+    summary: t('summaryShort', 'Выжимка'),
     ocr: 'OCR',
     custom: t('commands', 'Команда'),
 };
@@ -163,6 +164,10 @@ function createHistoryCard(item: HistoryItem): HTMLElement {
                     translate: t(
                         'historyPromptTranslate',
                         'Переведи текст, сохранив смысл, терминологию и форматирование.',
+                    ),
+                    summary: t(
+                        'historyPromptSummary',
+                        'Сделай структурированную и ёмкую выжимку текста (TL;DR) с ключевыми тезисами.',
                     ),
                     ocr: t('historyPromptOcr', 'Приведи распознанный текст в аккуратный читаемый вид.'),
                     custom: `${t('historyPromptCustom', 'Обработай текст по аналогии с этим результатом:')} ${item.result.slice(0, 500)}`,

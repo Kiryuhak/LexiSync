@@ -193,8 +193,33 @@ export function showToolbarMenu(x: number, y: number, context: ContentMenuContex
         style: { icon: ICONS.style, title: t('rewriteText', 'Переписать текст') },
         emoji: { icon: ICONS.emoji, title: t('addEmoji', 'Подобрать эмодзи') },
         translate: { icon: ICONS.translate, title: t('translate', 'Перевести') },
+        summary: { icon: ICONS.summary, title: t('summaryTitle', 'Выжимка (TL;DR)') },
         layout: { icon: ICONS.keyboard, title: t('fixLayout', 'Исправить раскладку') },
     };
+
+    const hasCyrillic = /[\p{sc=Cyrillic}]/u.test(currentSelectionText);
+    const hasLatin = /[a-zA-Z]/u.test(currentSelectionText);
+    let translateBadge = '';
+    if (hasLatin && !hasCyrillic) translateBadge = 'EN➔RU';
+    else if (hasCyrillic && !hasLatin) translateBadge = 'RU➔EN';
+
+    // Для длинных текстов (>300 символов или >40 слов) предлагаем быструю кнопку выжимки
+    const isLongText = currentSelectionText.length > 300 || currentSelectionText.trim().split(/\s+/).length >= 40;
+    if (isLongText) {
+        popupUI.appendChild(divider());
+        popupUI.appendChild(
+            createBtn(
+                ICONS.summary,
+                t('summaryShort', 'Выжимка'),
+                t('summaryTitle', 'Краткая выжимка (TL;DR)'),
+                () => {
+                    setLastUsedAction('summary');
+                    context.handleAction('summary');
+                },
+                'summary',
+            ),
+        );
+    }
 
     const quickAction = lastUsedAction ? ACTION_INFOS[lastUsedAction] : undefined;
     if (quickAction && lastUsedAction) {
@@ -298,10 +323,19 @@ export function showToolbarMenu(x: number, y: number, context: ContentMenuContex
         return item;
     };
 
+    const translateTitle = translateBadge
+        ? `${t('translate', 'Перевести')} (${translateBadge})`
+        : t('translate', 'Перевести');
     moreDropdown.appendChild(
-        createDropdownItem(ICONS.translate, t('translate', 'Перевести'), () => {
+        createDropdownItem(ICONS.translate, translateTitle, () => {
             setLastUsedAction('translate');
             context.handleAction('translate');
+        }),
+    );
+    moreDropdown.appendChild(
+        createDropdownItem(ICONS.summary, t('summaryTitle', 'Выжимка (TL;DR)'), () => {
+            setLastUsedAction('summary');
+            context.handleAction('summary');
         }),
     );
     moreDropdown.appendChild(
@@ -412,6 +446,12 @@ export function showAIMenu(x: number, y: number, context: ContentMenuContext): v
             },
             'Alt+T',
         ),
+    );
+    popupUI.appendChild(
+        createMenuBtn(ICONS.summary, t('summaryTitle', 'Выжимка (TL;DR)'), () => {
+            setLastUsedAction('summary');
+            context.handleAction('summary');
+        }),
     );
 
     void chrome.storage.local

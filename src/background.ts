@@ -146,6 +146,11 @@ chrome.runtime.onInstalled.addListener((details) => {
         });
         chrome.contextMenus.create({ id: 'translate', title: t('translate', 'Перевести'), contexts: ['selection'] });
         chrome.contextMenus.create({
+            id: 'summary',
+            title: `📑 ${t('summaryTitle', 'Выжимка (TL;DR)')}`,
+            contexts: ['selection'],
+        });
+        chrome.contextMenus.create({
             id: 'ocr',
             title: `📸 ${t('recognizeText', 'Распознать текст')} (Alt+S)`,
             contexts: ['page', 'image', 'selection'],

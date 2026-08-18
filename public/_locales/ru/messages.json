@@ -474,5 +474,44 @@
     },
     "resetFilters": {
         "message": "Сбросить фильтры"
+    },
+    "summaryTitle": {
+        "message": "Выжимка (TL;DR)"
+    },
+    "summaryShort": {
+        "message": "Выжимка"
+    },
+    "clipboardFixTitle": {
+        "message": "Исправить из буфера"
+    },
+    "clipboardFixNote": {
+        "message": "Проверить скопированный текст (0 мс)"
+    },
+    "clipboardEmpty": {
+        "message": "Буфер обмена пуст"
+    },
+    "clipboardSuccess": {
+        "message": "✓ Исправлено и скопировано!"
+    },
+    "clipboardError": {
+        "message": "Нет доступа к буферу"
+    },
+    "clipboardHub": {
+        "message": "Быстрые действия с буфером"
+    },
+    "chipPolite": {
+        "message": "Вежливее"
+    },
+    "chipSimple": {
+        "message": "Проще"
+    },
+    "refinePolitePrompt": {
+        "message": "Перепиши текст в максимально вежливом, тактичном и доброжелательном тоне."
+    },
+    "refineSimplePrompt": {
+        "message": "Перепиши текст простым и понятным языком, убрав сложные обороты и канцеляризмы."
+    },
+    "historyPromptSummary": {
+        "message": "Сделай структурированную и ёмкую выжимку текста (TL;DR) с ключевыми тезисами."
     }
 }

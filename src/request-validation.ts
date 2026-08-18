@@ -2,7 +2,16 @@ import { t } from './i18n';
 import type { MistralRequest } from './mistral-client';
 import type { RequestMode } from './types';
 
-const ALLOWED_MODES = new Set<RequestMode>(['spellcheck', 'style', 'emoji', 'layout', 'translate', 'ocr', 'custom']);
+const ALLOWED_MODES = new Set<RequestMode>([
+    'spellcheck',
+    'style',
+    'emoji',
+    'layout',
+    'translate',
+    'summary',
+    'ocr',
+    'custom',
+]);
 const MAX_TEXT_LENGTH = 50_000;
 const MAX_CONTEXT_LENGTH = 12_000;
 const MAX_CUSTOM_PROMPT_LENGTH = 2_000;

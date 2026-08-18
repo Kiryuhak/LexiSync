@@ -5,7 +5,16 @@ import { getLocalDayKey } from './budget';
 const STORAGE_KEY = 'usageStats';
 export const USAGE_MUTATION_QUEUE = 'usage-budget';
 const MAX_RECORDED_LATENCY_MS = 5 * 60 * 1000;
-const REQUEST_MODES = new Set<RequestMode>(['spellcheck', 'style', 'emoji', 'layout', 'translate', 'ocr', 'custom']);
+const REQUEST_MODES = new Set<RequestMode>([
+    'spellcheck',
+    'style',
+    'emoji',
+    'layout',
+    'translate',
+    'summary',
+    'ocr',
+    'custom',
+]);
 
 export const EMPTY_USAGE_STATS: UsageStats = {
     requests: 0,

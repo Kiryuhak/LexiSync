@@ -110,7 +110,10 @@ export function executeRequest(
         headerIcon = ICONS.keyboard;
         headerLabel = t('layoutFixed', 'Раскладка исправлена');
     } else if (mode === 'translate') headerLabel = t('translation', 'Перевод');
-    else if (mode === 'ocr') {
+    else if (mode === 'summary') {
+        headerIcon = ICONS.summary;
+        headerLabel = t('summaryTitle', 'Выжимка (TL;DR)');
+    } else if (mode === 'ocr') {
         headerEmoji = '📸';
         headerLabel = t('ocrResult', 'Распознанный текст');
     } else if (mode === 'custom') {
@@ -558,10 +561,34 @@ export function executeRequest(
                         t('repeat', 'Повторить'),
                         () => void executeRequest(mode, customCommand, context, { bypassCache: true }),
                     ),
+                    createTool(t('chipPolite', 'Вежливее'), () =>
+                        refine(
+                            t('chipPolite', 'Вежливее'),
+                            t(
+                                'refinePolitePrompt',
+                                'Перепиши текст в максимально вежливом, тактичном и доброжелательном тоне.',
+                            ),
+                        ),
+                    ),
+                    createTool(t('moreFormal', 'Формальнее'), () =>
+                        refine(
+                            t('refineFormalName', 'Сделать формальнее'),
+                            t('refineFormalPrompt', 'Перепиши текст в более формальном и профессиональном стиле.'),
+                        ),
+                    ),
                     createTool(t('shorter', 'Короче'), () =>
                         refine(
                             t('refineShortName', 'Сделать короче'),
                             t('presetShortPrompt', 'Сократи текст, сохранив ключевые факты и исходный смысл.'),
+                        ),
+                    ),
+                    createTool(t('chipSimple', 'Проще'), () =>
+                        refine(
+                            t('chipSimple', 'Проще'),
+                            t(
+                                'refineSimplePrompt',
+                                'Перепиши текст простым и понятным языком, убрав сложные обороты и канцеляризмы.',
+                            ),
                         ),
                     ),
                     createTool(t('longer', 'Подробнее'), () =>
@@ -571,12 +598,6 @@ export function executeRequest(
                                 'refineLongPrompt',
                                 'Раскрой текст подробнее, добавив полезные пояснения без лишней воды.',
                             ),
-                        ),
-                    ),
-                    createTool(t('moreFormal', 'Формальнее'), () =>
-                        refine(
-                            t('refineFormalName', 'Сделать формальнее'),
-                            t('refineFormalPrompt', 'Перепиши текст в более формальном и профессиональном стиле.'),
                         ),
                     ),
                 );

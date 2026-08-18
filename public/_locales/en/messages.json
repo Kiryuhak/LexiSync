@@ -474,5 +474,44 @@
     },
     "resetFilters": {
         "message": "Reset filters"
+    },
+    "summaryTitle": {
+        "message": "Summary (TL;DR)"
+    },
+    "summaryShort": {
+        "message": "TL;DR"
+    },
+    "clipboardFixTitle": {
+        "message": "Fix from clipboard"
+    },
+    "clipboardFixNote": {
+        "message": "Check copied text (0 ms)"
+    },
+    "clipboardEmpty": {
+        "message": "Clipboard is empty"
+    },
+    "clipboardSuccess": {
+        "message": "✓ Fixed and copied!"
+    },
+    "clipboardError": {
+        "message": "Cannot access clipboard"
+    },
+    "clipboardHub": {
+        "message": "Quick clipboard actions"
+    },
+    "chipPolite": {
+        "message": "Polite"
+    },
+    "chipSimple": {
+        "message": "Simple"
+    },
+    "refinePolitePrompt": {
+        "message": "Rewrite the text in a polite, diplomatic, and friendly tone."
+    },
+    "refineSimplePrompt": {
+        "message": "Rewrite the text using clear, simple language without corporate jargon."
+    },
+    "historyPromptSummary": {
+        "message": "Create a structured and concise summary of the text (TL;DR) with key takeaways."
     }
 }
