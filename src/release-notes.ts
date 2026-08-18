@@ -36,6 +36,43 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.3.0',
+        '2026-08-18',
+        'new',
+        'Новые стили Vision Aurora и Silk Obsidian, умный ответ, объяснение и форматирование',
+        'New Vision Aurora & Silk Obsidian styles, Smart Reply, Explain, and Clean & Format',
+        [
+            [
+                'Новые стили оформления «Vision Aurora» (пространственное стекло с эффектом преломления) и «Silk Obsidian» (100% непрозрачный бархатный монолит с идеальной читаемостью).',
+                'New visual styles: "Vision Aurora" (spatial frosted glass with refraction) and "Silk Obsidian" (100% opaque velvet matte for zero background blending).',
+            ],
+            [
+                'Режим «Умный ответ» (Smart Reply) для быстрого составления вежливых ответов с чипами согласия, отказа, уточнения и альтернативы.',
+                'Smart Reply mode for instant polite message drafting with intent chips (agree, decline, clarify, alternative).',
+            ],
+            [
+                'Режим «Объясни просто» (Explain Simply) для разъяснения сложных терминов понятным языком и с наглядными примерами.',
+                'Explain Simply mode for breaking down complex concepts and terminology in plain language with examples.',
+            ],
+            [
+                'Режим «Очистить и форматировать» (Clean & Format) для устранения битых переносов строк из PDF, лишних пробелов и структурирования текста.',
+                'Clean & Format mode for removing broken PDF line breaks, duplicate spaces, and structuring messy text.',
+            ],
+            [
+                'Быстрое добавление слов в персональный словарь в один клик прямо из карточки проверки орфографии.',
+                'One-click personal dictionary additions right from the spellcheck correction cards.',
+            ],
+            [
+                'Локальные офлайн-правила типографики: мгновенное исправление кавычек-ёлочек, тире, дробей и неразрывных пробелов.',
+                'Instant offline typography formatting for quotes, em-dashes, fractions, and non-breaking spaces.',
+            ],
+            [
+                'Улучшенный алгоритм Live-Proofread с защитой границ слов (без дробления букв) и единым стилем с выбранной темой.',
+                'Enhanced Live-Proofread with word-boundary protection (no fragmented word diffs) and full theme style inheritance.',
+            ],
+        ],
+    ),
+    note(
         '5.2.8',
         '2026-08-17',
         'improved',
