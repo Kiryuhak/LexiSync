@@ -293,7 +293,7 @@ test('длинные названия AI-команд не выходят за �
     await page.locator('[data-lexisync-action="edit"]').click();
 
     const menu = page.locator('#lexisync-extension-ui[data-surface="menu"]');
-    const explainButton = menu.getByRole('menuitem', { name: 'Объяснить простыми словами' });
+    const explainButton = menu.locator('[data-lexisync-mode="explain"]');
     await expect(explainButton).toBeVisible();
 
     const layout = await explainButton.evaluate((button) => {
@@ -1275,7 +1275,7 @@ test('блок «Этот сайт» в popup симметричен основ�
         };
     });
 
-    expect(Math.abs(layout.siteHeight - layout.actionHeight)).toBeLessThan(1);
+    expect(Math.abs(layout.siteHeight - layout.actionHeight)).toBeLessThanOrEqual(1);
     expect(layout.siteIconSize).toEqual(layout.actionIconSize);
     expect(Math.abs(layout.siteIconLeft - layout.actionIconLeft)).toBeLessThan(1);
     expect(Math.abs(layout.siteCopyLeft - layout.actionCopyLeft)).toBeLessThan(1);

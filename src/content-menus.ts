@@ -402,11 +402,12 @@ export function showAIMenu(x: number, y: number, context: ContentMenuContext, to
     menuLabel.textContent = t('aiTools', 'AI-инструменты');
     popupUI.appendChild(menuLabel);
 
-    const createMenuBtn = (icon: string, text: string, onClick: () => void, shortcut?: string) => {
+    const createMenuBtn = (icon: string, text: string, onClick: () => void, shortcut?: string, mode?: RequestMode) => {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'lexisync-menu-button';
         btn.setAttribute('role', 'menuitem');
+        if (mode) btn.dataset.lexisyncMode = mode;
         const main = document.createElement('div');
         main.className = 'lexisync-menu-button-main';
         const iconWrap = document.createElement('span');
@@ -445,6 +446,7 @@ export function showAIMenu(x: number, y: number, context: ContentMenuContext, to
                 context.handleAction('spellcheck');
             },
             'Alt+R',
+            'spellcheck',
         ),
     );
     popupUI.appendChild(
@@ -456,6 +458,7 @@ export function showAIMenu(x: number, y: number, context: ContentMenuContext, to
                 context.handleAction('style');
             },
             'Alt+Y',
+            'style',
         ),
     );
     popupUI.appendChild(
@@ -467,31 +470,56 @@ export function showAIMenu(x: number, y: number, context: ContentMenuContext, to
                 context.handleAction('emoji');
             },
             'Alt+T',
+            'emoji',
         ),
     );
     popupUI.appendChild(
-        createMenuBtn(ICONS.summary, t('summaryTitle', 'Выжимка'), () => {
-            setLastUsedAction('summary');
-            context.handleAction('summary');
-        }),
+        createMenuBtn(
+            ICONS.summary,
+            t('summaryTitle', 'Выжимка'),
+            () => {
+                setLastUsedAction('summary');
+                context.handleAction('summary');
+            },
+            undefined,
+            'summary',
+        ),
     );
     popupUI.appendChild(
-        createMenuBtn(ICONS.reply, t('replyTitle', 'Ответить на сообщение'), () => {
-            setLastUsedAction('reply');
-            context.handleAction('reply');
-        }),
+        createMenuBtn(
+            ICONS.reply,
+            t('replyTitle', 'Ответить на сообщение'),
+            () => {
+                setLastUsedAction('reply');
+                context.handleAction('reply');
+            },
+            undefined,
+            'reply',
+        ),
     );
     popupUI.appendChild(
-        createMenuBtn(ICONS.lightbulb, t('explainTitle', 'Объяснить простыми словами'), () => {
-            setLastUsedAction('explain');
-            context.handleAction('explain');
-        }),
+        createMenuBtn(
+            ICONS.lightbulb,
+            t('explainTitle', 'Объяснить простыми словами'),
+            () => {
+                setLastUsedAction('explain');
+                context.handleAction('explain');
+            },
+            undefined,
+            'explain',
+        ),
     );
     popupUI.appendChild(
-        createMenuBtn(ICONS.cleanFormat, t('formatTitle', 'Очистить и форматировать'), () => {
-            setLastUsedAction('format');
-            context.handleAction('format');
-        }),
+        createMenuBtn(
+            ICONS.cleanFormat,
+            t('formatTitle', 'Очистить и форматировать'),
+            () => {
+                setLastUsedAction('format');
+                context.handleAction('format');
+            },
+            undefined,
+            'format',
+        ),
     );
 
     void chrome.storage.local
