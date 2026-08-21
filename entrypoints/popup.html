@@ -276,11 +276,12 @@
             }
             .site-summary {
                 display: grid;
-                grid-template-columns: 28px 1fr 16px;
-                gap: 8px;
+                grid-template-columns: 35px 1fr 18px;
+                gap: 10px;
                 align-items: center;
                 width: 100%;
-                padding: 7px 9px;
+                min-height: 52px;
+                padding: 8px 10px;
                 color: var(--text-main);
                 text-align: left;
                 background: transparent;
@@ -293,27 +294,31 @@
             }
             .site-globe {
                 display: grid;
-                width: 28px;
-                height: 28px;
+                width: 35px;
+                height: 35px;
                 place-items: center;
                 color: var(--cyan);
                 background: var(--cyan-soft);
-                border-radius: 9px;
+                border-radius: 11px;
+            }
+            .site-globe svg {
+                width: 18px;
+                height: 18px;
             }
             .site-copy {
                 min-width: 0;
             }
             .site-label {
                 display: block;
-                font-size: 11.5px;
+                font-size: 13px;
                 font-weight: 650;
             }
             .site-domain {
                 display: block;
-                margin-top: 1px;
+                margin-top: 2px;
                 overflow: hidden;
                 color: var(--text-muted);
-                font-size: 9.5px;
+                font-size: 10.5px;
                 text-overflow: ellipsis;
                 white-space: nowrap;
             }
@@ -573,6 +578,7 @@
             }
 
             [data-ui-style='magicos-11'] .action-icon,
+            [data-ui-style='magicos-11'] .site-globe,
             [data-ui-style='magicos-11'] .brand-icon {
                 border-radius: 14px;
                 box-shadow:
@@ -604,6 +610,7 @@
             }
 
             [data-ui-style='material-3'] .action-icon,
+            [data-ui-style='material-3'] .site-globe,
             [data-ui-style='material-3'] .brand-icon {
                 border-radius: 14px;
                 box-shadow: none;
@@ -621,6 +628,7 @@
             }
 
             [data-ui-style='flutter'] .action-icon,
+            [data-ui-style='flutter'] .site-globe,
             [data-ui-style='flutter'] .brand-icon {
                 border-radius: 8px;
                 box-shadow: none;
@@ -646,7 +654,8 @@
             }
 
             [data-ui-style='aurora-glass'] .brand-icon,
-            [data-ui-style='aurora-glass'] .action-icon {
+            [data-ui-style='aurora-glass'] .action-icon,
+            [data-ui-style='aurora-glass'] .site-globe {
                 border-radius: 12px;
                 box-shadow:
                     inset 0 1px 0 rgba(255, 255, 255, 0.48),

@@ -1,5 +1,6 @@
 import { browser } from 'wxt/browser';
 import { EMPTY_USAGE_STATS } from './usage-stats';
+import { getHistoryItemCount } from './history-store';
 import type { UsageStats } from './types';
 
 export interface DiagnosticReport {
@@ -20,7 +21,7 @@ export async function createDiagnosticReport(): Promise<DiagnosticReport> {
         typeof api?.storage?.local?.getBytesInUse === 'function'
             ? api.storage.local.getBytesInUse(null).catch(() => 0)
             : Promise.resolve(0);
-    const [stored, permissions, storageBytes] = await Promise.all([
+    const [stored, permissions, storageBytes, historyItems] = await Promise.all([
         api.storage.local.get({
             selectedTheme: 'auto',
             visualStyle: 'liquid-glass',
@@ -32,11 +33,11 @@ export async function createDiagnosticReport(): Promise<DiagnosticReport> {
             styleProfiles: [],
             disabledSites: [],
             liveProofreadDisabledSites: [],
-            aiHistory: [],
             usageStats: EMPTY_USAGE_STATS,
         }),
         api.permissions.getAll(),
         storageBytesPromise,
+        getHistoryItemCount().catch(() => 0),
     ]);
     const stats = stored.usageStats as UsageStats;
     return {
@@ -67,7 +68,7 @@ export async function createDiagnosticReport(): Promise<DiagnosticReport> {
             proofreadExcludedSites: Array.isArray(stored.liveProofreadDisabledSites)
                 ? stored.liveProofreadDisabledSites.length
                 : 0,
-            historyItems: Array.isArray(stored.aiHistory) ? stored.aiHistory.length : 0,
+            historyItems,
         },
         usage: {
             requests: Number(stats.requests) || 0,

@@ -260,6 +260,24 @@ export const POPUP_STYLE_TEXT = `
                 font-family: system-ui, -apple-system, sans-serif !important;
                 text-align: left !important;
             }
+            .lexisync-menu-button-main {
+                display: flex;
+                flex: 1 1 auto;
+                width: 0;
+                min-width: 0;
+                align-items: center;
+                overflow: hidden;
+            }
+            .lexisync-menu-button-text {
+                flex: 1 1 0;
+                width: 0;
+                min-width: 0;
+                font-weight: 600;
+                line-height: 1.25;
+                overflow: hidden;
+                overflow-wrap: anywhere;
+                white-space: normal;
+            }
             .lexisync-menu-icon {
                 width: 30px !important;
                 height: 30px !important;
@@ -270,6 +288,7 @@ export const POPUP_STYLE_TEXT = `
             }
             .lexisync-menu-button:nth-of-type(3) .lexisync-menu-icon { color: #19a5b6 !important; background: var(--cyan-soft); }
             .lexisync-shortcut {
+                flex: 0 0 auto;
                 padding: 4px 6px;
                 color: var(--text-secondary) !important;
                 background: var(--bg-secondary);

@@ -97,7 +97,8 @@ export function startLiveProofread(): () => void {
     let host: HTMLElement | null = null;
     let requestVersion = 0;
     let activeRequest: CancellableTextRequest | null = null;
-    let disabledSites: string[] = [];
+    let proofreadDisabledSites: string[] = [];
+    let blockedSites: string[] = [];
     let dismissListeners: (() => void) | null = null;
     let currentTheme = 'auto';
     let currentVisualStyle: AppearanceStyle = 'liquid-glass';
@@ -120,8 +121,14 @@ export function startLiveProofread(): () => void {
         close();
     };
 
+    const isProofreadAllowed = () =>
+        enabled &&
+        !isSiteDisabled(location.hostname, blockedSites) &&
+        !isSiteDisabled(location.hostname, proofreadDisabledSites);
+
     const showSuggestion = (editor: EditableElement, original: string, corrected: string) => {
         close();
+        if (!isProofreadAllowed()) return;
         const corrections = getWordCorrections(original, corrected);
         if (!corrections.length || getEditorText(editor) !== original) return;
         const rejected = new Set<number>();
@@ -246,6 +253,76 @@ export function startLiveProofread(): () => void {
                 --border-color: #454b54;
                 --inner-border: #3b4149;
                 --hover-bg: #31363c;
+                --shadow-color: rgba(0, 0, 0, 0.55);
+            }
+            .card[data-ui-style="flutter"] {
+                --bg-primary: #ffffff;
+                --bg-solid: #ffffff;
+                --bg-elevated: #ffffff;
+                --bg-secondary: #f1f6fb;
+                --text-primary: #17212b;
+                --text-secondary: #607080;
+                --primary: #1976d2;
+                --primary-strong: #0d5ca8;
+                --primary-soft: #e3f2fd;
+                --border-color: #d7e0e8;
+                --inner-border: #dfe7ee;
+                --hover-bg: #eaf3fb;
+                --shadow-color: rgba(32, 73, 105, 0.2);
+                --lexisync-radius: 14px;
+                border-radius: 14px;
+                box-shadow: 0 8px 22px var(--shadow-color), 0 2px 5px rgba(32, 73, 105, 0.12);
+                backdrop-filter: none;
+                -webkit-backdrop-filter: none;
+            }
+            .card[data-ui-style="flutter"][data-theme="dark"] {
+                --bg-primary: #20252b;
+                --bg-solid: #20252b;
+                --bg-elevated: #272d34;
+                --bg-secondary: #2b333b;
+                --text-primary: #f3f6f9;
+                --text-secondary: #aebbc7;
+                --primary: #64b5f6;
+                --primary-strong: #42a5f5;
+                --primary-soft: #163b58;
+                --border-color: #43505c;
+                --inner-border: #3b4650;
+                --hover-bg: #35414c;
+                --shadow-color: rgba(0, 0, 0, 0.44);
+            }
+            .card[data-ui-style="aurora-glass"] {
+                --bg-primary: rgba(247, 255, 253, 0.95);
+                --bg-solid: #f4fffb;
+                --bg-elevated: rgba(255, 255, 255, 0.98);
+                --bg-secondary: rgba(233, 250, 245, 0.92);
+                --text-primary: #183d39;
+                --text-secondary: #58746f;
+                --primary: #0d9d8a;
+                --primary-strong: #087466;
+                --primary-soft: rgba(41, 190, 161, 0.15);
+                --border-color: rgba(255, 255, 255, 0.9);
+                --inner-border: rgba(42, 129, 117, 0.16);
+                --hover-bg: rgba(255, 255, 255, 0.92);
+                --shadow-color: rgba(23, 108, 98, 0.22);
+                --lexisync-radius: 24px;
+                border-radius: 24px;
+                box-shadow: 0 20px 48px var(--shadow-color), inset 0 1px 0 rgba(255, 255, 255, 0.85);
+                backdrop-filter: blur(30px) saturate(155%);
+                -webkit-backdrop-filter: blur(30px) saturate(155%);
+            }
+            .card[data-ui-style="aurora-glass"][data-theme="dark"] {
+                --bg-primary: rgba(16, 38, 42, 0.96);
+                --bg-solid: #123034;
+                --bg-elevated: rgba(25, 54, 58, 0.98);
+                --bg-secondary: rgba(34, 68, 70, 0.92);
+                --text-primary: #e9fffa;
+                --text-secondary: #b5d2cc;
+                --primary: #65dfc8;
+                --primary-strong: #43c5b1;
+                --primary-soft: rgba(101, 223, 200, 0.18);
+                --border-color: rgba(196, 255, 245, 0.22);
+                --inner-border: rgba(209, 255, 245, 0.12);
+                --hover-bg: rgba(63, 115, 113, 0.8);
                 --shadow-color: rgba(0, 0, 0, 0.55);
             }
             .card[data-ui-style="vision-aurora"] {
@@ -516,8 +593,8 @@ export function startLiveProofread(): () => void {
         exclude.type = 'button';
         exclude.textContent = t('liveProofExcludeSite', 'Не проверять сайт');
         exclude.onclick = () => {
-            disabledSites = [...new Set([...disabledSites, location.hostname])].sort();
-            void chrome.storage.local.set({ liveProofreadDisabledSites: disabledSites });
+            proofreadDisabledSites = [...new Set([...proofreadDisabledSites, location.hostname])].sort();
+            void chrome.storage.local.set({ liveProofreadDisabledSites: proofreadDisabledSites });
             close();
         };
         note.append(noteText, exclude);
@@ -585,7 +662,7 @@ export function startLiveProofread(): () => void {
     };
 
     const onFocusIn = (event: FocusEvent) => {
-        if (isSafeEditor(event.target)) {
+        if (isProofreadAllowed() && isSafeEditor(event.target)) {
             enableNativeSpellcheck(event.target);
         }
     };
@@ -595,9 +672,8 @@ export function startLiveProofread(): () => void {
             if (ignoredInputEvents.delete(event.target)) return;
         }
         if (!isSafeEditor(event.target)) return;
+        if (!isProofreadAllowed()) return;
         enableNativeSpellcheck(event.target);
-        if (!enabled) return;
-        if (isSiteDisabled(location.hostname, disabledSites)) return;
         const editor = event.target;
         const original = getEditorText(editor);
         cancelPendingProofread();
@@ -605,6 +681,7 @@ export function startLiveProofread(): () => void {
         const version = requestVersion;
         timer = window.setTimeout(async () => {
             timer = 0;
+            if (!isProofreadAllowed() || getEditorText(editor) !== original) return;
             let request: CancellableTextRequest | null = null;
             try {
                 request = startTextRequest({
@@ -630,19 +707,21 @@ export function startLiveProofread(): () => void {
             liveProofreadEnabled: false,
             liveProofreadDelay: 900,
             liveProofreadDisabledSites: [],
+            blockedSites: [],
             selectedTheme: 'auto',
             visualStyle: 'liquid-glass',
             themeCustomization: DEFAULT_THEME_CUSTOMIZATION,
         });
         enabled = stored.liveProofreadEnabled === true;
-        disabledSites = normalizeDisabledSites(stored.liveProofreadDisabledSites);
+        proofreadDisabledSites = normalizeDisabledSites(stored.liveProofreadDisabledSites);
+        blockedSites = normalizeDisabledSites(stored.blockedSites);
         delay = [600, 900, 1500, 2500].includes(Number(stored.liveProofreadDelay))
             ? Number(stored.liveProofreadDelay)
             : 900;
         if (stored.selectedTheme) currentTheme = String(stored.selectedTheme);
         currentVisualStyle = normalizeAppearanceStyle(stored.visualStyle);
         currentThemeCustomization = normalizeThemeCustomization(stored.themeCustomization);
-        if (!enabled || isSiteDisabled(location.hostname, disabledSites)) {
+        if (!isProofreadAllowed()) {
             cancelPendingProofread();
         }
     };
@@ -652,7 +731,12 @@ export function startLiveProofread(): () => void {
             if (changes.visualStyle) currentVisualStyle = normalizeAppearanceStyle(changes.visualStyle.newValue);
             if (changes.themeCustomization)
                 currentThemeCustomization = normalizeThemeCustomization(changes.themeCustomization.newValue);
-            if (changes.liveProofreadEnabled || changes.liveProofreadDelay || changes.liveProofreadDisabledSites) {
+            if (
+                changes.liveProofreadEnabled ||
+                changes.liveProofreadDelay ||
+                changes.liveProofreadDisabledSites ||
+                changes.blockedSites
+            ) {
                 void updateSettings();
             }
         }

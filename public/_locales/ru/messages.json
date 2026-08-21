@@ -140,6 +140,7 @@
     "apiKeyMissing": { "message": "API-ключ не настроен" },
     "openSettingsNow": { "message": "Открыть сейчас" },
     "requestCancelled": { "message": "Запрос отменён." },
+    "siteAccessDisabled": { "message": "LexiSync отключён для этого сайта." },
     "requestConnectionLost": { "message": "Соединение с обработчиком запроса прервано. Повторите попытку." },
     "undoReplacement": { "message": "Отменить замену" },
     "replaced": { "message": "Заменено!" },

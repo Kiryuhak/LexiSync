@@ -277,6 +277,14 @@ function ensureSuggestionUi(): void {
         .bar[data-ui-style="aurora-glass"].dark { --bg:rgba(18,47,52,.78); --text:#e9fffa; --muted:#b5d2cc; --border:rgba(196,255,245,.2); }
         .bar[data-ui-style="aurora-glass"] .spark { background:linear-gradient(135deg,#0d9d8a,#65bdf5); border-radius:10px; }
         .bar[data-ui-style="aurora-glass"] button { border-radius:999px; }
+        .bar[data-ui-style="vision-aurora"] { --bg:rgba(246,250,255,.78); --text:#0f172a; --muted:#475569; --border:rgba(255,255,255,.92); border-radius:17px; box-shadow:0 18px 46px rgba(15,23,42,.24),inset 0 1px 1px rgba(255,255,255,.9); backdrop-filter:blur(28px) saturate(185%); }
+        .bar[data-ui-style="vision-aurora"].dark { --bg:rgba(15,20,30,.82); --text:#f8fafc; --muted:#94a3b8; --border:rgba(255,255,255,.18); box-shadow:0 20px 50px rgba(0,0,0,.58),inset 0 1px 1px rgba(255,255,255,.18); }
+        .bar[data-ui-style="vision-aurora"] .spark { background:linear-gradient(135deg,#0d9488,#6366f1); border-radius:10px; }
+        .bar[data-ui-style="vision-aurora"] button { border-radius:999px; }
+        .bar[data-ui-style="silk-obsidian"] { --bg:#fff; --text:#0f172a; --muted:#64748b; --border:#e2e8f0; border-radius:14px; box-shadow:0 12px 28px rgba(15,23,42,.16),0 2px 6px rgba(15,23,42,.05); backdrop-filter:none; }
+        .bar[data-ui-style="silk-obsidian"].dark { --bg:#0c0e14; --text:#f8fafc; --muted:#8a96a8; --border:rgba(255,255,255,.12); box-shadow:0 16px 34px rgba(0,0,0,.52); }
+        .bar[data-ui-style="silk-obsidian"] .spark { background:linear-gradient(135deg,#4f46e5,#0ea5e9); border-radius:8px; }
+        .bar[data-ui-style="silk-obsidian"] button { border-radius:8px; }
         .spark { display:grid; width:25px; height:25px; flex:0 0 auto; place-items:center; color:#fff; background:linear-gradient(135deg,#765ff0,#24b8c6); border-radius:8px; font-size:12px; }
         button { max-width:145px; padding:7px 10px; overflow:hidden; color:var(--text); background:rgba(255,255,255,.42); border:1px solid rgba(93,103,138,.1); border-radius:9px; cursor:pointer; font:600 12px/1 system-ui,-apple-system,sans-serif; text-overflow:ellipsis; white-space:nowrap; }
         .dark button { background:rgba(63,69,103,.58); border-color:rgba(255,255,255,.08); }

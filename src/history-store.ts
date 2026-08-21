@@ -1,7 +1,7 @@
 import { getPrivacySettings } from './privacy';
 import { enqueueStorageMutation } from './storage-queue';
 import type { HistoryItem } from './types';
-import { openDatabase, idbGet, idbGetAll, idbPut, idbDelete, idbClear } from './idb';
+import { openDatabase, idbGet, idbGetAll, idbPut, idbDelete, idbClear, idbCount } from './idb';
 import { logger } from './logger';
 
 const HISTORY_LIMIT = 500; // Increased limit for IndexedDB
@@ -91,6 +91,11 @@ export async function getHistory(): Promise<HistoryItem[]> {
     }
 
     return history;
+}
+
+/** Возвращает только число записей, не загружая тексты истории в память. */
+export async function getHistoryItemCount(): Promise<number> {
+    return idbCount(await getDB(), STORE_NAME);
 }
 
 export async function addHistoryItem(item: HistoryItem): Promise<void> {

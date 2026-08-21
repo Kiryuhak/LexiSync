@@ -39,6 +39,18 @@ export function idbGetAll<T>(db: IDBDatabase, storeName: string): Promise<T[]> {
     });
 }
 
+export function idbCount(db: IDBDatabase, storeName: string): Promise<number> {
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(storeName, 'readonly');
+        const store = transaction.objectStore(storeName);
+        const request = store.count();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error || new Error('IDB_COUNT_FAILED'));
+        transaction.onerror = () => reject(transaction.error || new Error('IDB_TRANSACTION_FAILED'));
+        transaction.onabort = () => reject(transaction.error || new Error('IDB_TRANSACTION_ABORTED'));
+    });
+}
+
 export function idbPut<T = unknown>(db: IDBDatabase, storeName: string, value: T): Promise<IDBValidKey> {
     return new Promise((resolve, reject) => {
         const transaction = db.transaction(storeName, 'readwrite');

@@ -36,6 +36,39 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.3.2',
+        '2026-08-21',
+        'improved',
+        'Стабильная работа на сложных сайтах, приватные исключения и ускоренный запуск',
+        'Stable operation on complex sites, private exclusions, and faster startup',
+        [
+            [
+                'Окна результата и меню теперь сохраняют правильное положение в Telegram и других приложениях с масштабированными или вложенными модальными областями.',
+                'Result windows and menus now stay correctly positioned in Telegram and other apps with scaled or nested modal areas.',
+            ],
+            [
+                'Длинные названия AI-команд аккуратно переносятся внутри компактного меню, а карточка текущего сайта выровнена с остальными элементами popup.',
+                'Long AI command names now wrap cleanly inside the compact menu, and the current-site card is aligned with the rest of the popup.',
+            ],
+            [
+                'Глобальный доступ больше не мешает отдельно отключать LexiSync на текущем сайте; разрешения и сохранённые исключения всегда отображаются согласованно.',
+                'Global access no longer prevents disabling LexiSync on the current site, and permissions now stay consistent with saved exclusions.',
+            ],
+            [
+                'До загрузки настроек расширение остаётся неактивным, а отключённые сайты защищены от фоновой проверки и случайной отправки текста в API.',
+                'The extension stays inactive until settings load, while disabled sites are protected from background checks and accidental API requests.',
+            ],
+            [
+                'Снижено потребление памяти: service worker хранит только необходимые рабочие настройки, а размер истории определяется напрямую в IndexedDB без загрузки текстов.',
+                'Memory use is reduced: the service worker caches only essential runtime settings, and history size is counted directly in IndexedDB without loading text.',
+            ],
+            [
+                'Стили оформления изолированы от страниц, а перенос настроек корректно сохраняет все современные темы и параметры внешнего вида.',
+                'Visual styles are isolated from web pages, while settings transfer now preserves every modern theme and appearance option.',
+            ],
+        ],
+    ),
+    note(
         '5.3.1',
         '2026-08-18',
         'improved',
@@ -55,8 +88,8 @@ export const RELEASE_NOTES: ReleaseNote[] = [
                 'Added adaptive max-height scrolling for menus to ensure usability across all screen scales and resolutions.',
             ],
             [
-                'Повышена плотность и контрастность фонов выпадающих списков и панелей (94–98%) во всех стилях оформления (Liquid Glass, MagicOS 11, Vision Aurora, Silk Obsidian).',
-                'Increased background density and contrast (94-98%) for dropdowns and panels across all visual styles (Liquid Glass, MagicOS 11, Vision Aurora, Silk Obsidian).',
+                'Повышена плотность и контрастность фонов выпадающих списков и панелей (94–98%) во всех стилях оформления (Liquid Glass, MagicOS, Vision Aurora, Silk Obsidian).',
+                'Increased background density and contrast (94-98%) for dropdowns and panels across all visual styles (Liquid Glass, MagicOS, Vision Aurora, Silk Obsidian).',
             ],
             [
                 'Упрощен заголовок и вывод режима «Выжимка» без технических префиксов TL;DR.',

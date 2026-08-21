@@ -37,6 +37,8 @@ import { DEFAULT_BUDGET_SETTINGS, estimateTokens } from './budget';
 import { finalizeBudgetReservation, reserveBudgetIfActive } from './budget-reservations';
 import { getStoredApiKey, migrateApiKeyToSecretStore, setStoredApiKey } from './secret-store';
 import { logger } from './logger';
+import { isRuntimeSettingKey, pickRuntimeSettings, RUNTIME_SETTING_KEYS } from './runtime-settings-cache';
+import { isExtensionAllowedForUrl } from './site-runtime-access';
 
 const REQUEST_TIMEOUT_MS = 45_000;
 
@@ -68,6 +70,13 @@ async function canMutateAdaptiveForSender(sender: chrome.runtime.MessageSender):
     }
 }
 
+async function canUseExtensionForSender(sender: chrome.runtime.MessageSender): Promise<boolean> {
+    const sourceUrl = sender.tab?.url || sender.url || '';
+    if (!/^https?:/i.test(sourceUrl)) return true;
+    const stored = await chrome.storage.local.get({ blockedSites: [] });
+    return isExtensionAllowedForUrl(sourceUrl, stored.blockedSites);
+}
+
 const initializationPromise = restoreSyncedSettings()
     .then(migrateSettings)
     .then(migrateApiKeyToSecretStore)
@@ -80,9 +89,9 @@ initializeSiteAccess();
 
 let settingsCache: Record<string, unknown> = {};
 const cacheReady = initializationPromise
-    .then(() => chrome.storage.local.get(null))
+    .then(() => chrome.storage.local.get([...RUNTIME_SETTING_KEYS]))
     .then((all) => {
-        settingsCache = all || {};
+        settingsCache = pickRuntimeSettings(all || {});
     })
     .catch((error) => {
         logger.error('Failed to pre-cache settings in service worker:', error);
@@ -92,6 +101,7 @@ const cacheReady = initializationPromise
 chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local') {
         for (const [key, { newValue }] of Object.entries(changes)) {
+            if (!isRuntimeSettingKey(key)) continue;
             if (newValue === undefined) delete settingsCache[key];
             else settingsCache[key] = newValue;
         }
@@ -110,8 +120,18 @@ export async function getCachedSettings(keys: Record<string, unknown>): Promise<
         }
     }
     const result: Record<string, unknown> = {};
+    const directKeys: string[] = [];
     for (const key of Object.keys(keys)) {
-        result[key] = settingsCache[key] !== undefined ? settingsCache[key] : keys[key];
+        if (isRuntimeSettingKey(key)) result[key] = settingsCache[key] !== undefined ? settingsCache[key] : keys[key];
+        else directKeys.push(key);
+    }
+    if (directKeys.length) {
+        try {
+            const stored = await chrome.storage.local.get(directKeys);
+            for (const key of directKeys) result[key] = stored[key] !== undefined ? stored[key] : keys[key];
+        } catch {
+            for (const key of directKeys) result[key] = keys[key];
+        }
     }
     return result;
 }
@@ -415,6 +435,15 @@ chrome.runtime.onConnect.addListener((port) => {
             safePostMessage({
                 status: 'error',
                 error: error instanceof Error ? error.message : t('requestInvalid', 'Некорректный запрос.'),
+                retryable: false,
+            });
+            return;
+        }
+        if (!(await canUseExtensionForSender(port.sender ?? {}))) {
+            activeController?.abort();
+            safePostMessage({
+                status: 'error',
+                error: t('siteAccessDisabled', 'LexiSync отключён для этого сайта.'),
                 retryable: false,
             });
             return;

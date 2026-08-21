@@ -408,13 +408,13 @@ export function showAIMenu(x: number, y: number, context: ContentMenuContext, to
         btn.className = 'lexisync-menu-button';
         btn.setAttribute('role', 'menuitem');
         const main = document.createElement('div');
-        main.style.cssText = 'display:flex;align-items:center;';
+        main.className = 'lexisync-menu-button-main';
         const iconWrap = document.createElement('span');
         iconWrap.className = 'lexisync-menu-icon';
         iconWrap.style.cssText = 'display:flex;align-items:center;justify-content:center;flex-shrink:0;';
         setIcon(iconWrap, icon);
         const label = document.createElement('span');
-        label.style.fontWeight = '600';
+        label.className = 'lexisync-menu-button-text';
         label.textContent = text;
         main.append(iconWrap, label);
         btn.appendChild(main);
@@ -424,7 +424,7 @@ export function showAIMenu(x: number, y: number, context: ContentMenuContext, to
             shortcutLabel.textContent = shortcut;
             btn.appendChild(shortcutLabel);
         }
-        btn.style.cssText = `width: 100%; padding: 8px 12px; cursor: pointer; transition: background 0.15s; display: flex; align-items: center; justify-content: space-between; border-radius: 8px; color: var(--text-primary); background: transparent; border: none;`;
+        btn.style.cssText = `width: 100%; padding: 8px 12px; cursor: pointer; transition: background 0.15s; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-radius: 8px; color: var(--text-primary); background: transparent; border: none;`;
         btn.onpointerdown = (e) => e.stopPropagation();
         btn.onmousedown = (e) => e.stopPropagation();
         btn.onmouseover = () => (btn.style.backgroundColor = 'var(--hover-bg)');

@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'path';
 import AxeBuilder from '@axe-core/playwright';
 import { RELEASE_NOTES } from '../src/release-notes';
+import { APPEARANCE_STYLES } from '../src/appearance-style';
 
 // ==========================================
 // 1. НАСТРОЙКА БРАУЗЕРА И ВЫДАЧА ПРАВ
@@ -22,6 +23,13 @@ const test = base.extend({
                 `--load-extension=${pathToExtension}`,
             ],
         });
+        await context.route('https://example.com/', (route) =>
+            route.fulfill({
+                status: 200,
+                contentType: 'text/html; charset=utf-8',
+                body: '<!doctype html><html><body><main><h1>Example Domain</h1><p>This domain is for deterministic LexiSync browser tests.</p></main></body></html>',
+            }),
+        );
         const background = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
         await expect
             .poll(() =>
@@ -169,14 +177,19 @@ test('Сборки Chrome и Firefox используют совместимые
     expect(await fs.readFile(path.resolve(__dirname, '../.output/chrome-mv3/inject.js'), 'utf8')).toContain(
         'lexisyncPing',
     );
-    const [coreScript, adaptiveScript, ocrScript] = await Promise.all([
+    const [coreScript, adaptiveScript, liveProofreadScript, ocrScript] = await Promise.all([
         fs.readFile(path.resolve(__dirname, '../.output/chrome-mv3/inject.js'), 'utf8'),
         fs.readFile(path.resolve(__dirname, '../.output/chrome-mv3/adaptive.js'), 'utf8'),
+        fs.readFile(path.resolve(__dirname, '../.output/chrome-mv3/live-proofread.js'), 'utf8'),
         fs.readFile(path.resolve(__dirname, '../.output/chrome-mv3/ocr.js'), 'utf8'),
     ]);
     expect(coreScript).not.toContain('lexisync-adaptive-suggestions-host');
     expect(coreScript).not.toContain('lexisync-ocr-overlay');
     expect(adaptiveScript).toContain('lexisync-adaptive-suggestions-host');
+    for (const style of APPEARANCE_STYLES.slice(1)) {
+        expect(adaptiveScript).toContain(`.bar[data-ui-style="${style}"]`);
+        expect(liveProofreadScript).toContain(`.card[data-ui-style="${style}"]`);
+    }
     expect(ocrScript).toContain('lexisync-ocr-overlay');
 });
 
@@ -270,6 +283,77 @@ test('модальное окно остаётся рядом с указате�
     const resultCenterY = box!.y + box!.height / 2;
     const selectionCenterY = selectionTarget!.y + selectionTarget!.height / 2;
     expect(Math.abs(resultCenterY - selectionCenterY)).toBeLessThan(120);
+});
+
+test('длинные названия AI-команд не выходят за границы компактного меню', async ({ page, context }) => {
+    await page.setViewportSize({ width: 520, height: 620 });
+    await page.goto('https://example.com');
+    await grantSiteAccess(context, page);
+    await selectTextOnPage(page, 'p');
+    await page.locator('[data-lexisync-action="edit"]').click();
+
+    const menu = page.locator('#lexisync-extension-ui[data-surface="menu"]');
+    const explainButton = menu.getByRole('menuitem', { name: 'Объяснить простыми словами' });
+    await expect(explainButton).toBeVisible();
+
+    const layout = await explainButton.evaluate((button) => {
+        const label = button.querySelector<HTMLElement>('.lexisync-menu-button-text');
+        if (!label) throw new Error('Текст команды не найден');
+        const buttonRect = button.getBoundingClientRect();
+        const labelRect = label.getBoundingClientRect();
+        return {
+            buttonRight: buttonRect.right,
+            labelRight: labelRect.right,
+            menuHasHorizontalOverflow: button.parentElement!.scrollWidth > button.parentElement!.clientWidth,
+            labelHasHorizontalOverflow: label.scrollWidth > label.clientWidth,
+        };
+    });
+
+    expect(layout.labelRight).toBeLessThanOrEqual(layout.buttonRight);
+    expect(layout.menuHasHorizontalOverflow).toBe(false);
+    expect(layout.labelHasHorizontalOverflow).toBe(false);
+});
+
+test('Telegram-подобная модалка с transform не смещает окно LexiSync', async ({ page, context }) => {
+    await setFakeApiKey(context);
+    await page.setViewportSize({ width: 1100, height: 700 });
+    await page.goto('https://example.com');
+    await grantSiteAccess(context, page);
+    await context.route('https://api.mistral.ai/v1/chat/completions', async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: 'text/event-stream',
+            body: 'data: {"choices":[{"delta":{"content":"Исправленный текст Telegram."}}]}\n\ndata: [DONE]\n\n',
+        });
+    });
+    await page.evaluate(() => {
+        const modal = document.createElement('section');
+        modal.id = 'telegram-modal';
+        modal.setAttribute('role', 'dialog');
+        modal.setAttribute('aria-modal', 'true');
+        modal.style.cssText =
+            'position:fixed;left:220px;top:110px;width:680px;height:390px;overflow:hidden;transform:translate3d(0,0,0);background:#fff;';
+        const text = document.createElement('p');
+        text.id = 'telegram-selection';
+        text.textContent = 'Текст внутри трансформированного окна Telegram для проверки координат.';
+        text.style.cssText = 'position:absolute;left:42px;top:120px;width:520px;font:18px/1.4 sans-serif;';
+        modal.append(text);
+        document.body.append(modal);
+    });
+
+    await selectTextOnPage(page, '#telegram-selection');
+    const selectionBox = await page.locator('#telegram-selection').boundingBox();
+    expect(selectionBox).not.toBeNull();
+    await page.keyboard.press('Alt+r');
+
+    const result = page.locator('#lexisync-extension-ui[data-surface="result"]');
+    await expect(result).toContainText('Исправленный текст Telegram.');
+    const resultBox = await result.boundingBox();
+    expect(resultBox).not.toBeNull();
+    expect(Math.abs(resultBox!.x - selectionBox!.x)).toBeLessThan(70);
+    expect(resultBox!.x + resultBox!.width).toBeLessThanOrEqual(1100 - 15);
+    expect(resultBox!.y + resultBox!.height).toBeLessThanOrEqual(700 - 15);
+    expect(await page.locator('#lexisync-shadow-host').evaluate((host) => host.parentElement?.tagName)).toBe('HTML');
 });
 
 test('Повторная инъекция не дублирует content script и обработчики', async ({ page, context }) => {
@@ -1154,6 +1238,83 @@ test('popup и манифест не содержат удалённую раб�
     await expect(page.locator('#btn-options')).toBeVisible();
 });
 
+test('блок «Этот сайт» в popup симметричен основным карточкам', async ({ page, context }) => {
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    const extensionId = new URL(background.url()).host;
+    await page.goto(`chrome-extension://${extensionId}/popup.html`);
+    await page.locator('#site-card').evaluate((element: HTMLElement) => {
+        element.hidden = false;
+    });
+
+    const layout = await page.evaluate(() => {
+        const action = document.querySelector<HTMLElement>('.action');
+        const actionIcon = action?.querySelector<HTMLElement>('.action-icon');
+        const actionCopy = action?.querySelector<HTMLElement>('.action-copy');
+        const siteSummary = document.querySelector<HTMLElement>('.site-summary');
+        const siteIcon = siteSummary?.querySelector<HTMLElement>('.site-globe');
+        const siteCopy = siteSummary?.querySelector<HTMLElement>('.site-copy');
+        if (!action || !actionIcon || !actionCopy || !siteSummary || !siteIcon || !siteCopy) {
+            throw new Error('Элементы popup не найдены');
+        }
+        const actionRect = action.getBoundingClientRect();
+        const actionIconRect = actionIcon.getBoundingClientRect();
+        const actionCopyRect = actionCopy.getBoundingClientRect();
+        const siteRect = siteSummary.getBoundingClientRect();
+        const siteIconRect = siteIcon.getBoundingClientRect();
+        const siteCopyRect = siteCopy.getBoundingClientRect();
+        return {
+            actionHeight: actionRect.height,
+            siteHeight: siteRect.height,
+            actionIconSize: [actionIconRect.width, actionIconRect.height],
+            siteIconSize: [siteIconRect.width, siteIconRect.height],
+            actionIconLeft: actionIconRect.left,
+            siteIconLeft: siteIconRect.left,
+            actionCopyLeft: actionCopyRect.left,
+            siteCopyLeft: siteCopyRect.left,
+        };
+    });
+
+    expect(Math.abs(layout.siteHeight - layout.actionHeight)).toBeLessThan(1);
+    expect(layout.siteIconSize).toEqual(layout.actionIconSize);
+    expect(Math.abs(layout.siteIconLeft - layout.actionIconLeft)).toBeLessThan(1);
+    expect(Math.abs(layout.siteCopyLeft - layout.actionCopyLeft)).toBeLessThan(1);
+});
+
+test('глобальный доступ не мешает отключить LexiSync только на текущем сайте', async ({ page, context }) => {
+    await page.goto('https://example.com');
+    const tabId = await grantSiteAccess(context, page);
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() => chrome.storage.local.set({ blockedSites: [] }));
+    const extensionId = new URL(background.url()).host;
+    const popupPage = await context.newPage();
+    await popupPage.goto(
+        `chrome-extension://${extensionId}/popup.html?tabId=${tabId}&targetUrl=${encodeURIComponent('https://example.com/')}`,
+    );
+
+    await expect(popupPage.locator('#site-card')).toBeVisible();
+    await popupPage.locator('#site-summary').click();
+    const allAccess = popupPage.locator('#site-all-access');
+    const siteEnabled = popupPage.locator('#site-enabled');
+    await expect(allAccess).toBeChecked();
+    await expect(siteEnabled).toBeChecked();
+    await expect(siteEnabled).toBeEnabled();
+
+    await siteEnabled.uncheck();
+    await expect
+        .poll(() => background.evaluate(async () => (await chrome.storage.local.get('blockedSites')).blockedSites))
+        .toContain('example.com');
+    await expect(allAccess).toBeChecked();
+    await expect(siteEnabled).not.toBeChecked();
+
+    await siteEnabled.check();
+    await expect
+        .poll(() => background.evaluate(async () => (await chrome.storage.local.get('blockedSites')).blockedSites))
+        .not.toContain('example.com');
+    await popupPage.close();
+});
+
 test('Замена текста работает в contenteditable', async ({ page, context }) => {
     await setFakeApiKey(context);
     await page.goto('https://example.com');
@@ -1432,6 +1593,95 @@ test('Полное отключение сайта подавляет интер
     await page.keyboard.press('Alt+r');
     await page.waitForTimeout(200);
     await expect(page.locator('#lexisync-shadow-host')).toHaveCount(0);
+});
+
+test('отключение уже открытого сайта отменяет автопроверку и блокирует фоновые AI-запросы', async ({
+    page,
+    context,
+}) => {
+    await setFakeApiKey(context);
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() =>
+        chrome.storage.local.set({
+            blockedSites: [],
+            liveProofreadEnabled: true,
+            liveProofreadDelay: 600,
+        }),
+    );
+    let apiRequests = 0;
+    await context.route('https://api.mistral.ai/v1/chat/completions', async (route) => {
+        apiRequests++;
+        await route.fulfill({
+            status: 200,
+            contentType: 'text/event-stream',
+            body: 'data: {"choices":[{"delta":{"content":"Исправленный текст."}}]}\n\ndata: [DONE]\n\n',
+        });
+    });
+    await page.goto('https://example.com');
+    const tabId = await grantSiteAccess(context, page);
+    await page.evaluate(() => {
+        const textarea = document.createElement('textarea');
+        textarea.id = 'blocked-live-editor';
+        textarea.spellcheck = false;
+        document.body.append(textarea);
+    });
+    await page.locator('#blocked-live-editor').fill('Текст с ашипкой для отмены фоновой проверки.');
+    await background.evaluate(() => chrome.storage.local.set({ blockedSites: ['example.com'] }));
+    await page.waitForTimeout(100);
+    await page.locator('#blocked-live-editor').evaluate((editor: HTMLTextAreaElement) => {
+        editor.spellcheck = false;
+        editor.setAttribute('spellcheck', 'false');
+        editor.focus();
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await page.waitForTimeout(800);
+
+    expect(apiRequests).toBe(0);
+    await expect(page.locator('[data-lexisync-live-proof]')).toHaveCount(0);
+    await expect(page.locator('#blocked-live-editor')).toHaveAttribute('spellcheck', 'false');
+
+    const blockedResponse = await background.evaluate(async (id) => {
+        const [execution] = await chrome.scripting.executeScript({
+            target: { tabId: id },
+            func: () =>
+                new Promise<{ status: string; error?: string }>((resolve) => {
+                    const port = chrome.runtime.connect({ name: 'mistralStream' });
+                    const timeout = window.setTimeout(
+                        () => resolve({ status: 'timeout', error: 'Нет ответа фонового процесса' }),
+                        2_000,
+                    );
+                    port.onMessage.addListener((message) => {
+                        if (message.status !== 'error') return;
+                        window.clearTimeout(timeout);
+                        resolve(message);
+                        port.disconnect();
+                    });
+                    port.postMessage({ action: 'callMistral', mode: 'spellcheck', text: 'Тест блокировки' });
+                }),
+        });
+        return execution.result;
+    }, tabId);
+    expect(blockedResponse).toMatchObject({ status: 'error' });
+    expect(blockedResponse?.error).toMatch(/отключ|disabled/i);
+    expect(apiRequests).toBe(0);
+});
+
+test('настройка темы не изменяет CSS-переменные веб-страницы', async ({ page, context }) => {
+    await page.goto('https://example.com');
+    await grantSiteAccess(context, page);
+    await page.evaluate(() => document.documentElement.style.setProperty('--primary', '#123456'));
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() =>
+        chrome.storage.local.set({
+            themeCustomization: { accent: '#ff5500', radius: 18, density: 95, transparency: 90, fontScale: 105 },
+        }),
+    );
+    await expect
+        .poll(() => page.evaluate(() => document.documentElement.style.getPropertyValue('--primary')))
+        .toBe('#123456');
+    expect(await page.evaluate(() => document.documentElement.style.getPropertyValue('--lexisync-accent'))).toBe('');
 });
 test('настройки сохраняют лимиты, автопроверку и тему без рабочей панели', async ({ page, context }) => {
     let [background] = context.serviceWorkers();

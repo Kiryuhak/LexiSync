@@ -15,7 +15,7 @@ on:
                 default: false
 
 permissions:
-    contents: write
+    contents: read
 
 concurrency:
     group: release-${{ github.ref }}
@@ -25,6 +25,8 @@ jobs:
     verify-and-release:
         runs-on: ubuntu-latest
         timeout-minutes: 35
+        permissions:
+            contents: write
         outputs:
             tag: ${{ steps.release_meta.outputs.tag }}
             version: ${{ steps.release_meta.outputs.version }}
@@ -59,6 +61,15 @@ jobs:
 
             - name: Полностью проверить релиз
               run: xvfb-run -a npm run test:all
+
+            - name: Сохранить проверенные архивы релиза
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+              with:
+                  name: release-build-${{ steps.release_meta.outputs.version }}
+                  path: .output/release
+                  include-hidden-files: true
+                  retention-days: 3
+                  if-no-files-found: error
 
             - name: Сохранить диагностику E2E
               if: always()
@@ -121,8 +132,14 @@ jobs:
                   node-version: 24
                   cache: npm
 
-            - name: Установить зависимости и собрать архивы
-              run: npm ci && npm run zip
+            - name: Установить зависимости для публикации
+              run: npm ci
+
+            - name: Получить проверенные архивы релиза
+              uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+              with:
+                  name: release-build-${{ needs.verify-and-release.outputs.version }}
+                  path: .output/release
 
             - name: Отправить расширение в Mozilla Add-ons
               env:
@@ -165,8 +182,11 @@ jobs:
                   node-version: 24
                   cache: npm
 
-            - name: Установить зависимости и собрать архив
-              run: npm ci && npm run zip:chrome
+            - name: Получить проверенный архив релиза
+              uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+              with:
+                  name: release-build-${{ needs.verify-and-release.outputs.version }}
+                  path: .output/release
 
             - name: Отправить расширение в Chrome Web Store
               env:

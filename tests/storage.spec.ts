@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import { addHistoryItem, applyHistoryMutation, getHistory } from '../src/history-store';
+import { addHistoryItem, applyHistoryMutation, getHistory, getHistoryItemCount } from '../src/history-store';
 import { applyUsageMutation } from '../src/usage-stats';
 import { applySettingsMutation } from '../src/settings-store';
 import { applyAdaptiveMutation, flushAdaptiveMutations } from '../src/adaptive-model-store';
@@ -13,7 +13,7 @@ import {
     reserveBudget,
     reserveBudgetIfActive,
 } from '../src/budget-reservations';
-import { initializeSettingsSync, retrySettingsSync } from '../src/settings-transfer';
+import { importPortableSettings, initializeSettingsSync, retrySettingsSync } from '../src/settings-transfer';
 import { restoreV4Settings } from '../src/v4-settings';
 
 let storage: Record<string, unknown>;
@@ -141,6 +141,18 @@ test('показывает локальный статус и позволяет
     expect(storage.settingsSyncStatus).toMatchObject({ state: 'error' });
 });
 
+test('импорт сохраняет новые стили Vision Aurora и Silk Obsidian', async () => {
+    for (const visualStyle of ['vision-aurora', 'silk-obsidian']) {
+        await importPortableSettings({
+            format: 'lexisync-settings',
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            settings: { visualStyle },
+        });
+        expect(storage.visualStyle).toBe(visualStyle);
+    }
+});
+
 test('не зацикливает синхронизацию, когда Firefox сообщает запись без изменения значения', async () => {
     initializeSettingsSync();
 
@@ -170,6 +182,7 @@ test('не теряет историю при параллельных запи�
         ),
     );
     await expect(getHistory()).resolves.toHaveLength(20);
+    await expect(getHistoryItemCount()).resolves.toBe(20);
 });
 
 test('не теряет статистику при параллельных запросах', async () => {

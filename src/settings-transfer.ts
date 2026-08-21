@@ -1,5 +1,6 @@
 import { normalizeSitePatterns } from './site-profiles';
 import { normalizeDisabledSites } from './privacy';
+import { normalizeAppearanceStyle } from './appearance-style';
 import { logger } from './logger';
 
 const PORTABLE_SETTING_KEYS = [
@@ -124,10 +125,7 @@ function sanitizePortableSetting(key: (typeof PORTABLE_SETTING_KEYS)[number], va
     if (key === 'selectedTone')
         return ['business', 'friendly', 'persuasive', 'creative'].includes(String(value)) ? value : 'business';
     if (key === 'selectedTheme') return ['auto', 'light', 'dark'].includes(String(value)) ? value : 'auto';
-    if (key === 'visualStyle')
-        return ['liquid-glass', 'magicos-11', 'material-3', 'flutter', 'aurora-glass'].includes(String(value))
-            ? value
-            : 'liquid-glass';
+    if (key === 'visualStyle') return normalizeAppearanceStyle(value);
     if (key === 'resultDisplayMode') return ['auto', 'compact', 'detailed'].includes(String(value)) ? value : 'compact';
     if (key === 'searchEngine') return ['google', 'yandex', 'duckduckgo'].includes(String(value)) ? value : 'google';
     if (key === 'aiMode') return value === 'fast' ? 'fast' : 'quality';

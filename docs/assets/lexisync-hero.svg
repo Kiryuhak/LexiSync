@@ -57,5 +57,5 @@
   <text x="386" y="158" fill="#ffffff" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="58" font-weight="750" letter-spacing="-1.5">LexiSync</text>
   <rect class="underline" x="387" y="174" width="304" height="5" rx="2.5" fill="url(#accent)" />
   <text x="278" y="229" fill="#f3f7ff" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="25" font-weight="500">Умная работа с текстом прямо в браузере</text>
-  <text x="278" y="261" fill="#dce7ff" opacity="0.82" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16">Preact · TypeScript · Chrome · Firefox</text>
+  <text x="278" y="261" fill="#dce7ff" opacity="0.82" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16">Vanilla DOM · TypeScript · Chrome · Firefox</text>
 </svg>

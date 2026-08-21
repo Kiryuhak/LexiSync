@@ -140,6 +140,7 @@
     "apiKeyMissing": { "message": "API key is not configured" },
     "openSettingsNow": { "message": "Open now" },
     "requestCancelled": { "message": "Request cancelled." },
+    "siteAccessDisabled": { "message": "LexiSync is disabled for this site." },
     "requestConnectionLost": { "message": "The request connection was interrupted. Try again." },
     "undoReplacement": { "message": "Undo replacement" },
     "replaced": { "message": "Replaced!" },

@@ -157,10 +157,11 @@ async function initializeSiteControls(): Promise<void> {
         blockedSites: [],
     });
     domainLabel.textContent = hostname;
-    const hasAllAccess = await hasAllSitesAccess();
-    const hasSiteAccess = hasAllAccess || (await chrome.permissions.contains({ origins: [originPattern] }));
-    allAccessInput.checked = hasAllAccess;
-    enabledInput.checked = hasSiteAccess && !isSiteDisabled(hostname, normalizeDisabledSites(stored.blockedSites));
+    let hasGlobalAccess = await hasAllSitesAccess();
+    let siteIsBlocked = isSiteDisabled(hostname, normalizeDisabledSites(stored.blockedSites));
+    const hasSiteAccess = hasGlobalAccess || (await chrome.permissions.contains({ origins: [originPattern] }));
+    allAccessInput.checked = hasGlobalAccess;
+    enabledInput.checked = hasSiteAccess && !siteIsBlocked;
     suggestionsInput.checked =
         stored.adaptiveSuggestionsEnabled === true &&
         !isSiteDisabled(hostname, normalizeDisabledSites(stored.adaptiveDisabledSites));
@@ -176,7 +177,9 @@ async function initializeSiteControls(): Promise<void> {
     document.getElementById('site-panel')?.appendChild(status);
     let busy = false;
     const updateDependentControls = () => {
-        enabledInput.disabled = busy || allAccessInput.checked;
+        // Глобальное разрешение определяет доступ браузера, а этот переключатель —
+        // явное исключение LexiSync для текущего сайта. Эти состояния не дублируют друг друга.
+        enabledInput.disabled = busy;
         allAccessInput.disabled = busy;
         for (const input of [suggestionsInput, historyInput, contextInput])
             input.disabled = busy || !enabledInput.checked;
@@ -220,18 +223,20 @@ async function initializeSiteControls(): Promise<void> {
 
     allAccessInput.addEventListener('change', async () => {
         const requestedState = allAccessInput.checked;
-        const previousState = !requestedState;
         setBusy(true);
         showStatus();
         try {
             if (requestedState) {
                 const granted = await requestAllSitesAccess();
                 if (!granted) throw new Error('ALL_SITES_PERMISSION_DENIED');
-                enabledInput.checked = true;
+                hasGlobalAccess = true;
+                enabledInput.checked = !siteIsBlocked;
             } else {
-                await removeAllSitesAccess();
+                const removed = await removeAllSitesAccess();
+                if (!removed) throw new Error('ALL_SITES_PERMISSION_REMOVE_FAILED');
+                hasGlobalAccess = false;
                 const hasLocal = await chrome.permissions.contains({ origins: [originPattern] });
-                enabledInput.checked = hasLocal;
+                enabledInput.checked = hasLocal && !siteIsBlocked;
             }
             if (activeTab.id) {
                 await chrome.runtime.sendMessage({
@@ -242,7 +247,10 @@ async function initializeSiteControls(): Promise<void> {
             }
             showStatus(t('siteSettingSaved', 'Настройка сайта сохранена.'));
         } catch (error) {
-            allAccessInput.checked = previousState;
+            hasGlobalAccess = await hasAllSitesAccess();
+            allAccessInput.checked = hasGlobalAccess;
+            const hasLocal = await chrome.permissions.contains({ origins: [originPattern] }).catch(() => false);
+            enabledInput.checked = (hasGlobalAccess || hasLocal) && !siteIsBlocked;
             const denied = error instanceof Error && error.message === 'ALL_SITES_PERMISSION_DENIED';
             showStatus(
                 denied
@@ -275,19 +283,22 @@ async function initializeSiteControls(): Promise<void> {
             }
             await setSitePreference('access', hostname, requestedState);
             storageChanged = true;
+            siteIsBlocked = !requestedState;
             const response = await chrome.runtime.sendMessage({
                 action: 'siteAccessChanged',
                 tabId: activeTab.id,
                 enabled: requestedState,
             });
             if (response?.ok !== true) throw new Error(response?.error || 'SITE_ACCESS_UPDATE_FAILED');
-            if (!requestedState) await chrome.permissions.remove({ origins: originsToManage }).catch(() => false);
+            if (!requestedState && !hasGlobalAccess)
+                await chrome.permissions.remove({ origins: originsToManage }).catch(() => false);
             showStatus(t('siteSettingSaved', 'Настройка сайта сохранена.'));
         } catch (error) {
             enabledInput.checked = previousState;
             if (storageChanged) {
                 try {
                     await setSitePreference('access', hostname, previousState);
+                    siteIsBlocked = !previousState;
                     await chrome.runtime.sendMessage({
                         action: 'siteAccessChanged',
                         tabId: activeTab.id,
@@ -297,7 +308,7 @@ async function initializeSiteControls(): Promise<void> {
                     logger.error('LexiSync site access rollback failed:', rollbackError);
                 }
             }
-            if (requestedState && permissionChecked && !permissionBefore)
+            if (requestedState && permissionChecked && !permissionBefore && !hasGlobalAccess)
                 await chrome.permissions.remove({ origins: originsToManage }).catch(() => false);
             const denied = error instanceof Error && error.message === 'SITE_PERMISSION_DENIED';
             showStatus(

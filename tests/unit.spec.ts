@@ -19,7 +19,7 @@ import { createSettingsFingerprint, serializeCacheSource } from '../src/request-
 import { normalizeDisabledSites, normalizeSiteEntries } from '../src/privacy';
 import { validateMistralRequest } from '../src/request-validation';
 import { normalizeResultDisplayMode, shouldUseCompactResult } from '../src/result-display-mode';
-import { applyAppearanceStyle, normalizeAppearanceStyle } from '../src/appearance-style';
+import { APPEARANCE_STYLES, applyAppearanceStyle, normalizeAppearanceStyle } from '../src/appearance-style';
 import { estimateTokens, getBudgetBlockReason, getMonthUsage } from '../src/budget';
 import { applyThemeCustomization, normalizeThemeCustomization } from '../src/theme-customization';
 import { parseAdaptiveModel } from '../src/adaptive-model-store';
@@ -38,7 +38,7 @@ import { clampInterfaceScale } from '../src/options-appearance';
 import { SETTINGS_TAB_GUIDES } from '../src/options-tabs';
 import { createDiagnosticReport } from '../src/diagnostics';
 import { createLanguagePicker, POPULAR_LANGUAGE_CODES } from '../src/content-language-picker';
-import { openDatabase, idbGet, idbGetAll, idbPut, idbDelete, idbClear } from '../src/idb';
+import { openDatabase, idbGet, idbGetAll, idbPut, idbDelete, idbClear, idbCount } from '../src/idb';
 import {
     createSvgIcon,
     setIcon,
@@ -50,11 +50,13 @@ import { formatTextStats } from '../src/text-stats';
 import { activateDialogKeyboard } from '../src/content-dialog-accessibility';
 import { cleanupExpiredAiCacheLocally } from '../src/ai-cache';
 import { getLastUsedAction, setLastUsedAction } from '../src/content-menus';
+import { isRuntimeSettingKey, pickRuntimeSettings, RUNTIME_SETTING_KEYS } from '../src/runtime-settings-cache';
+import { isExtensionAllowedForUrl } from '../src/site-runtime-access';
 
 test('история обновлений содержит все выпуски и поддерживает поиск', () => {
-    expect(RELEASE_NOTES[0].version).toBe('5.3.1');
+    expect(RELEASE_NOTES[0].version).toBe('5.3.2');
     expect(RELEASE_NOTES.at(-1)?.version).toBe('2.5');
-    expect(RELEASE_NOTES).toHaveLength(45);
+    expect(RELEASE_NOTES).toHaveLength(46);
     expect(new Set(RELEASE_NOTES.map((release) => release.version)).size).toBe(RELEASE_NOTES.length);
     expect(filterReleaseNotes(RELEASE_NOTES, 'MagicOS', 'ru').map((release) => release.version)).toEqual([
         '5.3.1',
@@ -67,6 +69,39 @@ test('история обновлений содержит все выпуски
     expect(filterReleaseNotes(RELEASE_NOTES, 'streaming', 'en').map((release) => release.version)).toEqual(['2.15.0']);
     expect(resolveReleaseNotesLocale('ru-RU')).toBe('ru');
     expect(resolveReleaseNotesLocale('de-DE')).toBe('en');
+});
+
+test('реестр оформления содержит все семь поддерживаемых стилей', () => {
+    expect(APPEARANCE_STYLES).toEqual([
+        'liquid-glass',
+        'magicos-11',
+        'material-3',
+        'flutter',
+        'aurora-glass',
+        'vision-aurora',
+        'silk-obsidian',
+    ]);
+});
+
+test('runtime-кэш оставляет только небольшие настройки и исключает AI-кэш', () => {
+    const selected = pickRuntimeSettings({
+        selectedTone: 'friendly',
+        aiMode: 'fast',
+        ai_cache_index: [{ key: 'large' }],
+        [`ai_cache_${'a'.repeat(64)}`]: { value: 'x'.repeat(50_000) },
+        adaptiveLanguageModel: { words: { example: { count: 100 } } },
+    });
+    expect(selected).toEqual({ selectedTone: 'friendly', aiMode: 'fast' });
+    expect(RUNTIME_SETTING_KEYS.length).toBeLessThan(20);
+    expect(isRuntimeSettingKey('selectedTone')).toBe(true);
+    expect(isRuntimeSettingKey('ai_cache_index')).toBe(false);
+});
+
+test('глобальное отключение сайта применяется к дочерним доменам и не блокирует страницы расширения', () => {
+    expect(isExtensionAllowedForUrl('https://web.telegram.org/k/', ['telegram.org'])).toBe(false);
+    expect(isExtensionAllowedForUrl('https://example.com/', ['telegram.org'])).toBe(true);
+    expect(isExtensionAllowedForUrl('chrome-extension://example/options.html', ['example'])).toBe(true);
+    expect(isExtensionAllowedForUrl('not a url', ['example.com'])).toBe(true);
 });
 
 test('удерживает модальное окно рядом с указателем при ограниченной высоте', () => {
@@ -816,6 +851,7 @@ test('createDiagnosticReport формирует валидный отчёт бе
         expect(report.permissions).toContain('storage');
         expect(report.usage.requests).toBe(10);
         expect(report.usage.cacheHits).toBe(3);
+        expect(report.counts.historyItems).toBeTypeOf('number');
     } finally {
         vi.stubGlobal('chrome', originalChrome);
     }
@@ -965,6 +1001,7 @@ test('idb обёртки корректно выполняют CRUD операц
     // Put
     await idbPut(db, 'items', { id: 1, name: 'Item 1' });
     await idbPut(db, 'items', { id: 2, name: 'Item 2' });
+    await expect(idbCount(db, 'items')).resolves.toBe(2);
 
     // Get
     const item1 = await idbGet<{ id: number; name: string }>(db, 'items', 1);
@@ -983,6 +1020,7 @@ test('idb обёртки корректно выполняют CRUD операц
     await idbClear(db, 'items');
     const allAfter = await idbGetAll(db, 'items');
     expect(allAfter).toEqual([]);
+    await expect(idbCount(db, 'items')).resolves.toBe(0);
 
     db.close();
 });

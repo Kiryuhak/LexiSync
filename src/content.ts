@@ -23,7 +23,11 @@ import {
 } from './content-request-panel';
 import { ensureOptionalContentFeature, OCR_IMAGE_EVENT, OCR_START_EVENT } from './optional-content-features';
 import { applyAppearanceStyle, normalizeAppearanceStyle, type AppearanceStyle } from './appearance-style';
-import { applyThemeCustomization, DEFAULT_THEME_CUSTOMIZATION } from './theme-customization';
+import {
+    applyThemeCustomization,
+    normalizeThemeCustomization,
+    DEFAULT_THEME_CUSTOMIZATION,
+} from './theme-customization';
 import type { ThemeCustomization } from './types';
 import { logger } from './logger';
 
@@ -31,6 +35,9 @@ const contentRuntime = globalThis as typeof globalThis & { __lexisyncContentInit
 if (!contentRuntime.__lexisyncContentInitialized) {
     contentRuntime.__lexisyncContentInitialized = true;
 
+    // До загрузки настроек ничего не показываем: это исключает короткое появление
+    // интерфейса на сайтах, которые пользователь уже отключил.
+    let extensionEnabledOnSite = false;
     let adaptiveSuggestionsInitialized = false;
     const ensureAdaptiveSuggestions = async () => {
         if (adaptiveSuggestionsInitialized) return;
@@ -53,20 +60,29 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             logger.error(t('liveProofLoadFailed', 'Не удалось загрузить автоматическую проверку.'), error);
         }
     };
-    void chrome.storage.local.get({ adaptiveSuggestionsEnabled: false, liveProofreadEnabled: false }).then((stored) => {
+    const ensureEnabledOptionalFeatures = async (): Promise<void> => {
+        if (!extensionEnabledOnSite) return;
+        const stored = await chrome.storage.local.get({
+            adaptiveSuggestionsEnabled: false,
+            liveProofreadEnabled: false,
+        });
         if (stored.adaptiveSuggestionsEnabled === true) void ensureAdaptiveSuggestions();
         if (stored.liveProofreadEnabled === true) void ensureLiveProofread();
-    });
+    };
 
-    let extensionEnabledOnSite = true;
-    void chrome.storage.local.get({ blockedSites: [] }).then((stored) => {
-        extensionEnabledOnSite = !isSiteDisabled(location.hostname, normalizeDisabledSites(stored.blockedSites));
-    });
+    void chrome.storage.local
+        .get({ blockedSites: [], adaptiveSuggestionsEnabled: false, liveProofreadEnabled: false })
+        .then((stored) => {
+            extensionEnabledOnSite = !isSiteDisabled(location.hostname, normalizeDisabledSites(stored.blockedSites));
+            if (!extensionEnabledOnSite) return;
+            if (stored.adaptiveSuggestionsEnabled === true) void ensureAdaptiveSuggestions();
+            if (stored.liveProofreadEnabled === true) void ensureLiveProofread();
+        });
     chrome.storage.onChanged.addListener((changes, areaName) => {
-        if (areaName === 'local' && changes.adaptiveSuggestionsEnabled?.newValue === true) {
+        if (areaName === 'local' && extensionEnabledOnSite && changes.adaptiveSuggestionsEnabled?.newValue === true) {
             void ensureAdaptiveSuggestions();
         }
-        if (areaName === 'local' && changes.liveProofreadEnabled?.newValue === true) {
+        if (areaName === 'local' && extensionEnabledOnSite && changes.liveProofreadEnabled?.newValue === true) {
             void ensureLiveProofread();
         }
         if (areaName === 'local' && changes.blockedSites) {
@@ -77,6 +93,8 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             if (!extensionEnabledOnSite) {
                 cancelPendingSelectionMenu();
                 closePopup();
+            } else {
+                void ensureEnabledOptionalFeatures();
             }
         }
     });
@@ -158,6 +176,8 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             if (!extensionEnabledOnSite) {
                 cancelPendingSelectionMenu();
                 closePopup();
+            } else {
+                void ensureEnabledOptionalFeatures();
             }
             sendResponse({ ok: true });
             return;
@@ -379,7 +399,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
         (res) => {
             if (res.selectedTheme) currentTheme = res.selectedTheme as string;
             currentVisualStyle = normalizeAppearanceStyle(res.visualStyle);
-            currentThemeCustomization = applyThemeCustomization(document.documentElement, res.themeCustomization);
+            currentThemeCustomization = normalizeThemeCustomization(res.themeCustomization);
             if (res.searchEngine) currentSearchEngine = res.searchEngine as string;
             currentInterfaceScale = normalizeInterfaceScale(res.interfaceScale);
         },
@@ -396,10 +416,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
                 if (popupUI) applyAppearanceStyle(popupUI, currentVisualStyle);
             }
             if (changes.themeCustomization) {
-                currentThemeCustomization = applyThemeCustomization(
-                    document.documentElement,
-                    changes.themeCustomization.newValue,
-                );
+                currentThemeCustomization = normalizeThemeCustomization(changes.themeCustomization.newValue);
                 if (popupUI) applyThemeCustomization(popupUI, currentThemeCustomization);
             }
             if (changes.searchEngine) currentSearchEngine = changes.searchEngine.newValue as string;
@@ -489,23 +506,30 @@ if (!contentRuntime.__lexisyncContentInitialized) {
     }
 
     function getPopupContainer(): HTMLElement {
-        const MODAL_SELECTOR =
-            'dialog, [role="dialog"], [aria-modal="true"], .ComposePopup, .modal-content, .modal, .Popup2, [class*="ComposeManager"]';
-        const activeEl = document.activeElement;
-        if (activeEl) {
-            const modal = activeEl.closest(MODAL_SELECTOR);
-            if (modal instanceof HTMLElement) return modal;
-        }
+        // Элемент за пределами настоящего top-layer dialog должен находиться у
+        // корня документа. Иначе transform на пользовательской модалке (например,
+        // в Telegram Web) меняет систему координат position:fixed и уводит окно.
+        const findTopLayerDialog = (element: Element | null): HTMLDialogElement | null => {
+            const dialog = element?.closest('dialog');
+            if (!(dialog instanceof HTMLDialogElement) || !dialog.open) return null;
+            try {
+                return dialog.matches(':modal') ? dialog : null;
+            } catch {
+                return null;
+            }
+        };
+        const activeDialog = findTopLayerDialog(document.activeElement);
+        if (activeDialog) return activeDialog;
         const sel = window.getSelection();
         if (sel && sel.rangeCount > 0) {
             let node: Node | null = sel.anchorNode;
             if (node && node.nodeType === Node.TEXT_NODE) node = node.parentNode;
             if (node instanceof Element) {
-                const modal = node.closest(MODAL_SELECTOR);
-                if (modal instanceof HTMLElement) return modal;
+                const selectionDialog = findTopLayerDialog(node);
+                if (selectionDialog) return selectionDialog;
             }
         }
-        return document.body || document.documentElement;
+        return document.documentElement;
     }
 
     function saveSelectionState(fallbackText?: string): void {
