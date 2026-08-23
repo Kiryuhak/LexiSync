@@ -977,7 +977,7 @@ test('Названия вкладок настроек не переносятс
         }),
     );
 
-    expect(lineCounts).toHaveLength(6);
+    expect(lineCounts).toHaveLength(7);
     expect(lineCounts.every((count) => count === 1)).toBe(true);
     expect(await page.locator('.settings-tabs').evaluate((tabs) => tabs.scrollWidth - tabs.clientWidth)).toBe(0);
 });
@@ -1212,7 +1212,7 @@ test('Компактный режим настраивается и показы
     const panel = page.locator('#lexisync-extension-ui');
     await expect(panel).toHaveAttribute('data-ui-style', 'magicos-11');
     await expect(panel.locator('.lexisync-content-pane')).toHaveText('Sample Domai');
-    await expect(panel.locator('.lexisync-result-button')).toHaveCount(2);
+    await expect(panel.locator('.lexisync-result-button')).toHaveCount(3);
     await expect(panel.locator('.lexisync-corrections')).toBeHidden();
     await expect(panel.locator('.lexisync-result-tools')).toBeHidden();
     await expect(panel.locator('.lexisync-content-pane mark').first()).toBeVisible();
