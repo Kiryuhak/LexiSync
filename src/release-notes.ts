@@ -36,6 +36,47 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.3.3',
+        '2026-08-23',
+        'new',
+        'Интерактивное руководство, маскировка PII, библиотека шаблонов, сброс настроек и тихое исправление',
+        'Interactive feature guide, PII masking, prompt library, factory reset, and silent quick fix',
+        [
+            [
+                'Добавлена новая вкладка «Руководство» с интерактивными живыми демонстрациями для всех 10 ключевых возможностей и горячих клавиш.',
+                'Added a new "Guide" tab with interactive live demonstrations for all 10 key features and keyboard shortcuts.',
+            ],
+            [
+                'Внедрена локальная маскировка персональных данных (PII): email, телефоны, банковские карты и API-ключи автоматически обезличиваются на устройстве перед запросом к AI.',
+                'Implemented local PII masking: emails, phone numbers, credit cards, and API keys are automatically anonymized on-device before querying AI.',
+            ],
+            [
+                'Встроена галерея готовых шаблонов команд: добавление готовых промптов (Code Review, SQL, протокол встречи, перевод) в один клик.',
+                'Built-in prompt library: 1-click addition of curated prompts (Code Review, SQL, meeting notes, translation).',
+            ],
+            [
+                'Добавлено тихое исправление на месте (0 мс): мгновенное исправление опечаток, пунктуации и неверной раскладки прямо в активном поле ввода.',
+                'Added silent in-place fix (0 ms): instant correction of typos, punctuation, and keyboard layout directly in the active input field.',
+            ],
+            [
+                'Поддержано мультиформатное копирование: форматированный HTML для Word/Google Docs/Notion и чистый текст для редакторов кода.',
+                'Added multi-format rich copying: formatted HTML for Word/Google Docs/Notion and plain text for code editors.',
+            ],
+            [
+                'Добавлен сброс настроек до заводских с модальным подтверждением для безопасного возврата к исходной конфигурации.',
+                'Added a factory reset option with confirmation modal to safely restore the default configuration.',
+            ],
+            [
+                'Устранены паразитные символы разметки и исключено ошибочное оборачивание одиночных фраз в пустые Markdown-таблицы.',
+                'Cleaned up markdown artifacts and strictly prevented single phrases from wrapping into empty pseudo-tables.',
+            ],
+            [
+                'Добавлен умный расчёт времени чтения и степени сжатия для длинных текстов и выжимок.',
+                'Added smart reading time estimation and compression badges for long articles and summaries.',
+            ],
+        ],
+    ),
+    note(
         '5.3.2',
         '2026-08-21',
         'improved',

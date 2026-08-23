@@ -1,7 +1,7 @@
 {
     "name": "lexisync-extension",
-    "version": "5.3.2",
-    "description": "Умный помощник для работы с текстом на базе Mistral AI",
+    "version": "5.3.3",
+    "description": "LexiSync - Smart Text AI Assistant with Mistral API",
     "scripts": {
         "dev": "wxt",
         "dev:firefox": "wxt -b firefox",
