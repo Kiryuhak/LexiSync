@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { expect, test, vi } from 'vitest';
 import { detectLayoutDirection, fixKeyboardLayout } from '../src/keyboard-layout';
-import { buildMessages } from '../src/prompt-builder';
+import { buildMessages, buildPromptPayload } from '../src/prompt-builder';
 import { escapeHTML, parseMarkdownToHTML, stripSummaryPrefix } from '../src/markdown';
 import {
     formatMistralError,
@@ -73,11 +73,12 @@ test('восстанавливает полное визуальное выде�
 });
 
 test('история обновлений содержит все выпуски и поддерживает поиск', () => {
-    expect(RELEASE_NOTES[0].version).toBe('5.3.3');
+    expect(RELEASE_NOTES[0].version).toBe('5.3.4');
     expect(RELEASE_NOTES.at(-1)?.version).toBe('2.5');
-    expect(RELEASE_NOTES).toHaveLength(47);
+    expect(RELEASE_NOTES).toHaveLength(48);
     expect(new Set(RELEASE_NOTES.map((release) => release.version)).size).toBe(RELEASE_NOTES.length);
     expect(filterReleaseNotes(RELEASE_NOTES, 'MagicOS', 'ru').map((release) => release.version)).toEqual([
+        '5.3.4',
         '5.3.1',
         '5.2.1',
         '5.1.0',
@@ -290,6 +291,30 @@ test('не передаёт контекст страницы без согла�
     expect(messages[0].content).toContain('LexiSync = LexiSync');
 });
 
+test('маскирует текст и контекст уникальными маркерами перед отправкой', () => {
+    const payload = buildPromptPayload(
+        {
+            mode: 'spellcheck',
+            text: 'Напишите на user@example.com',
+            context: 'Телефон +7 999 123-45-67',
+        },
+        {
+            selectedTone: 'business',
+            sendPageContext: true,
+            personalDictionary: [],
+            glossary: [],
+            enablePiiMasking: true,
+        },
+    );
+
+    const serialized = JSON.stringify(payload.messages);
+    expect(serialized).not.toContain('user@example.com');
+    expect(serialized).not.toContain('+7 999 123-45-67');
+    expect(Object.keys(payload.piiMaskMap)).toHaveLength(2);
+    expect(new Set(Object.keys(payload.piiMaskMap)).size).toBe(2);
+    expect(payload.messages[0].content).toContain('Сохраняй без изменений служебные маркеры');
+});
+
 test('безопасно экранирует HTML в ответе модели', () => {
     const html = parseMarkdownToHTML('<img src=x onerror=alert(1)> **готово**');
     expect(html).not.toContain('<img');
@@ -365,6 +390,46 @@ test('отклоняет завершённый SSE-поток без содер
                 () => undefined,
             ),
         ).rejects.toThrow(/пустой|empty/i);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
+test('восстанавливает персональные данные только после завершения защищённого SSE-потока', async () => {
+    const originalFetch = globalThis.fetch;
+    let requestBody = '';
+    globalThis.fetch = async (_url, init) => {
+        requestBody = String(init?.body || '');
+        return new Response(
+            [
+                'data: {"choices":[{"delta":{"content":"Почта: [__EMAIL_"}}]}',
+                '',
+                'data: {"choices":[{"delta":{"content":"1__] исправлена"}}]}',
+                '',
+                'data: [DONE]',
+                '',
+            ].join('\n'),
+            { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+        );
+    };
+    const chunks: string[] = [];
+    try {
+        await streamText(
+            { action: 'callMistral', mode: 'spellcheck', text: 'Почта: user@example.com испровлена' },
+            'test-key',
+            {
+                selectedTone: 'business',
+                sendPageContext: false,
+                personalDictionary: [],
+                glossary: [],
+                aiMode: 'quality',
+                enablePiiMasking: true,
+            },
+            new AbortController().signal,
+            (chunk) => chunks.push(chunk),
+        );
+        expect(requestBody).not.toContain('user@example.com');
+        expect(chunks).toEqual(['Почта: user@example.com исправлена']);
     } finally {
         globalThis.fetch = originalFetch;
     }
@@ -1523,6 +1588,9 @@ test('maskPii и unmaskPii корректно маскируют и восста
 
     const restored = unmaskPii(maskedText, maskMap);
     expect(restored).toBe(raw);
+
+    const next = maskPii('Вторая почта: second@example.com', maskedCount);
+    expect(Object.keys(next.maskMap)).toEqual([`[__EMAIL_${maskedCount + 1}__]`]);
 });
 
 test('PROMPT_LIBRARY_TEMPLATES содержит проверенные шаблоны команд', async () => {

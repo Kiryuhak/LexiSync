@@ -14,16 +14,18 @@ const IP_PATTERN = /\b(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0
 /**
  * Локально маскирует чувствительные данные перед отправкой в AI (0 мс).
  */
-export function maskPii(text: string): MaskPiiResult {
+export function maskPii(text: string, startIndex = 0): MaskPiiResult {
     if (!text || typeof text !== 'string') {
         return { maskedText: text, maskMap: {}, maskedCount: 0 };
     }
 
     const maskMap: Record<string, string> = {};
-    let counter = 0;
+    let counter = Math.max(0, Math.trunc(startIndex));
+    let maskedCount = 0;
 
     const replaceWithToken = (match: string, type: string): string => {
         counter++;
+        maskedCount++;
         const token = `[__${type}_${counter}__]`;
         maskMap[token] = match;
         return token;
@@ -39,7 +41,7 @@ export function maskPii(text: string): MaskPiiResult {
     return {
         maskedText: result,
         maskMap,
-        maskedCount: counter,
+        maskedCount,
     };
 }
 

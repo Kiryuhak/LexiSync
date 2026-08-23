@@ -81,6 +81,7 @@ const SAVED_OPTION_IDS = [
     'adaptiveLearningEnabled',
     'searchEngine',
     'sendPageContext',
+    'enablePiiMasking',
     'historyEnabled',
     'historyRetentionDays',
     'disabledSites',
@@ -114,7 +115,6 @@ function showOptionsStatus(message: string, kind: 'success' | 'warning' | 'error
     if (!status) return;
     status.textContent = message;
     status.dataset.kind = kind;
-    status.style.color = kind === 'success' ? '#10b981' : kind === 'warning' ? '#d97706' : '#dc2626';
     status.style.display = 'block';
 }
 
@@ -266,6 +266,7 @@ async function saveOptions(): Promise<void> {
     const adaptiveLearningInput = document.getElementById('adaptiveLearningEnabled') as HTMLInputElement;
     const searchSelect = document.getElementById('searchEngine') as HTMLSelectElement;
     const sendPageContextInput = document.getElementById('sendPageContext') as HTMLInputElement;
+    const enablePiiMaskingInput = document.getElementById('enablePiiMasking') as HTMLInputElement;
     const historyEnabledInput = document.getElementById('historyEnabled') as HTMLInputElement;
     const historyRetentionSelect = document.getElementById('historyRetentionDays') as HTMLSelectElement;
     const disabledSitesInput = document.getElementById('disabledSites') as HTMLTextAreaElement;
@@ -306,6 +307,7 @@ async function saveOptions(): Promise<void> {
         if (changed('adaptiveLearningEnabled')) updates.adaptiveLearningEnabled = adaptiveLearningInput.checked;
         if (changed('searchEngine')) updates.searchEngine = searchSelect.value;
         if (changed('sendPageContext')) updates.sendPageContext = sendPageContextInput.checked;
+        if (changed('enablePiiMasking')) updates.enablePiiMasking = enablePiiMaskingInput.checked;
         if (changed('historyEnabled')) updates.historyEnabled = historyEnabledInput.checked;
         if (changed('historyRetentionDays')) updates.historyRetentionDays = Number(historyRetentionSelect.value);
         if (changed('disabledSites')) updates.disabledSites = normalizedDisabledSites.valid;
@@ -378,6 +380,7 @@ async function restoreOptions(): Promise<void> {
     const adaptiveLearningInput = document.getElementById('adaptiveLearningEnabled') as HTMLInputElement;
     const searchSelect = document.getElementById('searchEngine') as HTMLSelectElement;
     const sendPageContextInput = document.getElementById('sendPageContext') as HTMLInputElement;
+    const enablePiiMaskingInput = document.getElementById('enablePiiMasking') as HTMLInputElement;
     const historyEnabledInput = document.getElementById('historyEnabled') as HTMLInputElement;
     const historyRetentionSelect = document.getElementById('historyRetentionDays') as HTMLSelectElement;
     const disabledSitesInput = document.getElementById('disabledSites') as HTMLTextAreaElement;
@@ -398,6 +401,7 @@ async function restoreOptions(): Promise<void> {
             adaptiveLanguageModel: { version: 2, words: {}, pairs: {}, rejections: {} },
             searchEngine: 'google',
             sendPageContext: false,
+            enablePiiMasking: true,
             historyEnabled: true,
             historyRetentionDays: 30,
             disabledSites: [],
@@ -429,6 +433,7 @@ async function restoreOptions(): Promise<void> {
     adaptiveLearningInput.checked = items.adaptiveLearningEnabled !== false;
     searchSelect.value = items.searchEngine as string;
     sendPageContextInput.checked = items.sendPageContext === true;
+    enablePiiMaskingInput.checked = items.enablePiiMasking !== false;
     historyEnabledInput.checked = items.historyEnabled !== false;
     historyRetentionSelect.value = String(items.historyRetentionDays || 30);
     disabledSitesInput.value = Array.isArray(items.disabledSites) ? items.disabledSites.join('\n') : '';
@@ -504,18 +509,23 @@ function setupPromptLibrary(): void {
             addBtn.onclick = async () => {
                 try {
                     addBtn.disabled = true;
-                    await upsertCustomCommand({
-                        id: `cmd-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                    const commands = await upsertCustomCommand({
+                        id: template.id,
                         name: template.name,
                         prompt: template.prompt,
                     });
+                    restoreCustomCommandSettings(commands);
                     addBtn.textContent = t('templateAdded', '✓ Добавлено!');
                     setTimeout(() => {
                         addBtn.disabled = false;
                         addBtn.textContent = t('addTemplateToCommands', '+ Добавить в свои команды');
                     }, 2000);
-                } catch {
+                } catch (error) {
                     addBtn.disabled = false;
+                    showOptionsStatus(
+                        error instanceof Error ? error.message : t('saveFailed', 'Не удалось сохранить настройки.'),
+                        'error',
+                    );
                 }
             };
 

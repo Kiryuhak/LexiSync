@@ -285,7 +285,7 @@ test('атомарно добавляет и удаляет пользовате
 });
 
 test('миграция не читает всё хранилище при актуальной схеме', async () => {
-    storage.settingsSchemaVersion = 10;
+    storage.settingsSchemaVersion = 11;
 
     await migrateSettings();
 
@@ -304,7 +304,7 @@ test.each([
     await migrateSettings();
 
     expect(storage.resultDisplayMode).toBe(expected);
-    expect(storage.settingsSchemaVersion).toBe(10);
+    expect(storage.settingsSchemaVersion).toBe(11);
     expect(storageGetCalls).not.toContain(null);
 });
 
@@ -355,7 +355,7 @@ test('не затирает настройку, изменённую парал�
     await migrateSettings();
 
     expect(storage.resultDisplayMode).toBe('compact');
-    expect(storage.settingsSchemaVersion).toBe(10);
+    expect(storage.settingsSchemaVersion).toBe(11);
 });
 
 test('добавляет Liquid Glass как безопасный стиль по умолчанию', async () => {
@@ -364,7 +364,7 @@ test('добавляет Liquid Glass как безопасный стиль п�
     await migrateSettings();
 
     expect(storage.visualStyle).toBe('liquid-glass');
-    expect(storage.settingsSchemaVersion).toBe(10);
+    expect(storage.settingsSchemaVersion).toBe(11);
 });
 
 test('заменяет удалённый Bento Soft на Liquid Glass', async () => {
@@ -374,14 +374,23 @@ test('заменяет удалённый Bento Soft на Liquid Glass', async (
     await migrateSettings();
 
     expect(storage.visualStyle).toBe('liquid-glass');
-    expect(storage.settingsSchemaVersion).toBe(10);
+    expect(storage.settingsSchemaVersion).toBe(11);
 });
 
 test('добавляет список исключений автопроверки при переходе на схему 9', async () => {
     storage.settingsSchemaVersion = 8;
     await migrateSettings();
     expect(storage.liveProofreadDisabledSites).toEqual([]);
-    expect(storage.settingsSchemaVersion).toBe(10);
+    expect(storage.settingsSchemaVersion).toBe(11);
+});
+
+test('включает локальную маскировку персональных данных при переходе на схему 11', async () => {
+    storage.settingsSchemaVersion = 10;
+
+    await migrateSettings();
+
+    expect(storage.enablePiiMasking).toBe(true);
+    expect(storage.settingsSchemaVersion).toBe(11);
 });
 
 test('пакетирует частые записи адаптивной модели в одно чтение и запись', async () => {

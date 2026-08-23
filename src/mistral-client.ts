@@ -1,5 +1,6 @@
 import { t } from './i18n';
-import { buildMessages } from './prompt-builder';
+import { unmaskPii } from './pii-masker';
+import { buildPromptPayload } from './prompt-builder';
 import type { AiMode, RequestMode, StyleProfile } from './types';
 
 export interface MistralRequest {
@@ -23,6 +24,7 @@ export interface MistralSettings {
     glossary: string[];
     activeStyleProfile?: StyleProfile;
     aiMode: AiMode;
+    enablePiiMasking?: boolean;
 }
 
 const API_BASE_URL = 'https://api.mistral.ai/v1';
@@ -188,6 +190,8 @@ export async function streamText(
     signal: AbortSignal,
     onChunk: (text: string) => void,
 ): Promise<void> {
+    const prompt = buildPromptPayload(msg, settings);
+    const shouldRestorePii = Object.keys(prompt.piiMaskMap).length > 0;
     const response = await fetchWithRetry(
         `${API_BASE_URL}/chat/completions`,
         {
@@ -195,7 +199,7 @@ export async function streamText(
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
             body: JSON.stringify({
                 model: settings.aiMode === 'fast' ? 'mistral-small-latest' : 'mistral-large-latest',
-                messages: buildMessages(msg, settings),
+                messages: prompt.messages,
                 stream: true,
             }),
         },
@@ -207,13 +211,21 @@ export async function streamText(
 
     const decoder = new TextDecoder();
     let buffer = '';
+    let bufferedMaskedContent = '';
     let receivedContent = false;
+    const emitCompletedContent = () => {
+        if (shouldRestorePii && bufferedMaskedContent) {
+            onChunk(unmaskPii(bufferedMaskedContent, prompt.piiMaskMap));
+            bufferedMaskedContent = '';
+        }
+    };
     const processLine = (line: string): boolean => {
         if (line.trim() === 'data: [DONE]') return true;
         const content = readSsePayload(line);
         if (content) {
             receivedContent = true;
-            onChunk(content);
+            if (shouldRestorePii) bufferedMaskedContent += content;
+            else onChunk(content);
         }
         return false;
     };
@@ -227,6 +239,7 @@ export async function streamText(
             if (!processLine(line)) continue;
             if (!receivedContent)
                 throw new MistralRequestError(t('emptyStream', 'Mistral вернул пустой поток данных.'), true);
+            emitCompletedContent();
             await reader.cancel();
             return;
         }
@@ -235,6 +248,7 @@ export async function streamText(
     if (buffer && processLine(buffer)) {
         if (!receivedContent)
             throw new MistralRequestError(t('emptyStream', 'Mistral вернул пустой поток данных.'), true);
+        emitCompletedContent();
         await reader.cancel();
         return;
     }

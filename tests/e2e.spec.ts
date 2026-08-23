@@ -38,7 +38,7 @@ const test = base.extend({
                     return settings.settingsSchemaVersion;
                 }),
             )
-            .toBe(10);
+            .toBe(11);
         await use(context);
         await context.close();
     },
@@ -961,6 +961,38 @@ test('Пользовательская команда сохраняется н�
     expect(commands[0].prompt).toBe('Преобразуй текст в короткие тезисы.');
 });
 
+test('маскировка персональных данных сохраняется и библиотека не создаёт дубликаты команд', async ({
+    page,
+    context,
+}) => {
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() =>
+        chrome.storage.local.set({ onboardingCompleted: true, enablePiiMasking: true, customCommands: [] }),
+    );
+    const extensionId = new URL(background.url()).host;
+    await page.goto(`chrome-extension://${extensionId}/options.html`);
+
+    await page.locator('[data-tab="privacy"]').click();
+    const piiToggle = page.locator('#enablePiiMasking');
+    await expect(piiToggle).toBeChecked();
+    await piiToggle.uncheck();
+    await page.locator('#saveBtn').click();
+    await page.reload();
+    await page.locator('[data-tab="privacy"]').click();
+    await expect(piiToggle).not.toBeChecked();
+
+    await page.locator('[data-tab="commands"]').click();
+    await page.locator('#togglePromptLibraryBtn').click();
+    const firstTemplate = page.locator('.prompt-library-add-btn').first();
+    await firstTemplate.click();
+    await expect(page.locator('.command-card')).toHaveCount(1);
+    await firstTemplate.click();
+    await expect(page.locator('.command-card')).toHaveCount(1);
+    const stored = await background.evaluate(() => chrome.storage.local.get({ customCommands: [] }));
+    expect(stored.customCommands).toHaveLength(1);
+});
+
 test('Названия вкладок настроек не переносятся внутри слов', async ({ page, context }) => {
     let [background] = context.serviceWorkers();
     if (!background) background = await context.waitForEvent('serviceworker');
@@ -1020,6 +1052,45 @@ test('вкладки настроек простым языком объясня
         logoAnimation: getComputedStyle(document.querySelector('.settings-brand-mark')!).animationName,
     }));
     expect(reducedMotionStyles).toEqual({ backgroundAnimation: 'none', logoAnimation: 'none' });
+});
+
+test('руководство и галерея остаются доступными и компактными во всех стеклянных темах', async ({ page, context }) => {
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() => chrome.storage.local.set({ onboardingCompleted: true }));
+    const extensionId = new URL(background.url()).host;
+    await page.goto(`chrome-extension://${extensionId}/options.html`);
+    await page.locator('[data-tab="guide"]').click();
+
+    const guideItems = page.locator('.guide-accordion-item');
+    await expect(guideItems).toHaveCount(10);
+    await expect(page.locator('.guide-accordion-header[aria-expanded="true"]')).toHaveCount(0);
+    const firstTrigger = page.locator('.guide-accordion-header').first();
+    await firstTrigger.click();
+    await expect(firstTrigger).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.locator('#guide-panel-spellcheck')).toBeVisible();
+
+    for (const style of ['magicos-11', 'aurora-glass']) {
+        for (const theme of ['light', 'dark']) {
+            await page.evaluate(
+                ({ style, theme }) => {
+                    document.documentElement.dataset.uiStyle = style;
+                    document.documentElement.dataset.theme = theme;
+                },
+                { style, theme },
+            );
+            const accessibility = await new AxeBuilder({ page }).include('.guide-panel').analyze();
+            expect(accessibility.violations).toEqual([]);
+        }
+    }
+
+    await page.setViewportSize({ width: 320, height: 700 });
+    await page.locator('[data-tab="commands"]').click();
+    await page.locator('#togglePromptLibraryBtn').click();
+    const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
 });
 
 test('номер версии открывает доступную историю всех обновлений', async ({ page, context }) => {
@@ -1083,11 +1154,16 @@ test('номер версии открывает доступную истори
     }
 
     await dialog.locator('#releaseNotesSearch').fill('MagicOS');
-    await expect(dialog.locator('[data-release-version]')).toHaveCount(3);
-    await expect(dialog.locator('[data-release-version="5.3.1"]')).toBeVisible();
-    await expect(dialog.locator('[data-release-version="5.2.1"]')).toBeVisible();
-    await expect(dialog.locator('[data-release-version="5.1.0"]')).toBeVisible();
-    await expect(dialog.locator('#releaseNotesCount')).toContainText('3');
+    const magicOsVersions = RELEASE_NOTES.filter((note) =>
+        [note.title.ru, ...note.changes.map((change) => change.ru)].some((value) =>
+            value.toLocaleLowerCase('ru').includes('magicos'),
+        ),
+    ).map((note) => note.version);
+    await expect(dialog.locator('[data-release-version]')).toHaveCount(magicOsVersions.length);
+    for (const version of magicOsVersions) {
+        await expect(dialog.locator(`[data-release-version="${version}"]`)).toBeVisible();
+    }
+    await expect(dialog.locator('#releaseNotesCount')).toContainText(String(magicOsVersions.length));
 
     const accessibility = await new AxeBuilder({ page }).include('#releaseNotesDialog').analyze();
     expect(accessibility.violations).toEqual([]);
@@ -1913,7 +1989,7 @@ test('персональные подсказки не обучаются на �
     if (!background) background = await context.waitForEvent('serviceworker');
     await background.evaluate(() =>
         chrome.storage.local.set({
-            settingsSchemaVersion: 10,
+            settingsSchemaVersion: 11,
             adaptiveSuggestionsEnabled: true,
             adaptiveLearningEnabled: true,
             adaptiveLanguageModel: { version: 2, words: {}, pairs: {}, rejections: {} },

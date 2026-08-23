@@ -1,6 +1,6 @@
 # Политика конфиденциальности LexiSync
 
-**Дата вступления в силу и последнего обновления:** 13 августа 2026 г.
+**Дата вступления в силу и последнего обновления:** 23 августа 2026 г.
 
 [English version](#lexisync-privacy-policy)
 
@@ -11,6 +11,8 @@ LexiSync — браузерное расширение для проверки, 
 При запуске AI-команды выбранный пользователем текст или выбранная область изображения передаются напрямую из браузера в **Mistral AI API** по защищённому HTTPS-соединению с использованием API-ключа Mistral самого пользователя. Это необходимо для исправления, переписывания, перевода, добавления эмодзи и OCR.
 
 Передача окружающего текста, заголовка и домена страницы **отключена по умолчанию**. Она выполняется только после включения пользователем соответствующей настройки и может быть отдельно запрещена для выбранных сайтов.
+
+Локальная маскировка персональных данных **включена по умолчанию** для текстовых AI-команд. До отправки запроса LexiSync на устройстве заменяет распознанные email-адреса, телефоны, номера банковских карт, IP-адреса и распространённые форматы секретных ключей служебными маркерами. После получения полного ответа исходные значения восстанавливаются локально. Пользователь может отключить эту защиту в настройках. Автоматическое распознавание снижает риск случайной передачи, но не гарантирует обнаружение любых возможных чувствительных данных.
 
 Функция автоматической проверки текста при вводе также **отключена по умолчанию**. После её включения текст поддерживаемого поля может автоматически отправляться в Mistral AI после выбранной задержки. Поля паролей, платёжных данных, кодов подтверждения и другие распознаваемые чувствительные поля исключаются на основе типа поля, атрибута `autocomplete` и его названия. Такая автоматическая фильтрация снижает риск, но не заменяет осторожность пользователя.
 
@@ -120,6 +122,7 @@ LexiSync не продаёт пользовательские данные и н
 Пользователь может в настройках LexiSync:
 
 - отключить передачу контекста страницы;
+- отключить или повторно включить локальную маскировку персональных данных;
 - отключить автоматическую проверку текста;
 - запретить работу, историю, подсказки или контекст для отдельных сайтов;
 - отключить локальную историю;
@@ -151,6 +154,7 @@ LexiSync использует минимально необходимые раз
 - API-ключ отделён от обычных настроек и не включается в синхронизацию или экспорт.
 - Постоянный доступ к сайтам запрашивается только по инициативе пользователя и может быть отозван.
 - Автоматическая проверка отключена по умолчанию и старается исключать чувствительные поля.
+- Локальная маскировка персональных данных включена по умолчанию для текстовых AI-команд.
 
 Ни один способ хранения или передачи данных не обеспечивает абсолютную безопасность. Пользователь отвечает за сохранность своего API-ключа и за выбор текста или изображения, отправляемого внешним сервисам.
 
@@ -172,7 +176,7 @@ LexiSync использует разрешения браузера и поль�
 
 # LexiSync Privacy Policy
 
-**Effective and last updated:** August 13, 2026
+**Effective and last updated:** August 23, 2026
 
 LexiSync is a browser extension for checking, correcting, rewriting, translating, and recognizing text in images. This Policy explains what data LexiSync processes, why it is needed, where it is stored, and when it is transferred to third parties.
 
@@ -181,6 +185,8 @@ LexiSync is a browser extension for checking, correcting, rewriting, translating
 When a user starts an AI command, the selected text or selected image area is sent directly from the browser to the **Mistral AI API** over HTTPS using the user's own Mistral API key. This transfer is necessary for correction, rewriting, translation, emoji suggestions, and OCR.
 
 The transfer of surrounding text, page title, and current domain is **disabled by default**. It occurs only after the user enables the setting and can be disabled for individual websites.
+
+Local personal-data masking is **enabled by default** for text AI commands. Before a request is sent, LexiSync replaces recognized email addresses, phone numbers, payment-card numbers, IP addresses, and common secret-key formats with placeholders on the user's device. Original values are restored locally after the complete response is received. Users can disable this protection in Settings. Automatic recognition reduces the risk of accidental transfer but cannot guarantee detection of every possible type of sensitive data.
 
 Automatic proofreading while typing is also **disabled by default**. If enabled, text from a supported input field may be sent to Mistral AI automatically after the selected delay. Password, payment, verification-code, and other recognized sensitive fields are excluded using the input type, `autocomplete` value, and field identity. This filtering reduces risk but cannot replace user caution.
 
@@ -255,7 +261,7 @@ LexiSync does not save its history or cache in private browsing windows.
 
 Users can:
 
-- disable page-context transfer and automatic proofreading;
+- disable page-context transfer, local personal-data masking, and automatic proofreading;
 - disable access, history, suggestions, or context for individual sites;
 - disable local history or change its retention period;
 - clear history, cache, aggregate usage statistics, and adaptive data;
@@ -280,7 +286,7 @@ LexiSync does not request access to cookies, full browser history, geolocation, 
 
 ## 8. Security
 
-All Mistral AI requests use HTTPS. Executable code is packaged with the extension under Manifest V3. The API key is separated from ordinary settings and excluded from sync and export. Persistent website access is requested only after a user action and can be revoked. Automatic proofreading is disabled by default and attempts to exclude sensitive fields.
+All Mistral AI requests use HTTPS. Executable code is packaged with the extension under Manifest V3. The API key is separated from ordinary settings and excluded from sync and export. Persistent website access is requested only after a user action and can be revoked. Automatic proofreading is disabled by default and attempts to exclude sensitive fields. Local personal-data masking is enabled by default for text AI commands.
 
 No storage or transmission method is completely secure. Users are responsible for protecting their API key and choosing which text or images to send to external services.
 

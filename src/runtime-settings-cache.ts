@@ -18,6 +18,7 @@ export const RUNTIME_SETTING_KEYS = [
     'monthlyTokenLimit',
     'warnLargeText',
     'autoFastMode',
+    'enablePiiMasking',
 ] as const;
 
 export type RuntimeSettingKey = (typeof RUNTIME_SETTING_KEYS)[number];

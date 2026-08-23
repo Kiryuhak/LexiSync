@@ -2,7 +2,7 @@ import { normalizeSitePatterns } from './site-profiles';
 import type { StyleProfile } from './types';
 import { DEFAULT_THEME_CUSTOMIZATION } from './theme-customization';
 
-const CURRENT_SETTINGS_SCHEMA = 10;
+const CURRENT_SETTINGS_SCHEMA = 11;
 const MIGRATION_SETTING_KEYS = [
     'settingsSchemaVersion',
     'disabledSites',
@@ -30,6 +30,7 @@ const MIGRATION_SETTING_KEYS = [
     'warnLargeText',
     'autoFastMode',
     'liveProofreadDisabledSites',
+    'enablePiiMasking',
 ] as const;
 
 function getSchemaVersion(value: unknown): number {
@@ -130,6 +131,9 @@ export async function migrateSettings(): Promise<void> {
     }
     if (currentVersion < 10 && stored.visualStyle === 'bento') {
         updates.visualStyle = 'liquid-glass';
+    }
+    if (currentVersion < 11 && typeof stored.enablePiiMasking !== 'boolean') {
+        updates.enablePiiMasking = true;
     }
     updates.settingsSchemaVersion = CURRENT_SETTINGS_SCHEMA;
     const migratedKeys = Object.keys(updates).filter((key) => key !== 'settingsSchemaVersion');

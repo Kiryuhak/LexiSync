@@ -306,6 +306,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         activeStyleProfileId: '',
                         compactResultMode: null,
                         resultDisplayMode: '',
+                        enablePiiMasking: true,
                     }),
                     getStoredApiKey(),
                 ]);
@@ -340,6 +341,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         personalDictionary: settings.personalDictionary,
                         glossary: settings.glossary,
                         activeStyleProfile: profile,
+                        enablePiiMasking: settings.enablePiiMasking !== false,
                     }),
                 });
             })
@@ -500,6 +502,7 @@ chrome.runtime.onConnect.addListener((port) => {
                 aiMode: 'quality',
                 contextDisabledSites: [],
                 ...DEFAULT_BUDGET_SETTINGS,
+                enablePiiMasking: true,
             });
             if (!msg.mode) throw new Error(t('modeMissing', 'Режим обработки не указан.'));
             if (msg.mode === 'layout') {
@@ -611,6 +614,7 @@ chrome.runtime.onConnect.addListener((port) => {
                             settings.aiMode === 'fast' || (settings.autoFastMode !== false && inputTokens > 2500)
                                 ? 'fast'
                                 : 'quality',
+                        enablePiiMasking: settings.enablePiiMasking !== false,
                     },
                     requestController.signal,
                     (text) => {

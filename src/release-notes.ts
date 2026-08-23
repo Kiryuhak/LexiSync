@@ -36,6 +36,35 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.3.4',
+        '2026-08-23',
+        'fixed',
+        'Надёжная защита данных и читаемый интерфейс во всех темах',
+        'Reliable data protection and readable UI across all themes',
+        [
+            [
+                'Исправлено сохранение настройки маскировки персональных данных: защита теперь остаётся включённой после повторного открытия настроек и синхронизируется между браузерами.',
+                'Fixed personal data masking persistence: protection now remains enabled after reopening settings and syncs between browsers.',
+            ],
+            [
+                'Email, телефоны, карты, IP-адреса и секретные ключи скрываются перед запросом к Mistral AI и безопасно восстанавливаются в готовом тексте после полного ответа.',
+                'Emails, phone numbers, cards, IP addresses, and secret keys are hidden before the Mistral AI request and safely restored in the final text after the complete response.',
+            ],
+            [
+                'Исправлен контраст руководства, библиотеки команд и окна сброса в светлой, тёмной, MagicOS, Aurora и остальных темах.',
+                'Fixed contrast in the guide, command library, and reset dialog across light, dark, MagicOS, Aurora, and all other themes.',
+            ],
+            [
+                'Вкладка команд и интерактивное руководство стали компактнее на узких экранах и получили улучшенную клавиатурную доступность.',
+                'The Commands tab and interactive guide are now more compact on narrow screens and provide improved keyboard accessibility.',
+            ],
+            [
+                'Галерея получила понятные шаблоны для повседневных задач и больше не создаёт дубликаты при повторном добавлении.',
+                'The library now offers easy-to-understand templates for everyday tasks and no longer creates duplicates when added repeatedly.',
+            ],
+        ],
+    ),
+    note(
         '5.3.3',
         '2026-08-23',
         'new',

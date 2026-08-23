@@ -1,6 +1,6 @@
 {
     "name": "lexisync-extension",
-    "version": "5.3.3",
+    "version": "5.3.4",
     "description": "LexiSync - Smart Text AI Assistant with Mistral API",
     "scripts": {
         "dev": "wxt",
@@ -78,7 +78,7 @@
         "@axe-core/playwright": "^4.13.0",
         "@eslint/js": "^10.0.1",
         "@playwright/test": "^1.62.1",
-        "@types/chrome": "^0.2.6",
+        "@types/chrome": "^0.2.7",
         "@types/node": "^24.13.3",
         "@typescript/native": "npm:typescript@^7.0.2",
         "@vitest/coverage-v8": "^4.1.11",

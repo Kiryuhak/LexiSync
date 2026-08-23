@@ -12,6 +12,7 @@ const PORTABLE_SETTING_KEYS = [
     'compactResultMode',
     'searchEngine',
     'sendPageContext',
+    'enablePiiMasking',
     'historyEnabled',
     'historyRetentionDays',
     'disabledSites',
@@ -45,6 +46,7 @@ const SYNC_SETTING_KEYS = [
     'resultDisplayMode',
     'compactResultMode',
     'searchEngine',
+    'enablePiiMasking',
     'historyEnabled',
     'historyRetentionDays',
     'adaptiveSuggestionsEnabled',
@@ -113,6 +115,7 @@ function sanitizePortableSetting(key: (typeof PORTABLE_SETTING_KEYS)[number], va
         [
             'compactResultMode',
             'sendPageContext',
+            'enablePiiMasking',
             'historyEnabled',
             'adaptiveSuggestionsEnabled',
             'adaptiveLearningEnabled',

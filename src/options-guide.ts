@@ -152,7 +152,7 @@ export const GUIDE_DEMOS: GuideFeatureDemo[] = [
     },
 ];
 
-let activeItemIndex: number | null = 0;
+let activeItemIndex: number | null = null;
 let animationTimer: ReturnType<typeof setTimeout> | null = null;
 
 export function renderInteractiveGuide(container: HTMLElement): void {
@@ -168,6 +168,8 @@ export function renderInteractiveGuide(container: HTMLElement): void {
         const headerBtn = document.createElement('button');
         headerBtn.type = 'button';
         headerBtn.className = 'guide-accordion-header';
+        headerBtn.id = `guide-trigger-${demo.id}`;
+        headerBtn.setAttribute('aria-controls', `guide-panel-${demo.id}`);
         headerBtn.setAttribute('aria-expanded', String(activeItemIndex === index));
 
         const titleWrap = document.createElement('div');
@@ -212,6 +214,9 @@ export function renderInteractiveGuide(container: HTMLElement): void {
         // Body / Demo Panel
         const bodyEl = document.createElement('div');
         bodyEl.className = 'guide-accordion-body';
+        bodyEl.id = `guide-panel-${demo.id}`;
+        bodyEl.setAttribute('role', 'region');
+        bodyEl.setAttribute('aria-labelledby', headerBtn.id);
         bodyEl.hidden = activeItemIndex !== index;
 
         const desc = document.createElement('p');
@@ -298,6 +303,7 @@ export function renderInteractiveGuide(container: HTMLElement): void {
 
         const statusBanner = document.createElement('div');
         statusBanner.className = 'guide-stage-status';
+        statusBanner.setAttribute('role', 'status');
         const statusSpan = document.createElement('span');
         statusSpan.textContent = demo.statusText;
         statusBanner.appendChild(statusSpan);
@@ -312,7 +318,7 @@ export function renderInteractiveGuide(container: HTMLElement): void {
         tipBox.className = 'guide-demo-tip';
         const tipStrong = document.createElement('strong');
         tipStrong.textContent = '💡 Подсказка: ';
-        tipBox.append(tipStrong, document.createTextNode(demo.tip));
+        tipBox.append(tipStrong, document.createTextNode(demo.tip.replace(/^Совет:\s*/u, '')));
 
         const replayBtn = document.createElement('button');
         replayBtn.type = 'button';

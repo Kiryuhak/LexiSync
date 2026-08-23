@@ -1,5 +1,5 @@
 import { t } from './i18n';
-import { deleteCustomCommand, upsertCustomCommand } from './settings-store';
+import { CUSTOM_COMMAND_LIMIT, deleteCustomCommand, upsertCustomCommand } from './settings-store';
 import type { CustomCommand } from './types';
 
 let customCommands: CustomCommand[] = [];
@@ -8,7 +8,7 @@ function showCommandStatus(message: string, isError = false): void {
     const status = document.getElementById('status');
     if (!status) return;
     status.textContent = message;
-    status.style.color = isError ? '#b42318' : '#d97706';
+    status.dataset.kind = isError ? 'error' : 'warning';
     status.style.display = 'block';
 }
 
@@ -91,7 +91,7 @@ export function setupCustomCommandSettings(): void {
         const name = nameInput.value.trim().slice(0, 40);
         const prompt = promptInput.value.trim().slice(0, 2000);
         if (!name || !prompt) return;
-        if (!idInput.value && customCommands.length >= 8) {
+        if (!idInput.value && customCommands.length >= CUSTOM_COMMAND_LIMIT) {
             showCommandStatus(t('commandLimit', 'Можно создать не более 8 команд.'));
             return;
         }
@@ -124,7 +124,7 @@ export function restoreCustomCommandSettings(value: unknown): void {
               .filter((item): item is CustomCommand =>
                   Boolean(item && typeof item === 'object' && 'id' in item && 'name' in item && 'prompt' in item),
               )
-              .slice(0, 8)
+              .slice(0, CUSTOM_COMMAND_LIMIT)
         : [];
     renderCustomCommands();
 }

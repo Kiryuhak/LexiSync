@@ -13,6 +13,8 @@ export type SettingsMutation =
 
 export type SitePreference = 'access' | 'suggestions' | 'history' | 'context';
 
+export const CUSTOM_COMMAND_LIMIT = 8;
+
 interface SettingsMutationPayload {
     value?: unknown;
     command?: unknown;
@@ -103,12 +105,12 @@ export function applySettingsMutation(mutation: SettingsMutation, payload: Setti
             if (!isCustomCommand(payload.command)) throw new Error('INVALID_CUSTOM_COMMAND');
             const stored = await chrome.storage.local.get({ customCommands: [] });
             const commands = Array.isArray(stored.customCommands)
-                ? stored.customCommands.filter(isCustomCommand).map(normalizeCommand).slice(0, 20)
+                ? stored.customCommands.filter(isCustomCommand).map(normalizeCommand).slice(0, CUSTOM_COMMAND_LIMIT)
                 : [];
             const command = normalizeCommand(payload.command);
             const index = commands.findIndex((item) => item.id === command.id);
             if (index >= 0) commands[index] = command;
-            else if (commands.length < 20) commands.push(command);
+            else if (commands.length < CUSTOM_COMMAND_LIMIT) commands.push(command);
             else throw new Error('CUSTOM_COMMAND_LIMIT');
             await chrome.storage.local.set({ customCommands: commands });
             return commands;

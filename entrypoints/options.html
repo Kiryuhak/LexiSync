@@ -541,14 +541,20 @@
             </div>
 
             <section class="commands-panel" data-settings-group="commands" hidden>
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px">
-                    <div>
-                        <h2 data-i18n="customCommandsTitle" style="margin: 0">Пользовательские AI-команды</h2>
-                        <p data-i18n="customCommandsIntro" style="margin: 4px 0 0">
+                <div class="commands-header">
+                    <div class="commands-header-copy">
+                        <h2 data-i18n="customCommandsTitle">Пользовательские AI-команды</h2>
+                        <p data-i18n="customCommandsIntro">
                             Создайте собственные действия. Они появятся в меню LexiSync при выделении текста.
                         </p>
                     </div>
-                    <button type="button" id="togglePromptLibraryBtn" class="prompt-library-btn">
+                    <button
+                        type="button"
+                        id="togglePromptLibraryBtn"
+                        class="prompt-library-btn"
+                        aria-controls="promptLibrarySection"
+                        aria-expanded="false"
+                    >
                         <span>📚</span> <span data-i18n="promptLibraryTitle">Галерея готовых шаблонов</span>
                     </button>
                 </div>
