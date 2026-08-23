@@ -524,3 +524,36 @@ test('restoreV4Settings корректно заполняет элементы �
         vi.unstubAllGlobals();
     }
 });
+
+test('history-store сохраняет и валидирует все 11 режимов включая summary, reply, explain и format', async () => {
+    const modes = [
+        'spellcheck',
+        'style',
+        'emoji',
+        'layout',
+        'translate',
+        'summary',
+        'reply',
+        'explain',
+        'format',
+        'ocr',
+        'custom',
+    ] as const;
+
+    for (let i = 0; i < modes.length; i++) {
+        await applyHistoryMutation('add', {
+            item: {
+                id: 20000 + i,
+                mode: modes[i],
+                original: `Тестовый оригинал ${modes[i]}`,
+                result: `Тестовый результат ${modes[i]}`,
+                date: new Date().toISOString(),
+            },
+        });
+    }
+
+    const items = await getHistory();
+    for (const mode of modes) {
+        expect(items.some((item) => item.mode === mode)).toBe(true);
+    }
+});

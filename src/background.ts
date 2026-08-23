@@ -136,13 +136,8 @@ export async function getCachedSettings(keys: Record<string, unknown>): Promise<
     return result;
 }
 
-chrome.runtime.onInstalled.addListener((details) => {
-    if (details.reason === 'install') {
-        void chrome.storage.local
-            .set({ onboardingCompleted: false })
-            .then(() => chrome.runtime.openOptionsPage())
-            .catch(() => undefined);
-    }
+function setupContextMenus(): void {
+    if (!chrome.contextMenus) return;
     chrome.contextMenus.removeAll(() => {
         chrome.contextMenus.create({
             id: 'spellcheck',
@@ -164,10 +159,24 @@ chrome.runtime.onInstalled.addListener((details) => {
             title: t('fixLayout', 'Исправить раскладку'),
             contexts: ['selection'],
         });
-        chrome.contextMenus.create({ id: 'translate', title: t('translate', 'Перевести'), contexts: ['selection'] });
+        chrome.contextMenus.create({
+            id: 'translate',
+            title: t('translate', 'Перевести'),
+            contexts: ['selection'],
+        });
         chrome.contextMenus.create({
             id: 'summary',
             title: `📑 ${t('summaryTitle', 'Выжимка')}`,
+            contexts: ['selection'],
+        });
+        chrome.contextMenus.create({
+            id: 'explain',
+            title: `💡 ${t('modeExplainFull', 'Объяснение простыми словами')}`,
+            contexts: ['selection'],
+        });
+        chrome.contextMenus.create({
+            id: 'format',
+            title: `🧹 ${t('modeFormatFull', 'Очистка и форматирование')}`,
             contexts: ['selection'],
         });
         chrome.contextMenus.create({
@@ -176,6 +185,20 @@ chrome.runtime.onInstalled.addListener((details) => {
             contexts: ['page', 'image', 'selection'],
         });
     });
+}
+
+chrome.runtime.onStartup?.addListener(() => {
+    setupContextMenus();
+});
+
+chrome.runtime.onInstalled.addListener((details) => {
+    if (details.reason === 'install') {
+        void chrome.storage.local
+            .set({ onboardingCompleted: false })
+            .then(() => chrome.runtime.openOptionsPage())
+            .catch(() => undefined);
+    }
+    setupContextMenus();
 });
 
 async function sendOcrCommand(tabId: number, windowId?: number): Promise<void> {

@@ -592,5 +592,83 @@
     },
     "visualStyleSilkObsidian": {
         "message": "Silk Obsidian"
+    },
+    "feedbackBtn": {
+        "message": "Написать разработчику"
+    },
+    "feedbackTooltip": {
+        "message": "Написать пожелание или сообщить об ошибке (arm2402@yandex.ru)"
+    },
+    "feedbackAria": {
+        "message": "Написать разработчику на arm2402@yandex.ru"
+    },
+    "shortcutTesterTitle": {
+        "message": "Интерактивный тест горячих клавиш"
+    },
+    "shortcutTesterHint": {
+        "message": "Нажмите любое сочетание клавиш (Alt+R, Alt+Y, Alt+T, Alt+S), чтобы проверить его работу."
+    },
+    "shortcutTesterPressPrompt": {
+        "message": "Кликните сюда и нажмите клавиши на клавиатуре…"
+    },
+    "shortcutTesterAria": {
+        "message": "Тестер горячих клавиш"
+    },
+    "usageTimeSaved": {
+        "message": "сэкономлено"
+    },
+    "compareChanges": {
+        "message": "Сравнить"
+    },
+    "showOriginal": {
+        "message": "Оригинал"
+    },
+    "downloadResult": {
+        "message": "Скачать в файл (.md)"
+    },
+    "fileDownloaded": {
+        "message": "Файл сохранён!"
+    },
+    "piiMaskingEnable": {
+        "message": "Локальная маскировка персональных данных (PII)"
+    },
+    "piiMaskingHint": {
+        "message": "Автоматически скрывает email-адреса, телефоны, банковские карты и API-ключи перед отправкой в AI (обработка за 0 мс)."
+    },
+    "promptLibraryTitle": {
+        "message": "Галерея готовых шаблонов"
+    },
+    "addTemplateToCommands": {
+        "message": "+ Добавить в свои команды"
+    },
+    "templateAdded": {
+        "message": "✓ Добавлено!"
+    },
+    "dangerZoneTitle": {
+        "message": "Сброс до заводских настроек"
+    },
+    "factoryResetHint": {
+        "message": "Сбрасывает все локальные настройки, словарь, стили и пользовательские команды к исходному состоянию."
+    },
+    "factoryResetButton": {
+        "message": "Сбросить все настройки"
+    },
+    "factoryResetConfirmTitle": {
+        "message": "Сбросить все настройки?"
+    },
+    "factoryResetConfirmText": {
+        "message": "Это действие сбросит все настройки, личный словарь, стили и пользовательские команды к значениям по умолчанию."
+    },
+    "factoryResetConfirmAction": {
+        "message": "Да, сбросить всё"
+    },
+    "quickFixDone": {
+        "message": "✨ Исправлено на месте (0 мс)"
+    },
+    "quickFixNoChanges": {
+        "message": "Ошибок не найдено"
+    },
+    "statsMinutesShort": {
+        "message": "мин"
     }
 }

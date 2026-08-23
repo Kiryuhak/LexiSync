@@ -14,7 +14,7 @@ const MAX_ZIP_ENTRIES = 10_000;
 const MAX_UNCOMPRESSED_BYTES = 100 * 1024 * 1024;
 const MAX_INITIAL_SCRIPT_BYTES = {
     'background.js': 64 * 1024,
-    'inject.js': 120 * 1024,
+    'inject.js': 140 * 1024,
 };
 
 const licenseOwner = licenseText.match(/^Copyright \(c\) \d{4}(?:-\d{4})? (.+)$/m)?.[1];

@@ -3,11 +3,11 @@ import { getCachedText, getCacheHash, setCachedText } from './ai-cache';
 import { t } from './i18n';
 import { addHistoryItem, updateHistoryItemResult } from './history-store';
 import { isSiteDisabled, normalizeDisabledSites, shouldStoreOnCurrentPage } from './privacy';
-import { normalizeSpellcheckResult } from './spellcheck';
+import { normalizeSpellcheckResult, renderSpellcheckDiffFragment } from './spellcheck';
 import type { CustomCommand, HistoryItem, RequestMode, SelectionData, StreamResponse } from './types';
 import { recordCacheHit } from './usage-stats';
 import { createSvgIcon, renderMarkdown, setIcon } from './dom-rendering';
-import { stripSummaryPrefix } from './markdown';
+import { cleanMarkdownArtifacts, stripSummaryPrefix } from './markdown';
 import { REQUEST_CACHE_VERSION, serializeCacheSource } from './request-cache';
 import { createPortDisconnectGuard, createRequestLifecycle, type PortDisconnectGuard } from './request-lifecycle';
 import { createBatchedUiUpdater, type BatchedUiUpdater } from './content-stream-renderer';
@@ -221,7 +221,8 @@ export function executeRequest(
 
     streamUiUpdater = createBatchedUiUpdater(() => {
         if (lifecycle.disposed) return;
-        const display = mode === 'summary' ? stripSummaryPrefix(fullResult) : fullResult;
+        let display = cleanMarkdownArtifacts(fullResult);
+        if (mode === 'summary') display = stripSummaryPrefix(display);
         if (compactResultMode) contentPane.textContent = display;
         else renderMarkdown(contentPane, display);
         contentPane.setAttribute('aria-live', 'polite');
@@ -257,7 +258,8 @@ export function executeRequest(
     function getEffectiveResult(): string {
         if (comparisonOriginalVisible && editedResultSnapshot) return editedResultSnapshot;
         if (contentPane.contentEditable === 'true') return contentPane.innerText.trim();
-        const base = mode === 'summary' ? stripSummaryPrefix(fullResult) : fullResult;
+        let base = cleanMarkdownArtifacts(fullResult);
+        if (mode === 'summary') base = stripSummaryPrefix(base);
         const clean = base.replace(/\*/g, '');
         return mode === 'spellcheck' ? spellcheckUi.getResult(clean) : clean;
     }
@@ -454,6 +456,7 @@ export function executeRequest(
                 streamUiUpdater?.request();
             } else if (response.status === 'done') {
                 streamUiUpdater?.cancel();
+                fullResult = cleanMarkdownArtifacts(fullResult);
                 if (mode === 'summary') {
                     fullResult = stripSummaryPrefix(fullResult);
                 }
@@ -473,6 +476,7 @@ export function executeRequest(
                     const stats = formatTextStats(originalText, fullResult, {
                         words: t('statsWords', 'слов'),
                         chars: t('statsChars', 'симв.'),
+                        minShort: t('statsMinutesShort', 'мин'),
                     });
                     const durationText = t('requestCompletedIn', 'Ready in $1 s').replace('$1', duration);
                     showActionStatus(stats ? `${durationText} • ${stats}` : durationText);
@@ -550,18 +554,29 @@ export function executeRequest(
                 };
                 const tools: HTMLButtonElement[] = [];
                 if (mode !== 'ocr') {
-                    const compareButton = createTool(t('beforeAfter', 'До / После'), () => {
-                        if (!comparisonOriginalVisible) {
+                    let compareState: 'result' | 'diff' | 'original' = 'result';
+                    const compareButton = createTool(t('compareChanges', 'Сравнить'), () => {
+                        if (compareState === 'result') {
                             editedResultSnapshot = getEffectiveResult();
                             contentPane.contentEditable = 'false';
+                            contentPane.replaceChildren(
+                                renderSpellcheckDiffFragment(originalText, editedResultSnapshot),
+                            );
+                            compareButton.textContent = t('showOriginal', 'Оригинал');
+                            compareState = 'diff';
+                        } else if (compareState === 'diff') {
+                            contentPane.replaceChildren();
                             contentPane.textContent = originalText;
-                            compareButton.textContent = t('showResult', 'Показать результат');
+                            contentPane.contentEditable = 'false';
+                            compareButton.textContent = t('showResult', 'Результат');
+                            compareState = 'original';
                         } else {
-                            contentPane.textContent = editedResultSnapshot;
+                            contentPane.replaceChildren();
+                            renderMarkdown(contentPane, editedResultSnapshot);
                             contentPane.contentEditable = 'true';
-                            compareButton.textContent = t('beforeAfter', 'До / После');
+                            compareButton.textContent = t('compareChanges', 'Сравнить');
+                            compareState = 'result';
                         }
-                        comparisonOriginalVisible = !comparisonOriginalVisible;
                     });
                     tools.push(compareButton);
                 }
@@ -801,12 +816,13 @@ export function executeRequest(
         if (lifecycle.disposed) return;
         if (cachedResult) {
             void recordCacheHit();
+            const cleanedCached = cleanMarkdownArtifacts(cachedResult);
             if (mode === 'summary') {
-                fullResult = stripSummaryPrefix(cachedResult);
+                fullResult = stripSummaryPrefix(cleanedCached);
             } else if (mode === 'spellcheck') {
-                fullResult = normalizeSpellcheckResult(cachedResult);
+                fullResult = normalizeSpellcheckResult(cleanedCached);
             } else {
-                fullResult = cachedResult;
+                fullResult = cleanedCached;
             }
             if (mode === 'spellcheck') {
                 spellcheckUi.setResult(currentSelection.text, fullResult);

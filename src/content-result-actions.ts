@@ -1,7 +1,8 @@
-import { copyText } from './clipboard';
+import { copyRichText, copyText } from './clipboard';
 import { appendIconAndText, setIcon } from './dom-rendering';
 import { ICONS } from './icons';
 import { t } from './i18n';
+import { parseMarkdownToHTML } from './markdown';
 import { replaceSelectedText } from './text-replacement';
 import type { RequestMode, SelectionData } from './types';
 
@@ -93,7 +94,9 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
         event.stopPropagation();
         copyButton.disabled = true;
         try {
-            await copyText(getResult());
+            const rawText = getResult();
+            const htmlContent = parseMarkdownToHTML(rawText);
+            await copyRichText(htmlContent, rawText);
             if (hasReplaceTarget) {
                 setIcon(copyButton, ICONS.check);
             } else {
@@ -117,4 +120,31 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
     };
 
     actionsContainer.appendChild(copyButton);
+
+    const downloadButton = document.createElement('button');
+    downloadButton.type = 'button';
+    downloadButton.className = `${btnClass} lexisync-result-button icon-only`;
+    downloadButton.setAttribute('aria-label', t('downloadResult', 'Скачать в файл (.md)'));
+    downloadButton.title = t('downloadResult', 'Скачать в файл (.md)');
+    setIcon(downloadButton, ICONS.download);
+    downloadButton.onpointerdown = (e) => e.stopPropagation();
+    downloadButton.onmousedown = (e) => e.stopPropagation();
+    downloadButton.onclick = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const text = getResult();
+        if (!text) return;
+        const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const dateStr = new Date().toISOString().slice(0, 10);
+        a.download = `lexisync-${mode}-${dateStr}.md`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        showStatus(t('fileDownloaded', 'Файл сохранён!'));
+    };
+    actionsContainer.appendChild(downloadButton);
 }

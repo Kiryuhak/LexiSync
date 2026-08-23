@@ -28,6 +28,9 @@ import {
     normalizeThemeCustomization,
     DEFAULT_THEME_CUSTOMIZATION,
 } from './theme-customization';
+import { applyFastTypographyAndTypoFixes } from './local-text-rules';
+import { fixKeyboardLayout } from './keyboard-layout';
+import { replaceSelectedText } from './text-replacement';
 import type { ThemeCustomization } from './types';
 import { logger } from './logger';
 
@@ -153,10 +156,10 @@ if (!contentRuntime.__lexisyncContentInitialized) {
         cancelPendingSelectionMenu();
         pendingSelectionMenuTimer = setTimeout(() => {
             pendingSelectionMenuTimer = null;
-            const text = getSelectedText();
+            const selection = captureSelection();
             // Не открываем вторую панель поверх меню или результата, а также после отключения сайта.
-            if (!shouldShowSelectionMenu(extensionEnabledOnSite, Boolean(popupUI), text)) return;
-            saveSelectionState();
+            if (!shouldShowSelectionMenu(extensionEnabledOnSite, Boolean(popupUI), selection.text)) return;
+            currentSelection = selection;
             const coords = getSelectionCoords();
             showToolbarMenu(
                 useSelectionCoords ? coords.x : lastMouseX || coords.x,
@@ -201,6 +204,31 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             const y = lastMouseY || window.innerHeight / 2;
             showAIMenu(x, y, y);
             handleActionClick(request.mode);
+        }
+
+        if (
+            request.action === 'quickFixInPlace' ||
+            (request.action === 'hotkeyTriggered' && request.mode === 'quick_fix_inplace')
+        ) {
+            cancelPendingSelectionMenu();
+            let text = getSelectedText();
+            const selection = captureSelection();
+            if (!text && selection.isInput && selection.activeElement) {
+                text = selection.activeElement.value;
+                selection.start = 0;
+                selection.end = text.length;
+            }
+            if (text && text.trim().length > 0) {
+                const fixed = applyFastTypographyAndTypoFixes(text);
+                const resultText = fixed.changed ? fixed.text : fixKeyboardLayout(text);
+                if (resultText !== text) {
+                    replaceSelectedText(selection, resultText);
+                    showToast(t('quickFixDone', '✨ Исправлено на месте (0 мс)'));
+                } else {
+                    showToast(t('quickFixNoChanges', 'Ошибок не найдено'));
+                }
+            }
+            return;
         }
 
         if (request.action === 'hotkeyTriggered') {

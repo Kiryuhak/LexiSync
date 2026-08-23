@@ -42,8 +42,23 @@ const COMMON_TYPOS: Array<[RegExp, string]> = [
     [wordPattern('все таки'), 'всё-таки'],
     [wordPattern('все-таки'), 'всё-таки'],
     [wordPattern('также как'), 'так же, как'],
+    [wordPattern('так же как и'), 'так же, как и'],
     [wordPattern('точь в точь'), 'точь-в-точь'],
     [wordPattern('тетет-а-тет'), 'тет-а-тет'],
+    [wordPattern('более менее'), 'более-менее'],
+    [wordPattern('тоесть'), 'то есть'],
+    [wordPattern('по прибытию'), 'по прибытии'],
+    [wordPattern('по завершению'), 'по завершении'],
+    [wordPattern('по окончанию'), 'по окончании'],
+    [wordPattern('по прилету'), 'по прилёте'],
+    [wordPattern('по прилёту'), 'по прилёте'],
+    [wordPattern('по приезду'), 'по приезде'],
+    [wordPattern('в течении'), 'в течение'],
+    [wordPattern('ввиду того что'), 'ввиду того, что'],
+    [wordPattern('де факто'), 'де-факто'],
+    [wordPattern('де юре'), 'де-юре'],
+    [/(?<![\p{L}\p{N}_])оплатить за (проезд|услуги|заказ|счёт|покупку|товар)(?![\p{L}\p{N}_])/giu, 'оплатить $1'],
+    [wordPattern('займи мне'), 'одолжи мне'],
 
     // English slips
     [wordPattern('teh'), 'the'],
@@ -95,9 +110,16 @@ export function applyFastTypographyAndTypoFixes(input: string): RuleFixResult {
 
     // 1. Быстрый словарь частых опечаток с сохранением регистра
     for (const [pattern, replacement] of COMMON_TYPOS) {
-        result = result.replace(pattern, (match) => {
+        result = result.replace(pattern, (match, ...args) => {
             fixesCount++;
-            return matchCase(match, replacement);
+            let textToApply = replacement;
+            if (/\$\d+/.test(textToApply)) {
+                textToApply = textToApply.replace(/\$(\d+)/g, (_, idx) => {
+                    const groupVal = args[Number(idx) - 1];
+                    return typeof groupVal === 'string' ? groupVal : '';
+                });
+            }
+            return matchCase(match, textToApply);
         });
     }
 

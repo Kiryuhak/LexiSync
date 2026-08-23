@@ -223,6 +223,53 @@ test('Панель выделения появляется автоматиче�
     expect(await toolbar.locator('svg path, svg line, svg rect, svg circle, svg polyline').count()).toBeGreaterThan(0);
 });
 
+test('поиск передаёт выделенный текст целиком в Google, Яндекс и DuckDuckGo', async ({ page, context }) => {
+    const query = 'Провиряю текссст на ошибка. Строка № 2 & важные символы';
+    await page.goto('https://example.com');
+    const tabId = await grantSiteAccess(context, page);
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(async (id) => {
+        await chrome.storage.local.set({ onboardingCompleted: true });
+        await chrome.tabs.sendMessage(id, { action: 'setSiteEnabled', enabled: true });
+    }, tabId);
+    await page.locator('h1').evaluate((target, text) => {
+        target.textContent = text;
+    }, query);
+
+    for (const testCase of [
+        { engine: 'google', url: 'https://www.google.com/search', parameter: 'q' },
+        { engine: 'yandex', url: 'https://yandex.ru/search/', parameter: 'text' },
+        { engine: 'duckduckgo', url: 'https://duckduckgo.com/', parameter: 'q' },
+    ] as const) {
+        await context.route(`${testCase.url}?**`, (route) =>
+            route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>Search test</title>' }),
+        );
+        await background.evaluate((engine) => chrome.storage.local.set({ searchEngine: engine }), testCase.engine);
+        await page.bringToFront();
+        const visibleText = await page.evaluate(() => {
+            const visible = document.querySelector('h1')!;
+            const range = document.createRange();
+            range.selectNodeContents(visible);
+            const selection = window.getSelection()!;
+            selection.removeAllRanges();
+            selection.addRange(range);
+            document.dispatchEvent(new Event('selectionchange'));
+            return selection.toString();
+        });
+        expect(visibleText).toBe(query);
+        const searchButton = page.locator('[data-lexisync-action="search"]');
+        await expect(searchButton).toBeVisible();
+
+        const [searchPage] = await Promise.all([context.waitForEvent('page'), searchButton.click()]);
+        await searchPage.waitForLoadState('domcontentloaded');
+        const openedUrl = new URL(searchPage.url());
+        expect(`${openedUrl.origin}${openedUrl.pathname}`).toBe(testCase.url);
+        expect(openedUrl.searchParams.get(testCase.parameter)).toBe(query);
+        await searchPage.close();
+    }
+});
+
 test('отключение сайта отменяет отложенное открытие панели выделения', async ({ page, context }) => {
     await page.goto('https://example.com');
     const tabId = await grantSiteAccess(context, page);
@@ -983,6 +1030,10 @@ test('номер версии открывает доступную истори
     const currentVersion = await background.evaluate(() => chrome.runtime.getManifest().version);
     await page.goto(`chrome-extension://${extensionId}/options.html`);
 
+    const feedbackLink = page.locator('#feedback-link');
+    await expect(feedbackLink).toBeVisible();
+    await expect(feedbackLink).toHaveAttribute('href', /mailto:arm2402@yandex\.ru/);
+
     const versionButton = page.locator('#app-version');
     await expect(versionButton).toContainText(`v${currentVersion}`);
     await expect(versionButton).toHaveAttribute('aria-label', new RegExp(currentVersion.replaceAll('.', '\\.')));
@@ -992,6 +1043,16 @@ test('номер версии открывает доступную истори
     await expect(dialog).toBeVisible();
     await expect(dialog.locator('[data-release-version]')).toHaveCount(RELEASE_NOTES.length);
     await expect(dialog.locator(`[data-release-version="${currentVersion}"]`)).toHaveAttribute('open', '');
+
+    const firstTitleWrap = await dialog
+        .locator('.release-note-title')
+        .first()
+        .evaluate((el) => {
+            const style = getComputedStyle(el);
+            return { whiteSpace: style.whiteSpace, wordBreak: style.wordBreak };
+        });
+    expect(firstTitleWrap.whiteSpace).toBe('normal');
+    expect(firstTitleWrap.wordBreak).toBe('break-word');
 
     for (const style of ['magicos-11', 'aurora-glass']) {
         for (const theme of ['light', 'dark']) {
@@ -1719,6 +1780,15 @@ test('настройки сохраняют лимиты, автопроверк
             monthlyTokenLimit: 50_000,
             themeCustomization: { accent: '#006c4c' },
         });
+
+    await page.reload();
+    await page.locator('[data-tab="suggestions"]').click();
+    await expect(page.locator('#liveProofreadEnabled')).toBeChecked();
+    await page.locator('[data-tab="ai"]').click();
+    await expect(page.locator('#dailyRequestLimit')).toHaveValue('20');
+    await expect(page.locator('#monthlyTokenLimit')).toHaveValue('50000');
+    await page.locator('[data-tab="appearance"]').click();
+    await expect(page.locator('#themeAccent')).toHaveValue('#006c4c');
 });
 
 test('проверка при вводе показывает зелёные исправления и применяет результат', async ({ page, context }) => {

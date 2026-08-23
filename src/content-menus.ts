@@ -4,6 +4,7 @@ import { setIcon } from './dom-rendering';
 import type { CustomCommand, RequestMode } from './types';
 import { copyText } from './clipboard';
 import { logger } from './logger';
+import { buildSearchUrl, resolveSearchText } from './search-url';
 
 export interface ContentMenuContext {
     openPopup: (x: number, y: number, top?: number) => HTMLElement;
@@ -43,7 +44,9 @@ function setupToolbarKeyboardNavigation(container: HTMLElement, onClose: () => v
         }
         const buttons = Array.from(container.querySelectorAll<HTMLButtonElement>('button:not([disabled])'));
         if (buttons.length === 0) return;
-        const currentIndex = buttons.indexOf(document.activeElement as HTMLButtonElement);
+        const root = container.getRootNode();
+        const active = root instanceof ShadowRoot ? root.activeElement : document.activeElement;
+        const currentIndex = buttons.indexOf(active as HTMLButtonElement);
         if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
             event.preventDefault();
             const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % buttons.length : 0;
@@ -74,7 +77,9 @@ function setupMenuKeyboardNavigation(container: HTMLElement, onClose: () => void
             container.querySelectorAll<HTMLButtonElement>('button.lexisync-menu-button:not([disabled])'),
         );
         if (items.length === 0) return;
-        const currentIndex = items.indexOf(document.activeElement as HTMLButtonElement);
+        const root = container.getRootNode();
+        const active = root instanceof ShadowRoot ? root.activeElement : document.activeElement;
+        const currentIndex = items.indexOf(active as HTMLButtonElement);
         if (event.key === 'ArrowDown') {
             event.preventDefault();
             const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % items.length : 0;
@@ -94,9 +99,10 @@ function setupMenuKeyboardNavigation(container: HTMLElement, onClose: () => void
 }
 
 export function showToolbarMenu(x: number, y: number, context: ContentMenuContext, top?: number): void {
-    const popupUI = context.openPopup(x, y, top);
     const currentSearchEngine = context.getSearchEngine();
     const currentSelectionText = context.getSelectionText();
+    const currentSearchText = resolveSearchText(currentSelectionText, window.getSelection()?.toString());
+    const popupUI = context.openPopup(x, y, top);
     popupUI.dataset.surface = 'toolbar';
     popupUI.setAttribute('role', 'toolbar');
     popupUI.setAttribute('aria-label', t('actionToolbar', 'Действия с выделенным текстом'));
@@ -151,23 +157,26 @@ export function showToolbarMenu(x: number, y: number, context: ContentMenuContex
     };
 
     let searchIcon = ICONS.google;
-    let searchUrl = 'https://www.google.com/search?q=';
     let searchTitle = t('searchGoogle', 'Искать в Google');
     if (currentSearchEngine === 'yandex') {
         searchIcon = ICONS.yandex;
-        searchUrl = 'https://yandex.ru/search/?text=';
         searchTitle = t('searchYandex', 'Искать в Яндексе');
     } else if (currentSearchEngine === 'duckduckgo') {
         searchIcon = ICONS.duckduckgo;
-        searchUrl = 'https://duckduckgo.com/?q=';
         searchTitle = t('searchDuckDuckGo', 'Искать в DuckDuckGo');
     }
 
     popupUI.appendChild(
-        createBtn(searchIcon, '', searchTitle, () => {
-            window.open(searchUrl + encodeURIComponent(currentSelectionText), '_blank');
-            context.closePopup();
-        }),
+        createBtn(
+            searchIcon,
+            '',
+            searchTitle,
+            () => {
+                window.open(buildSearchUrl(currentSearchEngine, currentSearchText), '_blank', 'noopener');
+                context.closePopup();
+            },
+            'search',
+        ),
     );
     popupUI.appendChild(divider());
     const copyStatus = document.createElement('span');

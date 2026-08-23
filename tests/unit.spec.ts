@@ -50,8 +50,27 @@ import { formatTextStats } from '../src/text-stats';
 import { activateDialogKeyboard } from '../src/content-dialog-accessibility';
 import { cleanupExpiredAiCacheLocally } from '../src/ai-cache';
 import { getLastUsedAction, setLastUsedAction } from '../src/content-menus';
+import { buildSearchUrl, resolveSearchText } from '../src/search-url';
 import { isRuntimeSettingKey, pickRuntimeSettings, RUNTIME_SETTING_KEYS } from '../src/runtime-settings-cache';
 import { isExtensionAllowedForUrl } from '../src/site-runtime-access';
+
+test.each([
+    ['google', 'https://www.google.com/search', 'q'],
+    ['yandex', 'https://yandex.ru/search/', 'text'],
+    ['duckduckgo', 'https://duckduckgo.com/', 'q'],
+] as const)('передаёт полный текст без потерь в поисковую систему %s', (engine, expectedBase, parameter) => {
+    const query = 'Провиряю текссст на ошибка. Строка № 2 & важные символы';
+    const url = new URL(buildSearchUrl(engine, query));
+
+    expect(`${url.origin}${url.pathname}`).toBe(expectedBase);
+    expect(url.searchParams.get(parameter)).toBe(query);
+});
+
+test('восстанавливает полное визуальное выделение, если внутренний редактор вернул только его часть', () => {
+    expect(resolveSearchText('текссст на ошибка.', 'Провиряю текссст на ошибка.')).toBe('Провиряю текссст на ошибка.');
+    expect(resolveSearchText('выбранный текст', 'другое несвязанное выделение')).toBe('выбранный текст');
+    expect(resolveSearchText('  текст\nиз редактора  ', '')).toBe('текст из редактора');
+});
 
 test('история обновлений содержит все выпуски и поддерживает поиск', () => {
     expect(RELEASE_NOTES[0].version).toBe('5.3.2');
@@ -616,84 +635,84 @@ test('стили интерфейса содержат семантически�
     expect(POPUP_STYLE_TEXT).toContain('font-weight: 600 !important;');
 });
 
-test('renderPrimaryResultActions отображает только кнопку копирования при отсутствии цели замены или в OCR', () => {
-    interface MockElement {
-        tagName: string;
-        style: Record<string, string>;
-        className: string;
+interface MockElement {
+    tagName: string;
+    style: Record<string, string>;
+    className: string;
+    classList: {
+        add: (cls: string) => void;
+        remove: (cls: string) => void;
+        contains: (cls: string) => boolean;
+    };
+    setAttribute: (name: string, value: string) => void;
+    getAttribute: (name: string) => string | null;
+    appendChild: (child: MockElement | { textContent: string }) => MockElement | { textContent: string };
+    replaceChildren: (...newChildren: Array<MockElement | { textContent: string }>) => void;
+    querySelectorAll: (selector: string) => MockElement[];
+    textContent: string;
+}
+
+function createMockElement(tagName = 'div'): MockElement {
+    const children: Array<MockElement | { textContent: string }> = [];
+    const classList = new Set<string>();
+    const attributes = new Map<string, string>();
+    const element: MockElement = {
+        tagName: tagName.toUpperCase(),
+        style: {},
+        get className() {
+            return Array.from(classList).join(' ');
+        },
+        set className(val: string) {
+            classList.clear();
+            val.split(/\s+/)
+                .filter(Boolean)
+                .forEach((cls) => classList.add(cls));
+        },
         classList: {
-            add: (cls: string) => void;
-            remove: (cls: string) => void;
-            contains: (cls: string) => boolean;
-        };
-        setAttribute: (name: string, value: string) => void;
-        getAttribute: (name: string) => string | null;
-        appendChild: (child: MockElement | { textContent: string }) => MockElement | { textContent: string };
-        replaceChildren: (...newChildren: Array<MockElement | { textContent: string }>) => void;
-        querySelectorAll: (selector: string) => MockElement[];
-        textContent: string;
-    }
+            add: (cls: string) => classList.add(cls),
+            remove: (cls: string) => classList.delete(cls),
+            contains: (cls: string) => classList.has(cls),
+        },
+        setAttribute: (name: string, value: string) => attributes.set(name, value),
+        getAttribute: (name: string) => attributes.get(name) || null,
+        appendChild: (child: MockElement | { textContent: string }) => {
+            children.push(child);
+            return child;
+        },
+        replaceChildren: (...newChildren: Array<MockElement | { textContent: string }>) => {
+            children.length = 0;
+            children.push(...newChildren);
+        },
+        querySelectorAll: (selector: string) => {
+            if (selector === 'button')
+                return children.filter((c): c is MockElement => 'tagName' in c && c.tagName === 'BUTTON');
+            return [];
+        },
+        get textContent() {
+            return children.map((c) => c.textContent || '').join('');
+        },
+        set textContent(val: string) {
+            children.length = 0;
+            children.push({ textContent: val });
+        },
+    };
+    return element;
+}
 
-    function createMockElement(tagName = 'div'): MockElement {
-        const children: Array<MockElement | { textContent: string }> = [];
-        const classList = new Set<string>();
-        const attributes = new Map<string, string>();
-        const element: MockElement = {
-            tagName: tagName.toUpperCase(),
-            style: {},
-            get className() {
-                return Array.from(classList).join(' ');
-            },
-            set className(val: string) {
-                classList.clear();
-                val.split(/\s+/)
-                    .filter(Boolean)
-                    .forEach((cls) => classList.add(cls));
-            },
-            classList: {
-                add: (cls: string) => classList.add(cls),
-                remove: (cls: string) => classList.delete(cls),
-                contains: (cls: string) => classList.has(cls),
-            },
-            setAttribute: (name: string, value: string) => attributes.set(name, value),
-            getAttribute: (name: string) => attributes.get(name) || null,
-            appendChild: (child: MockElement | { textContent: string }) => {
-                children.push(child);
-                return child;
-            },
-            replaceChildren: (...newChildren: Array<MockElement | { textContent: string }>) => {
-                children.length = 0;
-                children.push(...newChildren);
-            },
-            querySelectorAll: (selector: string) => {
-                if (selector === 'button')
-                    return children.filter((c): c is MockElement => 'tagName' in c && c.tagName === 'BUTTON');
-                return [];
-            },
-            get textContent() {
-                return children.map((c) => c.textContent || '').join('');
-            },
-            set textContent(val: string) {
-                children.length = 0;
-                children.push({ textContent: val });
+class MockDOMParser {
+    parseFromString() {
+        return {
+            documentElement: {
+                localName: 'svg',
+                querySelector: () => null,
+                querySelectorAll: () => [],
+                attributes: [],
             },
         };
-        return element;
     }
+}
 
-    class MockDOMParser {
-        parseFromString() {
-            return {
-                documentElement: {
-                    localName: 'svg',
-                    querySelector: () => null,
-                    querySelectorAll: () => [],
-                    attributes: [],
-                },
-            };
-        }
-    }
-
+test('renderPrimaryResultActions отображает только кнопку копирования при отсутствии цели замены или в OCR', () => {
     const originalDocument = globalThis.document;
     const originalDOMParser = globalThis.DOMParser;
     vi.stubGlobal('DOMParser', MockDOMParser);
@@ -729,11 +748,12 @@ test('renderPrimaryResultActions отображает только кнопку 
         });
 
         const buttons = actionsContainer.querySelectorAll('button');
-        expect(buttons).toHaveLength(1);
+        expect(buttons).toHaveLength(2);
         expect(buttons[0].textContent).toContain('Копировать');
         expect(buttons[0].classList.contains('lexisync-result-button--primary')).toBe(true);
+        expect(buttons[1].getAttribute('aria-label')).toContain('Скачать');
 
-        // Режим с активным полем ввода: показывает кнопку замены и кнопку копирования
+        // Режим с активным полем ввода: показывает кнопку замены, кнопку копирования и кнопку скачивания
         const input = createMockElement('input');
         const inputActionsContainer = createMockElement('div');
         renderPrimaryResultActions({
@@ -755,9 +775,10 @@ test('renderPrimaryResultActions отображает только кнопку 
         });
 
         const inputButtons = inputActionsContainer.querySelectorAll('button');
-        expect(inputButtons).toHaveLength(2);
+        expect(inputButtons).toHaveLength(3);
         expect(inputButtons[0].textContent).toContain('Заменить текст');
         expect(inputButtons[1].getAttribute('aria-label')).toBe('Копировать');
+        expect(inputButtons[2].getAttribute('aria-label')).toContain('Скачать');
     } finally {
         vi.stubGlobal('document', originalDocument);
         vi.stubGlobal('DOMParser', originalDOMParser);
@@ -1339,7 +1360,7 @@ test('генератор промптов поддерживает режимы 
         { mode: 'format', text: 'Текст с   кривыми\n\nразрывами' },
         { selectedTone: 'business', sendPageContext: false, personalDictionary: [], glossary: [] },
     );
-    expect(formatMessages[0].content).toContain('Markdown');
+    expect(formatMessages[0].content).toContain('Очисти текст от лишних переносов строк');
 });
 
 test('cleanPdfLineBreaksAndWhitespace корректно склеивает переносы строк и дефисы', async () => {
@@ -1349,4 +1370,200 @@ test('cleanPdfLineBreaksAndWhitespace корректно склеивает пе
     const cleaned = cleanPdfLineBreaksAndWhitespace(rawPdf);
     expect(cleaned).toContain('предложение было разорвано в документе PDF.');
     expect(cleaned).toContain('Второй абзац.');
+});
+
+test('страница options.html содержит ссылку на почту разработчика для обратной связи', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const optionsHtml = await fs.readFile(path.resolve(__dirname, '../entrypoints/options.html'), 'utf8');
+
+    expect(optionsHtml).toContain('id="feedback-link"');
+    expect(optionsHtml).toContain('mailto:arm2402@yandex.ru');
+    expect(optionsHtml).toContain('id="shortcutTesterCard"');
+    expect(optionsHtml).toContain('id="usageTimeSaved"');
+});
+
+test('fixKeyboardLayout корректно преобразует текст с пунктуацией и Shift между раскладками', async () => {
+    const { fixKeyboardLayout } = await import('../src/keyboard-layout');
+
+    expect(fixKeyboardLayout('Ghbdtn? rfr ltkf&')).toBe('Привет, как дела?');
+    expect(fixKeyboardLayout('GHBDTN!')).toBe('ПРИВЕТ!');
+    expect(fixKeyboardLayout('ghbdtn/')).toBe('привет.');
+    expect(fixKeyboardLayout('Rfr ltkf&')).toBe('Как дела?');
+    expect(fixKeyboardLayout('ghbdtn? vbh!')).toBe('привет, мир!');
+    expect(fixKeyboardLayout('руддщ! цщкдв.')).toBe('hello! world/');
+});
+
+test('applyFastTypographyAndTypoFixes исправляет новые грамматические конструкции', async () => {
+    const { applyFastTypographyAndTypoFixes } = await import('../src/local-text-rules');
+
+    expect(applyFastTypographyAndTypoFixes('в течении часа').text).toBe('В течение часа');
+    expect(applyFastTypographyAndTypoFixes('по прибытию поезда').text).toBe('По прибытии поезда');
+    expect(applyFastTypographyAndTypoFixes('более менее понятно').text).toBe('Более-менее понятно');
+    expect(applyFastTypographyAndTypoFixes('оплатить за проезд').text).toBe('Оплатить проезд');
+    expect(applyFastTypographyAndTypoFixes('займи мне денег').text).toBe('Одолжи мне денег');
+});
+
+test('buildMessages выполняет умное автоопределение языка для перевода', async () => {
+    const { buildMessages } = await import('../src/prompt-builder');
+
+    // Кириллица без явного targetLang -> английский
+    const ruMsg = buildMessages(
+        { mode: 'translate', text: 'Привет, как твои дела?' },
+        { selectedTone: 'business', sendPageContext: false, personalDictionary: [], glossary: [] },
+    );
+    expect(ruMsg[0].content).toContain('английский');
+
+    // Латиница без явного targetLang -> русский
+    const enMsg = buildMessages(
+        { mode: 'translate', text: 'Hello, how are you doing today?' },
+        { selectedTone: 'business', sendPageContext: false, personalDictionary: [], glossary: [] },
+    );
+    expect(enMsg[0].content).toContain('русский');
+
+    // Явный язык сохраняется
+    const deMsg = buildMessages(
+        { mode: 'translate', text: 'Привет', targetLang: 'немецкий' },
+        { selectedTone: 'business', sendPageContext: false, personalDictionary: [], glossary: [] },
+    );
+    expect(deMsg[0].content).toContain('немецкий');
+});
+
+test('buildMessages поддерживает стили shorten и expand', async () => {
+    const { buildMessages } = await import('../src/prompt-builder');
+
+    const shortenMsg = buildMessages(
+        { mode: 'style', text: 'Очень длинный текст с большим количеством вводных слов и пояснений.' },
+        { selectedTone: 'shorten', sendPageContext: false, personalDictionary: [], glossary: [] },
+    );
+    expect(shortenMsg[0].content).toContain('сжато и коротко');
+
+    const expandMsg = buildMessages(
+        { mode: 'style', text: 'Краткие тезисы.' },
+        { selectedTone: 'expand', sendPageContext: false, personalDictionary: [], glossary: [] },
+    );
+    expect(expandMsg[0].content).toContain('развернув тезисы');
+});
+
+test('renderPrimaryResultActions создает кнопку скачивания в файл', async () => {
+    const { renderPrimaryResultActions } = await import('../src/content-result-actions');
+
+    const originalDocument = globalThis.document;
+    const originalDOMParser = globalThis.DOMParser;
+    vi.stubGlobal('DOMParser', MockDOMParser);
+    vi.stubGlobal('document', {
+        createElement: (tag: string) => createMockElement(tag),
+        createTextNode: (text: string) => ({ textContent: text }),
+        importNode: (node: unknown) => node,
+    });
+
+    try {
+        const actionsContainer = createMockElement('div');
+        const headerTitle = createMockElement('div');
+
+        renderPrimaryResultActions({
+            mode: 'summary',
+            selection: {
+                text: 'Текст',
+                context: '',
+                range: null,
+                activeElement: null,
+                start: null,
+                end: null,
+                isInput: false,
+            },
+            actionsContainer: actionsContainer as unknown as HTMLElement,
+            headerTitle: headerTitle as unknown as HTMLElement,
+            getResult: () => '# Выжимка\nКлючевой пункт',
+            showStatus: vi.fn(),
+            setTimeout: (cb) => cb(),
+        });
+
+        const downloadBtn = actionsContainer
+            .querySelectorAll('button')
+            .find((btn) => btn.getAttribute('aria-label')?.includes('Скачать'));
+        expect(downloadBtn).toBeTruthy();
+    } finally {
+        vi.stubGlobal('document', originalDocument);
+        vi.stubGlobal('DOMParser', originalDOMParser);
+    }
+});
+
+test('cleanMarkdownArtifacts удаляет паразитные таблицы и символы | вокруг обычного текста', async () => {
+    const { cleanMarkdownArtifacts } = await import('../src/markdown');
+
+    const tableGarbage = `| Регистрация нового пользователя | |\n| --- | --- |`;
+    expect(cleanMarkdownArtifacts(tableGarbage)).toBe('Регистрация нового пользователя');
+
+    const singleLinePipes = `| Регистрация нового пользователя |`;
+    expect(cleanMarkdownArtifacts(singleLinePipes)).toBe('Регистрация нового пользователя');
+
+    const regularText = 'Обычный текст без таблиц';
+    expect(cleanMarkdownArtifacts(regularText)).toBe('Обычный текст без таблиц');
+});
+
+test('maskPii и unmaskPii корректно маскируют и восстанавливают чувствительные данные', async () => {
+    const { maskPii, unmaskPii } = await import('../src/pii-masker');
+
+    const raw =
+        'Почта: user@company.com, телефон: +7 999 123-45-67, карта: 4111 2222 3333 4444, ключ: sk-abcdef1234567890abcdef12, IP: 192.168.1.1';
+    const { maskedText, maskMap, maskedCount } = maskPii(raw);
+
+    expect(maskedCount).toBe(5);
+    expect(maskedText).not.toContain('user@company.com');
+    expect(maskedText).not.toContain('4111 2222 3333 4444');
+    expect(maskedText).not.toContain('sk-abcdef1234567890abcdef12');
+    expect(maskedText).toContain('[__EMAIL_');
+    expect(maskedText).toContain('[__PHONE_');
+    expect(maskedText).toContain('[__CARD_');
+    expect(maskedText).toContain('[__SECRET_');
+    expect(maskedText).toContain('[__IP_');
+
+    const restored = unmaskPii(maskedText, maskMap);
+    expect(restored).toBe(raw);
+});
+
+test('PROMPT_LIBRARY_TEMPLATES содержит проверенные шаблоны команд', async () => {
+    const { PROMPT_LIBRARY_TEMPLATES } = await import('../src/prompt-library');
+
+    expect(PROMPT_LIBRARY_TEMPLATES.length).toBeGreaterThanOrEqual(5);
+    for (const tpl of PROMPT_LIBRARY_TEMPLATES) {
+        expect(tpl.id).toBeTruthy();
+        expect(tpl.name).toBeTruthy();
+        expect(tpl.prompt).toBeTruthy();
+        expect(tpl.category).toBeTruthy();
+    }
+});
+
+test('estimateReadingTimeMinutes и бейдж времени чтения в formatTextStats', async () => {
+    const { estimateReadingTimeMinutes, formatTextStats } = await import('../src/text-stats');
+
+    expect(estimateReadingTimeMinutes('слово '.repeat(50))).toBe(1);
+    expect(estimateReadingTimeMinutes('слово '.repeat(400))).toBe(2);
+
+    const longResult = 'слово '.repeat(120);
+    const stats = formatTextStats('исходный текст', longResult, { words: 'слов', chars: 'симв.', minShort: 'мин' });
+    expect(stats).toContain('⏱ ~1 мин');
+    expect(stats).toContain('120 слов');
+});
+
+test('applySettingsMutation поддерживает factoryReset', async () => {
+    const { applySettingsMutation } = await import('../src/settings-store');
+
+    const clearFn = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('chrome', {
+        storage: {
+            local: {
+                clear: clearFn,
+                get: vi.fn(),
+                set: vi.fn(),
+            },
+            sync: {
+                clear: vi.fn().mockResolvedValue(undefined),
+            },
+        },
+    });
+
+    await applySettingsMutation('factoryReset', {});
+    expect(clearFn).toHaveBeenCalled();
 });

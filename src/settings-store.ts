@@ -8,7 +8,8 @@ export type SettingsMutation =
     | 'upsertCustomCommand'
     | 'deleteCustomCommand'
     | 'replaceStyleProfiles'
-    | 'setSitePreference';
+    | 'setSitePreference'
+    | 'factoryReset';
 
 export type SitePreference = 'access' | 'suggestions' | 'history' | 'context';
 
@@ -76,6 +77,10 @@ export function replaceStyleProfiles(profiles: StyleProfile[], activeProfileId: 
 
 export function setSitePreference(preference: SitePreference, hostname: string, enabled: boolean): Promise<void> {
     return requestSettingsMutation('setSitePreference', { preference, hostname, enabled });
+}
+
+export function factoryResetAllSettings(): Promise<void> {
+    return requestSettingsMutation('factoryReset', {});
 }
 
 export function applySettingsMutation(mutation: SettingsMutation, payload: SettingsMutationPayload): Promise<unknown> {
@@ -167,6 +172,17 @@ export function applySettingsMutation(mutation: SettingsMutation, payload: Setti
             const updates: Record<string, unknown> = { [listKey]: [...new Set(sites)].sort() };
             if (globalKey && payload.enabled) updates[globalKey] = true;
             await chrome.storage.local.set(updates);
+            return;
+        }
+        if (mutation === 'factoryReset') {
+            await chrome.storage.local.clear();
+            if (chrome.storage.sync?.clear) {
+                try {
+                    await chrome.storage.sync.clear();
+                } catch {
+                    // Ignore if sync is unavailable
+                }
+            }
             return;
         }
         throw new Error('INVALID_SETTINGS_MUTATION');

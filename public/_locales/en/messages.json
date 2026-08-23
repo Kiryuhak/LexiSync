@@ -592,5 +592,83 @@
     },
     "visualStyleSilkObsidian": {
         "message": "Silk Obsidian"
+    },
+    "feedbackBtn": {
+        "message": "Feedback & Support"
+    },
+    "feedbackTooltip": {
+        "message": "Send feedback or report a bug (arm2402@yandex.ru)"
+    },
+    "feedbackAria": {
+        "message": "Email developer at arm2402@yandex.ru"
+    },
+    "shortcutTesterTitle": {
+        "message": "Interactive Shortcut Tester"
+    },
+    "shortcutTesterHint": {
+        "message": "Press any key combination (Alt+R, Alt+Y, Alt+T, Alt+S) to verify its behavior."
+    },
+    "shortcutTesterPressPrompt": {
+        "message": "Click here and press keys on your keyboard…"
+    },
+    "shortcutTesterAria": {
+        "message": "Shortcut key tester"
+    },
+    "usageTimeSaved": {
+        "message": "time saved"
+    },
+    "compareChanges": {
+        "message": "Compare"
+    },
+    "showOriginal": {
+        "message": "Original"
+    },
+    "downloadResult": {
+        "message": "Download file (.md)"
+    },
+    "fileDownloaded": {
+        "message": "File downloaded!"
+    },
+    "piiMaskingEnable": {
+        "message": "Local PII & sensitive data masking"
+    },
+    "piiMaskingHint": {
+        "message": "Automatically masks email addresses, phone numbers, credit cards, and API keys before sending to AI (0 ms processing)."
+    },
+    "promptLibraryTitle": {
+        "message": "Prompt Library"
+    },
+    "addTemplateToCommands": {
+        "message": "+ Add to custom commands"
+    },
+    "templateAdded": {
+        "message": "✓ Added!"
+    },
+    "dangerZoneTitle": {
+        "message": "Factory Reset"
+    },
+    "factoryResetHint": {
+        "message": "Resets all local settings, personal dictionary, style profiles, and custom commands back to default."
+    },
+    "factoryResetButton": {
+        "message": "Reset all settings"
+    },
+    "factoryResetConfirmTitle": {
+        "message": "Reset all settings?"
+    },
+    "factoryResetConfirmText": {
+        "message": "This action will delete all custom commands, dictionary items, and restore default configuration."
+    },
+    "factoryResetConfirmAction": {
+        "message": "Yes, reset everything"
+    },
+    "quickFixDone": {
+        "message": "✨ Fixed in place (0 ms)"
+    },
+    "quickFixNoChanges": {
+        "message": "No issues found"
+    },
+    "statsMinutesShort": {
+        "message": "min"
     }
 }

@@ -53,6 +53,7 @@ export interface StoredV4Settings {
     monthlyTokenLimit?: unknown;
     warnLargeText?: unknown;
     autoFastMode?: unknown;
+    enablePiiMasking?: unknown;
 }
 
 export async function restoreV4Settings(storedSettings?: StoredV4Settings): Promise<void> {
@@ -63,6 +64,7 @@ export async function restoreV4Settings(storedSettings?: StoredV4Settings): Prom
             liveProofreadEnabled: false,
             liveProofreadDelay: 900,
             liveProofreadDisabledSites: [],
+            enablePiiMasking: false,
             ...DEFAULT_BUDGET_SETTINGS,
         }));
     byId<HTMLInputElement>('liveProofreadEnabled').checked = stored.liveProofreadEnabled === true;
@@ -78,12 +80,12 @@ export async function restoreV4Settings(storedSettings?: StoredV4Settings): Prom
     byId<HTMLInputElement>('monthlyTokenLimit').value = String(clampInteger(stored.monthlyTokenLimit, 0, 100_000_000));
     byId<HTMLInputElement>('warnLargeText').checked = stored.warnLargeText !== false;
     byId<HTMLInputElement>('autoFastMode').checked = stored.autoFastMode !== false;
+    const piiEl = byId<HTMLInputElement>('enablePiiMasking');
+    if (piiEl) piiEl.checked = stored.enablePiiMasking === true;
     fillThemeEditor(normalizeThemeCustomization(stored.themeCustomization));
 }
 
-export async function setupV4Settings(): Promise<void> {
-    await restoreV4Settings();
-
+export function setupV4Settings(): void {
     byId<HTMLInputElement>('liveProofreadEnabled').addEventListener('change', (event) => {
         void chrome.storage.local.set({ liveProofreadEnabled: (event.target as HTMLInputElement).checked });
     });
@@ -106,10 +108,13 @@ export async function setupV4Settings(): Promise<void> {
         (event.target as HTMLInputElement).value = String(value);
         void chrome.storage.local.set({ monthlyTokenLimit: value });
     });
-    for (const id of ['warnLargeText', 'autoFastMode'] as const) {
-        byId<HTMLInputElement>(id).addEventListener('change', (event) => {
-            void chrome.storage.local.set({ [id]: (event.target as HTMLInputElement).checked });
-        });
+    for (const id of ['warnLargeText', 'autoFastMode', 'enablePiiMasking'] as const) {
+        const el = byId<HTMLInputElement>(id);
+        if (el) {
+            el.addEventListener('change', (event) => {
+                void chrome.storage.local.set({ [id]: (event.target as HTMLInputElement).checked });
+            });
+        }
     }
 
     for (const id of ['themeAccent', 'themeRadius', 'themeDensity', 'themeTransparency', 'themeFontScale']) {

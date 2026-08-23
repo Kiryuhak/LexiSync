@@ -7,7 +7,19 @@ import { logger } from './logger';
 const HISTORY_LIMIT = 500; // Increased limit for IndexedDB
 const HISTORY_TEXT_MAX_LENGTH = 50_000;
 const HISTORY_NAME_MAX_LENGTH = 80;
-const HISTORY_MODES = new Set(['spellcheck', 'style', 'emoji', 'layout', 'translate', 'ocr', 'custom']);
+const HISTORY_MODES = new Set([
+    'spellcheck',
+    'style',
+    'emoji',
+    'layout',
+    'translate',
+    'summary',
+    'reply',
+    'explain',
+    'format',
+    'ocr',
+    'custom',
+]);
 const DB_NAME = 'LexiSyncDB';
 const STORE_NAME = 'history';
 

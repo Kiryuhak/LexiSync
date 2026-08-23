@@ -13,10 +13,13 @@ import { normalizeResultDisplayMode } from './result-display-mode';
 import { normalizeSiteEntries } from './privacy';
 import { normalizeAppearanceStyle } from './appearance-style';
 import { restoreV4Settings, setupV4Settings } from './v4-settings';
-import { applyThemeCustomization } from './theme-customization';
+import { applyThemeCustomization, DEFAULT_THEME_CUSTOMIZATION } from './theme-customization';
+import { DEFAULT_BUDGET_SETTINGS } from './budget';
 import { validateApiKey } from './mistral-client';
 import { logger } from './logger';
 import { setupSettingsTabs } from './options-tabs';
+import { PROMPT_LIBRARY_TEMPLATES } from './prompt-library';
+import { factoryResetAllSettings, upsertCustomCommand } from './settings-store';
 import {
     clampInterfaceScale,
     installResultPreviewStyles,
@@ -141,10 +144,63 @@ function renderUsageStats(stats: UsageStats): void {
     const requests = document.getElementById('usageRequests');
     const hits = document.getElementById('usageCacheHits');
     const latency = document.getElementById('usageLatency');
+    const timeSaved = document.getElementById('usageTimeSaved');
     if (requests) requests.textContent = String(stats.requests);
     if (hits) hits.textContent = String(stats.cacheHits);
     if (latency)
         latency.textContent = stats.requests ? `${(stats.totalLatencyMs / stats.requests / 1000).toFixed(1)} с` : '0 с';
+    if (timeSaved) {
+        const totalMinutes = Math.round((stats.requests * 30 + stats.cacheHits * 15) / 60);
+        timeSaved.textContent = totalMinutes >= 60 ? `~${(totalMinutes / 60).toFixed(1)} ч` : `~${totalMinutes} мин`;
+    }
+}
+
+function setupShortcutTester(): void {
+    const card = document.getElementById('shortcutTesterCard');
+    const status = document.getElementById('shortcutTesterStatus');
+    const badges = document.querySelectorAll<HTMLElement>('.shortcut-badge');
+    if (!card || !status) return;
+
+    card.addEventListener('keydown', (event) => {
+        if (event.key === 'Tab') return;
+        event.preventDefault();
+        event.stopPropagation();
+
+        const alt = event.altKey;
+        const ctrl = event.ctrlKey;
+        const meta = event.metaKey;
+        const shift = event.shiftKey;
+        const key = event.key.toUpperCase();
+
+        const modifiers: string[] = [];
+        if (ctrl) modifiers.push('Ctrl');
+        if (alt) modifiers.push('Alt');
+        if (meta) modifiers.push('Cmd');
+        if (shift) modifiers.push('Shift');
+
+        if (['ALT', 'CONTROL', 'META', 'SHIFT'].includes(key)) {
+            status.textContent = `${modifiers.join('+')} + ...`;
+            return;
+        }
+
+        const combo = `${modifiers.join('+')}${modifiers.length ? '+' : ''}${key}`;
+        status.textContent = `✓ ${combo}`;
+
+        badges.forEach((badge) => {
+            const badgeKey = badge.dataset.key || '';
+            const match =
+                combo.toUpperCase() === badgeKey.toUpperCase() ||
+                (alt && (key === 'R' || key === 'К') && badgeKey.includes('Alt+R')) ||
+                (alt && (key === 'Y' || key === 'Н') && badgeKey.includes('Alt+Y')) ||
+                (alt && (key === 'T' || key === 'Е') && badgeKey.includes('Alt+T')) ||
+                (alt && (key === 'S' || key === 'Ы') && badgeKey.includes('Alt+S'));
+
+            if (match) {
+                badge.classList.add('is-hit');
+                setTimeout(() => badge.classList.remove('is-hit'), 1200);
+            }
+        });
+    });
 }
 
 function renderSettingsSyncStatus(value: unknown): void {
@@ -350,6 +406,11 @@ async function restoreOptions(): Promise<void> {
             glossary: [],
             styleProfiles: [],
             activeStyleProfileId: '',
+            themeCustomization: DEFAULT_THEME_CUSTOMIZATION,
+            liveProofreadEnabled: false,
+            liveProofreadDelay: 900,
+            liveProofreadDisabledSites: [],
+            ...DEFAULT_BUDGET_SETTINGS,
             usageStats: EMPTY_USAGE_STATS,
             settingsSyncStatus: { state: 'synced', updatedAt: 0 },
         }),
@@ -412,12 +473,99 @@ async function restoreOptions(): Promise<void> {
     updateSaveButtonState();
 }
 
+function setupPromptLibrary(): void {
+    const toggleBtn = document.getElementById('togglePromptLibraryBtn') as HTMLButtonElement | null;
+    const section = document.getElementById('promptLibrarySection') as HTMLElement | null;
+    const grid = document.getElementById('promptLibraryGrid') as HTMLElement | null;
+    if (!toggleBtn || !section || !grid) return;
+
+    grid.replaceChildren(
+        ...PROMPT_LIBRARY_TEMPLATES.map((template) => {
+            const card = document.createElement('div');
+            card.className = 'prompt-library-card';
+
+            const title = document.createElement('div');
+            title.className = 'prompt-library-card-title';
+            title.textContent = template.name;
+
+            const desc = document.createElement('div');
+            desc.className = 'prompt-library-card-desc';
+            desc.textContent = template.description;
+
+            const promptText = document.createElement('div');
+            promptText.className = 'prompt-library-card-prompt';
+            promptText.textContent = template.prompt;
+
+            const addBtn = document.createElement('button');
+            addBtn.type = 'button';
+            addBtn.className = 'prompt-library-add-btn';
+            addBtn.textContent = t('addTemplateToCommands', '+ Добавить в свои команды');
+            addBtn.onclick = async () => {
+                try {
+                    addBtn.disabled = true;
+                    await upsertCustomCommand({
+                        id: `cmd-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                        name: template.name,
+                        prompt: template.prompt,
+                    });
+                    addBtn.textContent = t('templateAdded', '✓ Добавлено!');
+                    setTimeout(() => {
+                        addBtn.disabled = false;
+                        addBtn.textContent = t('addTemplateToCommands', '+ Добавить в свои команды');
+                    }, 2000);
+                } catch {
+                    addBtn.disabled = false;
+                }
+            };
+
+            card.append(title, desc, promptText, addBtn);
+            return card;
+        }),
+    );
+
+    toggleBtn.addEventListener('click', () => {
+        const isHidden = section.hidden;
+        section.hidden = !isHidden;
+        toggleBtn.setAttribute('aria-expanded', String(!isHidden));
+    });
+}
+
+function setupFactoryReset(): void {
+    const resetBtn = document.getElementById('factoryResetBtn') as HTMLButtonElement | null;
+    const dialog = document.getElementById('factoryResetDialog') as HTMLDialogElement | null;
+    const cancelBtn = document.getElementById('cancelFactoryReset') as HTMLButtonElement | null;
+    const confirmBtn = document.getElementById('confirmFactoryReset') as HTMLButtonElement | null;
+    if (!resetBtn || !dialog || !cancelBtn || !confirmBtn) return;
+
+    resetBtn.addEventListener('click', () => {
+        dialog.showModal();
+    });
+
+    cancelBtn.addEventListener('click', () => {
+        dialog.close();
+    });
+
+    confirmBtn.addEventListener('click', async () => {
+        confirmBtn.disabled = true;
+        try {
+            await factoryResetAllSettings();
+            window.location.reload();
+        } catch {
+            confirmBtn.disabled = false;
+            dialog.close();
+        }
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     localizeDocument();
     setupReleaseNotesTrigger();
     installResultPreviewStyles();
-    void restoreOptions().then(() =>
-        setupOnboarding({
+    void restoreOptions().then(() => {
+        // Подключаем автосохранение только после полного восстановления формы.
+        // Так параллельное чтение больше не заменит сохранённые значения настройками по умолчанию.
+        setupV4Settings();
+        return setupOnboarding({
             getApiKey: () => restoredApiKey,
             onApiKeySaved: async (apiKey) => {
                 await writePrivateApiKey(apiKey);
@@ -427,9 +575,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 savedOptionsState = captureOptionsState();
                 updateSaveButtonState();
             },
-        }),
-    );
-    void setupV4Settings();
+        });
+    });
     void chrome.storage.local
         .get({ themeCustomization: {} })
         .then((stored) => applyThemeCustomization(document.documentElement, stored.themeCustomization));
@@ -477,6 +624,9 @@ document.addEventListener('DOMContentLoaded', () => {
     setupCustomCommandSettings();
     setupStyleProfileSettings();
     setupSettingsTabs();
+    setupShortcutTester();
+    setupPromptLibrary();
+    setupFactoryReset();
 
     const clearAdaptiveDataButton = document.getElementById('clearAdaptiveData') as HTMLButtonElement | null;
     clearAdaptiveDataButton?.addEventListener('click', async () => {
