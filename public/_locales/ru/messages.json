@@ -670,5 +670,20 @@
     },
     "statsMinutesShort": {
         "message": "мин"
+    },
+    "tabGuide": {
+        "message": "Руководство"
+    },
+    "tabGuideInteractiveTitle": {
+        "message": "Интерактивное руководство по возможностям"
+    },
+    "tabGuideInteractiveDescription": {
+        "message": "Нажмите на любую кнопку или действие, чтобы увидеть живую анимацию и сочетания клавиш."
+    },
+    "shortcutQuickFix": {
+        "message": "Тихое исправление раскладки и текста"
+    },
+    "shortcutTab": {
+        "message": "Принятие локальных подсказок на лету"
     }
 }

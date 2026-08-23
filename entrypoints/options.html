@@ -75,6 +75,9 @@
                 <button class="settings-tab" type="button" role="tab" data-tab="commands" data-i18n="tabCommands">
                     Команды
                 </button>
+                <button class="settings-tab" type="button" role="tab" data-tab="guide" data-i18n="tabGuide">
+                    Руководство
+                </button>
             </nav>
 
             <section
@@ -706,6 +709,10 @@
                 </button>
             </div>
 
+            <section class="guide-panel" data-settings-group="guide" hidden>
+                <div id="interactiveGuideContainer"></div>
+            </section>
+
             <div class="btn-container" id="saveActions">
                 <button id="saveBtn" data-i18n="save">Сохранить</button>
                 <span id="status" role="status" aria-live="polite" data-i18n="saved">✓ Сохранено успешно!</span>
@@ -860,13 +867,22 @@
                     </ol>
                 </section>
                 <section class="onboarding-step" data-onboarding-step="3">
-                    <h3 data-i18n="tutorialWorkspace">Быстрые команды</h3>
-                    <p data-i18n="tutorialWorkspaceHint">Выделите текст на странице или используйте горячие клавиши.</p>
-                    <ul class="onboarding-list">
-                        <li data-i18n="shortcutSpellcheck">Alt+R — исправить ошибки</li>
-                        <li data-i18n="shortcutStyle">Alt+Y — переписать текст</li>
-                        <li data-i18n="shortcutEmoji">Alt+T — добавить эмодзи</li>
-                        <li data-i18n="shortcutOcr">Alt+S — распознать текст на экране</li>
+                    <h3 data-i18n="tutorialWorkspace">Быстрые команды и клавиши</h3>
+                    <p data-i18n="tutorialWorkspaceHint">Используйте горячие клавиши или плавающую панель LexiSync:</p>
+                    <ul class="onboarding-list onboarding-shortcuts-list">
+                        <li>
+                            <kbd>Alt+R</kbd> <span data-i18n="shortcutSpellcheck">Исправление ошибок и опечаток</span>
+                        </li>
+                        <li><kbd>Alt+Y</kbd> <span data-i18n="shortcutStyle">Переписать / Другими словами</span></li>
+                        <li><kbd>Alt+T</kbd> <span data-i18n="shortcutEmoji">Добавить выразительные эмодзи</span></li>
+                        <li><kbd>Alt+S</kbd> <span data-i18n="shortcutOcr">Распознать текст на экране (OCR)</span></li>
+                        <li>
+                            <kbd>0 мс</kbd>
+                            <span data-i18n="shortcutQuickFix">Тихое исправление раскладки и текста</span>
+                        </li>
+                        <li>
+                            <kbd>Tab</kbd> <span data-i18n="shortcutTab">Принятие локальных подсказок на лету</span>
+                        </li>
                     </ul>
                 </section>
                 <section class="onboarding-step" data-onboarding-step="4">

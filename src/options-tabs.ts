@@ -43,6 +43,13 @@ export const SETTINGS_TAB_GUIDES = {
         descriptionKey: 'tabGuideCommandsDescription',
         description: 'Создавайте понятные команды для повторяющихся задач с текстом.',
     },
+    guide: {
+        icon: '▶',
+        titleKey: 'tabGuideInteractiveTitle',
+        title: 'Интерактивное руководство по возможностям',
+        descriptionKey: 'tabGuideInteractiveDescription',
+        description: 'Нажмите на любую кнопку или действие, чтобы увидеть живую анимацию и сочетания клавиш.',
+    },
 } as const;
 
 export type SettingsTabName = keyof typeof SETTINGS_TAB_GUIDES;
@@ -76,7 +83,7 @@ export function activateSettingsTab(tabName: string): void {
         element.hidden = element.dataset.settingsGroup !== tabName;
     });
     const saveActions = document.getElementById('saveActions');
-    if (saveActions) saveActions.hidden = tabName === 'commands';
+    if (saveActions) saveActions.hidden = tabName === 'commands' || tabName === 'guide';
     document.querySelectorAll<HTMLButtonElement>('.settings-tab').forEach((button) => {
         const active = button.dataset.tab === tabName;
         button.classList.toggle('is-active', active);

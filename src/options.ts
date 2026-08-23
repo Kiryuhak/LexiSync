@@ -18,6 +18,7 @@ import { DEFAULT_BUDGET_SETTINGS } from './budget';
 import { validateApiKey } from './mistral-client';
 import { logger } from './logger';
 import { setupSettingsTabs } from './options-tabs';
+import { setupInteractiveGuide } from './options-guide';
 import { PROMPT_LIBRARY_TEMPLATES } from './prompt-library';
 import { factoryResetAllSettings, upsertCustomCommand } from './settings-store';
 import {
@@ -627,6 +628,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupShortcutTester();
     setupPromptLibrary();
     setupFactoryReset();
+    setupInteractiveGuide();
 
     const clearAdaptiveDataButton = document.getElementById('clearAdaptiveData') as HTMLButtonElement | null;
     clearAdaptiveDataButton?.addEventListener('click', async () => {

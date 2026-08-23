@@ -837,9 +837,11 @@ test('SETTINGS_TAB_GUIDES содержит описания для всех ос
         'suggestions',
         'privacy',
         'commands',
+        'guide',
     ]);
     expect(SETTINGS_TAB_GUIDES.main.icon).toBe('✦');
     expect(SETTINGS_TAB_GUIDES.commands.icon).toBe('⌘');
+    expect(SETTINGS_TAB_GUIDES.guide.icon).toBe('▶');
 });
 
 test('createDiagnosticReport формирует валидный отчёт без ошибок при отсутствии getBytesInUse', async () => {
@@ -1566,4 +1568,29 @@ test('applySettingsMutation поддерживает factoryReset', async () => 
 
     await applySettingsMutation('factoryReset', {});
     expect(clearFn).toHaveBeenCalled();
+});
+
+test('GUIDE_DEMOS содержит демонстрации для всех 10 ключевых функций LexiSync', async () => {
+    const { GUIDE_DEMOS } = await import('../src/options-guide');
+
+    expect(GUIDE_DEMOS.length).toBe(10);
+    const ids = GUIDE_DEMOS.map((d) => d.id);
+    expect(ids).toContain('spellcheck');
+    expect(ids).toContain('paraphrase');
+    expect(ids).toContain('inplace');
+    expect(ids).toContain('translate');
+    expect(ids).toContain('emoji');
+    expect(ids).toContain('ocr');
+    expect(ids).toContain('suggestions');
+    expect(ids).toContain('copy');
+    expect(ids).toContain('pii');
+    expect(ids).toContain('commands');
+
+    for (const demo of GUIDE_DEMOS) {
+        expect(demo.title).toBeTruthy();
+        expect(demo.shortcut).toBeTruthy();
+        expect(demo.inputText).toBeTruthy();
+        expect(demo.outputText).toBeTruthy();
+        expect(demo.tip).toBeTruthy();
+    }
 });

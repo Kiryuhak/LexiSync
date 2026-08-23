@@ -670,5 +670,20 @@
     },
     "statsMinutesShort": {
         "message": "min"
+    },
+    "tabGuide": {
+        "message": "Guide"
+    },
+    "tabGuideInteractiveTitle": {
+        "message": "Interactive Feature Guide"
+    },
+    "tabGuideInteractiveDescription": {
+        "message": "Click on any button or action to see live animations and keyboard shortcuts."
+    },
+    "shortcutQuickFix": {
+        "message": "Silent in-place layout & typo fix"
+    },
+    "shortcutTab": {
+        "message": "Accept on-the-fly local suggestions"
     }
 }
