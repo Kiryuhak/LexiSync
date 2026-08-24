@@ -40,6 +40,7 @@ function render(): void {
         card.className = 'command-card';
         if (profile.id === activeProfileId) card.style.borderColor = 'var(--primary)';
         const copy = document.createElement('div');
+        copy.className = 'command-card-copy';
         const name = document.createElement('strong');
         name.textContent = profile.name;
         const instruction = document.createElement('span');

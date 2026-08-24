@@ -1,7 +1,28 @@
 export type TextMode =
-    'spellcheck' | 'style' | 'emoji' | 'layout' | 'translate' | 'summary' | 'reply' | 'explain' | 'format';
+    | 'spellcheck'
+    | 'style'
+    | 'emoji'
+    | 'layout'
+    | 'translate'
+    | 'summary'
+    | 'reply'
+    | 'explain'
+    | 'format'
+    | 'tone'
+    | 'continue'
+    | 'notes_to_doc'
+    | 'headline'
+    | 'case_convert'
+    | 'text_clean';
 export type RequestMode = TextMode | 'ocr' | 'custom';
 export type AiMode = 'fast' | 'quality';
+
+export interface TextSnippet {
+    id: string;
+    trigger: string;
+    content: string;
+    description?: string;
+}
 
 export interface CustomCommand {
     id: string;

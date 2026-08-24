@@ -89,11 +89,14 @@
     "exportSettings": { "message": "Экспортировать" },
     "importSettings": { "message": "Импортировать" },
     "settingsImported": { "message": "Настройки импортированы." },
+    "settingsLoadFailed": { "message": "Не удалось загрузить настройки. Обновите страницу." },
     "importFailed": { "message": "Не удалось импортировать настройки." },
     "usageTitle": { "message": "Локальная статистика" },
     "usageRequests": { "message": "запросов" },
     "usageCacheHits": { "message": "из кэша" },
     "usageLatency": { "message": "средний ответ" },
+    "usageSuccessRate": { "message": "успешных запросов" },
+    "usageMostUsedMode": { "message": "частая команда" },
     "clearStats": { "message": "Очистить статистику" },
     "historyTitle": { "message": "История запросов" },
     "historySearch": { "message": "Поиск по истории…" },
@@ -685,5 +688,134 @@
     },
     "shortcutTab": {
         "message": "Принятие локальных подсказок на лету"
+    },
+    "modeTone": {
+        "message": "Тональность"
+    },
+    "toneTitle": {
+        "message": "Тональность и вежливость"
+    },
+    "historyPromptTone": {
+        "message": "Проанализируй тональность и вежливость текста, предложив более вежливый и конструктивный вариант."
+    },
+    "import": {
+        "message": "Импорт"
+    },
+    "export": {
+        "message": "Экспорт"
+    },
+    "invalidImportFormat": {
+        "message": "Неверный формат файла: ожидается массив JSON"
+    },
+    "historyImported": {
+        "message": "Импортировано записей"
+    },
+    "historyImportFailed": {
+        "message": "Ошибка при импорте файла"
+    },
+    "historyFileTooLarge": {
+        "message": "Файл истории не должен превышать 2 МБ."
+    },
+    "historyImportLimit": {
+        "message": "За один раз можно импортировать не более 500 записей."
+    },
+    "openShortcutsManager": {
+        "message": "Настроить сочетания клавиш в браузере"
+    },
+    "firefoxShortcutHint": {
+        "message": "В Firefox откройте шестерёнку → «Управление клавишами расширений»."
+    },
+    "shortcutManagerOpenFailed": {
+        "message": "Не удалось открыть менеджер сочетаний клавиш."
+    },
+    "continueTitle": {
+        "message": "Дописать за меня"
+    },
+    "notesToDocTitle": {
+        "message": "Заметки в текст"
+    },
+    "headlineTitle": {
+        "message": "Подобрать заголовки"
+    },
+    "modeContinue": {
+        "message": "Дописать"
+    },
+    "modeNotesToDoc": {
+        "message": "Заметки в текст"
+    },
+    "modeHeadline": {
+        "message": "Заголовки"
+    },
+    "historyPromptContinue": {
+        "message": "Логично продолжи мысль или предложение, сохраняя контекст и стиль."
+    },
+    "historyPromptNotesToDoc": {
+        "message": "Преврати краткие тезисы и заметки в связный, профессионально оформленный текст."
+    },
+    "historyPromptHeadline": {
+        "message": "Предложи 3-5 привлекательных и ёмких вариантов заголовка для текста."
+    },
+    "textSnippetsTitle": {
+        "message": "Текстовые сниппеты (Макросы)"
+    },
+    "textSnippetsIntro": {
+        "message": "Введите триггер (например /email или /hello) в обычном текстовом поле и нажмите Tab или Пробел. Пароли, платёжные и другие чувствительные поля не обрабатываются."
+    },
+    "snippetTrigger": {
+        "message": "Шорткод (триггер)"
+    },
+    "snippetContent": {
+        "message": "Текст для вставки"
+    },
+    "saveSnippet": {
+        "message": "Сохранить сниппет"
+    },
+    "noSnippets": {
+        "message": "Пока нет сохранённых сниппетов."
+    },
+    "snippetLimit": {
+        "message": "Можно сохранить не более 20 сниппетов."
+    },
+    "snippetDuplicate": {
+        "message": "Сниппет с таким триггером уже существует."
+    },
+    "snippetInvalid": {
+        "message": "Используйте триггер из букв, цифр, дефиса или подчёркивания после символа /."
+    },
+    "caseConvertTitle": {
+        "message": "Сменить регистр"
+    },
+    "textCleanTitle": {
+        "message": "Очистить текст"
+    },
+    "modeCaseConvert": {
+        "message": "Регистр"
+    },
+    "modeTextClean": {
+        "message": "Очистка"
+    },
+    "doneLocal": {
+        "message": "✓ Выполнено локально (0 мс)"
+    },
+    "caseSentence": {
+        "message": "В предложениях"
+    },
+    "caseLower": {
+        "message": "строчные"
+    },
+    "caseUpper": {
+        "message": "ЗАГЛАВНЫЕ"
+    },
+    "caseTitle": {
+        "message": "С Заглавной"
+    },
+    "cleanAll": {
+        "message": "Всё"
+    },
+    "cleanSpaces": {
+        "message": "Только пробелы"
+    },
+    "cleanTypography": {
+        "message": "Типографика"
     }
 }

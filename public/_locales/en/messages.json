@@ -89,11 +89,14 @@
     "exportSettings": { "message": "Export" },
     "importSettings": { "message": "Import" },
     "settingsImported": { "message": "Settings imported." },
+    "settingsLoadFailed": { "message": "Could not load settings. Reload the page." },
     "importFailed": { "message": "Could not import settings." },
     "usageTitle": { "message": "Local statistics" },
     "usageRequests": { "message": "requests" },
     "usageCacheHits": { "message": "cache hits" },
     "usageLatency": { "message": "average response" },
+    "usageSuccessRate": { "message": "successful requests" },
+    "usageMostUsedMode": { "message": "most used action" },
     "clearStats": { "message": "Clear statistics" },
     "historyTitle": { "message": "Request history" },
     "historySearch": { "message": "Search history…" },
@@ -685,5 +688,134 @@
     },
     "shortcutTab": {
         "message": "Accept on-the-fly local suggestions"
+    },
+    "modeTone": {
+        "message": "Tone"
+    },
+    "toneTitle": {
+        "message": "Tone & Politeness"
+    },
+    "historyPromptTone": {
+        "message": "Analyze the tone and politeness of this text and suggest a more polite, constructive version."
+    },
+    "import": {
+        "message": "Import"
+    },
+    "export": {
+        "message": "Export"
+    },
+    "invalidImportFormat": {
+        "message": "Invalid file format: JSON array expected"
+    },
+    "historyImported": {
+        "message": "Imported items"
+    },
+    "historyImportFailed": {
+        "message": "Failed to import history file"
+    },
+    "historyFileTooLarge": {
+        "message": "History files must not exceed 2 MB."
+    },
+    "historyImportLimit": {
+        "message": "You can import up to 500 records at a time."
+    },
+    "openShortcutsManager": {
+        "message": "Configure shortcuts in browser"
+    },
+    "firefoxShortcutHint": {
+        "message": "In Firefox, open the gear menu → Manage Extension Shortcuts."
+    },
+    "shortcutManagerOpenFailed": {
+        "message": "Could not open the browser shortcut manager."
+    },
+    "continueTitle": {
+        "message": "Continue Writing"
+    },
+    "notesToDocTitle": {
+        "message": "Notes to Text"
+    },
+    "headlineTitle": {
+        "message": "Suggest Headlines"
+    },
+    "modeContinue": {
+        "message": "Continue"
+    },
+    "modeNotesToDoc": {
+        "message": "Notes to Text"
+    },
+    "modeHeadline": {
+        "message": "Headlines"
+    },
+    "historyPromptContinue": {
+        "message": "Logically continue the thought or sentence, preserving context and style."
+    },
+    "historyPromptNotesToDoc": {
+        "message": "Turn brief notes and bullet points into coherent, professional text."
+    },
+    "historyPromptHeadline": {
+        "message": "Suggest 3-5 catchy and concise headline options for this text."
+    },
+    "textSnippetsTitle": {
+        "message": "Text Snippets (Macros)"
+    },
+    "textSnippetsIntro": {
+        "message": "Type a trigger (for example /email or /hello) in a regular text field and press Tab or Space. Password, payment, and other sensitive fields are never processed."
+    },
+    "snippetTrigger": {
+        "message": "Shortcut (trigger)"
+    },
+    "snippetContent": {
+        "message": "Content to insert"
+    },
+    "saveSnippet": {
+        "message": "Save Snippet"
+    },
+    "noSnippets": {
+        "message": "No saved snippets yet."
+    },
+    "snippetLimit": {
+        "message": "You can save up to 20 snippets."
+    },
+    "snippetDuplicate": {
+        "message": "A snippet with this trigger already exists."
+    },
+    "snippetInvalid": {
+        "message": "Use letters, digits, hyphens, or underscores after the / character."
+    },
+    "caseConvertTitle": {
+        "message": "Change case"
+    },
+    "textCleanTitle": {
+        "message": "Clean text"
+    },
+    "modeCaseConvert": {
+        "message": "Case"
+    },
+    "modeTextClean": {
+        "message": "Cleaner"
+    },
+    "doneLocal": {
+        "message": "✓ Executed locally (0 ms)"
+    },
+    "caseSentence": {
+        "message": "Sentence case"
+    },
+    "caseLower": {
+        "message": "lowercase"
+    },
+    "caseUpper": {
+        "message": "UPPERCASE"
+    },
+    "caseTitle": {
+        "message": "Title Case"
+    },
+    "cleanAll": {
+        "message": "All"
+    },
+    "cleanSpaces": {
+        "message": "Spaces only"
+    },
+    "cleanTypography": {
+        "message": "Typography"
     }
 }

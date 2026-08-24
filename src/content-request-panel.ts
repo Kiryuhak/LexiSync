@@ -21,6 +21,16 @@ import { createLanguagePicker } from './content-language-picker';
 import { formatTextStats } from './text-stats';
 import { estimateTokens } from './budget';
 import { logger } from './logger';
+import {
+    cycleCase,
+    toSentenceCase,
+    toLowerCase,
+    toUpperCase,
+    toTitleCase,
+    toCamelCase,
+    toSnakeCase,
+} from './case-converter';
+import { cleanText } from './text-cleaner';
 
 export interface ContentRequestContext {
     getPopup: () => HTMLElement | null;
@@ -67,6 +77,7 @@ export function executeRequest(
     let streamDisconnectGuard: PortDisconnectGuard | null = null;
     let streamUiUpdater: BatchedUiUpdater | null = null;
     let deactivateDialogKeyboard: (() => void) | null = null;
+    let popupResizeObserver: ResizeObserver | null = null;
 
     function disconnectStreamPort(): void {
         const port = streamPort;
@@ -83,6 +94,8 @@ export function executeRequest(
     const lifecycle = createRequestLifecycle(() => {
         streamUiUpdater?.cancel();
         deactivateDialogKeyboard?.();
+        popupResizeObserver?.disconnect();
+        popupResizeObserver = null;
         disconnectStreamPort();
     });
     registerRequestCleanup(() => lifecycle.dispose());
@@ -96,6 +109,12 @@ export function executeRequest(
     popupUI.style.boxSizing = 'border-box';
     popupUI.style.padding = '0';
     popupUI.style.display = 'block';
+    if (typeof ResizeObserver !== 'undefined') {
+        popupResizeObserver = new ResizeObserver(() => {
+            if (!lifecycle.disposed) adjustPopupPosition();
+        });
+        popupResizeObserver.observe(popupUI);
+    }
 
     let headerLabel = '';
     let headerIcon = '';
@@ -123,6 +142,12 @@ export function executeRequest(
     } else if (mode === 'format') {
         headerIcon = ICONS.cleanFormat;
         headerLabel = t('modeFormatFull', 'Очистка и форматирование');
+    } else if (mode === 'case_convert') {
+        headerIcon = ICONS.caseConvert;
+        headerLabel = t('caseConvertTitle', 'Смена регистра');
+    } else if (mode === 'text_clean') {
+        headerIcon = ICONS.textClean;
+        headerLabel = t('textCleanTitle', 'Очистка текста');
     } else if (mode === 'ocr') {
         headerEmoji = '📸';
         headerLabel = t('ocrResult', 'Распознанный текст');
@@ -371,6 +396,24 @@ export function executeRequest(
             skeleton.appendChild(line);
         }
         contentPane.replaceChildren(skeleton);
+        if (mode === 'case_convert') {
+            fullResult = cycleCase(originalText);
+            if (compactResultMode) contentPane.textContent = fullResult;
+            else renderMarkdown(contentPane, fullResult);
+            finishStream(true);
+            showActionStatus(t('doneLocal', '✓ Выполнено локально'));
+            return;
+        }
+
+        if (mode === 'text_clean') {
+            fullResult = cleanText(originalText);
+            if (compactResultMode) contentPane.textContent = fullResult;
+            else renderMarkdown(contentPane, fullResult);
+            finishStream(true);
+            showActionStatus(t('doneLocal', '✓ Выполнено локально'));
+            return;
+        }
+
         contentPane.style.color = '';
         actionsContainer.style.display = 'none';
         renderLoadingControl();
@@ -662,6 +705,57 @@ export function executeRequest(
                                 t('presetShortPrompt', 'Сократи текст, сохранив ключевые факты и исходный смысл.'),
                             ),
                         ),
+                    );
+                } else if (mode === 'case_convert') {
+                    tools.push(
+                        createTool(t('caseSentence', 'В предложениях'), () => {
+                            fullResult = toSentenceCase(originalText);
+                            contentPane.textContent = fullResult;
+                            editedResultSnapshot = fullResult;
+                        }),
+                        createTool(t('caseLower', 'строчные'), () => {
+                            fullResult = toLowerCase(originalText);
+                            contentPane.textContent = fullResult;
+                            editedResultSnapshot = fullResult;
+                        }),
+                        createTool(t('caseUpper', 'ЗАГЛАВНЫЕ'), () => {
+                            fullResult = toUpperCase(originalText);
+                            contentPane.textContent = fullResult;
+                            editedResultSnapshot = fullResult;
+                        }),
+                        createTool(t('caseTitle', 'С Заглавной'), () => {
+                            fullResult = toTitleCase(originalText);
+                            contentPane.textContent = fullResult;
+                            editedResultSnapshot = fullResult;
+                        }),
+                        createTool('camelCase', () => {
+                            fullResult = toCamelCase(originalText);
+                            contentPane.textContent = fullResult;
+                            editedResultSnapshot = fullResult;
+                        }),
+                        createTool('snake_case', () => {
+                            fullResult = toSnakeCase(originalText);
+                            contentPane.textContent = fullResult;
+                            editedResultSnapshot = fullResult;
+                        }),
+                    );
+                } else if (mode === 'text_clean') {
+                    tools.push(
+                        createTool(t('cleanAll', 'Всё'), () => {
+                            fullResult = cleanText(originalText);
+                            contentPane.textContent = fullResult;
+                            editedResultSnapshot = fullResult;
+                        }),
+                        createTool(t('cleanSpaces', 'Только пробелы'), () => {
+                            fullResult = cleanText(originalText, { typography: false, fixLineBreaks: false });
+                            contentPane.textContent = fullResult;
+                            editedResultSnapshot = fullResult;
+                        }),
+                        createTool(t('cleanTypography', 'Типографика'), () => {
+                            fullResult = cleanText(originalText, { collapseSpaces: false, fixLineBreaks: false });
+                            contentPane.textContent = fullResult;
+                            editedResultSnapshot = fullResult;
+                        }),
                     );
                 } else {
                     tools.push(

@@ -38,7 +38,7 @@ const test = base.extend({
                     return settings.settingsSchemaVersion;
                 }),
             )
-            .toBe(11);
+            .toBe(12);
         await use(context);
         await context.close();
     },
@@ -1063,7 +1063,7 @@ test('руководство и галерея остаются доступны
     await page.locator('[data-tab="guide"]').click();
 
     const guideItems = page.locator('.guide-accordion-item');
-    await expect(guideItems).toHaveCount(10);
+    await expect(guideItems).toHaveCount(18);
     await expect(page.locator('.guide-accordion-header[aria-expanded="true"]')).toHaveCount(0);
     const firstTrigger = page.locator('.guide-accordion-header').first();
     await firstTrigger.click();

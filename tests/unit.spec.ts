@@ -73,9 +73,9 @@ test('восстанавливает полное визуальное выде�
 });
 
 test('история обновлений содержит все выпуски и поддерживает поиск', () => {
-    expect(RELEASE_NOTES[0].version).toBe('5.3.4');
+    expect(RELEASE_NOTES[0].version).toBe('5.4.0');
     expect(RELEASE_NOTES.at(-1)?.version).toBe('2.5');
-    expect(RELEASE_NOTES).toHaveLength(48);
+    expect(RELEASE_NOTES).toHaveLength(49);
     expect(new Set(RELEASE_NOTES.map((release) => release.version)).size).toBe(RELEASE_NOTES.length);
     expect(filterReleaseNotes(RELEASE_NOTES, 'MagicOS', 'ru').map((release) => release.version)).toEqual([
         '5.3.4',
@@ -84,6 +84,7 @@ test('история обновлений содержит все выпуски
         '5.1.0',
     ]);
     expect(filterReleaseNotes(RELEASE_NOTES, 'чувствительных', 'ru').map((release) => release.version)).toEqual([
+        '5.4.0',
         '5.2.3',
     ]);
     expect(filterReleaseNotes(RELEASE_NOTES, 'streaming', 'en').map((release) => release.version)).toEqual(['2.15.0']);
@@ -1638,10 +1639,10 @@ test('applySettingsMutation поддерживает factoryReset', async () => 
     expect(clearFn).toHaveBeenCalled();
 });
 
-test('GUIDE_DEMOS содержит демонстрации для всех 10 ключевых функций LexiSync', async () => {
+test('GUIDE_DEMOS содержит демонстрации для всех 18 ключевых функций LexiSync', async () => {
     const { GUIDE_DEMOS } = await import('../src/options-guide');
 
-    expect(GUIDE_DEMOS.length).toBe(10);
+    expect(GUIDE_DEMOS.length).toBe(18);
     const ids = GUIDE_DEMOS.map((d) => d.id);
     expect(ids).toContain('spellcheck');
     expect(ids).toContain('paraphrase');
@@ -1653,6 +1654,15 @@ test('GUIDE_DEMOS содержит демонстрации для всех 10 �
     expect(ids).toContain('copy');
     expect(ids).toContain('pii');
     expect(ids).toContain('commands');
+    expect(ids).toContain('tone');
+    expect(ids).toContain('continue');
+    expect(ids).toContain('notes_to_doc');
+    expect(ids).toContain('snippets');
+    expect(ids).toContain('quick_lookup');
+    expect(ids).toContain('summary');
+    expect(ids).toContain('case_converter');
+    expect(ids).toContain('text_cleaner');
+    expect(new Set(ids).size).toBe(ids.length);
 
     for (const demo of GUIDE_DEMOS) {
         expect(demo.title).toBeTruthy();
@@ -1661,4 +1671,175 @@ test('GUIDE_DEMOS содержит демонстрации для всех 10 �
         expect(demo.outputText).toBeTruthy();
         expect(demo.tip).toBeTruthy();
     }
+});
+
+test('buildPromptPayload корректно формирует инструкцию для новых режимов генерации', () => {
+    const p1 = buildPromptPayload(
+        { text: 'Мы протестировали систему и считаем, что', mode: 'continue' },
+        { selectedTone: 'business', sendPageContext: false, personalDictionary: [], glossary: [] },
+    );
+    expect(p1.messages[0].content).toContain('Логично продолжи мысль');
+
+    const p2 = buildPromptPayload(
+        { text: '- релиз завтра\n- тесты ок', mode: 'notes_to_doc' },
+        { selectedTone: 'business', sendPageContext: false, personalDictionary: [], glossary: [] },
+    );
+    expect(p2.messages[0].content).toContain('Преврати эти краткие тезисы');
+
+    const p3 = buildPromptPayload(
+        { text: 'Статья о новых возможностях расширения', mode: 'headline' },
+        { selectedTone: 'business', sendPageContext: false, personalDictionary: [], glossary: [] },
+    );
+    expect(p3.messages[0].content).toContain('Предложи 3-5 цепляющих');
+});
+
+test('DEFAULT_TEXT_SNIPPETS содержит стандартные шаблоны и корректно форматируется', async () => {
+    const { DEFAULT_TEXT_SNIPPETS } = await import('../src/settings-store');
+    expect(DEFAULT_TEXT_SNIPPETS.length).toBeGreaterThanOrEqual(3);
+    const triggers = DEFAULT_TEXT_SNIPPETS.map((s) => s.trigger);
+    expect(triggers).toContain('/hello');
+    expect(triggers).toContain('/thanks');
+});
+
+test('текстовые сниппеты поддерживают русские триггеры и сохраняют текст после курсора', async () => {
+    const { getTextSnippetExpansion, normalizeTextSnippets } = await import('../src/text-snippets');
+    const snippets = normalizeTextSnippets([
+        { id: 'ru', trigger: '/ответ', content: 'Спасибо за обращение!' },
+        { id: 'duplicate', trigger: '/ОТВЕТ', content: 'Дубликат' },
+        { id: 'broken', trigger: '/', content: 'Не должен сохраниться' },
+    ]);
+    expect(snippets).toHaveLength(1);
+    expect(getTextSnippetExpansion('До /ответ после', 9, snippets)).toEqual({
+        nextValue: 'До Спасибо за обращение! после',
+        nextCursor: 24,
+        snippet: snippets[0],
+    });
+});
+
+test('buildPromptPayload корректно формирует инструкцию для режима tone', () => {
+    const payload = buildPromptPayload(
+        { text: 'Вы сделали это не так, переделайте быстрее.', mode: 'tone' },
+        { selectedTone: 'business', sendPageContext: false, personalDictionary: [], glossary: [] },
+    );
+    expect(payload.messages[0].content).toContain('Проанализируй тональность и вежливость текста');
+    expect(payload.messages[1].content).toContain('Вы сделали это не так');
+});
+
+test('calculateProductivityMetrics правильно считает сэкономленное время и количество слов', async () => {
+    const { calculateProductivityMetrics } = await import('../src/usage-stats');
+    const metrics = calculateProductivityMetrics({
+        requests: 10,
+        cacheHits: 2,
+        failures: 1,
+        totalLatencyMs: 5000,
+        byMode: { spellcheck: 6, style: 3, tone: 1 },
+        estimatedInputTokens: 400,
+        estimatedOutputTokens: 400,
+        daily: {},
+    });
+    expect(metrics.totalRequests).toBe(10);
+    expect(metrics.estimatedWords).toBe(600); // 800 * 0.75
+    expect(metrics.estimatedMinutesSaved).toBe(15); // 600 / 40
+    expect(metrics.mostUsedMode).toBe('spellcheck');
+    expect(metrics.successRatePercent).toBe(90);
+
+    const malformed = calculateProductivityMetrics({
+        requests: 2,
+        cacheHits: 0,
+        failures: 20,
+        totalLatencyMs: 0,
+        byMode: {},
+        estimatedInputTokens: -5,
+        estimatedOutputTokens: 0,
+        daily: {},
+    });
+    expect(malformed.successRatePercent).toBe(0);
+    expect(malformed.estimatedWords).toBe(0);
+});
+
+test('PROMPT_LIBRARY_TEMPLATES содержит понятные шаблоны для пользователей', async () => {
+    const { PROMPT_LIBRARY_TEMPLATES } = await import('../src/prompt-library');
+    expect(PROMPT_LIBRARY_TEMPLATES.length).toBeGreaterThanOrEqual(4);
+    const ids = PROMPT_LIBRARY_TEMPLATES.map((t) => t.id);
+    expect(ids).toContain('tpl-translate-en');
+    expect(ids).toContain('tpl-summary');
+    expect(ids).toContain('tpl-polite');
+});
+
+test('case-converter корректно трансформирует регистр текста', async () => {
+    const { toSentenceCase, toLowerCase, toUpperCase, toTitleCase, toCamelCase, toSnakeCase, cycleCase } =
+        await import('../src/case-converter');
+
+    expect(toSentenceCase('привет мир. как дела? отлично!')).toBe('Привет мир. Как дела? Отлично!');
+    expect(toLowerCase('ПРИВЕТ МИР')).toBe('привет мир');
+    expect(toUpperCase('привет мир')).toBe('ПРИВЕТ МИР');
+    expect(toTitleCase('привет мир разработчиков')).toBe('Привет Мир Разработчиков');
+    expect(toCamelCase('hello world test')).toBe('helloWorldTest');
+    expect(toSnakeCase('hello world test')).toBe('hello_world_test');
+
+    expect(cycleCase('ПРИВЕТ')).toBe('Привет');
+    expect(cycleCase('привет')).toBe('Привет');
+});
+
+test('text-cleaner очищает текст от артефактов, лишних пробелов и расставляет типографику', async () => {
+    const { cleanText } = await import('../src/text-cleaner');
+
+    const dirtyText = 'Текст   с\u200B   двойными    пробелами,\nразорванными строками и - "кавычками".';
+    const cleaned = cleanText(dirtyText);
+    expect(cleaned).toContain('Текст с двойными пробелами, разорванными строками и — «кавычками».');
+    expect(cleaned).not.toContain('\u200B');
+    expect(cleaned).not.toContain('   ');
+    expect(cleanText('  "hello"  ', { trimLines: false, collapseSpaces: false })).toBe('  "hello"  ');
+});
+
+test('text-replacement возвращает локальную функцию отмены замены', async () => {
+    const { replaceSelectedText } = await import('../src/text-replacement');
+
+    let nativeValue = 'Исходный текст сообщения';
+    const fakeInput = {
+        tagName: 'INPUT',
+        get value() {
+            return nativeValue;
+        },
+        set value(v: string) {
+            nativeValue = v;
+        },
+        selectionStart: 9,
+        selectionEnd: 14,
+        dispatchEvent: vi.fn(),
+        focus: vi.fn(),
+    } as unknown as HTMLInputElement;
+
+    const selection = {
+        text: 'текст',
+        context: 'текст',
+        range: null,
+        activeElement: fakeInput,
+        start: 9,
+        end: 14,
+        isInput: true,
+    };
+
+    const undoFn = replaceSelectedText(selection, 'новый заголовок');
+    expect(typeof undoFn).toBe('function');
+    expect(fakeInput.value).toBe('Исходный новый заголовок сообщения');
+
+    undoFn?.();
+    expect(fakeInput.value).toBe('Исходный текст сообщения');
+});
+
+test('CSV-экспорт истории защищает Excel от формул и добавляет UTF-8 BOM', async () => {
+    const { formatHistoryAsCsv } = await import('../src/history-export');
+    const csv = formatHistoryAsCsv([
+        {
+            id: 1,
+            mode: 'style',
+            original: '=HYPERLINK("https://example.com")',
+            result: '  +SUM(1,2)',
+            date: '2026-08-24T00:00:00.000Z',
+        },
+    ]);
+    expect(csv.startsWith('\uFEFF')).toBe(true);
+    expect(csv).toContain("'=HYPERLINK");
+    expect(csv).toContain("'  +SUM");
 });

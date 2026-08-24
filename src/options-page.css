@@ -36,9 +36,16 @@
     --danger-text: #f2b8b5;
 }
 
+html {
+    overflow-x: hidden;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
 body {
     position: relative;
     min-height: 100vh;
+    max-width: 100%;
     box-sizing: border-box;
     font-family:
         system-ui,
@@ -85,7 +92,9 @@ body::after {
     z-index: 1;
     box-sizing: border-box;
     width: min(600px, 100%);
-    padding: 32px;
+    max-width: 100%;
+    min-width: 0;
+    padding: 24px 26px;
     background: color-mix(in srgb, var(--bg-card) 94%, transparent);
     border: 1px solid var(--border);
     border-radius: 16px;
@@ -579,16 +588,16 @@ h1 {
 }
 
 p {
-    font-size: 14px;
+    font-size: 13.5px;
     color: var(--text-secondary);
-    margin-bottom: 24px;
-    line-height: 1.5;
+    margin-bottom: 12px;
+    line-height: 1.45;
 }
 label {
     font-weight: 500;
-    font-size: 14px;
+    font-size: 13px;
     display: block;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
     color: var(--text-secondary);
 }
 input[type='password'],
@@ -597,11 +606,11 @@ select,
 textarea {
     width: 100%;
     box-sizing: border-box;
-    padding: 12px;
+    padding: 9px 11px;
     border: 1px solid var(--border-input);
     border-radius: 8px;
-    font-size: 14px;
-    margin-bottom: 20px;
+    font-size: 13.5px;
+    margin-bottom: 12px;
     background: var(--bg-card);
     color: var(--text-main);
     transition: border 0.2s;
@@ -624,10 +633,10 @@ textarea:hover {
 .field-hint {
     position: relative;
     padding-left: 20px;
-    margin: -12px 0 19px;
+    margin: -8px 0 12px;
     color: var(--text-secondary);
-    font-size: 12px;
-    line-height: 1.45;
+    font-size: 11.5px;
+    line-height: 1.4;
 }
 .field-hint::before {
     position: absolute;
@@ -645,13 +654,13 @@ textarea:hover {
     font-weight: 800;
 }
 .settings-field {
-    margin-bottom: 20px;
+    margin-bottom: 12px;
 }
 .settings-field select {
     margin-bottom: 0;
 }
 .settings-field .field-hint {
-    margin: 7px 0 0;
+    margin: 5px 0 0;
 }
 
 /* 🔥 НОВЫЕ СТИЛИ ДЛЯ ГЛАЗКА */
@@ -1631,18 +1640,18 @@ input[type='range'] {
     margin: 0 0 16px;
 }
 .command-form {
-    padding: 15px;
-    margin-bottom: 15px;
+    padding: 12px;
+    margin-bottom: 12px;
     background: var(--box-bg);
     border: 1px solid var(--box-border);
     border-radius: 11px;
 }
 .command-form textarea {
-    min-height: 76px;
-    margin-bottom: 12px;
+    min-height: 64px;
+    margin-bottom: 8px;
 }
 .command-form input {
-    margin-bottom: 12px !important;
+    margin-bottom: 8px !important;
 }
 .command-form-actions {
     display: flex;
@@ -1651,44 +1660,83 @@ input[type='range'] {
 }
 .command-list {
     display: grid;
-    gap: 8px;
-    margin-bottom: 18px;
+    gap: 6px;
+    margin-bottom: 12px;
+    min-width: 0;
+    max-width: 100%;
 }
-.command-card {
+.command-card,
+.snippet-card,
+.profile-card {
     display: grid;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 10px;
     align-items: center;
-    padding: 12px 13px;
+    padding: 10px 12px;
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: 10px;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
 }
-.command-card strong {
+.command-card-copy,
+.command-card > div:first-child,
+.snippet-card > div:first-child,
+.profile-card > div:first-child {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+}
+.command-card strong,
+.snippet-card strong,
+.profile-card strong {
     display: block;
-    margin-bottom: 3px;
+    margin-bottom: 2px;
     font-size: 13px;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    word-break: break-word;
+    overflow-wrap: anywhere;
 }
-.command-card span {
+.command-card span,
+.snippet-card span,
+.profile-card span {
     display: block;
+    min-width: 0;
+    max-width: 100%;
     overflow: hidden;
     color: var(--text-secondary);
+    font-size: 11.5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+}
+.command-card .profile-sites,
+.profile-card .profile-sites {
+    display: block;
+    margin-top: 4px;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    color: var(--primary);
     font-size: 11px;
     text-overflow: ellipsis;
     white-space: nowrap;
+    word-break: break-word;
+    overflow-wrap: anywhere;
 }
-.command-card .profile-sites {
-    display: block;
-    margin-top: 7px;
-    overflow: visible;
-    color: var(--primary);
-    font-size: 11px;
-    text-overflow: clip;
-    white-space: normal;
-}
-.command-card-actions {
+.command-card-actions,
+.snippet-card-actions,
+.profile-card-actions {
     display: flex;
     gap: 5px;
+    flex-shrink: 0;
 }
 .command-icon-button {
     display: grid;
@@ -1737,9 +1785,21 @@ input[type='range'] {
 }
 .usage-summary {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
     gap: 8px;
     margin: 12px 0;
+}
+.snippets-section {
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+}
+.snippet-form {
+    margin-top: 14px;
+}
+.settings-restoring .container {
+    pointer-events: none;
+    opacity: 0.78;
 }
 .usage-metric {
     padding: 10px;
@@ -2394,9 +2454,10 @@ input[type='range'] {
 
 .prompt-library-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
     gap: 16px;
     margin: 16px 0 24px;
+    min-width: 0;
 }
 
 .prompt-library-card {
@@ -2410,6 +2471,7 @@ input[type='range'] {
     gap: 12px;
     transition: all 200ms ease;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+    min-width: 0;
 }
 
 .prompt-library-card:hover {
@@ -2425,12 +2487,15 @@ input[type='range'] {
     display: flex;
     align-items: center;
     gap: 8px;
+    min-width: 0;
 }
 
 .prompt-library-card-desc {
     font-size: 13px;
     color: var(--text-secondary);
     line-height: 1.4;
+    min-width: 0;
+    word-break: break-word;
 }
 
 .prompt-library-card-prompt {
@@ -2445,6 +2510,9 @@ input[type='range'] {
     max-height: 54px;
     overflow: hidden;
     text-overflow: ellipsis;
+    min-width: 0;
+    word-break: break-word;
+    overflow-wrap: break-word;
 }
 
 .prompt-library-add-btn {
@@ -2859,6 +2927,9 @@ input[type='range'] {
     .prompt-library-btn {
         width: 100%;
         justify-content: center;
+    }
+    .prompt-library-grid {
+        grid-template-columns: 1fr;
     }
     .guide-accordion-header {
         align-items: flex-start;

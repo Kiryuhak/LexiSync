@@ -1,6 +1,15 @@
 import { enqueueStorageMutation } from './storage-queue';
-import type { CustomCommand, StyleProfile } from './types';
+import type { CustomCommand, StyleProfile, TextSnippet } from './types';
 import { normalizeDisabledSites, normalizeSiteEntries } from './privacy';
+import {
+    DEFAULT_TEXT_SNIPPETS,
+    isTextSnippet,
+    normalizeTextSnippet,
+    normalizeTextSnippets,
+    SNIPPET_LIMIT,
+} from './text-snippets';
+
+export { DEFAULT_TEXT_SNIPPETS, SNIPPET_LIMIT } from './text-snippets';
 
 export type SettingsMutation =
     | 'addPersonalDictionaryWord'
@@ -9,6 +18,8 @@ export type SettingsMutation =
     | 'deleteCustomCommand'
     | 'replaceStyleProfiles'
     | 'setSitePreference'
+    | 'upsertTextSnippet'
+    | 'deleteTextSnippet'
     | 'factoryReset';
 
 export type SitePreference = 'access' | 'suggestions' | 'history' | 'context';
@@ -18,6 +29,7 @@ export const CUSTOM_COMMAND_LIMIT = 8;
 interface SettingsMutationPayload {
     value?: unknown;
     command?: unknown;
+    snippet?: unknown;
     id?: unknown;
     profiles?: unknown;
     activeProfileId?: unknown;
@@ -67,6 +79,19 @@ export function addAdaptiveBlockedWord(value: string): Promise<string[]> {
 
 export function upsertCustomCommand(command: CustomCommand): Promise<CustomCommand[]> {
     return requestSettingsMutation('upsertCustomCommand', { command });
+}
+
+export async function getTextSnippets(): Promise<TextSnippet[]> {
+    const stored = await chrome.storage.local.get({ textSnippets: DEFAULT_TEXT_SNIPPETS });
+    return normalizeTextSnippets(stored.textSnippets);
+}
+
+export function upsertTextSnippet(snippet: TextSnippet): Promise<TextSnippet[]> {
+    return requestSettingsMutation('upsertTextSnippet', { snippet });
+}
+
+export function deleteTextSnippet(id: string): Promise<TextSnippet[]> {
+    return requestSettingsMutation('deleteTextSnippet', { id });
 }
 
 export function deleteCustomCommand(id: string): Promise<CustomCommand[]> {
@@ -123,10 +148,34 @@ export function applySettingsMutation(mutation: SettingsMutation, payload: Setti
                       .filter(isCustomCommand)
                       .map(normalizeCommand)
                       .filter((item) => item.id !== payload.id)
-                      .slice(0, 20)
+                      .slice(0, CUSTOM_COMMAND_LIMIT)
                 : [];
             await chrome.storage.local.set({ customCommands: commands });
             return commands;
+        }
+        if (mutation === 'upsertTextSnippet') {
+            if (!isTextSnippet(payload.snippet)) throw new Error('INVALID_TEXT_SNIPPET');
+            const stored = await chrome.storage.local.get({ textSnippets: DEFAULT_TEXT_SNIPPETS });
+            const snippets = normalizeTextSnippets(stored.textSnippets);
+            const snippet = normalizeTextSnippet(payload.snippet);
+            const index = snippets.findIndex((s) => s.id === snippet.id);
+            const duplicate = snippets.find(
+                (item) =>
+                    item.id !== snippet.id && item.trigger.toLocaleLowerCase() === snippet.trigger.toLocaleLowerCase(),
+            );
+            if (duplicate) throw new Error('SNIPPET_TRIGGER_EXISTS');
+            if (index >= 0) snippets[index] = snippet;
+            else if (snippets.length < SNIPPET_LIMIT) snippets.push(snippet);
+            else throw new Error('SNIPPET_LIMIT');
+            await chrome.storage.local.set({ textSnippets: snippets });
+            return snippets;
+        }
+        if (mutation === 'deleteTextSnippet') {
+            if (typeof payload.id !== 'string') throw new Error('INVALID_SNIPPET_ID');
+            const stored = await chrome.storage.local.get({ textSnippets: DEFAULT_TEXT_SNIPPETS });
+            const snippets = normalizeTextSnippets(stored.textSnippets, []).filter((s) => s.id !== payload.id);
+            await chrome.storage.local.set({ textSnippets: snippets });
+            return snippets;
         }
         if (mutation === 'replaceStyleProfiles') {
             if (!Array.isArray(payload.profiles)) throw new Error('INVALID_STYLE_PROFILES');

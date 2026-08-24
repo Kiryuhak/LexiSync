@@ -1,6 +1,6 @@
 import { localizeDocument, t } from './i18n';
 import type { UsageStats } from './types';
-import { clearUsageStats, EMPTY_USAGE_STATS } from './usage-stats';
+import { calculateProductivityMetrics, clearUsageStats, EMPTY_USAGE_STATS } from './usage-stats';
 import {
     exportPortableSettings,
     importPortableSettings,
@@ -8,7 +8,12 @@ import {
     type SettingsSyncStatus,
 } from './settings-transfer';
 import { restoreStyleProfileSettings, setupStyleProfileSettings } from './style-profile-settings';
-import { restoreCustomCommandSettings, setupCustomCommandSettings } from './custom-command-settings';
+import {
+    restoreCustomCommandSettings,
+    restoreTextSnippetSettings,
+    setupCustomCommandSettings,
+    setupTextSnippetSettings,
+} from './custom-command-settings';
 import { normalizeResultDisplayMode } from './result-display-mode';
 import { normalizeSiteEntries } from './privacy';
 import { normalizeAppearanceStyle } from './appearance-style';
@@ -29,6 +34,7 @@ import {
 } from './options-appearance';
 import { hasAllSitesAccess, requestAllSitesAccess, removeAllSitesAccess } from './site-access';
 import { setupOnboarding } from './options-onboarding';
+import { DEFAULT_TEXT_SNIPPETS } from './text-snippets';
 
 let restoredApiKey = '';
 let savedOptionsState = '';
@@ -142,17 +148,43 @@ function renderAdaptiveStats(model: unknown): void {
 }
 
 function renderUsageStats(stats: UsageStats): void {
+    const metrics = calculateProductivityMetrics(stats);
     const requests = document.getElementById('usageRequests');
     const hits = document.getElementById('usageCacheHits');
     const latency = document.getElementById('usageLatency');
     const timeSaved = document.getElementById('usageTimeSaved');
-    if (requests) requests.textContent = String(stats.requests);
+    const successRate = document.getElementById('usageSuccessRate');
+    const mostUsedMode = document.getElementById('usageMostUsedMode');
+    if (requests) requests.textContent = String(metrics.totalRequests);
     if (hits) hits.textContent = String(stats.cacheHits);
     if (latency)
         latency.textContent = stats.requests ? `${(stats.totalLatencyMs / stats.requests / 1000).toFixed(1)} с` : '0 с';
     if (timeSaved) {
-        const totalMinutes = Math.round((stats.requests * 30 + stats.cacheHits * 15) / 60);
+        const totalMinutes = metrics.estimatedMinutesSaved;
         timeSaved.textContent = totalMinutes >= 60 ? `~${(totalMinutes / 60).toFixed(1)} ч` : `~${totalMinutes} мин`;
+    }
+    if (successRate) successRate.textContent = metrics.totalRequests ? `${metrics.successRatePercent}%` : '—';
+    if (mostUsedMode) {
+        const modeLabels: Partial<Record<string, string>> = {
+            spellcheck: t('modeSpellcheck', 'Исправление'),
+            style: t('modeStyle', 'Стиль'),
+            emoji: t('modeEmoji', 'Эмодзи'),
+            layout: t('modeLayout', 'Раскладка'),
+            translate: t('modeTranslate', 'Перевод'),
+            summary: t('summaryTitle', 'Выжимка'),
+            reply: t('modeReply', 'Ответ'),
+            explain: t('modeExplain', 'Объяснение'),
+            format: t('modeFormat', 'Форматирование'),
+            tone: t('modeTone', 'Тон'),
+            continue: t('modeContinue', 'Продолжение'),
+            notes_to_doc: t('modeNotesToDoc', 'Документ'),
+            headline: t('modeHeadline', 'Заголовок'),
+            ocr: 'OCR',
+            custom: t('modeCustom', 'Своя команда'),
+        };
+        mostUsedMode.textContent = metrics.mostUsedMode
+            ? modeLabels[metrics.mostUsedMode] || metrics.mostUsedMode
+            : '—';
     }
 }
 
@@ -201,6 +233,27 @@ function setupShortcutTester(): void {
                 setTimeout(() => badge.classList.remove('is-hit'), 1200);
             }
         });
+    });
+
+    const openShortcutsBtn = document.getElementById('openShortcutsBtn');
+    openShortcutsBtn?.addEventListener('click', () => {
+        const isFirefox = navigator.userAgent.includes('Firefox/');
+        const url = isFirefox ? 'about:addons' : 'chrome://extensions/shortcuts';
+        void chrome.tabs
+            .create({ url })
+            .then(() => {
+                if (isFirefox) {
+                    status.textContent = t(
+                        'firefoxShortcutHint',
+                        'В Firefox откройте шестерёнку → «Управление клавишами расширений».',
+                    );
+                }
+            })
+            .catch(() => {
+                status.textContent = isFirefox
+                    ? t('firefoxShortcutHint', 'В Firefox откройте шестерёнку → «Управление клавишами расширений».')
+                    : t('shortcutManagerOpenFailed', 'Не удалось открыть менеджер сочетаний клавиш.');
+            });
     });
 }
 
@@ -407,6 +460,7 @@ async function restoreOptions(): Promise<void> {
             disabledSites: [],
             personalDictionary: [],
             customCommands: [],
+            textSnippets: DEFAULT_TEXT_SNIPPETS,
             aiMode: 'quality',
             glossary: [],
             styleProfiles: [],
@@ -467,6 +521,7 @@ async function restoreOptions(): Promise<void> {
         };
     }
     restoreCustomCommandSettings(items.customCommands);
+    restoreTextSnippetSettings(items.textSnippets);
     restoreStyleProfileSettings(items.styleProfiles, items.activeStyleProfileId);
     await restoreV4Settings(items);
     renderUsageStats(items.usageStats as UsageStats);
@@ -569,25 +624,36 @@ function setupFactoryReset(): void {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    document.body.classList.add('settings-restoring');
+    document.querySelector('main')?.setAttribute('aria-busy', 'true');
     localizeDocument();
     setupReleaseNotesTrigger();
     installResultPreviewStyles();
-    void restoreOptions().then(() => {
-        // Подключаем автосохранение только после полного восстановления формы.
-        // Так параллельное чтение больше не заменит сохранённые значения настройками по умолчанию.
-        setupV4Settings();
-        return setupOnboarding({
-            getApiKey: () => restoredApiKey,
-            onApiKeySaved: async (apiKey) => {
-                await writePrivateApiKey(apiKey);
-                restoredApiKey = apiKey;
-                const settingsKeyInput = document.getElementById('apiKey') as HTMLInputElement | null;
-                if (settingsKeyInput) settingsKeyInput.value = apiKey;
-                savedOptionsState = captureOptionsState();
-                updateSaveButtonState();
-            },
+    void restoreOptions()
+        .then(() => {
+            // Подключаем автосохранение только после полного восстановления формы.
+            // Так параллельное чтение больше не заменит сохранённые значения настройками по умолчанию.
+            setupV4Settings();
+            return setupOnboarding({
+                getApiKey: () => restoredApiKey,
+                onApiKeySaved: async (apiKey) => {
+                    await writePrivateApiKey(apiKey);
+                    restoredApiKey = apiKey;
+                    const settingsKeyInput = document.getElementById('apiKey') as HTMLInputElement | null;
+                    if (settingsKeyInput) settingsKeyInput.value = apiKey;
+                    savedOptionsState = captureOptionsState();
+                    updateSaveButtonState();
+                },
+            });
+        })
+        .catch((error) => {
+            logger.error('Не удалось восстановить настройки:', error);
+            showOptionsStatus(t('settingsLoadFailed', 'Не удалось загрузить настройки. Обновите страницу.'), 'error');
+        })
+        .finally(() => {
+            document.body.classList.remove('settings-restoring');
+            document.querySelector('main')?.removeAttribute('aria-busy');
         });
-    });
     void chrome.storage.local
         .get({ themeCustomization: {} })
         .then((stored) => applyThemeCustomization(document.documentElement, stored.themeCustomization));
@@ -633,6 +699,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     setupCustomCommandSettings();
+    setupTextSnippetSettings();
     setupStyleProfileSettings();
     setupSettingsTabs();
     setupShortcutTester();
@@ -739,6 +806,7 @@ window.addEventListener('beforeunload', (event) => {
 chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== 'local') return;
     if (changes.adaptiveLanguageModel) renderAdaptiveStats(changes.adaptiveLanguageModel.newValue);
+    if (changes.textSnippets) restoreTextSnippetSettings(changes.textSnippets.newValue);
     if (changes.usageStats) renderUsageStats(changes.usageStats.newValue as UsageStats);
     if (changes.settingsSyncStatus) renderSettingsSyncStatus(changes.settingsSyncStatus.newValue);
     if (changes.themeCustomization)

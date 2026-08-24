@@ -299,10 +299,18 @@ export const POPUP_STYLE_TEXT = `
             }
 
             #lexisync-extension-ui[data-surface="result"] {
-                overflow: visible;
+                overflow: auto;
+                resize: both;
+                min-width: 280px;
+                max-width: min(800px, calc(100vw - 20px));
+                min-height: 140px;
+                max-height: calc(100vh - 20px);
                 background: var(--bg-primary) !important;
                 border-radius: 22px;
                 box-shadow: 0 22px 52px var(--shadow-color), inset 0 1px 0 rgba(255,255,255,.34);
+            }
+            #lexisync-extension-ui[data-surface="result"][data-compact-result="true"] {
+                resize: none;
             }
             #lexisync-extension-ui[data-ui-style="magicos-11"][data-surface="result"],
             #lexisync-extension-ui[data-ui-style="magicos-11"][data-surface="menu"] { border-radius: 28px; }

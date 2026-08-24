@@ -2,6 +2,7 @@ import { normalizeSitePatterns } from './site-profiles';
 import { normalizeDisabledSites } from './privacy';
 import { normalizeAppearanceStyle } from './appearance-style';
 import { logger } from './logger';
+import { normalizeTextSnippets } from './text-snippets';
 
 const PORTABLE_SETTING_KEYS = [
     'selectedTone',
@@ -36,6 +37,7 @@ const PORTABLE_SETTING_KEYS = [
     'warnLargeText',
     'autoFastMode',
     'liveProofreadDisabledSites',
+    'textSnippets',
 ] as const;
 
 const SYNC_SETTING_KEYS = [
@@ -149,6 +151,7 @@ function sanitizePortableSetting(key: (typeof PORTABLE_SETTING_KEYS)[number], va
         return normalizeDisabledSites(stringList(value, 500, 2_048));
     if (key === 'adaptiveBlockedWords' || key === 'personalDictionary') return stringList(value, 2000, 120);
     if (key === 'glossary') return stringList(value, 200, 240);
+    if (key === 'textSnippets') return normalizeTextSnippets(value, []);
     if (key === 'activeStyleProfileId') return String(value || '').slice(0, 100);
     if (key === 'customCommands') {
         if (!Array.isArray(value)) return [];

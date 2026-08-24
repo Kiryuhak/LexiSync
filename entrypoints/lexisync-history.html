@@ -188,6 +188,9 @@
             .hidden {
                 display: none !important;
             }
+            .history-export-format {
+                max-width: 140px;
+            }
             [data-ui-style='magicos-11'] {
                 --bg: #dfeaff;
                 --card: rgba(249, 252, 255, 0.62);
@@ -356,6 +359,10 @@
                     <option value="layout" data-i18n="modeLayout">Раскладка</option>
                     <option value="translate" data-i18n="modeTranslate">Перевод</option>
                     <option value="summary" data-i18n="summaryShort">Выжимка</option>
+                    <option value="tone" data-i18n="modeTone">Тональность</option>
+                    <option value="continue" data-i18n="modeContinue">Дописать</option>
+                    <option value="notes_to_doc" data-i18n="modeNotesToDoc">Заметки в текст</option>
+                    <option value="headline" data-i18n="modeHeadline">Заголовки</option>
                     <option value="reply" data-i18n="modeReply">Ответ</option>
                     <option value="explain" data-i18n="modeExplain">Объяснить</option>
                     <option value="format" data-i18n="modeFormat">Формат</option>
@@ -371,7 +378,14 @@
                     Только избранное
                 </button>
                 <button id="resetFilterBtn" type="button" data-i18n="resetFilters">Сбросить фильтры</button>
-                <button id="exportBtn" data-i18n="exportJson">Экспорт JSON</button>
+                <select id="exportFormatSelect" class="history-export-format" aria-label="Формат экспорта">
+                    <option value="json">JSON (.json)</option>
+                    <option value="csv">CSV (.csv)</option>
+                    <option value="md">Markdown (.md)</option>
+                </select>
+                <button id="exportBtn" data-i18n="export">Экспорт</button>
+                <button id="importBtn" data-i18n="import">Импорт</button>
+                <input id="importFileInput" class="hidden" type="file" accept="application/json,.json" />
                 <button id="clearBtn" class="clear-btn" data-i18n="clear">Очистить</button>
             </div>
             <p id="historyStatus" class="history-status" role="status" aria-live="polite" aria-atomic="true"></p>

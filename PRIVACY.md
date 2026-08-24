@@ -1,6 +1,6 @@
 # Политика конфиденциальности LexiSync
 
-**Дата вступления в силу и последнего обновления:** 23 августа 2026 г.
+**Дата вступления в силу и последнего обновления:** 24 августа 2026 г.
 
 [English version](#lexisync-privacy-policy)
 
@@ -67,7 +67,7 @@ LexiSync может обрабатывать следующие категори
 
 - тема, масштаб и оформление интерфейса;
 - выбранный режим AI, тон, язык, поисковая система и задержка автоматической проверки;
-- пользовательские команды, глоссарий, личный словарь и профили стиля;
+- пользовательские команды, текстовые макросы, глоссарий, личный словарь и профили стиля;
 - списки разрешённых или исключённых сайтов;
 - локальная история исходного и обработанного текста;
 - локальный кэш результатов;
@@ -78,7 +78,7 @@ LexiSync не отправляет разработчику телеметрию
 
 ### 2.6. Настройки, синхронизируемые браузером
 
-Некоторые несекретные предпочтения могут сохраняться через `chrome.storage.sync` или совместимый механизм WebExtensions. Их синхронизация выполняется поставщиком браузера в рамках учётной записи пользователя. API-ключ, история текстов, кэш, пользовательские команды, словарь, глоссарий и списки сайтов не входят в набор автоматически синхронизируемых настроек LexiSync.
+Некоторые несекретные предпочтения могут сохраняться через `chrome.storage.sync` или совместимый механизм WebExtensions. Их синхронизация выполняется поставщиком браузера в рамках учётной записи пользователя. API-ключ, история текстов, кэш, пользовательские команды, текстовые макросы, словарь, глоссарий и списки сайтов не входят в набор автоматически синхронизируемых настроек LexiSync. Текстовые макросы включаются только в файл настроек, который пользователь самостоятельно экспортирует на устройство.
 
 ## 3. Когда данные передаются третьим сторонам
 
@@ -108,7 +108,7 @@ LexiSync не продаёт пользовательские данные и н
 
 ## 4. Сроки хранения
 
-- **История:** хранится только локально, содержит не более 100 записей и удаляется после срока, выбранного пользователем; срок по умолчанию — 30 дней. Избранные записи сохраняются до снятия отметки или ручного удаления.
+- **История:** хранится только локально, содержит не более 500 записей и удаляется после срока, выбранного пользователем; срок по умолчанию — 30 дней. При достижении лимита удаляются самые старые записи.
 - **Кэш AI и OCR:** хранится только локально не более 7 дней и содержит не более 100 записей.
 - **Дневная статистика использования:** локальная детализация ограничена последними 62 днями; общие счётчики сохраняются до очистки пользователем.
 - **Настройки, словари и адаптивные данные:** хранятся до изменения, сброса или удаления расширения.
@@ -127,6 +127,7 @@ LexiSync не продаёт пользовательские данные и н
 - запретить работу, историю, подсказки или контекст для отдельных сайтов;
 - отключить локальную историю;
 - изменить срок хранения истории;
+- добавлять, изменять и удалять локальные текстовые макросы;
 - удалить историю, кэш, локальную статистику и адаптивные данные;
 - удалить API-ключ;
 - отозвать доступ расширения к сайтам в настройках браузера;
@@ -176,7 +177,7 @@ LexiSync использует разрешения браузера и поль�
 
 # LexiSync Privacy Policy
 
-**Effective and last updated:** August 23, 2026
+**Effective and last updated:** August 24, 2026
 
 LexiSync is a browser extension for checking, correcting, rewriting, translating, and recognizing text in images. This Policy explains what data LexiSync processes, why it is needed, where it is stored, and when it is transferred to third parties.
 
@@ -218,9 +219,9 @@ Selected text may contain user-generated content or personal communications. Lex
 
 The Mistral API key is stored locally in a separate extension IndexedDB database. It is used only to validate the key and authorize requests to `https://api.mistral.ai/`. It is not exported, synchronized through browser settings sync, or sent to the LexiSync developer.
 
-Local extension storage may contain appearance and feature settings, commands, dictionaries, glossaries, style profiles, site lists, text history, cached results, adaptive suggestion data, and aggregate request statistics. LexiSync does not send telemetry, analytics, activity logs, text history, or advertising identifiers to the developer.
+Local extension storage may contain appearance and feature settings, commands, text snippets, dictionaries, glossaries, style profiles, site lists, text history, cached results, adaptive suggestion data, and aggregate request statistics. LexiSync does not send telemetry, analytics, activity logs, text history, or advertising identifiers to the developer.
 
-A limited set of non-secret preferences may be synchronized using `chrome.storage.sync` or a compatible WebExtensions mechanism. The browser provider performs this synchronization under the user's browser account. The API key, text history, cache, custom commands, dictionary, glossary, and site lists are not part of LexiSync's automatically synchronized settings.
+A limited set of non-secret preferences may be synchronized using `chrome.storage.sync` or a compatible WebExtensions mechanism. The browser provider performs this synchronization under the user's browser account. The API key, text history, cache, custom commands, text snippets, dictionary, glossary, and site lists are not part of LexiSync's automatically synchronized settings. Text snippets are included only in a settings file that the user explicitly exports to the device.
 
 ## 4. Third-party transfers
 
@@ -248,7 +249,7 @@ LexiSync does not sell user data or transfer it to advertising networks, data br
 
 ## 5. Retention
 
-- **History:** local only, limited to 100 records, retained for the user-selected period; the default is 30 days. Favorites remain until unmarked or manually deleted.
+- **History:** local only, limited to 500 records, retained for the user-selected period; the default is 30 days. When the limit is reached, the oldest records are removed.
 - **AI and OCR cache:** local only, limited to 100 records and retained for no more than 7 days.
 - **Daily usage statistics:** local daily details cover the latest 62 days; aggregate counters remain until cleared by the user.
 - **Settings, dictionaries, and adaptive data:** remain until changed, reset, or the extension is removed.
@@ -264,6 +265,7 @@ Users can:
 - disable page-context transfer, local personal-data masking, and automatic proofreading;
 - disable access, history, suggestions, or context for individual sites;
 - disable local history or change its retention period;
+- add, edit, and delete local text snippets;
 - clear history, cache, aggregate usage statistics, and adaptive data;
 - remove the Mistral API key;
 - revoke site access in browser settings;

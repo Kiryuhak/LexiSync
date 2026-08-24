@@ -15,9 +15,54 @@ const REQUEST_MODES = new Set<RequestMode>([
     'reply',
     'explain',
     'format',
+    'tone',
+    'continue',
+    'notes_to_doc',
+    'headline',
     'ocr',
     'custom',
 ]);
+
+export interface ProductivityMetrics {
+    totalRequests: number;
+    estimatedWords: number;
+    estimatedMinutesSaved: number;
+    mostUsedMode: RequestMode | null;
+    successRatePercent: number;
+}
+
+export function calculateProductivityMetrics(stats: UsageStats): ProductivityMetrics {
+    const totalRequests = Math.max(0, Math.trunc(Number(stats.requests) || 0));
+    const totalTokens =
+        Math.max(0, Math.trunc(Number(stats.estimatedInputTokens) || 0)) +
+        Math.max(0, Math.trunc(Number(stats.estimatedOutputTokens) || 0));
+    // 1 токен в среднем ~0.75 слова для смешанного рус/англ текста
+    const estimatedWords = Math.round(totalTokens * 0.75);
+    // Среднее время на ручную вычитку/перевод/написание: ~40 слов в минуту
+    const estimatedMinutesSaved = Math.round((estimatedWords / 40) * 10) / 10;
+
+    let mostUsedMode: RequestMode | null = null;
+    let maxCount = 0;
+    for (const [mode, count] of Object.entries(stats.byMode || {})) {
+        const normalizedCount = Math.max(0, Math.trunc(Number(count) || 0));
+        if (normalizedCount > maxCount) {
+            maxCount = normalizedCount;
+            mostUsedMode = mode as RequestMode;
+        }
+    }
+
+    const failures = Math.min(totalRequests, Math.max(0, Math.trunc(Number(stats.failures) || 0)));
+    const successful = totalRequests - failures;
+    const successRatePercent = totalRequests > 0 ? Math.round((successful / totalRequests) * 100) : 0;
+
+    return {
+        totalRequests,
+        estimatedWords,
+        estimatedMinutesSaved,
+        mostUsedMode,
+        successRatePercent,
+    };
+}
 
 export const EMPTY_USAGE_STATS: UsageStats = {
     requests: 0,

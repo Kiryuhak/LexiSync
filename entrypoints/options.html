@@ -264,9 +264,9 @@
             <div class="settings-field" data-settings-group="main">
                 <label for="searchEngine" data-i18n="searchEngineLabel">Поисковая система:</label>
                 <select id="searchEngine">
-                    <option value="google">Google</option>
-                    <option value="yandex">Yandex</option>
-                    <option value="duckduckgo">DuckDuckGo</option>
+                    <option value="google">🌐 Google</option>
+                    <option value="yandex">🔴 Яндекс (Yandex)</option>
+                    <option value="duckduckgo">🦆 DuckDuckGo</option>
                 </select>
                 <p class="field-hint" data-i18n="searchEngineSimpleHint">
                     Откроется, когда вы выберете команду поиска выделенного текста в интернете.
@@ -361,6 +361,16 @@
                         <kbd class="shortcut-badge" data-key="Alt+T">Alt+T — Эмодзи</kbd>
                         <kbd class="shortcut-badge" data-key="Alt+S">Alt+S — OCR</kbd>
                     </div>
+                </div>
+                <div style="margin-top: 12px">
+                    <button
+                        type="button"
+                        id="openShortcutsBtn"
+                        class="secondary-button"
+                        data-i18n="openShortcutsManager"
+                    >
+                        Настроить сочетания клавиш в браузере
+                    </button>
                 </div>
             </section>
 
@@ -510,6 +520,14 @@
                     <div class="usage-metric">
                         <strong id="usageLatency">0 с</strong><span data-i18n="usageLatency">средний ответ</span>
                     </div>
+                    <div class="usage-metric">
+                        <strong id="usageSuccessRate">—</strong
+                        ><span data-i18n="usageSuccessRate">успешных запросов</span>
+                    </div>
+                    <div class="usage-metric">
+                        <strong id="usageMostUsedMode">—</strong
+                        ><span data-i18n="usageMostUsedMode">частая команда</span>
+                    </div>
                 </div>
                 <button type="button" id="clearUsageStats" class="secondary-button" data-i18n="clearStats">
                     Очистить статистику
@@ -627,6 +645,45 @@
                     >
                         Ответ клиенту
                     </button>
+                </div>
+
+                <div class="snippets-section">
+                    <div class="commands-header">
+                        <div class="commands-header-copy">
+                            <h2 data-i18n="textSnippetsTitle">Текстовые сниппеты (Макросы)</h2>
+                            <p data-i18n="textSnippetsIntro">
+                                Введите триггер (например /email или /hello) в обычном текстовом поле и нажмите Tab или
+                                Пробел. Пароли, платёжные и другие чувствительные поля не обрабатываются.
+                            </p>
+                        </div>
+                    </div>
+                    <div id="textSnippetsList" class="command-list"></div>
+                    <form id="textSnippetForm" class="command-form snippet-form">
+                        <input id="textSnippetId" type="hidden" />
+                        <label for="textSnippetTrigger" data-i18n="snippetTrigger">Шорткод (триггер)</label>
+                        <input id="textSnippetTrigger" type="text" maxlength="40" placeholder="/email" required />
+                        <label for="textSnippetContent" data-i18n="snippetContent">Текст для вставки</label>
+                        <textarea
+                            id="textSnippetContent"
+                            maxlength="5000"
+                            placeholder="Здравствуйте! Текст готового шаблона письма или ответа."
+                            required
+                        ></textarea>
+                        <div class="command-form-actions">
+                            <button
+                                id="cancelSnippetEdit"
+                                class="secondary-button"
+                                type="button"
+                                data-i18n="cancel"
+                                hidden
+                            >
+                                Отмена
+                            </button>
+                            <button class="onboarding-button primary" type="submit" data-i18n="saveSnippet">
+                                Сохранить сниппет
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </section>
 

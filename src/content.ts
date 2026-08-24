@@ -1,6 +1,7 @@
 import { t } from './i18n';
 import { isSiteDisabled, normalizeDisabledSites } from './privacy';
-import type { CustomCommand, RequestMode, SelectionData } from './types';
+import type { CustomCommand, RequestMode, SelectionData, TextSnippet } from './types';
+import { DEFAULT_TEXT_SNIPPETS, getTextSnippetExpansion, normalizeTextSnippets } from './text-snippets';
 import {
     captureSelection,
     getSelectedText,
@@ -30,7 +31,8 @@ import {
 } from './theme-customization';
 import { applyFastTypographyAndTypoFixes } from './local-text-rules';
 import { fixKeyboardLayout } from './keyboard-layout';
-import { replaceSelectedText } from './text-replacement';
+import { dispatchValueEvents, replaceSelectedText, setNativeValue } from './text-replacement';
+import { shouldUseAutomaticTextFeatures } from './live-proofread-privacy';
 import type { ThemeCustomization } from './types';
 import { logger } from './logger';
 
@@ -341,9 +343,20 @@ if (!contentRuntime.__lexisyncContentInitialized) {
 
     // Клавиатурное выделение, iframe и некоторые редакторы не всегда посылают mouseup.
     // selectionchange покрывает эти случаи, а debounce не показывает панель во время перетаскивания мышью.
+    let cachedSnippets: TextSnippet[] = [...DEFAULT_TEXT_SNIPPETS];
+
     document.addEventListener('selectionchange', () => {
         if (!extensionEnabledOnSite || isDragging || isManuallyPositioned || isSelectionInsidePopup()) return;
         scheduleSelectionMenu(80, true);
+    });
+
+    document.addEventListener('dblclick', (e: MouseEvent) => {
+        if (!extensionEnabledOnSite || !e.altKey) return;
+        const selectionText = window.getSelection()?.toString().trim();
+        if (!selectionText || selectionText.length === 0 || selectionText.length > 200) return;
+        saveSelectionState(selectionText);
+        showAIMenu(e.clientX, e.clientY, e.clientY);
+        handleActionClick('translate');
     });
 
     document.addEventListener(
@@ -351,6 +364,33 @@ if (!contentRuntime.__lexisyncContentInitialized) {
         async (e: KeyboardEvent) => {
             if (!extensionEnabledOnSite) return;
             if (isPopupEvent(e)) return;
+
+            if ((e.key === 'Tab' || e.key === ' ') && !e.ctrlKey && !e.altKey && !e.metaKey) {
+                const target = e.target;
+                if (
+                    (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) &&
+                    !target.disabled &&
+                    !target.readOnly
+                ) {
+                    const inputType = target instanceof HTMLInputElement ? target.type : null;
+                    const fieldIdentity = [target.name, target.id, target.getAttribute('aria-label') || ''].join(' ');
+                    if (shouldUseAutomaticTextFeatures(inputType, target.autocomplete, fieldIdentity)) {
+                        const expansion = getTextSnippetExpansion(
+                            target.value,
+                            target.selectionStart ?? target.value.length,
+                            cachedSnippets,
+                        );
+                        if (expansion) {
+                            e.preventDefault();
+                            setNativeValue(target, expansion.nextValue);
+                            target.setSelectionRange(expansion.nextCursor, expansion.nextCursor);
+                            dispatchValueEvents(target);
+                            return;
+                        }
+                    }
+                }
+            }
+
             const isSelectAll =
                 (e.ctrlKey || e.metaKey) &&
                 (e.code === 'KeyA' || e.key.toLowerCase() === 'a' || e.key.toLowerCase() === 'ф');
@@ -423,6 +463,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             searchEngine: 'google',
             interfaceScale: 90,
             themeCustomization: DEFAULT_THEME_CUSTOMIZATION,
+            textSnippets: DEFAULT_TEXT_SNIPPETS,
         },
         (res) => {
             if (res.selectedTheme) currentTheme = res.selectedTheme as string;
@@ -430,11 +471,15 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             currentThemeCustomization = normalizeThemeCustomization(res.themeCustomization);
             if (res.searchEngine) currentSearchEngine = res.searchEngine as string;
             currentInterfaceScale = normalizeInterfaceScale(res.interfaceScale);
+            cachedSnippets = normalizeTextSnippets(res.textSnippets);
         },
     );
 
     chrome.storage.onChanged.addListener((changes, area) => {
         if (area === 'local') {
+            if (changes.textSnippets) {
+                cachedSnippets = normalizeTextSnippets(changes.textSnippets.newValue);
+            }
             if (changes.selectedTheme) {
                 currentTheme = changes.selectedTheme.newValue as string;
                 if (popupUI) applyThemeToPopup(popupUI);

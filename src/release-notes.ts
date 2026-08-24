@@ -36,6 +36,35 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.4.0',
+        '2026-08-24',
+        'new',
+        'Текстовые макросы, локальные инструменты и надёжная история',
+        'Text snippets, local tools, and reliable history',
+        [
+            [
+                'Добавлены текстовые макросы: короткие команды раскрываются прямо в поле ввода без запроса к AI и не работают в чувствительных полях.',
+                'Added text snippets: short commands expand directly in input fields without an AI request and stay disabled in sensitive fields.',
+            ],
+            [
+                'Смена регистра, очистка пробелов и типографика теперь доступны как быстрые локальные инструменты.',
+                'Case conversion, whitespace cleanup, and typography are now available as fast local tools.',
+            ],
+            [
+                'История поддерживает до 500 записей, безопасный импорт без дублей и экспорт в JSON, CSV или Markdown.',
+                'History now supports up to 500 records, safe duplicate-free import, and JSON, CSV, or Markdown export.',
+            ],
+            [
+                'Исправлено сохранение автоматической проверки, позиционирование изменяемых окон и отображение статистики при повреждённых локальных данных.',
+                'Fixed automatic proofreading persistence, positioning of resized result windows, and statistics with malformed local data.',
+            ],
+            [
+                'Удалён неподдерживаемый эксперимент голосового ввода: LexiSync не запрашивает доступ к микрофону.',
+                'Removed the unsupported voice-input experiment: LexiSync does not request microphone access.',
+            ],
+        ],
+    ),
+    note(
         '5.3.4',
         '2026-08-23',
         'fixed',

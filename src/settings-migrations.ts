@@ -1,8 +1,9 @@
 import { normalizeSitePatterns } from './site-profiles';
 import type { StyleProfile } from './types';
 import { DEFAULT_THEME_CUSTOMIZATION } from './theme-customization';
+import { DEFAULT_TEXT_SNIPPETS } from './text-snippets';
 
-const CURRENT_SETTINGS_SCHEMA = 11;
+const CURRENT_SETTINGS_SCHEMA = 12;
 const MIGRATION_SETTING_KEYS = [
     'settingsSchemaVersion',
     'disabledSites',
@@ -31,6 +32,7 @@ const MIGRATION_SETTING_KEYS = [
     'autoFastMode',
     'liveProofreadDisabledSites',
     'enablePiiMasking',
+    'textSnippets',
 ] as const;
 
 function getSchemaVersion(value: unknown): number {
@@ -134,6 +136,9 @@ export async function migrateSettings(): Promise<void> {
     }
     if (currentVersion < 11 && typeof stored.enablePiiMasking !== 'boolean') {
         updates.enablePiiMasking = true;
+    }
+    if (currentVersion < 12 && !Array.isArray(stored.textSnippets)) {
+        updates.textSnippets = DEFAULT_TEXT_SNIPPETS;
     }
     updates.settingsSchemaVersion = CURRENT_SETTINGS_SCHEMA;
     const migratedKeys = Object.keys(updates).filter((key) => key !== 'settingsSchemaVersion');

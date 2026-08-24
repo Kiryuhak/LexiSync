@@ -1,10 +1,18 @@
-import { clearHistory, deleteHistoryItem, getHistory, setHistoryItemFavorite } from './history-store';
+import {
+    clearHistory,
+    deleteHistoryItem,
+    getHistory,
+    setHistoryItemFavorite,
+    importHistoryItems,
+} from './history-store';
 import type { HistoryItem, RequestMode } from './types';
 import { localizeDocument, t } from './i18n';
 import { upsertCustomCommand } from './settings-store';
 import { applyAppearanceStyle } from './appearance-style';
 import { copyText } from './clipboard';
 import { sortHistoryItems, type HistorySortOption } from './history-sort';
+import { formatHistoryAsCsv, formatHistoryAsMarkdown } from './history-export';
+import { HISTORY_LIMIT } from './history-store';
 
 const MODE_NAMES: Record<RequestMode, string> = {
     spellcheck: t('modeSpellcheck', 'Ошибки'),
@@ -13,6 +21,12 @@ const MODE_NAMES: Record<RequestMode, string> = {
     layout: t('modeLayout', 'Раскладка'),
     translate: t('modeTranslate', 'Перевод'),
     summary: t('summaryShort', 'Выжимка'),
+    tone: t('modeTone', 'Тональность'),
+    continue: t('modeContinue', 'Дописать'),
+    notes_to_doc: t('modeNotesToDoc', 'Заметки в текст'),
+    headline: t('modeHeadline', 'Заголовки'),
+    case_convert: t('modeCaseConvert', 'Регистр'),
+    text_clean: t('modeTextClean', 'Очистка'),
     reply: t('modeReply', 'Ответ'),
     explain: t('modeExplain', 'Объяснить'),
     format: t('modeFormat', 'Формат'),
@@ -25,6 +39,9 @@ const clearBtn = document.getElementById('clearBtn') as HTMLButtonElement | null
 const searchInput = document.getElementById('historySearch') as HTMLInputElement | null;
 const modeFilter = document.getElementById('modeFilter') as HTMLSelectElement | null;
 const exportBtn = document.getElementById('exportBtn') as HTMLButtonElement | null;
+const exportFormatSelect = document.getElementById('exportFormatSelect') as HTMLSelectElement | null;
+const importBtn = document.getElementById('importBtn') as HTMLButtonElement | null;
+const importFileInput = document.getElementById('importFileInput') as HTMLInputElement | null;
 const favoriteFilter = document.getElementById('favoriteFilter') as HTMLButtonElement | null;
 const sortFilter = document.getElementById('historySort') as HTMLSelectElement | null;
 const resetFilterBtn = document.getElementById('resetFilterBtn') as HTMLButtonElement | null;
@@ -171,6 +188,27 @@ function createHistoryCard(item: HistoryItem): HTMLElement {
                     summary: t(
                         'historyPromptSummary',
                         'Сделай структурированную и ёмкую выжимку текста (TL;DR) с ключевыми тезисами.',
+                    ),
+                    tone: t(
+                        'historyPromptTone',
+                        'Проанализируй тональность и вежливость текста, предложив более вежливый и конструктивный вариант.',
+                    ),
+                    continue: t(
+                        'historyPromptContinue',
+                        'Логично продолжи мысль или предложение, сохраняя контекст и стиль.',
+                    ),
+                    notes_to_doc: t(
+                        'historyPromptNotesToDoc',
+                        'Преврати краткие тезисы и заметки в связный, профессионально оформленный текст.',
+                    ),
+                    headline: t(
+                        'historyPromptHeadline',
+                        'Предложи 3-5 привлекательных и ёмких вариантов заголовка для текста.',
+                    ),
+                    case_convert: t('caseConvertTitle', 'Смени регистр текста.'),
+                    text_clean: t(
+                        'cleanAll',
+                        'Очисти текст от мусорных символов, лишних пробелов и оформи типографику.',
                     ),
                     reply: t(
                         'historyPromptReply',
@@ -343,16 +381,74 @@ exportBtn?.addEventListener('click', () => {
     void runHistoryAction(
         exportBtn,
         () => {
-            const blob = new Blob([JSON.stringify(history, null, 2)], { type: 'application/json' });
+            const format = exportFormatSelect?.value || 'json';
+            const dateStr = new Date().toISOString().slice(0, 10);
+            let blob: Blob;
+            let filename: string;
+
+            if (format === 'csv') {
+                blob = new Blob([formatHistoryAsCsv(history)], { type: 'text/csv;charset=utf-8' });
+                filename = `lexisync-history-${dateStr}.csv`;
+            } else if (format === 'md') {
+                blob = new Blob([formatHistoryAsMarkdown(history, MODE_NAMES)], {
+                    type: 'text/markdown;charset=utf-8',
+                });
+                filename = `lexisync-history-${dateStr}.md`;
+            } else {
+                blob = new Blob([JSON.stringify(history, null, 2)], { type: 'application/json;charset=utf-8' });
+                filename = `lexisync-history-${dateStr}.json`;
+            }
+
             const link = document.createElement('a');
             const url = URL.createObjectURL(blob);
             link.href = url;
-            link.download = `lexisync-history-${new Date().toISOString().slice(0, 10)}.json`;
+            link.download = filename;
             link.click();
             window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
         },
         t('historyExported', 'Файл истории подготовлен.'),
     );
+});
+
+importBtn?.addEventListener('click', () => {
+    importFileInput?.click();
+});
+
+importFileInput?.addEventListener('change', async () => {
+    const file = importFileInput.files?.[0];
+    if (!file) return;
+
+    try {
+        if (file.size > 2 * 1024 * 1024) {
+            throw new UserFacingHistoryError(t('historyFileTooLarge', 'Файл истории не должен превышать 2 МБ.'));
+        }
+        const text = await file.text();
+        let parsed: unknown;
+        try {
+            parsed = JSON.parse(text);
+        } catch {
+            throw new UserFacingHistoryError(t('invalidImportFormat', 'Неверный формат файла: ожидается массив JSON'));
+        }
+        if (!Array.isArray(parsed)) {
+            throw new UserFacingHistoryError(t('invalidImportFormat', 'Неверный формат файла: ожидается массив JSON'));
+        }
+        if (parsed.length > HISTORY_LIMIT) {
+            throw new UserFacingHistoryError(
+                t('historyImportLimit', 'За один раз можно импортировать не более 500 записей.'),
+            );
+        }
+        const count = await importHistoryItems(parsed);
+        history = await getHistory();
+        renderHistory();
+        showHistoryStatus(`${t('historyImported', 'Импортировано записей')}: ${count}`, 'success');
+    } catch (err) {
+        showHistoryStatus(
+            err instanceof Error ? err.message : t('historyImportFailed', 'Ошибка при импорте файла'),
+            'error',
+        );
+    } finally {
+        importFileInput.value = '';
+    }
 });
 
 document.addEventListener('DOMContentLoaded', () => {

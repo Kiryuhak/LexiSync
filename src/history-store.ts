@@ -4,7 +4,7 @@ import type { HistoryItem } from './types';
 import { openDatabase, idbGet, idbGetAll, idbPut, idbDelete, idbClear, idbCount } from './idb';
 import { logger } from './logger';
 
-const HISTORY_LIMIT = 500; // Increased limit for IndexedDB
+export const HISTORY_LIMIT = 500;
 const HISTORY_TEXT_MAX_LENGTH = 50_000;
 const HISTORY_NAME_MAX_LENGTH = 80;
 const HISTORY_MODES = new Set([
@@ -17,6 +17,10 @@ const HISTORY_MODES = new Set([
     'reply',
     'explain',
     'format',
+    'tone',
+    'continue',
+    'notes_to_doc',
+    'headline',
     'ocr',
     'custom',
 ]);
@@ -130,10 +134,24 @@ export async function clearHistory(): Promise<void> {
     await requestHistoryMutation('clear', {});
 }
 
-export type HistoryMutation = 'add' | 'delete' | 'updateResult' | 'setFavorite' | 'clear';
+export async function importHistoryItems(items: HistoryItem[]): Promise<number> {
+    const validItems = items.filter(isHistoryItem);
+    if (validItems.length === 0) return 0;
+    const response = await chrome.runtime.sendMessage({
+        action: 'storageMutation',
+        domain: 'history',
+        mutation: 'import',
+        payload: { items: validItems },
+    });
+    if (response?.ok !== true) throw new Error(response?.error || 'HISTORY_MUTATION_FAILED');
+    return Number(response.data?.importedCount) || 0;
+}
+
+export type HistoryMutation = 'add' | 'delete' | 'updateResult' | 'setFavorite' | 'clear' | 'import';
 
 type HistoryMutationPayload = {
     item?: HistoryItem;
+    items?: HistoryItem[];
     id?: number;
     result?: string;
     favorite?: boolean;
@@ -149,12 +167,46 @@ async function requestHistoryMutation(mutation: HistoryMutation, payload: Histor
     if (response?.ok !== true) throw new Error(response?.error || 'HISTORY_MUTATION_FAILED');
 }
 
-export function applyHistoryMutation(mutation: HistoryMutation, payload: HistoryMutationPayload): Promise<void> {
+export function applyHistoryMutation(
+    mutation: HistoryMutation,
+    payload: HistoryMutationPayload,
+): Promise<{ ok: boolean; importedCount?: number }> {
     return enqueueStorageMutation(async () => {
         const db = await getDB();
         if (mutation === 'clear') {
             await idbClear(db, STORE_NAME);
-            return;
+            return { ok: true };
+        }
+        if (mutation === 'import' && Array.isArray(payload.items)) {
+            const existing = (await idbGetAll<HistoryItem>(db, STORE_NAME)).filter(isHistoryItem);
+            const fingerprint = (item: HistoryItem): string =>
+                JSON.stringify([
+                    item.mode,
+                    item.date,
+                    item.original,
+                    item.result,
+                    item.customName || '',
+                    item.favorite === true,
+                ]);
+            const fingerprints = new Set(existing.map(fingerprint));
+            let nextId = Math.max(Date.now(), ...existing.map((item) => item.id)) + 1;
+            const candidates: HistoryItem[] = [];
+            for (const imported of payload.items.slice(0, HISTORY_LIMIT)) {
+                if (!isHistoryItem(imported) || fingerprints.has(fingerprint(imported))) continue;
+                const item = { ...imported, id: nextId++ };
+                fingerprints.add(fingerprint(item));
+                candidates.push(item);
+            }
+            const keepIds = new Set(
+                [...existing, ...candidates]
+                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                    .slice(0, HISTORY_LIMIT)
+                    .map((item) => item.id),
+            );
+            const retainedCandidates = candidates.filter((item) => keepIds.has(item.id));
+            for (const item of retainedCandidates) await idbPut(db, STORE_NAME, item);
+            for (const item of existing) if (!keepIds.has(item.id)) await idbDelete(db, STORE_NAME, item.id);
+            return { ok: true, importedCount: retainedCandidates.length };
         }
         if (mutation === 'add' && payload.item && isHistoryItem(payload.item)) {
             await idbPut(db, STORE_NAME, payload.item);
@@ -164,11 +216,13 @@ export function applyHistoryMutation(mutation: HistoryMutation, payload: History
                 const sorted = all.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
                 const toDelete = sorted.slice(HISTORY_LIMIT);
                 for (const item of toDelete) {
-                    if (!item.favorite) await idbDelete(db, STORE_NAME, item.id);
+                    await idbDelete(db, STORE_NAME, item.id);
                 }
             }
+            return { ok: true };
         } else if (mutation === 'delete' && typeof payload.id === 'number' && Number.isFinite(payload.id)) {
             await idbDelete(db, STORE_NAME, payload.id);
+            return { ok: true };
         } else if (
             mutation === 'updateResult' &&
             typeof payload.id === 'number' &&
@@ -181,6 +235,7 @@ export function applyHistoryMutation(mutation: HistoryMutation, payload: History
                 item.result = payload.result;
                 await idbPut(db, STORE_NAME, item);
             }
+            return { ok: true };
         } else if (
             mutation === 'setFavorite' &&
             typeof payload.id === 'number' &&
@@ -192,6 +247,7 @@ export function applyHistoryMutation(mutation: HistoryMutation, payload: History
                 item.favorite = payload.favorite;
                 await idbPut(db, STORE_NAME, item);
             }
+            return { ok: true };
         } else {
             throw new Error('INVALID_HISTORY_MUTATION');
         }

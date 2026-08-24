@@ -44,6 +44,16 @@ function setupToolbarKeyboardNavigation(container: HTMLElement, onClose: () => v
         }
         const buttons = Array.from(container.querySelectorAll<HTMLButtonElement>('button:not([disabled])'));
         if (buttons.length === 0) return;
+        const digit = parseInt(event.key, 10);
+        if (!isNaN(digit) && digit >= 1 && digit <= 9) {
+            const targetBtn = buttons[digit - 1];
+            if (targetBtn) {
+                event.preventDefault();
+                event.stopPropagation();
+                targetBtn.click();
+                return;
+            }
+        }
         const root = container.getRootNode();
         const active = root instanceof ShadowRoot ? root.activeElement : document.activeElement;
         const currentIndex = buttons.indexOf(active as HTMLButtonElement);
@@ -77,6 +87,16 @@ function setupMenuKeyboardNavigation(container: HTMLElement, onClose: () => void
             container.querySelectorAll<HTMLButtonElement>('button.lexisync-menu-button:not([disabled])'),
         );
         if (items.length === 0) return;
+        const digit = parseInt(event.key, 10);
+        if (!isNaN(digit) && digit >= 1 && digit <= 9) {
+            const targetItem = items[digit - 1];
+            if (targetItem) {
+                event.preventDefault();
+                event.stopPropagation();
+                targetItem.click();
+                return;
+            }
+        }
         const root = container.getRootNode();
         const active = root instanceof ShadowRoot ? root.activeElement : document.activeElement;
         const currentIndex = items.indexOf(active as HTMLButtonElement);
@@ -203,6 +223,10 @@ export function showToolbarMenu(x: number, y: number, context: ContentMenuContex
         emoji: { icon: ICONS.emoji, title: t('addEmoji', 'Подобрать эмодзи') },
         translate: { icon: ICONS.translate, title: t('translate', 'Перевести') },
         summary: { icon: ICONS.summary, title: t('summaryTitle', 'Выжимка') },
+        tone: { icon: ICONS.tone, title: t('toneTitle', 'Тональность и вежливость') },
+        continue: { icon: ICONS.continueText, title: t('continueTitle', 'Дописать за меня') },
+        notes_to_doc: { icon: ICONS.notesToDoc, title: t('notesToDocTitle', 'Заметки в текст') },
+        headline: { icon: ICONS.headline, title: t('headlineTitle', 'Подобрать заголовки') },
         reply: { icon: ICONS.reply, title: t('replyTitle', 'Ответить на сообщение') },
         explain: { icon: ICONS.lightbulb, title: t('explainTitle', 'Объяснить простыми словами') },
         format: { icon: ICONS.cleanFormat, title: t('formatTitle', 'Очистить и форматировать') },
@@ -364,6 +388,42 @@ export function showToolbarMenu(x: number, y: number, context: ContentMenuContex
         }),
     );
     moreDropdown.appendChild(
+        createDropdownItem(ICONS.tone, t('toneTitle', 'Тональность и вежливость'), () => {
+            setLastUsedAction('tone');
+            context.handleAction('tone');
+        }),
+    );
+    moreDropdown.appendChild(
+        createDropdownItem(ICONS.continueText, t('continueTitle', 'Дописать за меня'), () => {
+            setLastUsedAction('continue');
+            context.handleAction('continue');
+        }),
+    );
+    moreDropdown.appendChild(
+        createDropdownItem(ICONS.notesToDoc, t('notesToDocTitle', 'Заметки в текст'), () => {
+            setLastUsedAction('notes_to_doc');
+            context.handleAction('notes_to_doc');
+        }),
+    );
+    moreDropdown.appendChild(
+        createDropdownItem(ICONS.headline, t('headlineTitle', 'Подобрать заголовки'), () => {
+            setLastUsedAction('headline');
+            context.handleAction('headline');
+        }),
+    );
+    moreDropdown.appendChild(
+        createDropdownItem(ICONS.caseConvert, t('caseConvertTitle', 'Сменить регистр'), () => {
+            setLastUsedAction('case_convert');
+            context.handleAction('case_convert');
+        }),
+    );
+    moreDropdown.appendChild(
+        createDropdownItem(ICONS.textClean, t('textCleanTitle', 'Очистить текст'), () => {
+            setLastUsedAction('text_clean');
+            context.handleAction('text_clean');
+        }),
+    );
+    moreDropdown.appendChild(
         createDropdownItem(ICONS.cleanFormat, t('formatTitle', 'Очистить и форматировать'), () => {
             setLastUsedAction('format');
             context.handleAction('format');
@@ -516,6 +576,78 @@ export function showAIMenu(x: number, y: number, context: ContentMenuContext, to
             },
             undefined,
             'explain',
+        ),
+    );
+    popupUI.appendChild(
+        createMenuBtn(
+            ICONS.tone,
+            t('toneTitle', 'Тональность и вежливость'),
+            () => {
+                setLastUsedAction('tone');
+                context.handleAction('tone');
+            },
+            undefined,
+            'tone',
+        ),
+    );
+    popupUI.appendChild(
+        createMenuBtn(
+            ICONS.continueText,
+            t('continueTitle', 'Дописать за меня'),
+            () => {
+                setLastUsedAction('continue');
+                context.handleAction('continue');
+            },
+            undefined,
+            'continue',
+        ),
+    );
+    popupUI.appendChild(
+        createMenuBtn(
+            ICONS.notesToDoc,
+            t('notesToDocTitle', 'Заметки в текст'),
+            () => {
+                setLastUsedAction('notes_to_doc');
+                context.handleAction('notes_to_doc');
+            },
+            undefined,
+            'notes_to_doc',
+        ),
+    );
+    popupUI.appendChild(
+        createMenuBtn(
+            ICONS.headline,
+            t('headlineTitle', 'Подобрать заголовки'),
+            () => {
+                setLastUsedAction('headline');
+                context.handleAction('headline');
+            },
+            undefined,
+            'headline',
+        ),
+    );
+    popupUI.appendChild(
+        createMenuBtn(
+            ICONS.caseConvert,
+            t('caseConvertTitle', 'Сменить регистр'),
+            () => {
+                setLastUsedAction('case_convert');
+                context.handleAction('case_convert');
+            },
+            undefined,
+            'case_convert',
+        ),
+    );
+    popupUI.appendChild(
+        createMenuBtn(
+            ICONS.textClean,
+            t('textCleanTitle', 'Очистить текст'),
+            () => {
+                setLastUsedAction('text_clean');
+                context.handleAction('text_clean');
+            },
+            undefined,
+            'text_clean',
         ),
     );
     popupUI.appendChild(

@@ -8,11 +8,19 @@ export function dispatchValueEvents(element: HTMLInputElement | HTMLTextAreaElem
 }
 
 export function setNativeValue(element: HTMLInputElement | HTMLTextAreaElement, value: string): void {
-    const prototype =
-        element.tagName === 'INPUT' ? window.HTMLInputElement.prototype : window.HTMLTextAreaElement.prototype;
-    const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
-    if (setter) setter.call(element, value);
-    else element.value = value;
+    try {
+        const win = typeof window !== 'undefined' ? window : (globalThis as typeof window);
+        const proto =
+            element.tagName === 'INPUT' ? win?.HTMLInputElement?.prototype : win?.HTMLTextAreaElement?.prototype;
+        const setter = proto ? Object.getOwnPropertyDescriptor(proto, 'value')?.set : null;
+        if (setter) {
+            setter.call(element, value);
+            return;
+        }
+    } catch {
+        // fallback
+    }
+    element.value = value;
 }
 
 export function replaceSelectedText(selection: SelectionData, newText: string): (() => void) | null {
@@ -28,13 +36,14 @@ export function replaceSelectedText(selection: SelectionData, newText: string): 
             dispatchValueEvents(activeElement);
             activeElement.focus();
 
-            return () => {
+            const undoFn = () => {
                 setNativeValue(activeElement, oldValue);
                 activeElement.selectionStart = oldStart;
                 activeElement.selectionEnd = oldEnd;
                 dispatchValueEvents(activeElement);
                 activeElement.focus();
             };
+            return undoFn;
         }
 
         if (range) {
@@ -42,7 +51,8 @@ export function replaceSelectedText(selection: SelectionData, newText: string): 
             browserSelection?.removeAllRanges();
             browserSelection?.addRange(range);
             document.execCommand('insertText', false, newText);
-            return () => document.execCommand('undo');
+            const undoFn = () => document.execCommand('undo');
+            return undoFn;
         }
     } catch (error) {
         logger.error('Ошибка при вставке текста:', error);

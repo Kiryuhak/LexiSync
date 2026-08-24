@@ -185,6 +185,34 @@ test('не теряет историю при параллельных запи�
     await expect(getHistoryItemCount()).resolves.toBe(20);
 });
 
+test('импорт истории не перезаписывает совпавшие ID и пропускает дубликаты', async () => {
+    const date = new Date().toISOString();
+    const original = {
+        id: 91_001,
+        mode: 'style' as const,
+        original: 'Существующая запись',
+        result: 'Существующий результат',
+        date,
+    };
+    await applyHistoryMutation('add', { item: original });
+    const result = await applyHistoryMutation('import', {
+        items: [
+            { ...original },
+            {
+                ...original,
+                original: 'Импортированная запись',
+                result: 'Импортированный результат',
+            },
+        ],
+    });
+
+    expect(result.importedCount).toBe(1);
+    const items = await getHistory();
+    const matched = items.filter((item) => item.original.includes('запись'));
+    expect(matched).toHaveLength(2);
+    expect(new Set(matched.map((item) => item.id)).size).toBe(2);
+});
+
 test('не теряет статистику при параллельных запросах', async () => {
     await Promise.all(
         Array.from({ length: 25 }, () =>
@@ -284,8 +312,22 @@ test('атомарно добавляет и удаляет пользовате
     expect(storage.customCommands).toHaveLength(6);
 });
 
+test('не сохраняет два текстовых сниппета с одинаковым триггером', async () => {
+    storage.textSnippets = [];
+    await applySettingsMutation('upsertTextSnippet', {
+        snippet: { id: 'one', trigger: '/ответ', content: 'Первый текст' },
+    });
+
+    await expect(
+        applySettingsMutation('upsertTextSnippet', {
+            snippet: { id: 'two', trigger: '/ОТВЕТ', content: 'Второй текст' },
+        }),
+    ).rejects.toThrow('SNIPPET_TRIGGER_EXISTS');
+    expect(storage.textSnippets).toHaveLength(1);
+});
+
 test('миграция не читает всё хранилище при актуальной схеме', async () => {
-    storage.settingsSchemaVersion = 11;
+    storage.settingsSchemaVersion = 12;
 
     await migrateSettings();
 
@@ -304,7 +346,7 @@ test.each([
     await migrateSettings();
 
     expect(storage.resultDisplayMode).toBe(expected);
-    expect(storage.settingsSchemaVersion).toBe(11);
+    expect(storage.settingsSchemaVersion).toBe(12);
     expect(storageGetCalls).not.toContain(null);
 });
 
@@ -355,7 +397,7 @@ test('не затирает настройку, изменённую парал�
     await migrateSettings();
 
     expect(storage.resultDisplayMode).toBe('compact');
-    expect(storage.settingsSchemaVersion).toBe(11);
+    expect(storage.settingsSchemaVersion).toBe(12);
 });
 
 test('добавляет Liquid Glass как безопасный стиль по умолчанию', async () => {
@@ -364,7 +406,7 @@ test('добавляет Liquid Glass как безопасный стиль п�
     await migrateSettings();
 
     expect(storage.visualStyle).toBe('liquid-glass');
-    expect(storage.settingsSchemaVersion).toBe(11);
+    expect(storage.settingsSchemaVersion).toBe(12);
 });
 
 test('заменяет удалённый Bento Soft на Liquid Glass', async () => {
@@ -374,14 +416,14 @@ test('заменяет удалённый Bento Soft на Liquid Glass', async (
     await migrateSettings();
 
     expect(storage.visualStyle).toBe('liquid-glass');
-    expect(storage.settingsSchemaVersion).toBe(11);
+    expect(storage.settingsSchemaVersion).toBe(12);
 });
 
 test('добавляет список исключений автопроверки при переходе на схему 9', async () => {
     storage.settingsSchemaVersion = 8;
     await migrateSettings();
     expect(storage.liveProofreadDisabledSites).toEqual([]);
-    expect(storage.settingsSchemaVersion).toBe(11);
+    expect(storage.settingsSchemaVersion).toBe(12);
 });
 
 test('включает локальную маскировку персональных данных при переходе на схему 11', async () => {
@@ -390,7 +432,16 @@ test('включает локальную маскировку персонал�
     await migrateSettings();
 
     expect(storage.enablePiiMasking).toBe(true);
-    expect(storage.settingsSchemaVersion).toBe(11);
+    expect(storage.settingsSchemaVersion).toBe(12);
+});
+
+test('добавляет стандартные сниппеты при переходе на схему 12', async () => {
+    storage.settingsSchemaVersion = 11;
+
+    await migrateSettings();
+
+    expect(storage.textSnippets).toEqual(expect.arrayContaining([expect.objectContaining({ trigger: '/thanks' })]));
+    expect(storage.settingsSchemaVersion).toBe(12);
 });
 
 test('пакетирует частые записи адаптивной модели в одно чтение и запись', async () => {
