@@ -91,7 +91,7 @@
                 <div>
                     <h2 id="settingsSectionGuideTitle">Начните с основных параметров</h2>
                     <p id="settingsSectionGuideDescription">
-                        Подключите Mistral, выберите стиль ответа и поисковую систему.
+                        Подключите Mistral или Groq, выберите основной сервис и стиль ответа.
                     </p>
                 </div>
             </section>
@@ -102,14 +102,14 @@
             <select id="primaryAiProvider" data-settings-group="main">
                 <option value="auto" data-i18n="providerAuto">⚡ Автоматически (рекомендуется)</option>
                 <option value="mistral" data-i18n="providerMistral">🌪️ Mistral AI (Mistral Small / Large)</option>
-                <option value="groq" data-i18n="providerGroq">⚡ Groq (Qwen 3.6 27B)</option>
+                <option value="groq" data-i18n="providerGroq">⚡ Groq (Qwen 3.6 27B · Preview)</option>
             </select>
 
             <div class="privacy-option" data-settings-group="main" style="margin-top: 10px; margin-bottom: 16px">
                 <label for="autoFallbackEnabled">
                     <span data-i18n="autoFallbackLabel">Автоматический fallback при лимитах</span>
                     <small data-i18n="autoFallbackHint"
-                        >Переключает на резервного провайдера при ошибке 429, исчерпании квоты или сбоях.</small
+                        >Переключает на резервный сервис при лимите, таймауте или временном сбое.</small
                     >
                 </label>
                 <input type="checkbox" id="autoFallbackEnabled" checked />
@@ -226,7 +226,7 @@
                 </button>
             </div>
             <p class="field-hint" data-settings-group="main" data-i18n="groqApiKeySimpleHint">
-                Бесплатный ключ для молниеносной работы с Qwen 3.6 27B через Groq API.
+                Отдельный ключ для Qwen 3.6 27B. Модель Groq сейчас имеет статус Preview.
             </p>
 
             <label for="toneSelect" data-settings-group="main" data-i18n="toneLabel"
@@ -580,7 +580,7 @@
             <div class="privacy-option" data-settings-group="privacy" hidden>
                 <input type="checkbox" id="sendPageContext" />
                 <label for="sendPageContext">
-                    <span data-i18n="sendContextLong">Передавать контекст страницы в Mistral</span>
+                    <span data-i18n="sendContextLong">Передавать контекст выбранному AI-провайдеру</span>
                     <small data-i18n="sendContextHint"
                         >Если включено, вместе с выделенным текстом отправляются до 2000 символов окружения, заголовок
                         страницы и домен. По умолчанию выключено.</small
@@ -1101,6 +1101,10 @@
                     <p id="onboardingKeyStatus" class="onboarding-key-status" role="status" aria-live="polite"></p>
                 </section>
                 <section class="onboarding-step" data-onboarding-step="2">
+                    <div class="onboarding-provider-chip" aria-label="Groq, Qwen 3.6 27B, Preview">
+                        <span aria-hidden="true">⚡</span>
+                        <span data-i18n="onboardingGroqPreview">Groq · Qwen 3.6 27B · Preview</span>
+                    </div>
                     <h3 data-i18n="onboardingGroqApi">Добавьте API-ключ Groq</h3>
                     <p data-i18n="onboardingGroqApiHint">
                         Ключ нужен для быстрой модели Qwen 3.6 27B и автоматического переключения при лимитах.
@@ -1182,7 +1186,8 @@
                 <section class="onboarding-step" data-onboarding-step="5">
                     <h3 data-i18n="onboardingPrivacy">Приватность под вашим контролем</h3>
                     <p data-i18n="onboardingPrivacyHint">
-                        Текст отправляется в Mistral только для выполнения выбранной AI-команды.
+                        Текст отправляется выбранному AI-провайдеру только для выполнения команды. При автоматическом
+                        переключении резервный сервис получает текст лишь после временной ошибки основного.
                     </p>
                     <ul class="onboarding-list">
                         <li data-i18n="tutorialPrivacyContext">Контекст страницы по умолчанию отключён</li>

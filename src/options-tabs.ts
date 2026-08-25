@@ -6,7 +6,7 @@ export const SETTINGS_TAB_GUIDES = {
         titleKey: 'tabGuideMainTitle',
         title: 'Начните с основных параметров',
         descriptionKey: 'tabGuideMainDescription',
-        description: 'Подключите Mistral, выберите стиль ответа и поисковую систему.',
+        description: 'Подключите Mistral или Groq, выберите основной сервис и стиль ответа.',
     },
     ai: {
         icon: '◆',

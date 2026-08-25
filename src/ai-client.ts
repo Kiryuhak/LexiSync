@@ -10,6 +10,84 @@ import {
     type PrimaryAiProvider,
 } from './ai-provider-types';
 
+const DEFAULT_PROVIDER_TIMEOUT_MS = 20_000;
+const DEFAULT_RATE_LIMIT_COOLDOWN_MS = 60_000;
+const MAX_RATE_LIMIT_COOLDOWN_MS = 10 * 60_000;
+const CIRCUIT_BREAKER_FAILURES = 2;
+const CIRCUIT_BREAKER_COOLDOWN_MS = 20_000;
+
+interface ProviderHealth {
+    consecutiveFailures: number;
+    cooldownUntil: number;
+}
+
+const providerHealth: Record<AiProviderType, ProviderHealth> = {
+    mistral: { consecutiveFailures: 0, cooldownUntil: 0 },
+    groq: { consecutiveFailures: 0, cooldownUntil: 0 },
+};
+
+export function resetAiProviderHealth(): void {
+    for (const state of Object.values(providerHealth)) {
+        state.consecutiveFailures = 0;
+        state.cooldownUntil = 0;
+    }
+}
+
+export function getAiProviderCooldownRemaining(provider: AiProviderType, now = Date.now()): number {
+    return Math.max(0, providerHealth[provider].cooldownUntil - now);
+}
+
+function recordProviderSuccess(provider: AiProviderType): void {
+    providerHealth[provider].consecutiveFailures = 0;
+    providerHealth[provider].cooldownUntil = 0;
+}
+
+function recordProviderFailure(error: AiProviderError, now = Date.now()): void {
+    if (!error.isFallbackEligible) return;
+    const state = providerHealth[error.provider];
+    state.consecutiveFailures += 1;
+    if (error.code === 'RATE_LIMIT' || error.code === 'QUOTA_EXCEEDED') {
+        const cooldownMs = Math.min(
+            Math.max(1_000, error.retryAfterMs ?? DEFAULT_RATE_LIMIT_COOLDOWN_MS),
+            MAX_RATE_LIMIT_COOLDOWN_MS,
+        );
+        state.cooldownUntil = Math.max(state.cooldownUntil, now + cooldownMs);
+    } else if (state.consecutiveFailures >= CIRCUIT_BREAKER_FAILURES) {
+        state.cooldownUntil = Math.max(state.cooldownUntil, now + CIRCUIT_BREAKER_COOLDOWN_MS);
+    }
+}
+
+async function runWithProviderTimeout<T>(
+    provider: AiProviderType,
+    parentSignal: AbortSignal,
+    timeoutMs: number,
+    task: (signal: AbortSignal) => Promise<T>,
+): Promise<T> {
+    const controller = new AbortController();
+    let timedOut = false;
+    const abortFromParent = () => controller.abort(parentSignal.reason);
+    if (parentSignal.aborted) abortFromParent();
+    else parentSignal.addEventListener('abort', abortFromParent, { once: true });
+    const timeout = setTimeout(
+        () => {
+            timedOut = true;
+            controller.abort(new DOMException(t('providerTimeout', 'AI-сервис не ответил вовремя.'), 'TimeoutError'));
+        },
+        Math.max(1, timeoutMs),
+    );
+    try {
+        return await task(controller.signal);
+    } catch (error) {
+        if (timedOut && !parentSignal.aborted) {
+            throw new AiProviderError(t('providerTimeout', 'AI-сервис не ответил вовремя.'), 'TIMEOUT', provider, true);
+        }
+        throw error;
+    } finally {
+        clearTimeout(timeout);
+        parentSignal.removeEventListener('abort', abortFromParent);
+    }
+}
+
 export function normalizeAiError(error: unknown, provider: AiProviderType): AiProviderError {
     if (error instanceof AiProviderError) return error;
     if (error instanceof DOMException && error.name === 'AbortError') {
@@ -24,6 +102,30 @@ export function normalizeAiError(error: unknown, provider: AiProviderType): AiPr
         typeof (error as { retryable: unknown }).retryable === 'boolean'
             ? Boolean((error as { retryable: boolean }).retryable)
             : undefined;
+    const sourceStatus =
+        error &&
+        typeof error === 'object' &&
+        'status' in error &&
+        typeof (error as { status: unknown }).status === 'number'
+            ? (error as { status: number }).status
+            : undefined;
+    const retryAfterMs =
+        error &&
+        typeof error === 'object' &&
+        'retryAfterMs' in error &&
+        typeof (error as { retryAfterMs: unknown }).retryAfterMs === 'number'
+            ? (error as { retryAfterMs: number }).retryAfterMs
+            : undefined;
+
+    if (sourceStatus === 401 || sourceStatus === 403) {
+        return new AiProviderError(message, 'AUTH_ERROR', provider, false, sourceStatus);
+    }
+    if (sourceStatus === 429) {
+        return new AiProviderError(message, 'RATE_LIMIT', provider, sourceRetryable ?? true, 429, retryAfterMs);
+    }
+    if (sourceStatus && sourceStatus >= 500 && sourceStatus <= 599) {
+        return new AiProviderError(message, 'SERVER_ERROR', provider, sourceRetryable ?? true, sourceStatus);
+    }
 
     const isNetwork =
         lower.includes('failed to fetch') ||
@@ -64,6 +166,9 @@ export function normalizeAiError(error: unknown, provider: AiProviderType): AiPr
         lower.includes('504')
     ) {
         return new AiProviderError(message, 'SERVER_ERROR', provider, sourceRetryable ?? true, 503);
+    }
+    if (sourceRetryable) {
+        return new AiProviderError(message, 'INVALID_RESPONSE', provider, true, sourceStatus, retryAfterMs);
     }
     return new AiProviderError(message, 'UNKNOWN_ERROR', provider, sourceRetryable ?? false);
 }
@@ -130,30 +235,12 @@ export function resolveExecutionPlan(options: {
 export async function executeAiStreamRequest(options: AiRequestOptions): Promise<AiExecutionResult> {
     const mistralKey = (options.mistralApiKey || '').trim();
     const groqKey = (options.groqApiKey || '').trim();
-
-    // 1. Определение приоритета провайдеров
-    let primary: AiProviderType;
-    let secondary: AiProviderType;
-
-    if (options.primaryProvider === 'groq') {
-        primary = 'groq';
-        secondary = 'mistral';
-    } else if (options.primaryProvider === 'mistral') {
-        primary = 'mistral';
-        secondary = 'groq';
-    } else {
-        // 'auto'
-        if (mistralKey) {
-            primary = 'mistral';
-            secondary = 'groq';
-        } else if (groqKey) {
-            primary = 'groq';
-            secondary = 'mistral';
-        } else {
-            primary = 'mistral';
-            secondary = 'groq';
-        }
-    }
+    const plan = resolveExecutionPlan({
+        primaryProvider: options.primaryProvider,
+        autoFallback: options.autoFallback,
+        mistralApiKey: mistralKey,
+        groqApiKey: groqKey,
+    });
 
     const getKey = (provider: AiProviderType): string => (provider === 'mistral' ? mistralKey : groqKey);
 
@@ -172,55 +259,79 @@ export async function executeAiStreamRequest(options: AiRequestOptions): Promise
                     : t('groqApiKeyMissing', 'API-ключ Groq не настроен.');
             throw new AiProviderError(missingMsg, 'AUTH_ERROR', provider, false, 401);
         }
-        if (provider === 'mistral') {
-            await streamText(msg, key, settings, signal, onChunk);
-        } else {
-            await streamGroqText(msg, key, settings, signal, onChunk);
-        }
+        await runWithProviderTimeout(
+            provider,
+            signal,
+            options.providerTimeoutMs ?? DEFAULT_PROVIDER_TIMEOUT_MS,
+            async (providerSignal) => {
+                if (provider === 'mistral') await streamText(msg, key, settings, providerSignal, onChunk);
+                else await streamGroqText(msg, key, settings, providerSignal, onChunk);
+            },
+        );
     };
 
-    // Если у основного провайдера нет ключа, но у резервного есть и fallback включен — сразу используем резервный
-    let effectivePrimary = primary;
-    if (!getKey(primary) && getKey(secondary) && options.autoFallback) {
-        effectivePrimary = secondary;
-    } else if (!getKey(primary)) {
+    // Провайдер в cooldown пропускается только когда есть готовый резервный сервис.
+    let effectivePrimary = plan.primary;
+    let fallbackProvider = plan.backup;
+    let preemptiveFallback = false;
+    if (!getKey(effectivePrimary) && fallbackProvider && getKey(fallbackProvider)) {
+        effectivePrimary = fallbackProvider;
+        fallbackProvider = undefined;
+    } else if (!getKey(effectivePrimary)) {
         const missingMsg =
-            primary === 'mistral'
+            effectivePrimary === 'mistral'
                 ? t('apiKeyMissing', 'API-ключ Mistral не настроен.')
                 : t('groqApiKeyMissing', 'API-ключ Groq не настроен.');
-        throw new AiProviderError(missingMsg, 'AUTH_ERROR', primary, false, 401);
+        throw new AiProviderError(missingMsg, 'AUTH_ERROR', effectivePrimary, false, 401);
+    } else if (
+        fallbackProvider &&
+        getAiProviderCooldownRemaining(effectivePrimary) > 0 &&
+        getAiProviderCooldownRemaining(fallbackProvider) === 0
+    ) {
+        effectivePrimary = fallbackProvider;
+        fallbackProvider = undefined;
+        preemptiveFallback = true;
     }
 
-    // 2. Попытка выполнения через первого провайдера
+    // Первая попытка: один провайдер за раз, без параллельной передачи пользовательского текста.
     let primaryError: AiProviderError;
+    let primaryProducedContent = false;
     try {
-        await callProvider(effectivePrimary, options.request, options.settings, options.signal, options.onChunk);
+        await callProvider(effectivePrimary, options.request, options.settings, options.signal, (text) => {
+            primaryProducedContent = true;
+            options.onChunk(text);
+        });
+        recordProviderSuccess(effectivePrimary);
         return {
             providerUsed: effectivePrimary,
-            fallbackOccurred: false,
+            fallbackOccurred: preemptiveFallback,
+            fallbackReason: preemptiveFallback ? 'RATE_LIMIT' : undefined,
+            fallbackNotification: preemptiveFallback
+                ? getFallbackNotification(plan.primary, effectivePrimary, 'RATE_LIMIT')
+                : undefined,
         };
     } catch (err) {
         if (options.signal.aborted) throw err;
         primaryError = normalizeAiError(err, effectivePrimary);
+        recordProviderFailure(primaryError);
     }
 
-    // 3. Анализ возможности Fallback
-    const fallbackProvider: AiProviderType = effectivePrimary === 'mistral' ? 'groq' : 'mistral';
-    const fallbackKey = getKey(fallbackProvider);
-
-    // Fallback запрещен, если отключен в настройках, или если ошибка авторизации (401/403)
-    if (!options.autoFallback || !primaryError.isFallbackEligible) {
+    if (
+        !options.autoFallback ||
+        !primaryError.isFallbackEligible ||
+        !fallbackProvider ||
+        !getKey(fallbackProvider) ||
+        getAiProviderCooldownRemaining(fallbackProvider) > 0
+    )
         throw primaryError;
-    }
 
-    // Если fallback разрешен по типу ошибки, но у резервного провайдера не настроен ключ:
-    if (!fallbackKey) {
-        throw primaryError;
-    }
+    // Частичный поток первого сервиса нельзя смешивать с новым ответом резервного сервиса.
+    if (primaryProducedContent) options.onReset?.();
 
-    // 4. Выполнение через резервного провайдера (ровно 1 попытка, защита от зацикливания)
+    // Резервный провайдер вызывается ровно один раз; возврата к первому сервису нет.
     try {
         await callProvider(fallbackProvider, options.request, options.settings, options.signal, options.onChunk);
+        recordProviderSuccess(fallbackProvider);
         const notification = getFallbackNotification(effectivePrimary, fallbackProvider, primaryError.code);
         return {
             providerUsed: fallbackProvider,
@@ -231,6 +342,7 @@ export async function executeAiStreamRequest(options: AiRequestOptions): Promise
     } catch (secondErr) {
         if (options.signal.aborted) throw secondErr;
         const secondaryError = normalizeAiError(secondErr, fallbackProvider);
+        recordProviderFailure(secondaryError);
         if (
             (primaryError.code === 'RATE_LIMIT' || primaryError.code === 'QUOTA_EXCEEDED') &&
             (secondaryError.code === 'RATE_LIMIT' || secondaryError.code === 'QUOTA_EXCEEDED')

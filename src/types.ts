@@ -93,7 +93,7 @@ export interface SelectionData {
 }
 
 export interface StreamResponse {
-    status: 'chunk' | 'done' | 'error' | 'cancelled';
+    status: 'chunk' | 'reset' | 'done' | 'error' | 'cancelled';
     text?: string;
     error?: string;
     retryable?: boolean;

@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto';
-import { expect, test, vi } from 'vitest';
+import { beforeEach, expect, test, vi } from 'vitest';
 import { detectLayoutDirection, fixKeyboardLayout } from '../src/keyboard-layout';
 import { buildMessages, buildPromptPayload } from '../src/prompt-builder';
 import { escapeHTML, parseMarkdownToHTML, stripSummaryPrefix } from '../src/markdown';
@@ -54,6 +54,11 @@ import { buildSearchUrl, normalizeSearchEngine, resolveSearchText } from '../src
 import { isRuntimeSettingKey, pickRuntimeSettings, RUNTIME_SETTING_KEYS } from '../src/runtime-settings-cache';
 import { isExtensionAllowedForUrl } from '../src/site-runtime-access';
 import { parsePortableSettingsJson } from '../src/settings-transfer';
+import { resetAiProviderHealth } from '../src/ai-client';
+
+beforeEach(() => {
+    resetAiProviderHealth();
+});
 
 test.each([
     ['google', 'https://www.google.com/search', 'q'],
@@ -721,7 +726,10 @@ interface MockElement {
     setAttribute: (name: string, value: string) => void;
     getAttribute: (name: string) => string | null;
     appendChild: (child: MockElement | { textContent: string }) => MockElement | { textContent: string };
+    append: (...newChildren: Array<MockElement | { textContent: string }>) => void;
     replaceChildren: (...newChildren: Array<MockElement | { textContent: string }>) => void;
+    dataset: Record<string, string>;
+    addEventListener: (event: string, fn: unknown) => void;
     querySelectorAll: (selector: string) => MockElement[];
     textContent: string;
 }
@@ -730,9 +738,12 @@ function createMockElement(tagName = 'div'): MockElement {
     const children: Array<MockElement | { textContent: string }> = [];
     const classList = new Set<string>();
     const attributes = new Map<string, string>();
+    const dataset: Record<string, string> = {};
     const element: MockElement = {
         tagName: tagName.toUpperCase(),
         style: {},
+        dataset,
+        addEventListener: () => {},
         get className() {
             return Array.from(classList).join(' ');
         },
@@ -752,6 +763,9 @@ function createMockElement(tagName = 'div'): MockElement {
         appendChild: (child: MockElement | { textContent: string }) => {
             children.push(child);
             return child;
+        },
+        append: (...newChildren: Array<MockElement | { textContent: string }>) => {
+            children.push(...newChildren);
         },
         replaceChildren: (...newChildren: Array<MockElement | { textContent: string }>) => {
             children.length = 0;
@@ -857,6 +871,206 @@ test('renderPrimaryResultActions отображает только кнопку 
         vi.stubGlobal('document', originalDocument);
         vi.stubGlobal('DOMParser', originalDOMParser);
     }
+});
+
+test('Unit 17: тайм-аут основного провайдера быстро переключает запрос на резервный', async () => {
+    const { executeAiStreamRequest } = await import('../src/ai-client');
+    const encoder = new TextEncoder();
+    const chunks: string[] = [];
+    const mockFetch = vi
+        .spyOn(globalThis, 'fetch')
+        .mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+            if (String(input).includes('mistral.ai')) {
+                return new Promise((_resolve, reject) => {
+                    init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true });
+                });
+            }
+            return Promise.resolve({
+                ok: true,
+                status: 200,
+                headers: new Headers({ 'content-type': 'text/event-stream' }),
+                body: new ReadableStream({
+                    start(controller) {
+                        controller.enqueue(
+                            encoder.encode(
+                                'data: {"choices":[{"delta":{"content":"Резервный ответ"}}]}\n\ndata: [DONE]\n\n',
+                            ),
+                        );
+                        controller.close();
+                    },
+                }),
+            } as unknown as Response);
+        });
+
+    const result = await executeAiStreamRequest({
+        request: { action: 'callMistral', text: 'Тест', mode: 'style' },
+        settings: {
+            selectedTone: 'business',
+            sendPageContext: false,
+            personalDictionary: [],
+            glossary: [],
+            aiMode: 'quality',
+        },
+        primaryProvider: 'mistral',
+        autoFallback: true,
+        mistralApiKey: 'mistral-key',
+        groqApiKey: 'groq-key',
+        signal: new AbortController().signal,
+        providerTimeoutMs: 5,
+        onChunk: (chunk) => chunks.push(chunk),
+    });
+
+    expect(result.providerUsed).toBe('groq');
+    expect(result.fallbackReason).toBe('TIMEOUT');
+    expect(chunks.join('')).toBe('Резервный ответ');
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    mockFetch.mockRestore();
+});
+
+test('Unit 18: Retry-After включает cooldown и следующий запрос не повторяет заведомо неудачный вызов', async () => {
+    const { executeAiStreamRequest } = await import('../src/ai-client');
+    const encoder = new TextEncoder();
+    let mistralCalls = 0;
+    let groqCalls = 0;
+    const createGroqStream = () =>
+        new ReadableStream({
+            start(controller) {
+                controller.enqueue(
+                    encoder.encode('data: {"choices":[{"delta":{"content":"Groq"}}]}\n\ndata: [DONE]\n\n'),
+                );
+                controller.close();
+            },
+        });
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockImplementation((input: RequestInfo | URL) => {
+        if (String(input).includes('mistral.ai')) {
+            mistralCalls += 1;
+            return Promise.resolve({
+                ok: false,
+                status: 429,
+                statusText: 'Too Many Requests',
+                headers: new Headers({ 'Retry-After': '120' }),
+                text: async () => 'Rate limit',
+                body: null,
+            } as unknown as Response);
+        }
+        groqCalls += 1;
+        return Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: new Headers({ 'content-type': 'text/event-stream' }),
+            body: createGroqStream(),
+        } as unknown as Response);
+    });
+    const requestOptions = {
+        request: { action: 'callMistral' as const, text: 'Тест', mode: 'style' as const },
+        settings: {
+            selectedTone: 'business',
+            sendPageContext: false,
+            personalDictionary: [],
+            glossary: [],
+            aiMode: 'quality' as const,
+        },
+        primaryProvider: 'mistral' as const,
+        autoFallback: true,
+        mistralApiKey: 'mistral-key',
+        groqApiKey: 'groq-key',
+        signal: new AbortController().signal,
+        onChunk: () => undefined,
+    };
+
+    await executeAiStreamRequest(requestOptions);
+    const secondResult = await executeAiStreamRequest(requestOptions);
+
+    expect(secondResult.providerUsed).toBe('groq');
+    expect(secondResult.fallbackOccurred).toBe(true);
+    expect(mistralCalls).toBe(1);
+    expect(groqCalls).toBe(2);
+    mockFetch.mockRestore();
+});
+
+test('Unit 19: частичный ответ очищается перед переключением провайдера', async () => {
+    const { executeAiStreamRequest } = await import('../src/ai-client');
+    const encoder = new TextEncoder();
+    const chunks: string[] = [];
+    const onReset = vi.fn(() => {
+        chunks.length = 0;
+    });
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockImplementation((input: RequestInfo | URL) => {
+        const content = String(input).includes('mistral.ai')
+            ? 'data: {"choices":[{"delta":{"content":"Незавершённый"}}]}\n\n'
+            : 'data: {"choices":[{"delta":{"content":"Полный ответ"}}]}\n\ndata: [DONE]\n\n';
+        return Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: new Headers({ 'content-type': 'text/event-stream' }),
+            body: new ReadableStream({
+                start(controller) {
+                    controller.enqueue(encoder.encode(content));
+                    controller.close();
+                },
+            }),
+        } as unknown as Response);
+    });
+
+    const result = await executeAiStreamRequest({
+        request: { action: 'callMistral', text: 'Тест', mode: 'style' },
+        settings: {
+            selectedTone: 'business',
+            sendPageContext: false,
+            personalDictionary: [],
+            glossary: [],
+            aiMode: 'quality',
+        },
+        primaryProvider: 'mistral',
+        autoFallback: true,
+        mistralApiKey: 'mistral-key',
+        groqApiKey: 'groq-key',
+        signal: new AbortController().signal,
+        onChunk: (chunk) => chunks.push(chunk),
+        onReset,
+    });
+
+    expect(result.providerUsed).toBe('groq');
+    expect(onReset).toHaveBeenCalledTimes(1);
+    expect(chunks.join('')).toBe('Полный ответ');
+    mockFetch.mockRestore();
+});
+
+test('Unit 20: отменённый пользователем запрос не запускает резервного провайдера', async () => {
+    const { executeAiStreamRequest } = await import('../src/ai-client');
+    const controller = new AbortController();
+    let groqCalled = false;
+    const mockFetch = vi
+        .spyOn(globalThis, 'fetch')
+        .mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+            if (String(input).includes('groq.com')) groqCalled = true;
+            return new Promise((_resolve, reject) => {
+                init?.signal?.addEventListener('abort', () => reject(new DOMException('Отменено', 'AbortError')), {
+                    once: true,
+                });
+            });
+        });
+    const execution = executeAiStreamRequest({
+        request: { action: 'callMistral', text: 'Тест', mode: 'style' },
+        settings: {
+            selectedTone: 'business',
+            sendPageContext: false,
+            personalDictionary: [],
+            glossary: [],
+            aiMode: 'quality',
+        },
+        primaryProvider: 'mistral',
+        autoFallback: true,
+        mistralApiKey: 'mistral-key',
+        groqApiKey: 'groq-key',
+        signal: controller.signal,
+        onChunk: () => undefined,
+    });
+    controller.abort();
+
+    await expect(execution).rejects.toThrow();
+    expect(groqCalled).toBe(false);
+    mockFetch.mockRestore();
 });
 
 test('shouldStoreOnCurrentPage корректно обрабатывает отсутствие chrome.extension без исключений', async () => {
@@ -1960,7 +2174,7 @@ test('Unit 2: Mistral 429 Rate Limit переключается на Groq (Qwen 
     expect(result.fallbackNotification).toContain('Mistral');
     expect(result.fallbackNotification).toContain('Groq');
     expect(chunks.join('')).toBe('Ответ от Qwen 3.6');
-    expect(mockFetch).toHaveBeenCalledTimes(4); // 3 попытки Mistral + 1 Groq
+    expect(mockFetch).toHaveBeenCalledTimes(2); // 1 Mistral + 1 Groq без лишнего ожидания
     mockFetch.mockRestore();
 });
 
@@ -2017,6 +2231,8 @@ test('Unit 3: Groq успешный стриминг (200 OK) с моделью 
     expect(chunks.join('')).toBe('Qwen 3.6 27B быстрый ответ');
     expect(requestBody).toContain('"model":"qwen/qwen3.6-27b"');
     expect(requestBody).toContain('"stream":true');
+    expect(requestBody).toContain('"max_completion_tokens":2048');
+    expect(requestBody).toContain('"reasoning_effort":"none"');
     mockFetch.mockRestore();
 });
 
@@ -2364,6 +2580,15 @@ test('Unit 12: Валидация Groq API-ключа (validateGroqApiKey: 200, 
     expect(success.ok).toBe(true);
 
     mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ data: [{ id: 'another/model' }] }),
+    } as unknown as Response);
+
+    const modelUnavailable = await validateGroqApiKey('gsk_without_qwen');
+    expect(modelUnavailable.ok).toBe(false);
+
+    mockFetch.mockResolvedValue({
         ok: false,
         status: 401,
         json: async () => ({ error: { message: 'Invalid API Key' } }),
@@ -2439,4 +2664,39 @@ test('Unit 15: Форматирование уведомления о fallback �
     const notificationGroqToMistral = getFallbackNotification('groq', 'mistral', 'SERVER_ERROR');
     expect(notificationGroqToMistral).toContain('Groq');
     expect(notificationGroqToMistral).toContain('Mistral');
+});
+
+test('Unit 16: showMoreMenu экспортируется и создает меню с действиями', async () => {
+    const { showMoreMenu } = await import('../src/content-menus');
+    const originalDocument = globalThis.document;
+    const originalDOMParser = globalThis.DOMParser;
+    vi.stubGlobal('DOMParser', MockDOMParser);
+    vi.stubGlobal('document', {
+        createElement: (tag: string) => createMockElement(tag),
+        createTextNode: (text: string) => ({ textContent: text }),
+        importNode: (node: unknown) => node,
+    });
+
+    try {
+        const container = createMockElement('div');
+        const context = {
+            openPopup: () => container,
+            getPopup: () => container,
+            getSelectionText: () => 'Привет мир',
+            getSearchEngine: () => 'google',
+            getPopupElementById: () => null,
+            closePopup: vi.fn(),
+            adjustPopupPosition: vi.fn(),
+            handleAction: vi.fn(),
+            executeCustom: vi.fn(),
+        };
+
+        showMoreMenu(100, 100, context as never);
+        expect((container as unknown as HTMLElement).dataset.surface).toBe('menu');
+        expect(container.getAttribute('role')).toBe('menu');
+        expect(container.querySelectorAll('button').length).toBeGreaterThan(0);
+    } finally {
+        vi.stubGlobal('document', originalDocument);
+        vi.stubGlobal('DOMParser', originalDOMParser);
+    }
 });

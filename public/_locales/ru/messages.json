@@ -1,6 +1,6 @@
 {
     "extName": { "message": "Корректор грамматики и орфографии - LexiSync" },
-    "extDesc": { "message": "Умный помощник для работы с текстом на базе Mistral AI" },
+    "extDesc": { "message": "Умный помощник для работы с текстом на базе Mistral AI и Groq" },
     "commandSpellcheck": { "message": "Исправить ошибки" },
     "commandStyle": { "message": "Переписать текст" },
     "commandEmoji": { "message": "Подобрать эмодзи" },
@@ -136,6 +136,7 @@
     "editText": { "message": "Редактировать" },
     "textFunctions": { "message": "Функции текста" },
     "moreOptions": { "message": "Ещё опции" },
+    "moreToolsTitle": { "message": "Дополнительные инструменты" },
     "closePanel": { "message": "Закрыть панель" },
     "layoutFixed": { "message": "Раскладка исправлена" },
     "translation": { "message": "Перевод" },
@@ -178,7 +179,7 @@
     "compactResultPreviewCorrection": { "message": "ошибок" },
     "compactResultPreviewAfter": { "message": "." },
     "searchEngineLabel": { "message": "Поисковая система:" },
-    "sendContextLong": { "message": "Передавать контекст страницы в Mistral" },
+    "sendContextLong": { "message": "Передавать контекст выбранному AI-провайдеру" },
     "sendContextHint": {
         "message": "Если включено, вместе с выделенным текстом отправляются до 2000 символов окружения, заголовок страницы и домен. По умолчанию выключено."
     },
@@ -216,7 +217,7 @@
     "onboardingShortcutsHint": { "message": "Основные действия доступны без открытия меню." },
     "onboardingPrivacy": { "message": "Приватность под вашим контролем" },
     "onboardingPrivacyHint": {
-        "message": "Текст отправляется в Mistral только для выполнения выбранной AI-команды."
+        "message": "Текст отправляется выбранному AI-провайдеру только для выполнения команды. При автоматическом переключении резервный сервис получает текст лишь после временной ошибки основного."
     },
     "onboardingApi": { "message": "Добавьте API-ключ Mistral" },
     "onboardingApiHint": {
@@ -226,6 +227,7 @@
     "onboardingGroqApiHint": {
         "message": "Ключ нужен для быстрой модели Qwen 3.6 27B и автоматического переключения при лимитах."
     },
+    "onboardingGroqPreview": { "message": "Groq · Qwen 3.6 27B · Preview" },
     "restartTutorial": { "message": "Открыть обучение" },
     "tutorialBenefitFix": { "message": "Исправление ошибок и улучшение стиля" },
     "tutorialBenefitTranslate": { "message": "Перевод, эмодзи и пользовательские команды" },
@@ -448,7 +450,7 @@
     "releaseNotesEmpty": { "message": "По этому запросу обновлений не найдено." },
     "tabGuideMainTitle": { "message": "Начните с основных параметров" },
     "tabGuideMainDescription": {
-        "message": "Подключите Mistral, выберите стиль ответа и поисковую систему."
+        "message": "Подключите Mistral или Groq, выберите основной сервис и стиль ответа."
     },
     "tabGuideAiTitle": { "message": "Управляйте качеством и расходами" },
     "tabGuideAiDescription": {
@@ -837,13 +839,13 @@
         "message": "🌪️ Mistral AI (Mistral Small / Large)"
     },
     "providerGroq": {
-        "message": "⚡ Groq (Qwen 3.6 27B)"
+        "message": "⚡ Groq (Qwen 3.6 27B · Preview)"
     },
     "autoFallbackLabel": {
         "message": "Автоматический fallback при лимитах"
     },
     "autoFallbackHint": {
-        "message": "Переключает на резервного провайдера при ошибке 429, исчерпании квоты или сбоях."
+        "message": "Переключает на резервный сервис при лимите, таймауте или временном сбое."
     },
     "groqApiKeyLabel": {
         "message": "Ваш Groq API Key (Qwen 3.6 27B):"
@@ -852,7 +854,7 @@
         "message": "Вставьте ключ Groq (gsk_...)"
     },
     "groqApiKeySimpleHint": {
-        "message": "Бесплатный ключ для молниеносной работы с Qwen 3.6 27B через Groq API."
+        "message": "Отдельный ключ для Qwen 3.6 27B. Модель Groq сейчас имеет статус Preview."
     },
     "checkGroqApiKey": {
         "message": "Проверить Groq ключ"
@@ -880,6 +882,12 @@
     },
     "groqApiKeyValid": {
         "message": "API-ключ Groq проверен и готов к работе."
+    },
+    "groqModelUnavailable": {
+        "message": "Ключ работает, но модель Qwen 3.6 27B пока недоступна для этого аккаунта Groq."
+    },
+    "providerTimeout": {
+        "message": "AI-сервис не ответил вовремя."
     },
     "groqApiKeyMissing": {
         "message": "API-ключ Groq не настроен."

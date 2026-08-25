@@ -224,6 +224,21 @@ export function executeRequest(
         }
     });
 
+    let activeProvider: 'mistral' | 'groq' | null = mode === 'ocr' ? 'mistral' : null;
+
+    function createProviderBadge(provider: 'mistral' | 'groq'): HTMLElement {
+        const badge = document.createElement('span');
+        badge.className = `lexisync-provider-badge lexisync-provider-${provider}`;
+        if (provider === 'groq') {
+            badge.textContent = '⚡ Groq';
+            badge.title = 'Groq • Qwen 3.6 27B';
+        } else {
+            badge.textContent = '✦ Mistral';
+            badge.title = 'Mistral AI';
+        }
+        return badge;
+    }
+
     let fullResult = '';
     let compactResultMode = false;
     let comparisonOriginalVisible = false;
@@ -497,7 +512,14 @@ export function executeRequest(
             if (response.status === 'chunk') {
                 fullResult += response.text;
                 streamUiUpdater?.request();
+            } else if (response.status === 'reset') {
+                fullResult = '';
+                contentPane.replaceChildren();
+                streamUiUpdater?.request();
             } else if (response.status === 'done') {
+                if (response.provider) {
+                    activeProvider = response.provider;
+                }
                 streamUiUpdater?.cancel();
                 fullResult = cleanMarkdownArtifacts(fullResult);
                 if (mode === 'summary') {
@@ -571,6 +593,10 @@ export function executeRequest(
 
     function finishStream(success = true) {
         disconnectStreamPort();
+        loaderOrClose.replaceChildren();
+        if (activeProvider) {
+            loaderOrClose.appendChild(createProviderBadge(activeProvider));
+        }
         const closeBtn = document.createElement('button');
         closeBtn.type = 'button';
         closeBtn.className = 'lexisync-close-button';
@@ -581,7 +607,6 @@ export function executeRequest(
         closeBtn.onmouseover = () => (closeBtn.style.background = 'var(--hover-bg)');
         closeBtn.onmouseout = () => (closeBtn.style.background = 'transparent');
         closeBtn.onclick = closePopup;
-        loaderOrClose.replaceChildren();
         loaderOrClose.appendChild(closeBtn);
 
         if (success && fullResult.trim().length > 0) {

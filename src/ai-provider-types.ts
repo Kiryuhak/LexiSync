@@ -20,6 +20,7 @@ export class AiProviderError extends Error {
         readonly provider: AiProviderType,
         readonly retryable: boolean,
         readonly status?: number,
+        readonly retryAfterMs?: number,
     ) {
         super(message);
         this.name = 'AiProviderError';
@@ -29,12 +30,10 @@ export class AiProviderError extends Error {
         // Fallback разрешен только для временных ошибок нагрузки, квоты, сети и сервера.
         // Запрещен для AUTH_ERROR (401, 403), чтобы не скрывать проблему с некорректным ключом.
         return (
-            this.code === 'RATE_LIMIT' ||
-            this.code === 'QUOTA_EXCEEDED' ||
-            this.code === 'SERVER_ERROR' ||
-            this.code === 'NETWORK_ERROR' ||
-            this.code === 'TIMEOUT' ||
-            this.code === 'INVALID_RESPONSE'
+            this.retryable &&
+            ['RATE_LIMIT', 'QUOTA_EXCEEDED', 'SERVER_ERROR', 'NETWORK_ERROR', 'TIMEOUT', 'INVALID_RESPONSE'].includes(
+                this.code,
+            )
         );
     }
 }
@@ -48,6 +47,10 @@ export interface AiRequestOptions {
     groqApiKey?: string;
     signal: AbortSignal;
     onChunk: (text: string) => void;
+    /** Очищает уже показанный незавершённый ответ перед переходом на резервного провайдера. */
+    onReset?: () => void;
+    /** Отдельный лимит ожидания одного провайдера; общий запрос по-прежнему контролируется вызывающим кодом. */
+    providerTimeoutMs?: number;
 }
 
 export interface AiExecutionResult {

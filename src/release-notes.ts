@@ -47,12 +47,16 @@ export const RELEASE_NOTES: ReleaseNote[] = [
                 'Added a dedicated Groq API key setup and verification step in the onboarding tutorial.',
             ],
             [
-                'Прямой переход к созданию бесплатного API-ключа в Groq Console.',
-                'Direct link to get a free API key in the Groq Console.',
+                'Прямой переход к созданию API-ключа в Groq Console и заметная пометка статуса Preview.',
+                'Direct link to create an API key in Groq Console with a clear Preview status label.',
             ],
             [
-                'Улучшена надёжность сохранения ключей и классификации ошибок AI.',
-                'Improved key saving reliability and AI error classification.',
+                'Тайм-аут, учёт Retry-After и временное исключение перегруженного сервиса ускоряют резервное переключение.',
+                'Timeouts, Retry-After support, and temporary cooldowns make provider fallback faster and safer.',
+            ],
+            [
+                'Оборванный ответ очищается перед переключением, а в готовом результате виден фактически использованный провайдер.',
+                'Interrupted output is cleared before fallback, and the final result shows which provider was actually used.',
             ],
         ],
     ),

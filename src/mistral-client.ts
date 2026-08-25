@@ -28,12 +28,14 @@ export interface MistralSettings {
 }
 
 const API_BASE_URL = 'https://api.mistral.ai/v1';
-const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
+const RETRYABLE_SERVER_STATUSES = new Set([500, 502, 503, 504]);
 
 export class MistralRequestError extends Error {
     constructor(
         message: string,
         readonly retryable: boolean,
+        readonly status?: number,
+        readonly retryAfterMs?: number,
     ) {
         super(message);
         this.name = 'MistralRequestError';
@@ -78,7 +80,8 @@ async function fetchWithRetry(url: string, init: RequestInit, signal: AbortSigna
     for (let attempt = 0; attempt < 3; attempt++) {
         try {
             const response = await fetch(url, { ...init, signal });
-            if (!RETRYABLE_STATUSES.has(response.status) || attempt === 2) return response;
+            // При 429 резервный провайдер полезнее ожидания и повторного расхода квоты.
+            if (!RETRYABLE_SERVER_STATUSES.has(response.status) || attempt === 2) return response;
             const delayMs = parseRetryAfterMs(response.headers.get('Retry-After')) ?? 750 * 2 ** attempt;
             await response.body?.cancel();
             await wait(Math.min(delayMs, 10_000), signal);
@@ -115,8 +118,13 @@ function getApiError(status: number): string {
     return `${t('mistralApiError', 'Ошибка Mistral API')} (${status}).`;
 }
 
-function createApiError(status: number): MistralRequestError {
-    return new MistralRequestError(getApiError(status), RETRYABLE_STATUSES.has(status));
+function createApiError(status: number, retryAfterHeader?: string | null): MistralRequestError {
+    return new MistralRequestError(
+        getApiError(status),
+        status === 429 || RETRYABLE_SERVER_STATUSES.has(status),
+        status,
+        status === 429 ? (parseRetryAfterMs(retryAfterHeader ?? null) ?? undefined) : undefined,
+    );
 }
 
 export async function validateApiKey(apiKey: string): Promise<{ ok: boolean; message: string }> {
@@ -172,7 +180,7 @@ export async function processOcr(msg: MistralRequest, apiKey: string, signal: Ab
         },
         signal,
     );
-    if (!response.ok) throw createApiError(response.status);
+    if (!response.ok) throw createApiError(response.status, response.headers.get('Retry-After'));
     const result = (await response.json()) as { pages?: Array<{ markdown?: string }> };
     const text = result.pages
         ?.map((page) => page.markdown || '')
@@ -205,7 +213,7 @@ export async function streamText(
         },
         signal,
     );
-    if (!response.ok) throw createApiError(response.status);
+    if (!response.ok) throw createApiError(response.status, response.headers.get('Retry-After'));
     const reader = response.body?.getReader();
     if (!reader) throw new MistralRequestError(t('emptyStream', 'Mistral вернул пустой поток данных.'), true);
 

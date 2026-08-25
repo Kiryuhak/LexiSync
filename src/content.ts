@@ -309,14 +309,8 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             if (!extensionEnabledOnSite) return;
             lastMouseX = e.clientX;
             lastMouseY = e.clientY;
-            if (popupUI) {
-                if (!isPopupEvent(e)) closePopup();
-                else {
-                    const moreWrap = getPopupElementById<HTMLElement>('lexisync-more-btn-wrap');
-                    const moreDropdown = getPopupElementById<HTMLElement>('lexisync-more-dropdown');
-                    if (moreWrap && moreDropdown && !e.composedPath().includes(moreWrap))
-                        moreDropdown.style.display = 'none';
-                }
+            if (popupUI && !isPopupEvent(e)) {
+                closePopup();
             }
         },
         true,

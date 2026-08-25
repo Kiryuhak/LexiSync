@@ -8,7 +8,7 @@ import { AiProviderError } from './ai-provider-types';
 export const GROQ_API_BASE_URL = 'https://api.groq.com/openai/v1';
 export const GROQ_DEFAULT_MODEL = 'qwen/qwen3.6-27b';
 
-const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
+const RETRYABLE_SERVER_STATUSES = new Set([500, 502, 503, 504]);
 
 function wait(ms: number, signal: AbortSignal): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -30,7 +30,8 @@ async function fetchGroqWithRetry(url: string, init: RequestInit, signal: AbortS
     for (let attempt = 0; attempt < 2; attempt++) {
         try {
             const response = await fetch(url, { ...init, signal });
-            if (!RETRYABLE_STATUSES.has(response.status) || attempt === 1) return response;
+            // 429 сразу передаётся общему слою: он запомнит Retry-After и выберет резервный сервис.
+            if (!RETRYABLE_SERVER_STATUSES.has(response.status) || attempt === 1) return response;
             const delayMs = parseRetryAfterMs(response.headers.get('Retry-After')) ?? 500 * 2 ** attempt;
             await response.body?.cancel();
             await wait(Math.min(delayMs, 5000), signal);
@@ -44,14 +45,27 @@ async function fetchGroqWithRetry(url: string, init: RequestInit, signal: AbortS
     throw lastError instanceof Error ? lastError : new Error(t('requestFailed', 'Не удалось выполнить запрос.'));
 }
 
-export function classifyGroqError(status: number): { message: string; error: AiProviderError } {
+export function classifyGroqError(
+    status: number,
+    retryAfterHeader?: string | null,
+): { message: string; error: AiProviderError } {
     if (status === 401 || status === 403) {
         const msg = t('groqApiKeyInvalid', 'API-ключ Groq недействителен. Проверьте ключ в настройках.');
         return { message: msg, error: new AiProviderError(msg, 'AUTH_ERROR', 'groq', false, status) };
     }
     if (status === 429) {
         const msg = t('groqRateLimit', 'Превышен лимит запросов Groq. Попробуйте немного позже.');
-        return { message: msg, error: new AiProviderError(msg, 'RATE_LIMIT', 'groq', true, status) };
+        return {
+            message: msg,
+            error: new AiProviderError(
+                msg,
+                'RATE_LIMIT',
+                'groq',
+                true,
+                status,
+                parseRetryAfterMs(retryAfterHeader ?? null) ?? undefined,
+            ),
+        };
     }
     if (status >= 500) {
         const msg = t('groqUnavailable', 'Сервис Groq временно недоступен. Попробуйте ещё раз.');
@@ -88,10 +102,19 @@ export async function validateGroqApiKey(apiKey: string): Promise<{ ok: boolean;
             cache: 'no-store',
             signal: AbortSignal.timeout(10_000),
         });
-        if (response.ok) {
-            return { ok: true, message: t('groqApiKeyValid', 'API-ключ Groq проверен и готов к работе.') };
+        if (!response.ok) return { ok: false, message: classifyGroqError(response.status).message };
+        const payload = (await response.json()) as { data?: Array<{ id?: string }> };
+        const modelAvailable = payload.data?.some((model) => model.id === GROQ_DEFAULT_MODEL) === true;
+        if (!modelAvailable) {
+            return {
+                ok: false,
+                message: t(
+                    'groqModelUnavailable',
+                    'Ключ работает, но модель Qwen 3.6 27B пока недоступна для этого аккаунта Groq.',
+                ),
+            };
         }
-        return { ok: false, message: classifyGroqError(response.status).message };
+        return { ok: true, message: t('groqApiKeyValid', 'API-ключ Groq проверен и готов к работе.') };
     } catch (error) {
         return { ok: false, message: formatGroqError(error) };
     }
@@ -150,8 +173,9 @@ export async function streamGroqText(
                     model: GROQ_DEFAULT_MODEL,
                     messages: prompt.messages,
                     stream: true,
-                    temperature: 0.2,
-                    max_tokens: 2048,
+                    temperature: 0.1,
+                    max_completion_tokens: 2048,
+                    reasoning_effort: 'none',
                 }),
             },
             signal,
@@ -167,7 +191,7 @@ export async function streamGroqText(
     }
 
     if (!response.ok) {
-        throw classifyGroqError(response.status).error;
+        throw classifyGroqError(response.status, response.headers.get('Retry-After')).error;
     }
 
     const reader = response.body?.getReader();

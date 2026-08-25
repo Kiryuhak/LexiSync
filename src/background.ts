@@ -659,6 +659,10 @@ chrome.runtime.onConnect.addListener((port) => {
                         outputText += text;
                         if (isCurrentRequest()) safePostMessage({ status: 'chunk', text });
                     },
+                    onReset: () => {
+                        outputText = '';
+                        if (isCurrentRequest()) safePostMessage({ status: 'reset' });
+                    },
                 });
                 if (isCurrentRequest()) {
                     safePostMessage({

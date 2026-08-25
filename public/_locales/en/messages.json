@@ -1,6 +1,6 @@
 {
     "extName": { "message": "Grammar and Spell Checker - LexiSync" },
-    "extDesc": { "message": "Smart text assistant powered by Mistral AI" },
+    "extDesc": { "message": "Smart text assistant powered by Mistral AI and Groq" },
     "commandSpellcheck": { "message": "Fix writing errors" },
     "commandStyle": { "message": "Rewrite text" },
     "commandEmoji": { "message": "Add relevant emoji" },
@@ -136,6 +136,7 @@
     "editText": { "message": "Edit" },
     "textFunctions": { "message": "Text actions" },
     "moreOptions": { "message": "More options" },
+    "moreToolsTitle": { "message": "More tools" },
     "closePanel": { "message": "Close panel" },
     "layoutFixed": { "message": "Keyboard layout fixed" },
     "translation": { "message": "Translation" },
@@ -178,7 +179,7 @@
     "compactResultPreviewCorrection": { "message": "errors" },
     "compactResultPreviewAfter": { "message": "." },
     "searchEngineLabel": { "message": "Search engine:" },
-    "sendContextLong": { "message": "Share page context with Mistral" },
+    "sendContextLong": { "message": "Share page context with the selected AI provider" },
     "sendContextHint": {
         "message": "When enabled, up to 2,000 surrounding characters, the page title, and domain are sent with the selection. Disabled by default."
     },
@@ -216,7 +217,7 @@
     "onboardingShortcutsHint": { "message": "Core actions work without opening a menu." },
     "onboardingPrivacy": { "message": "Privacy under your control" },
     "onboardingPrivacyHint": {
-        "message": "Text is sent to Mistral only to run the AI command you choose."
+        "message": "Text is sent only to the selected AI provider to run your command. During automatic fallback, the backup service receives it only after a temporary failure of the primary service."
     },
     "onboardingApi": { "message": "Add a Mistral API key" },
     "onboardingApiHint": {
@@ -226,6 +227,7 @@
     "onboardingGroqApiHint": {
         "message": "The key is needed for the fast Qwen 3.6 27B model and automatic fallback when limits are reached."
     },
+    "onboardingGroqPreview": { "message": "Groq · Qwen 3.6 27B · Preview" },
     "restartTutorial": { "message": "Open tutorial" },
     "tutorialBenefitFix": { "message": "Fix errors and improve writing style" },
     "tutorialBenefitTranslate": { "message": "Translate, add emoji, and run custom commands" },
@@ -448,7 +450,7 @@
     "releaseNotesEmpty": { "message": "No updates match this search." },
     "tabGuideMainTitle": { "message": "Start with the essentials" },
     "tabGuideMainDescription": {
-        "message": "Connect Mistral, choose a writing tone, and select a search engine."
+        "message": "Connect Mistral or Groq, then choose the primary service and response style."
     },
     "tabGuideAiTitle": { "message": "Control quality and usage" },
     "tabGuideAiDescription": {
@@ -837,13 +839,13 @@
         "message": "🌪️ Mistral AI (Mistral Small / Large)"
     },
     "providerGroq": {
-        "message": "⚡ Groq (Qwen 3.6 27B)"
+        "message": "⚡ Groq (Qwen 3.6 27B · Preview)"
     },
     "autoFallbackLabel": {
         "message": "Automatic Fallback on Limits"
     },
     "autoFallbackHint": {
-        "message": "Switches to backup provider on 429 error, quota exhaustion, or outages."
+        "message": "Switches to the backup service after a rate limit, timeout, or temporary failure."
     },
     "groqApiKeyLabel": {
         "message": "Your Groq API Key (Qwen 3.6 27B):"
@@ -852,7 +854,7 @@
         "message": "Paste Groq key (gsk_...)"
     },
     "groqApiKeySimpleHint": {
-        "message": "Free key for lightning-fast Qwen 3.6 27B processing via Groq API."
+        "message": "A separate key for Qwen 3.6 27B. The Groq model is currently in Preview."
     },
     "checkGroqApiKey": {
         "message": "Test Groq Key"
@@ -880,6 +882,12 @@
     },
     "groqApiKeyValid": {
         "message": "Groq API key is valid and ready to use."
+    },
+    "groqModelUnavailable": {
+        "message": "The key works, but Qwen 3.6 27B is not currently available to this Groq account."
+    },
+    "providerTimeout": {
+        "message": "The AI service did not respond in time."
     },
     "groqApiKeyMissing": {
         "message": "Groq API key is not configured."

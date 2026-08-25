@@ -1368,7 +1368,9 @@ input[type='range'] {
 .onboarding-card {
     position: relative;
     width: min(500px, 100%);
-    overflow: hidden;
+    max-height: calc(100vh - 40px);
+    overflow-x: hidden;
+    overflow-y: auto;
     padding: 25px;
     color: var(--text-main);
     background:
@@ -1405,6 +1407,57 @@ input[type='range'] {
     font-size: 22px;
     box-shadow: 0 10px 24px rgba(109, 92, 231, 0.24);
     animation: onboarding-icon-float 3.6s ease-in-out infinite;
+}
+.onboarding[data-provider='groq'] .onboarding-icon {
+    background: linear-gradient(135deg, #f55036, #ff8a35);
+    box-shadow: 0 10px 24px rgba(245, 80, 54, 0.24);
+}
+.onboarding[data-provider='groq'] .onboarding-card {
+    background:
+        linear-gradient(var(--bg-card), var(--bg-card)) padding-box,
+        linear-gradient(135deg, rgba(245, 80, 54, 0.62), rgba(255, 138, 53, 0.38), var(--border)) border-box;
+}
+.onboarding[data-provider='groq'] .onboarding-external-link {
+    color: #b93624;
+    background: color-mix(in srgb, #f55036 9%, var(--bg-card));
+    border-color: color-mix(in srgb, #f55036 30%, var(--border));
+}
+.onboarding[data-provider='groq'] .onboarding-external-link:hover {
+    background: color-mix(in srgb, #f55036 15%, var(--bg-card));
+}
+.onboarding[data-provider='groq'] .onboarding-key-row input:focus {
+    border-color: #d84631;
+}
+.onboarding[data-provider='groq'] .onboarding-button.primary {
+    background: linear-gradient(135deg, #b93624, #d9532d);
+    box-shadow: 0 6px 18px rgba(201, 61, 40, 0.24);
+}
+.onboarding[data-provider='groq'] .onboarding-progress-track span {
+    background: linear-gradient(90deg, #d7432d, #f28a35);
+    box-shadow: 0 0 12px rgba(220, 77, 42, 0.3);
+}
+[data-theme='dark'] .onboarding[data-provider='groq'] .onboarding-external-link {
+    color: #ff9b86;
+}
+.onboarding-provider-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 26px;
+    padding: 0 9px;
+    margin-bottom: 11px;
+    color: #cf3f2b;
+    background: color-mix(in srgb, #f55036 10%, var(--bg-card));
+    border: 1px solid color-mix(in srgb, #f55036 30%, var(--border));
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+}
+[data-theme='dark'] .onboarding-provider-chip {
+    color: #ff8c78;
+    background: rgba(245, 80, 54, 0.16);
+    border-color: rgba(255, 124, 103, 0.34);
 }
 .onboarding-step {
     display: none;
@@ -1622,6 +1675,7 @@ input[type='range'] {
         padding: 10px;
     }
     .onboarding-card {
+        max-height: calc(100vh - 20px);
         padding: 20px;
     }
     .onboarding-key-row {

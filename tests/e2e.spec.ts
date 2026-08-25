@@ -844,9 +844,9 @@ test('временная ошибка не запускает бесконечн
     const uiPanel = page.locator('#lexisync-extension-ui');
     await expect(uiPanel.locator('.lexisync-content-pane')).toContainText(/(?:лимит|rate limit)/i, { timeout: 10000 });
     await expect(uiPanel.locator('#retryRequestBtn')).toBeVisible({ timeout: 10000 });
-    await expect.poll(() => requestCount).toBe(3);
+    await expect.poll(() => requestCount).toBe(1);
     await page.waitForTimeout(5500);
-    expect(requestCount).toBe(3);
+    expect(requestCount).toBe(1);
 });
 
 test('потеря service worker завершает загрузку и позволяет повторить запрос', async ({ page, context }) => {
@@ -2121,7 +2121,11 @@ test('обучение проводит нового пользователя ч
         await route.fulfill({ status: 200, contentType: 'application/json', body: '{"data":[]}' });
     });
     await page.route('https://api.groq.com/openai/v1/models', async (route) => {
-        await route.fulfill({ status: 200, contentType: 'application/json', body: '{"data":[]}' });
+        await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: '{"data":[{"id":"qwen/qwen3.6-27b"}]}',
+        });
     });
     await page.goto(`chrome-extension://${extensionId}/options.html?tutorial=1`);
 
@@ -2153,8 +2157,18 @@ test('обучение проводит нового пользователя ч
     await page.locator('#onboardingNext').click();
     const onboardingGroqApiKey = page.locator('#onboardingGroqApiKey');
     const onboardingSaveGroqKey = page.locator('#onboardingSaveGroqKey');
+    await expect(onboarding).toHaveAttribute('data-provider', 'groq');
+    await expect(page.locator('.onboarding-provider-chip')).toContainText(/Groq.*Qwen 3\.6.*Preview/);
     await expect(onboardingGroqApiKey).toBeVisible();
     await expect(page.locator('.onboarding-external-link[href="https://console.groq.com/keys"]')).toBeVisible();
+    const [groqKeyBox, groqCheckButtonBox] = await Promise.all([
+        onboardingGroqApiKey.boundingBox(),
+        onboardingSaveGroqKey.boundingBox(),
+    ]);
+    expect(groqKeyBox).not.toBeNull();
+    expect(groqCheckButtonBox).not.toBeNull();
+    expect(Math.abs((groqKeyBox?.height ?? 0) - (groqCheckButtonBox?.height ?? 0))).toBeLessThanOrEqual(1);
+    expect(groqCheckButtonBox?.width ?? Number.POSITIVE_INFINITY).toBeLessThan(groqKeyBox?.width ?? 0);
     await onboardingGroqApiKey.fill('gsk_tutorial_test_key_123');
     await onboardingSaveGroqKey.click();
     await expect(page.locator('#onboardingGroqKeyStatus')).toHaveAttribute('data-kind', 'success');
@@ -2239,4 +2253,55 @@ test('автопроверку можно отключить для текуще
     await expect
         .poll(() => background.evaluate(() => chrome.storage.local.get('liveProofreadDisabledSites')))
         .toMatchObject({ liveProofreadDisabledSites: ['example.com'] });
+});
+
+test('кнопка 3 точек открывает полноразмерное меню дополнительных инструментов', async ({ page, context }) => {
+    await setFakeApiKey(context);
+    await page.goto('https://example.com');
+    await grantSiteAccess(context, page);
+    await selectTextOnPage(page, 'p');
+
+    const moreBtn = page.locator('[data-lexisync-action="more"]');
+    await expect(moreBtn).toBeVisible();
+    await moreBtn.click();
+
+    const menu = page.locator('#lexisync-extension-ui[data-surface="menu"]');
+    await expect(menu).toBeVisible();
+    await expect(menu.locator('.lexisync-menu-label')).toBeVisible();
+
+    const caseConvertBtn = menu.locator('[data-lexisync-mode="case_convert"]');
+    await expect(caseConvertBtn).toBeVisible();
+    await caseConvertBtn.click();
+
+    const result = page.locator('#lexisync-extension-ui[data-surface="result"]');
+    await expect(result).toBeVisible();
+    await expect(result.locator('.lexisync-close-button')).toBeVisible();
+});
+
+test('результат AI-запроса отображает бейдж используемого провайдера рядом с кнопкой закрытия', async ({
+    page,
+    context,
+}) => {
+    await setFakeApiKey(context);
+    await context.route('https://api.mistral.ai/v1/chat/completions', async (route) => {
+        const content = 'Исправленный текст без ошибок.';
+        await route.fulfill({
+            status: 200,
+            contentType: 'text/event-stream',
+            body: `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\ndata: [DONE]\n\n`,
+        });
+    });
+
+    await page.goto('https://example.com');
+    await grantSiteAccess(context, page);
+    await selectTextOnPage(page, 'p');
+
+    await page.locator('[data-lexisync-action="edit"]').click();
+    await page.locator('#lexisync-extension-ui[data-surface="menu"] [data-lexisync-mode="spellcheck"]').click();
+
+    const result = page.locator('#lexisync-extension-ui[data-surface="result"]');
+    await expect(result.locator('.lexisync-close-button')).toBeVisible();
+    const providerBadge = result.locator('.lexisync-provider-badge');
+    await expect(providerBadge).toBeVisible();
+    await expect(providerBadge).toHaveText(/Mistral|Groq/);
 });

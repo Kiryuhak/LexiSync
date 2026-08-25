@@ -39,6 +39,7 @@ export function startTextRequest(input: StreamRequestInput): CancellableTextRequ
 
     port.onMessage.addListener((message: StreamResponse) => {
         if (message.status === 'chunk') result += message.text || '';
+        else if (message.status === 'reset') result = '';
         else if (message.status === 'done') finish(result);
         else if (message.status === 'error' || message.status === 'cancelled') {
             finish(undefined, new Error(message.error || 'Запрос не выполнен.'));

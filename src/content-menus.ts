@@ -33,13 +33,7 @@ function setupToolbarKeyboardNavigation(container: HTMLElement, onClose: () => v
         if (event.key === 'Escape') {
             event.preventDefault();
             event.stopPropagation();
-            const moreDropdown = container.querySelector<HTMLElement>('#lexisync-more-dropdown');
-            if (moreDropdown && moreDropdown.style.display === 'flex') {
-                moreDropdown.style.display = 'none';
-                container.querySelector<HTMLButtonElement>('#lexisync-more-btn-wrap button')?.focus();
-            } else {
-                onClose();
-            }
+            onClose();
             return;
         }
         const buttons = Array.from(container.querySelectorAll<HTMLButtonElement>('button:not([disabled])'));
@@ -116,6 +110,50 @@ function setupMenuKeyboardNavigation(container: HTMLElement, onClose: () => void
             items[items.length - 1].focus();
         }
     });
+}
+
+function createMenuButton(
+    icon: string,
+    text: string,
+    onClick: () => void,
+    shortcut?: string,
+    mode?: RequestMode,
+): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'lexisync-menu-button';
+    button.setAttribute('role', 'menuitem');
+    if (mode) button.dataset.lexisyncMode = mode;
+
+    const main = document.createElement('div');
+    main.className = 'lexisync-menu-button-main';
+    const iconWrap = document.createElement('span');
+    iconWrap.className = 'lexisync-menu-icon';
+    iconWrap.style.cssText = 'display:flex;align-items:center;justify-content:center;flex-shrink:0;';
+    setIcon(iconWrap, icon);
+    const label = document.createElement('span');
+    label.className = 'lexisync-menu-button-text';
+    label.textContent = text;
+    main.append(iconWrap, label);
+    button.appendChild(main);
+
+    if (shortcut) {
+        const shortcutLabel = document.createElement('span');
+        shortcutLabel.className = 'lexisync-shortcut';
+        shortcutLabel.textContent = shortcut;
+        button.appendChild(shortcutLabel);
+    }
+
+    button.style.cssText = `width: 100%; padding: 8px 12px; cursor: pointer; transition: background 0.15s; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-radius: 8px; color: var(--text-primary); background: transparent; border: none;`;
+    button.onpointerdown = (event) => event.stopPropagation();
+    button.onmousedown = (event) => event.stopPropagation();
+    button.onmouseover = () => (button.style.backgroundColor = 'var(--hover-bg)');
+    button.onmouseout = () => (button.style.backgroundColor = 'transparent');
+    button.onclick = (event) => {
+        event.stopPropagation();
+        onClick();
+    };
+    return button;
 }
 
 export function showToolbarMenu(x: number, y: number, context: ContentMenuContext, top?: number): void {
@@ -233,12 +271,6 @@ export function showToolbarMenu(x: number, y: number, context: ContentMenuContex
         layout: { icon: ICONS.keyboard, title: t('fixLayout', 'Исправить раскладку') },
     };
 
-    const hasCyrillic = /[\p{sc=Cyrillic}]/u.test(currentSelectionText);
-    const hasLatin = /[a-zA-Z]/u.test(currentSelectionText);
-    let translateBadge = '';
-    if (hasLatin && !hasCyrillic) translateBadge = 'EN➔RU';
-    else if (hasCyrillic && !hasLatin) translateBadge = 'RU➔EN';
-
     // Для длинных текстов (>300 символов или >40 слов) предлагаем быструю кнопку выжимки
     const isLongText = currentSelectionText.length > 300 || currentSelectionText.trim().split(/\s+/).length >= 40;
     if (isLongText) {
@@ -302,151 +334,138 @@ export function showToolbarMenu(x: number, y: number, context: ContentMenuContex
     popupUI.appendChild(copyStatus);
     popupUI.appendChild(divider());
 
-    const moreWrap = document.createElement('div');
-    moreWrap.id = 'lexisync-more-btn-wrap';
-    moreWrap.style.cssText = 'position: relative; display: flex; align-items: center;';
+    popupUI.appendChild(
+        createBtn(
+            ICONS.dots,
+            '',
+            t('moreOptions', 'Ещё опции'),
+            () => {
+                showMoreMenu(x, y, context, top);
+            },
+            'more',
+        ),
+    );
+    popupUI.appendChild(divider());
+    popupUI.appendChild(
+        createBtn(ICONS.closeColored, '', t('closePanel', 'Закрыть панель'), () => context.closePopup()),
+    );
 
-    const moreBtn = createBtn(ICONS.dots, '', t('moreOptions', 'Ещё опции'), () => {
-        const dropdown = context.getPopupElementById<HTMLElement>('lexisync-more-dropdown');
-        if (dropdown) {
-            if (dropdown.style.display === 'flex') dropdown.style.display = 'none';
-            else {
-                dropdown.style.display = 'flex';
-                const rect = dropdown.getBoundingClientRect();
-                if (rect.bottom > window.innerHeight - 10) {
-                    dropdown.style.top = 'auto';
-                    dropdown.style.bottom = '100%';
-                    dropdown.style.marginTop = '0';
-                    dropdown.style.marginBottom = '8px';
-                } else {
-                    dropdown.style.top = '100%';
-                    dropdown.style.bottom = 'auto';
-                    dropdown.style.marginTop = '8px';
-                    dropdown.style.marginBottom = '0';
-                }
-            }
-        }
-    });
-    moreWrap.appendChild(moreBtn);
+    context.adjustPopupPosition();
+}
 
-    const moreDropdown = document.createElement('div');
-    moreDropdown.id = 'lexisync-more-dropdown';
-    moreDropdown.className = 'lexisync-dropdown';
-    moreDropdown.style.cssText = `display: none; position: absolute; top: 100%; right: 0; margin-top: 8px; background: var(--bg-elevated, #ffffff); border: 1px solid var(--border-color); border-radius: 14px; box-shadow: 0 20px 48px rgba(0,0,0,0.24); width: max-content; min-width: 140px; z-index: 9999; padding: 6px 0; flex-direction: column; overflow: hidden; backdrop-filter: blur(36px); -webkit-backdrop-filter: blur(36px);`;
+export function showMoreMenu(x: number, y: number, context: ContentMenuContext, top?: number): void {
+    const currentSelectionText = context.getSelectionText();
+    const hasCyrillic = /[\p{sc=Cyrillic}]/u.test(currentSelectionText);
+    const hasLatin = /[a-zA-Z]/u.test(currentSelectionText);
+    let translateBadge = '';
+    if (hasLatin && !hasCyrillic) translateBadge = 'EN➔RU';
+    else if (hasCyrillic && !hasLatin) translateBadge = 'RU➔EN';
 
-    const createDropdownItem = (icon: string, text: string, onClick: () => void) => {
-        const item = document.createElement('button');
-        item.type = 'button';
-        item.setAttribute('role', 'menuitem');
-        item.className = 'lexisync-dropdown-item';
-        const iconWrap = document.createElement('span');
-        iconWrap.style.cssText =
-            'display:flex;align-items:center;justify-content:center;margin-right:12px;width:16px;height:16px;flex-shrink:0;';
-        setIcon(iconWrap, icon);
-        const label = document.createElement('span');
-        label.style.fontWeight = '500';
-        label.textContent = text;
-        item.append(iconWrap, label);
-        item.style.cssText = `width: 100%; padding: 9px 15px; font-size: 13px; font-family: inherit; cursor: pointer; display: flex; align-items: center; color: var(--text-primary); background: transparent; border: none; text-align: left; transition: background 0.12s; white-space: nowrap;`;
-        item.onpointerdown = (e) => e.stopPropagation();
-        item.onmousedown = (e) => e.stopPropagation();
-        item.onmouseover = () => (item.style.backgroundColor = 'var(--hover-bg)');
-        item.onmouseout = () => (item.style.backgroundColor = 'transparent');
-        item.onclick = (e) => {
-            e.stopPropagation();
-            moreDropdown.style.display = 'none';
-            onClick();
-        };
-        return item;
-    };
+    const popupUI = context.openPopup(x, y, top);
+    popupUI.dataset.surface = 'menu';
+    popupUI.setAttribute('role', 'menu');
+    popupUI.setAttribute('aria-label', t('moreToolsTitle', 'Дополнительные инструменты'));
+
+    popupUI.addEventListener('mousedown', (e) => e.stopPropagation());
+    popupUI.addEventListener('mouseup', (e) => e.stopPropagation());
+    popupUI.addEventListener('click', (e) => e.stopPropagation());
+    setupMenuKeyboardNavigation(popupUI, () => context.closePopup());
+
+    popupUI.style.cssText = `position: fixed !important; left: 0px; top: 0px; visibility: hidden; opacity: 0; background: var(--bg-elevated); z-index: 2147483647 !important; font-family: system-ui, sans-serif; font-size: 13px; color: var(--text-primary); width: 250px; max-height: min(480px, calc(100vh - 32px)); overflow-y: auto; overflow-x: hidden; padding: 7px; box-sizing: border-box;`;
+
+    const menuLabel = document.createElement('div');
+    menuLabel.className = 'lexisync-menu-label';
+    menuLabel.textContent = t('moreToolsTitle', 'Дополнительные инструменты');
+    popupUI.appendChild(menuLabel);
+
+    const createMenuBtn = createMenuButton;
 
     const translateTitle = translateBadge
         ? `${t('translate', 'Перевести')} (${translateBadge})`
         : t('translate', 'Перевести');
-    moreDropdown.appendChild(
-        createDropdownItem(ICONS.translate, translateTitle, () => {
-            setLastUsedAction('translate');
-            context.handleAction('translate');
-        }),
+    popupUI.appendChild(
+        createMenuBtn(
+            ICONS.translate,
+            translateTitle,
+            () => {
+                setLastUsedAction('translate');
+                context.handleAction('translate');
+            },
+            undefined,
+            'translate',
+        ),
     );
-    moreDropdown.appendChild(
-        createDropdownItem(ICONS.summary, t('summaryTitle', 'Выжимка'), () => {
-            setLastUsedAction('summary');
-            context.handleAction('summary');
-        }),
+    popupUI.appendChild(
+        createMenuBtn(
+            ICONS.headline,
+            t('headlineTitle', 'Подобрать заголовки'),
+            () => {
+                setLastUsedAction('headline');
+                context.handleAction('headline');
+            },
+            undefined,
+            'headline',
+        ),
     );
-    moreDropdown.appendChild(
-        createDropdownItem(ICONS.reply, t('replyTitle', 'Ответить на сообщение'), () => {
-            setLastUsedAction('reply');
-            context.handleAction('reply');
-        }),
+    popupUI.appendChild(
+        createMenuBtn(
+            ICONS.caseConvert,
+            t('caseConvertTitle', 'Сменить регистр'),
+            () => {
+                setLastUsedAction('case_convert');
+                context.handleAction('case_convert');
+            },
+            undefined,
+            'case_convert',
+        ),
     );
-    moreDropdown.appendChild(
-        createDropdownItem(ICONS.lightbulb, t('explainTitle', 'Объяснить простыми словами'), () => {
-            setLastUsedAction('explain');
-            context.handleAction('explain');
-        }),
+    popupUI.appendChild(
+        createMenuBtn(
+            ICONS.textClean,
+            t('textCleanTitle', 'Очистить текст'),
+            () => {
+                setLastUsedAction('text_clean');
+                context.handleAction('text_clean');
+            },
+            undefined,
+            'text_clean',
+        ),
     );
-    moreDropdown.appendChild(
-        createDropdownItem(ICONS.tone, t('toneTitle', 'Тональность и вежливость'), () => {
-            setLastUsedAction('tone');
-            context.handleAction('tone');
-        }),
+    popupUI.appendChild(
+        createMenuBtn(
+            ICONS.cleanFormat,
+            t('formatTitle', 'Очистить и форматировать'),
+            () => {
+                setLastUsedAction('format');
+                context.handleAction('format');
+            },
+            undefined,
+            'format',
+        ),
     );
-    moreDropdown.appendChild(
-        createDropdownItem(ICONS.continueText, t('continueTitle', 'Дописать за меня'), () => {
-            setLastUsedAction('continue');
-            context.handleAction('continue');
-        }),
+    popupUI.appendChild(
+        createMenuBtn(
+            ICONS.keyboard,
+            t('fixLayout', 'Исправить раскладку'),
+            () => {
+                setLastUsedAction('layout');
+                context.handleAction('layout');
+            },
+            undefined,
+            'layout',
+        ),
     );
-    moreDropdown.appendChild(
-        createDropdownItem(ICONS.notesToDoc, t('notesToDocTitle', 'Заметки в текст'), () => {
-            setLastUsedAction('notes_to_doc');
-            context.handleAction('notes_to_doc');
-        }),
-    );
-    moreDropdown.appendChild(
-        createDropdownItem(ICONS.headline, t('headlineTitle', 'Подобрать заголовки'), () => {
-            setLastUsedAction('headline');
-            context.handleAction('headline');
-        }),
-    );
-    moreDropdown.appendChild(
-        createDropdownItem(ICONS.caseConvert, t('caseConvertTitle', 'Сменить регистр'), () => {
-            setLastUsedAction('case_convert');
-            context.handleAction('case_convert');
-        }),
-    );
-    moreDropdown.appendChild(
-        createDropdownItem(ICONS.textClean, t('textCleanTitle', 'Очистить текст'), () => {
-            setLastUsedAction('text_clean');
-            context.handleAction('text_clean');
-        }),
-    );
-    moreDropdown.appendChild(
-        createDropdownItem(ICONS.cleanFormat, t('formatTitle', 'Очистить и форматировать'), () => {
-            setLastUsedAction('format');
-            context.handleAction('format');
-        }),
-    );
-    moreDropdown.appendChild(
-        createDropdownItem(ICONS.keyboard, t('fixLayout', 'Исправить раскладку'), () => {
-            setLastUsedAction('layout');
-            context.handleAction('layout');
-        }),
-    );
-    moreDropdown.appendChild(
-        createDropdownItem(ICONS.history, t('history', 'История'), () => {
+    popupUI.appendChild(
+        createMenuBtn(ICONS.history, t('history', 'История'), () => {
             chrome.runtime.sendMessage({ action: 'openHistory' });
             context.closePopup();
         }),
     );
-
-    moreWrap.appendChild(moreDropdown);
-    popupUI.appendChild(moreWrap);
-    popupUI.appendChild(divider());
     popupUI.appendChild(
-        createBtn(ICONS.closeColored, '', t('closePanel', 'Закрыть панель'), () => context.closePopup()),
+        createMenuBtn(ICONS.settings, t('settings', 'Настройки'), () => {
+            chrome.runtime.sendMessage({ action: 'openOptionsPage' });
+            context.closePopup();
+        }),
     );
 
     context.adjustPopupPosition();
@@ -471,40 +490,7 @@ export function showAIMenu(x: number, y: number, context: ContentMenuContext, to
     menuLabel.textContent = t('aiTools', 'AI-инструменты');
     popupUI.appendChild(menuLabel);
 
-    const createMenuBtn = (icon: string, text: string, onClick: () => void, shortcut?: string, mode?: RequestMode) => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'lexisync-menu-button';
-        btn.setAttribute('role', 'menuitem');
-        if (mode) btn.dataset.lexisyncMode = mode;
-        const main = document.createElement('div');
-        main.className = 'lexisync-menu-button-main';
-        const iconWrap = document.createElement('span');
-        iconWrap.className = 'lexisync-menu-icon';
-        iconWrap.style.cssText = 'display:flex;align-items:center;justify-content:center;flex-shrink:0;';
-        setIcon(iconWrap, icon);
-        const label = document.createElement('span');
-        label.className = 'lexisync-menu-button-text';
-        label.textContent = text;
-        main.append(iconWrap, label);
-        btn.appendChild(main);
-        if (shortcut) {
-            const shortcutLabel = document.createElement('span');
-            shortcutLabel.className = 'lexisync-shortcut';
-            shortcutLabel.textContent = shortcut;
-            btn.appendChild(shortcutLabel);
-        }
-        btn.style.cssText = `width: 100%; padding: 8px 12px; cursor: pointer; transition: background 0.15s; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-radius: 8px; color: var(--text-primary); background: transparent; border: none;`;
-        btn.onpointerdown = (e) => e.stopPropagation();
-        btn.onmousedown = (e) => e.stopPropagation();
-        btn.onmouseover = () => (btn.style.backgroundColor = 'var(--hover-bg)');
-        btn.onmouseout = () => (btn.style.backgroundColor = 'transparent');
-        btn.onclick = (e) => {
-            e.stopPropagation();
-            onClick();
-        };
-        return btn;
-    };
+    const createMenuBtn = createMenuButton;
 
     popupUI.appendChild(
         createMenuBtn(

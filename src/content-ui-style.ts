@@ -363,6 +363,44 @@ export const POPUP_STYLE_TEXT = `
                 pointer-events: none;
             }
             .lexisync-header-control { display: flex; align-items: center; }
+            .lexisync-provider-badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                padding: 2px 7px;
+                border-radius: 6px;
+                font-size: 11px;
+                font-weight: 650;
+                line-height: 1.2;
+                margin-right: 6px;
+                user-select: none;
+                cursor: default;
+                transition:
+                    color 0.15s ease,
+                    background-color 0.15s ease,
+                    border-color 0.15s ease;
+                white-space: nowrap;
+            }
+            .lexisync-provider-groq {
+                background: rgba(245, 80, 54, 0.12);
+                color: #f55036;
+                border: 1px solid rgba(245, 80, 54, 0.28);
+            }
+            #lexisync-extension-ui[data-theme="dark"] .lexisync-provider-groq {
+                background: rgba(245, 80, 54, 0.22);
+                color: #ff6b57;
+                border-color: rgba(245, 80, 54, 0.4);
+            }
+            .lexisync-provider-mistral {
+                background: rgba(255, 112, 0, 0.12);
+                color: #ff7000;
+                border: 1px solid rgba(255, 112, 0, 0.28);
+            }
+            #lexisync-extension-ui[data-theme="dark"] .lexisync-provider-mistral {
+                background: rgba(255, 112, 0, 0.22);
+                color: #ff9238;
+                border-color: rgba(255, 112, 0, 0.4);
+            }
             .lexisync-content-pane {
                 margin: 10px 10px 12px;
                 padding: 16px 17px !important;

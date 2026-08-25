@@ -31,6 +31,7 @@ export async function setupOnboarding(options: OnboardingOptions): Promise<void>
     let previousFocus: HTMLElement | null = null;
     const render = () => {
         steps.forEach((step, index) => step.classList.toggle('is-active', index === activeStep));
+        onboarding.dataset.provider = activeStep === 1 ? 'mistral' : activeStep === 2 ? 'groq' : 'neutral';
         progress.textContent = `${activeStep + 1} ${t('of', 'из')} ${steps.length}`;
         if (progressBar) progressBar.style.width = `${((activeStep + 1) / steps.length) * 100}%`;
         nextButton.textContent = activeStep === steps.length - 1 ? t('start', 'Начать работу') : t('next', 'Далее');
