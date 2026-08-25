@@ -36,6 +36,27 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.5.1',
+        '2026-08-25',
+        'improved',
+        'Быстрая настройка Groq в стартовом обучении',
+        'Quick Groq setup in onboarding tutorial',
+        [
+            [
+                'Добавлен отдельный шаг ввода и проверки API-ключа Groq в приветственном руководстве.',
+                'Added a dedicated Groq API key setup and verification step in the onboarding tutorial.',
+            ],
+            [
+                'Прямой переход к созданию бесплатного API-ключа в Groq Console.',
+                'Direct link to get a free API key in the Groq Console.',
+            ],
+            [
+                'Улучшена надёжность сохранения ключей и классификации ошибок AI.',
+                'Improved key saving reliability and AI error classification.',
+            ],
+        ],
+    ),
+    note(
         '5.5.0',
         '2026-08-25',
         'new',

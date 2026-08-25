@@ -1101,6 +1101,47 @@
                     <p id="onboardingKeyStatus" class="onboarding-key-status" role="status" aria-live="polite"></p>
                 </section>
                 <section class="onboarding-step" data-onboarding-step="2">
+                    <h3 data-i18n="onboardingGroqApi">Добавьте API-ключ Groq</h3>
+                    <p data-i18n="onboardingGroqApiHint">
+                        Ключ нужен для быстрой модели Qwen 3.6 27B и автоматического переключения при лимитах.
+                    </p>
+                    <a
+                        class="onboarding-external-link"
+                        href="https://console.groq.com/keys"
+                        target="_blank"
+                        rel="noreferrer"
+                        data-i18n="tutorialOpenGroq"
+                        >Открыть Groq Console ↗</a
+                    >
+                    <ol class="onboarding-list onboarding-api-steps">
+                        <li data-i18n="tutorialGroqSignIn">Войдите в аккаунт Groq или создайте новый</li>
+                        <li data-i18n="getGroqApiKeyStep2">В меню слева найдите раздел API Keys</li>
+                        <li data-i18n="getGroqApiKeyStep3">Нажмите Create API Key и скопируйте его</li>
+                    </ol>
+                    <label class="onboarding-key-label" for="onboardingGroqApiKey" data-i18n="tutorialGroqApiKeyLabel"
+                        >API-ключ Groq</label
+                    >
+                    <div class="onboarding-key-row">
+                        <input
+                            id="onboardingGroqApiKey"
+                            type="password"
+                            autocomplete="off"
+                            spellcheck="false"
+                            data-i18n-placeholder="groqApiKeyPlaceholder"
+                            placeholder="gsk_..."
+                        />
+                        <button
+                            id="onboardingSaveGroqKey"
+                            class="onboarding-button primary"
+                            type="button"
+                            data-i18n="tutorialCheckKey"
+                        >
+                            Проверить
+                        </button>
+                    </div>
+                    <p id="onboardingGroqKeyStatus" class="onboarding-key-status" role="status" aria-live="polite"></p>
+                </section>
+                <section class="onboarding-step" data-onboarding-step="3">
                     <h3 data-i18n="tutorialFirstAction">Выполните первую команду</h3>
                     <p data-i18n="tutorialFirstActionHint">LexiSync работает прямо с текстом на открытой странице.</p>
                     <ol class="tutorial-flow">
@@ -1119,7 +1160,7 @@
                         </li>
                     </ol>
                 </section>
-                <section class="onboarding-step" data-onboarding-step="3">
+                <section class="onboarding-step" data-onboarding-step="4">
                     <h3 data-i18n="tutorialWorkspace">Быстрые команды и клавиши</h3>
                     <p data-i18n="tutorialWorkspaceHint">Используйте горячие клавиши или плавающую панель LexiSync:</p>
                     <ul class="onboarding-list onboarding-shortcuts-list">
@@ -1138,7 +1179,7 @@
                         </li>
                     </ul>
                 </section>
-                <section class="onboarding-step" data-onboarding-step="4">
+                <section class="onboarding-step" data-onboarding-step="5">
                     <h3 data-i18n="onboardingPrivacy">Приватность под вашим контролем</h3>
                     <p data-i18n="onboardingPrivacyHint">
                         Текст отправляется в Mistral только для выполнения выбранной AI-команды.
@@ -1151,7 +1192,7 @@
                 </section>
                 <div class="onboarding-actions">
                     <div class="onboarding-progress-wrap">
-                        <span id="onboardingProgress" class="onboarding-progress">1 из 5</span>
+                        <span id="onboardingProgress" class="onboarding-progress">1 из 6</span>
                         <div class="onboarding-progress-track" aria-hidden="true">
                             <span id="onboardingProgressBar"></span>
                         </div>

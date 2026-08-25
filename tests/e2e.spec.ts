@@ -2120,17 +2120,20 @@ test('обучение проводит нового пользователя ч
     await page.route('https://api.mistral.ai/v1/models', async (route) => {
         await route.fulfill({ status: 200, contentType: 'application/json', body: '{"data":[]}' });
     });
+    await page.route('https://api.groq.com/openai/v1/models', async (route) => {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: '{"data":[]}' });
+    });
     await page.goto(`chrome-extension://${extensionId}/options.html?tutorial=1`);
 
     const onboarding = page.locator('#onboarding');
     await expect(onboarding).toBeVisible();
-    await expect(page.locator('#onboardingProgress')).toHaveText(/1.*5/);
+    await expect(page.locator('#onboardingProgress')).toHaveText(/1.*6/);
 
     await page.locator('#onboardingNext').click();
     const onboardingApiKey = page.locator('#onboardingApiKey');
     const onboardingSaveKey = page.locator('#onboardingSaveKey');
     await expect(onboardingApiKey).toBeVisible();
-    await expect(page.locator('.onboarding-external-link')).toHaveAttribute('href', 'https://console.mistral.ai/');
+    await expect(page.locator('.onboarding-external-link[href="https://console.mistral.ai/"]')).toBeVisible();
     const [keyBox, checkButtonBox] = await Promise.all([
         onboardingApiKey.boundingBox(),
         onboardingSaveKey.boundingBox(),
@@ -2146,9 +2149,22 @@ test('обучение проводит нового пользователя ч
     const savedKey = await page.evaluate(() => chrome.runtime.sendMessage({ action: 'getApiKey' }));
     expect(savedKey).toMatchObject({ ok: true, value: 'tutorial-test-key' });
 
-    for (let step = 2; step <= 4; step++) {
+    // Шаг 3 (Groq API Key)
+    await page.locator('#onboardingNext').click();
+    const onboardingGroqApiKey = page.locator('#onboardingGroqApiKey');
+    const onboardingSaveGroqKey = page.locator('#onboardingSaveGroqKey');
+    await expect(onboardingGroqApiKey).toBeVisible();
+    await expect(page.locator('.onboarding-external-link[href="https://console.groq.com/keys"]')).toBeVisible();
+    await onboardingGroqApiKey.fill('gsk_tutorial_test_key_123');
+    await onboardingSaveGroqKey.click();
+    await expect(page.locator('#onboardingGroqKeyStatus')).toHaveAttribute('data-kind', 'success');
+
+    const savedGroqKey = await page.evaluate(() => chrome.runtime.sendMessage({ action: 'getGroqApiKey' }));
+    expect(savedGroqKey).toMatchObject({ ok: true, value: 'gsk_tutorial_test_key_123' });
+
+    for (let step = 3; step <= 5; step++) {
         await page.locator('#onboardingNext').click();
-        await expect(page.locator('#onboardingProgress')).toHaveText(new RegExp(`${step + 1}.*5`));
+        await expect(page.locator('#onboardingProgress')).toHaveText(new RegExp(`${step + 1}.*6`));
     }
     await expect(page.locator('#onboardingNext')).toHaveText(/Начать|Start|Get started/);
     await page.locator('#onboardingNext').click();
@@ -2159,7 +2175,7 @@ test('обучение проводит нового пользователя ч
 
     await page.locator('#openOnboarding').click();
     await expect(onboarding).toBeVisible();
-    await expect(page.locator('#onboardingProgress')).toHaveText(/1.*5/);
+    await expect(page.locator('#onboardingProgress')).toHaveText(/1.*6/);
 });
 
 test('автопроверка позволяет отклонить отдельное исправление', async ({ page, context }) => {

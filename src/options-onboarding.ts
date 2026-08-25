@@ -18,6 +18,9 @@ export async function setupOnboarding(options: OnboardingOptions): Promise<void>
     const keyInput = document.getElementById('onboardingApiKey') as HTMLInputElement | null;
     const saveKeyButton = document.getElementById('onboardingSaveKey') as HTMLButtonElement | null;
     const keyStatus = document.getElementById('onboardingKeyStatus');
+    const groqKeyInput = document.getElementById('onboardingGroqApiKey') as HTMLInputElement | null;
+    const saveGroqKeyButton = document.getElementById('onboardingSaveGroqKey') as HTMLButtonElement | null;
+    const groqKeyStatus = document.getElementById('onboardingGroqKeyStatus');
     const progress = document.getElementById('onboardingProgress');
     const progressBar = document.getElementById('onboardingProgressBar') as HTMLElement | null;
     const steps = [...document.querySelectorAll<HTMLElement>('[data-onboarding-step]')];
@@ -35,10 +38,15 @@ export async function setupOnboarding(options: OnboardingOptions): Promise<void>
     const open = () => {
         previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         activeStep = 0;
-        if (keyInput) keyInput.value = options.getApiKey() || options.getGroqApiKey?.() || '';
+        if (keyInput) keyInput.value = options.getApiKey() || '';
+        if (groqKeyInput) groqKeyInput.value = options.getGroqApiKey?.() || '';
         if (keyStatus) {
             keyStatus.textContent = '';
             delete keyStatus.dataset.kind;
+        }
+        if (groqKeyStatus) {
+            groqKeyStatus.textContent = '';
+            delete groqKeyStatus.dataset.kind;
         }
         onboarding.hidden = false;
         render();
@@ -73,20 +81,6 @@ export async function setupOnboarding(options: OnboardingOptions): Promise<void>
         keyStatus.textContent = '';
         delete keyStatus.dataset.kind;
         try {
-            if (apiKey.startsWith('gsk_')) {
-                const groqVal = await validateGroqApiKey(apiKey);
-                if (groqVal.ok) {
-                    if (options.onGroqApiKeySaved) await options.onGroqApiKeySaved(apiKey);
-                    else await options.onApiKeySaved(apiKey);
-                    keyStatus.textContent = groqVal.message;
-                    keyStatus.dataset.kind = 'success';
-                    return;
-                }
-                keyStatus.textContent = groqVal.message;
-                keyStatus.dataset.kind = 'error';
-                return;
-            }
-
             const validation = await validateApiKey(apiKey);
             if (validation.ok) {
                 await options.onApiKeySaved(apiKey);
@@ -94,26 +88,53 @@ export async function setupOnboarding(options: OnboardingOptions): Promise<void>
                 keyStatus.dataset.kind = 'success';
                 return;
             }
-
-            // Попытка проверить как Groq ключ, если Mistral вернул ошибку
-            const groqFallback = await validateGroqApiKey(apiKey);
-            if (groqFallback.ok) {
-                if (options.onGroqApiKeySaved) await options.onGroqApiKeySaved(apiKey);
-                else await options.onApiKeySaved(apiKey);
-                keyStatus.textContent = groqFallback.message;
-                keyStatus.dataset.kind = 'success';
-                return;
-            }
-
             keyStatus.textContent = validation.message;
             keyStatus.dataset.kind = 'error';
         } catch (error) {
-            logger.error('Ошибка проверки API-ключа в обучении', error);
+            logger.error('Ошибка проверки API-ключа Mistral в обучении', error);
             keyStatus.textContent = t('keyCheckUnavailable', 'Сейчас не удалось проверить ключ. Попробуйте ещё раз.');
             keyStatus.dataset.kind = 'error';
         } finally {
             saveKeyButton.disabled = false;
             saveKeyButton.textContent = originalText;
+        }
+    });
+    saveGroqKeyButton?.addEventListener('click', async () => {
+        if (!groqKeyInput || !groqKeyStatus) return;
+        const apiKey = groqKeyInput.value.trim();
+        if (!apiKey) {
+            groqKeyStatus.textContent = t('tutorialGroqKeyRequired', 'Сначала вставьте API-ключ Groq.');
+            groqKeyStatus.dataset.kind = 'error';
+            groqKeyInput.focus();
+            return;
+        }
+        const originalText = saveGroqKeyButton.textContent;
+        saveGroqKeyButton.disabled = true;
+        saveGroqKeyButton.textContent = t('checkingKey', 'Проверка…');
+        groqKeyStatus.textContent = '';
+        delete groqKeyStatus.dataset.kind;
+        try {
+            const validation = await validateGroqApiKey(apiKey);
+            if (validation.ok) {
+                if (options.onGroqApiKeySaved) {
+                    await options.onGroqApiKeySaved(apiKey);
+                }
+                groqKeyStatus.textContent = validation.message;
+                groqKeyStatus.dataset.kind = 'success';
+                return;
+            }
+            groqKeyStatus.textContent = validation.message;
+            groqKeyStatus.dataset.kind = 'error';
+        } catch (error) {
+            logger.error('Ошибка проверки API-ключа Groq в обучении', error);
+            groqKeyStatus.textContent = t(
+                'keyCheckUnavailable',
+                'Сейчас не удалось проверить ключ. Попробуйте ещё раз.',
+            );
+            groqKeyStatus.dataset.kind = 'error';
+        } finally {
+            saveGroqKeyButton.disabled = false;
+            saveGroqKeyButton.textContent = originalText;
         }
     });
     onboarding.addEventListener('keydown', (event) => {

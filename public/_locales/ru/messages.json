@@ -222,13 +222,22 @@
     "onboardingApiHint": {
         "message": "Ключ нужен для AI-команд и хранится только в локальном хранилище расширения."
     },
+    "onboardingGroqApi": { "message": "Добавьте API-ключ Groq" },
+    "onboardingGroqApiHint": {
+        "message": "Ключ нужен для быстрой модели Qwen 3.6 27B и автоматического переключения при лимитах."
+    },
     "restartTutorial": { "message": "Открыть обучение" },
     "tutorialBenefitFix": { "message": "Исправление ошибок и улучшение стиля" },
     "tutorialBenefitTranslate": { "message": "Перевод, эмодзи и пользовательские команды" },
     "tutorialBenefitWorkspace": { "message": "Быстрые команды и локальная история" },
     "tutorialOpenMistral": { "message": "Открыть Mistral Studio ↗" },
     "tutorialMistralSignIn": { "message": "Войдите в аккаунт Mistral или создайте новый" },
+    "tutorialGroqSignIn": { "message": "Войдите в аккаунт Groq или создайте новый" },
+    "getGroqApiKeyStep1": { "message": "Перейдите на console.groq.com/keys." },
+    "getGroqApiKeyStep2": { "message": "В меню слева найдите раздел API Keys." },
+    "getGroqApiKeyStep3": { "message": "Нажмите Create API Key и скопируйте его." },
     "tutorialApiKeyLabel": { "message": "API-ключ Mistral" },
+    "tutorialGroqApiKeyLabel": { "message": "API-ключ Groq" },
     "tutorialCheckKey": { "message": "Проверить" },
     "tutorialKeyRequired": { "message": "Сначала вставьте API-ключ." },
     "tutorialKeyInvalid": { "message": "Ключ не прошёл проверку. Проверьте его и повторите." },

@@ -222,13 +222,22 @@
     "onboardingApiHint": {
         "message": "The key is required for AI commands and stays in the extension's local storage."
     },
+    "onboardingGroqApi": { "message": "Add a Groq API key" },
+    "onboardingGroqApiHint": {
+        "message": "The key is needed for the fast Qwen 3.6 27B model and automatic fallback when limits are reached."
+    },
     "restartTutorial": { "message": "Open tutorial" },
     "tutorialBenefitFix": { "message": "Fix errors and improve writing style" },
     "tutorialBenefitTranslate": { "message": "Translate, add emoji, and run custom commands" },
     "tutorialBenefitWorkspace": { "message": "Quick commands and local history" },
     "tutorialOpenMistral": { "message": "Open Mistral Studio ↗" },
     "tutorialMistralSignIn": { "message": "Sign in to Mistral or create an account" },
+    "tutorialGroqSignIn": { "message": "Sign in to your Groq account or create a new one" },
+    "getGroqApiKeyStep1": { "message": "Go to console.groq.com/keys." },
+    "getGroqApiKeyStep2": { "message": "Find API Keys in the left menu." },
+    "getGroqApiKeyStep3": { "message": "Click Create API Key and copy it." },
     "tutorialApiKeyLabel": { "message": "Mistral API key" },
+    "tutorialGroqApiKeyLabel": { "message": "Groq API key" },
     "tutorialCheckKey": { "message": "Verify" },
     "tutorialKeyRequired": { "message": "Paste an API key first." },
     "tutorialKeyInvalid": { "message": "The key did not pass verification. Check it and try again." },
