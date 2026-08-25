@@ -487,7 +487,8 @@ function playItemAnimation(stageCard: HTMLElement): void {
 
     animationTimer = setTimeout(() => {
         arrow.classList.remove('is-animating');
-        outputDiv.style.transition = 'all 280ms cubic-bezier(0.16, 1, 0.3, 1)';
+        outputDiv.style.transition =
+            'opacity 280ms cubic-bezier(0.16, 1, 0.3, 1), transform 280ms cubic-bezier(0.16, 1, 0.3, 1)';
         outputDiv.style.opacity = '1';
         outputDiv.style.transform = 'translateY(0)';
         outputDiv.classList.add('guide-output-flash');

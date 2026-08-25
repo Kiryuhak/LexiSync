@@ -1066,7 +1066,8 @@ test('выбор поисковика доступен с клавиатуры, 
 
     const selector = page.locator('#searchEngineSelector');
     const chips = selector.locator('.search-engine-chip');
-    await expect(page.getByRole('radiogroup', { name: 'Поисковая система:' })).toBeVisible();
+    const searchEngineLabel = await page.evaluate(() => chrome.i18n.getMessage('searchEngineLabel'));
+    await expect(page.getByRole('radiogroup', { name: searchEngineLabel })).toBeVisible();
     await expect(chips.filter({ hasText: 'Яндекс' })).toHaveAttribute('aria-checked', 'true');
     await expect(chips.filter({ hasText: 'Яндекс' })).toHaveAttribute('tabindex', '0');
     await expect(chips.filter({ hasText: 'Google' })).toHaveAttribute('tabindex', '-1');
