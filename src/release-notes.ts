@@ -36,6 +36,31 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.5.0',
+        '2026-08-25',
+        'new',
+        'Интеграция Qwen 3.6 27B через Groq и автоматический fallback',
+        'Qwen 3.6 27B via Groq integration and automatic fallback',
+        [
+            [
+                'Добавлена поддержка Groq API с мощной и быстрой моделью Qwen 3.6 27B (qwen/qwen3.6-27b).',
+                'Added Groq API support with the ultra-fast Qwen 3.6 27B model (qwen/qwen3.6-27b).',
+            ],
+            [
+                'Появилась возможность выбора основного AI-провайдера (Автоматически, Mistral AI или Groq).',
+                'Added the ability to select the primary AI provider (Auto, Mistral AI, or Groq).',
+            ],
+            [
+                'Реализовано автоматическое переключение (fallback) на резервного провайдера при исчерпании лимитов, квоты (429) или сбоях сервера.',
+                'Implemented automatic fallback to a backup provider when rate limits or server errors occur.',
+            ],
+            [
+                'Все API-ключи хранятся строго локально на вашем устройстве в защищённом IndexedDB хранилище.',
+                'All API keys are stored strictly locally on your device in secure IndexedDB storage.',
+            ],
+        ],
+    ),
+    note(
         '5.4.1',
         '2026-08-25',
         'improved',

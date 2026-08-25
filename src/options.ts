@@ -22,6 +22,7 @@ import { restoreV4Settings, setupV4Settings } from './v4-settings';
 import { applyThemeCustomization, DEFAULT_THEME_CUSTOMIZATION } from './theme-customization';
 import { DEFAULT_BUDGET_SETTINGS } from './budget';
 import { validateApiKey } from './mistral-client';
+import { validateGroqApiKey } from './groq-client';
 import { logger } from './logger';
 import { setupSettingsTabs } from './options-tabs';
 import { setupInteractiveGuide } from './options-guide';
@@ -39,6 +40,7 @@ import { DEFAULT_TEXT_SNIPPETS } from './text-snippets';
 import { normalizeSearchEngine, SEARCH_ENGINE_IDS, type SearchEngine } from './search-url';
 
 let restoredApiKey = '';
+let restoredGroqApiKey = '';
 let savedOptionsState = '';
 let saveInProgress = false;
 let syncSearchEngineSelector = (): void => undefined;
@@ -75,12 +77,26 @@ async function writePrivateApiKey(value: string): Promise<void> {
     if (response?.ok !== true) throw new Error(response?.error || 'Не удалось сохранить API-ключ.');
 }
 
+async function readPrivateGroqApiKey(): Promise<string> {
+    const response = await chrome.runtime.sendMessage({ action: 'getGroqApiKey' });
+    if (response?.ok !== true) throw new Error(response?.error || 'Не удалось прочитать Groq API-ключ.');
+    return typeof response.value === 'string' ? response.value : '';
+}
+
+async function writePrivateGroqApiKey(value: string): Promise<void> {
+    const response = await chrome.runtime.sendMessage({ action: 'setGroqApiKey', value });
+    if (response?.ok !== true) throw new Error(response?.error || 'Не удалось сохранить Groq API-ключ.');
+}
+
 async function verifyMistralApiKey(apiKey: string): Promise<{ ok: boolean; message: string }> {
     return validateApiKey(apiKey);
 }
 
 const SAVED_OPTION_IDS = [
     'apiKey',
+    'groqApiKey',
+    'primaryAiProvider',
+    'autoFallbackEnabled',
     'toneSelect',
     'themeSelect',
     'visualStyleSelect',
@@ -313,6 +329,9 @@ function renderDisabledSites(): void {
 
 async function saveOptions(): Promise<void> {
     const apiKeyInput = document.getElementById('apiKey') as HTMLInputElement;
+    const groqApiKeyInput = document.getElementById('groqApiKey') as HTMLInputElement;
+    const primaryAiProviderSelect = document.getElementById('primaryAiProvider') as HTMLSelectElement;
+    const autoFallbackEnabledInput = document.getElementById('autoFallbackEnabled') as HTMLInputElement;
     const toneSelect = document.getElementById('toneSelect') as HTMLSelectElement;
     const themeSelect = document.getElementById('themeSelect') as HTMLSelectElement;
     const visualStyleSelect = document.getElementById('visualStyleSelect') as HTMLSelectElement;
@@ -332,6 +351,7 @@ async function saveOptions(): Promise<void> {
     const saveBtn = document.getElementById('saveBtn') as HTMLButtonElement;
 
     const apiKey = apiKeyInput.value.trim();
+    const groqApiKey = groqApiKeyInput.value.trim();
     const normalizedDisabledSites = normalizeSiteEntries(disabledSitesInput.value);
     const originalBtnText = saveBtn.textContent;
     saveInProgress = true;
@@ -349,6 +369,8 @@ async function saveOptions(): Promise<void> {
         );
         const changed = (id: (typeof SAVED_OPTION_IDS)[number]) => savedValues.get(id) !== readOptionValue(id);
         const updates: Record<string, unknown> = {};
+        if (changed('primaryAiProvider')) updates.primaryAiProvider = primaryAiProviderSelect.value;
+        if (changed('autoFallbackEnabled')) updates.autoFallbackEnabled = autoFallbackEnabledInput.checked;
         if (changed('toneSelect')) updates.selectedTone = toneSelect.value;
         if (changed('themeSelect')) updates.selectedTheme = themeSelect.value;
         if (changed('visualStyleSelect')) updates.visualStyle = normalizeAppearanceStyle(visualStyleSelect.value);
@@ -396,7 +418,7 @@ async function saveOptions(): Promise<void> {
                     apiKeyInput.value = restoredApiKey;
                 }
             } catch (error) {
-                logger.error('Ошибка сети при проверке ключа', error);
+                logger.error('Ошибка сети при проверке ключа Mistral', error);
                 apiKeyStatus = t('keyCheckUnavailable', 'Настройки сохранены. Проверить API-ключ сейчас не удалось.');
                 apiKeyInput.value = restoredApiKey;
             }
@@ -405,11 +427,31 @@ async function saveOptions(): Promise<void> {
             restoredApiKey = '';
         }
 
+        let groqKeyStatus = '';
+        if (groqApiKey !== restoredGroqApiKey && groqApiKey) {
+            saveBtn.textContent = t('checkingKey', 'Проверка ключа…');
+            try {
+                const validation = await validateGroqApiKey(groqApiKey);
+                if (validation.ok) {
+                    await writePrivateGroqApiKey(groqApiKey);
+                    restoredGroqApiKey = groqApiKey;
+                } else {
+                    groqKeyStatus = validation.message;
+                    groqApiKeyInput.value = restoredGroqApiKey;
+                }
+            } catch (error) {
+                logger.error('Ошибка сети при проверке ключа Groq', error);
+                groqKeyStatus = t('keyCheckUnavailable', 'Настройки сохранены. Проверить API-ключ сейчас не удалось.');
+                groqApiKeyInput.value = restoredGroqApiKey;
+            }
+        } else if (!groqApiKey && restoredGroqApiKey) {
+            await writePrivateGroqApiKey('');
+            restoredGroqApiKey = '';
+        }
+
         savedOptionsState = captureOptionsState();
-        showOptionsStatus(
-            apiKeyStatus || t('saveSuccess', '✓ Настройки успешно сохранены!'),
-            apiKeyStatus ? 'warning' : 'success',
-        );
+        const combinedStatus = apiKeyStatus || groqKeyStatus || t('saveSuccess', '✓ Настройки успешно сохранены!');
+        showOptionsStatus(combinedStatus, apiKeyStatus || groqKeyStatus ? 'warning' : 'success');
         window.setTimeout(() => {
             const status = document.getElementById('status');
             if (status) status.style.display = 'none';
@@ -427,6 +469,9 @@ async function saveOptions(): Promise<void> {
 
 async function restoreOptions(): Promise<void> {
     const apiKeyInput = document.getElementById('apiKey') as HTMLInputElement;
+    const groqApiKeyInput = document.getElementById('groqApiKey') as HTMLInputElement;
+    const primaryAiProviderSelect = document.getElementById('primaryAiProvider') as HTMLSelectElement;
+    const autoFallbackEnabledInput = document.getElementById('autoFallbackEnabled') as HTMLInputElement;
     const toneSelect = document.getElementById('toneSelect') as HTMLSelectElement;
     const themeSelect = document.getElementById('themeSelect') as HTMLSelectElement;
     const visualStyleSelect = document.getElementById('visualStyleSelect') as HTMLSelectElement;
@@ -444,8 +489,10 @@ async function restoreOptions(): Promise<void> {
     const aiModeSelect = document.getElementById('aiMode') as HTMLSelectElement;
     const glossaryInput = document.getElementById('glossary') as HTMLTextAreaElement;
 
-    const [items, privateApiKey] = await Promise.all([
+    const [items, privateApiKey, privateGroqApiKey] = await Promise.all([
         chrome.storage.local.get({
+            primaryAiProvider: 'auto',
+            autoFallbackEnabled: true,
             selectedTone: 'business',
             selectedTheme: 'auto',
             visualStyle: 'liquid-glass',
@@ -477,10 +524,15 @@ async function restoreOptions(): Promise<void> {
             settingsSyncStatus: { state: 'synced', updatedAt: 0 },
         }),
         readPrivateApiKey(),
+        readPrivateGroqApiKey(),
     ]);
 
     apiKeyInput.value = privateApiKey;
     restoredApiKey = apiKeyInput.value;
+    groqApiKeyInput.value = privateGroqApiKey;
+    restoredGroqApiKey = groqApiKeyInput.value;
+    primaryAiProviderSelect.value = (items.primaryAiProvider as string) || 'auto';
+    autoFallbackEnabledInput.checked = items.autoFallbackEnabled !== false;
     toneSelect.value = items.selectedTone as string;
     themeSelect.value = items.selectedTheme as string;
     visualStyleSelect.value = normalizeAppearanceStyle(items.visualStyle);
@@ -693,10 +745,19 @@ document.addEventListener('DOMContentLoaded', () => {
             setupV4Settings();
             return setupOnboarding({
                 getApiKey: () => restoredApiKey,
+                getGroqApiKey: () => restoredGroqApiKey,
                 onApiKeySaved: async (apiKey) => {
                     await writePrivateApiKey(apiKey);
                     restoredApiKey = apiKey;
                     const settingsKeyInput = document.getElementById('apiKey') as HTMLInputElement | null;
+                    if (settingsKeyInput) settingsKeyInput.value = apiKey;
+                    savedOptionsState = captureOptionsState();
+                    updateSaveButtonState();
+                },
+                onGroqApiKeySaved: async (apiKey) => {
+                    await writePrivateGroqApiKey(apiKey);
+                    restoredGroqApiKey = apiKey;
+                    const settingsKeyInput = document.getElementById('groqApiKey') as HTMLInputElement | null;
                     if (settingsKeyInput) settingsKeyInput.value = apiKey;
                     savedOptionsState = captureOptionsState();
                     updateSaveButtonState();
@@ -849,6 +910,30 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 eyeOpen.style.display = 'block';
                 eyeClosed.style.display = 'none';
+            }
+        });
+    }
+
+    const toggleGroqBtn = document.getElementById('toggleGroqApiKey');
+    const eyeOpenGroq = document.getElementById('eyeOpenGroq');
+    const eyeClosedGroq = document.getElementById('eyeClosedGroq');
+    const groqKeyInput = document.getElementById('groqApiKey') as HTMLInputElement | null;
+
+    if (toggleGroqBtn && eyeOpenGroq && eyeClosedGroq && groqKeyInput) {
+        toggleGroqBtn.addEventListener('click', () => {
+            const isPassword = groqKeyInput.getAttribute('type') === 'password';
+            groqKeyInput.setAttribute('type', isPassword ? 'text' : 'password');
+            toggleGroqBtn.setAttribute('aria-pressed', String(isPassword));
+            const newLabel = isPassword ? t('hideApiKey', 'Скрыть API-ключ') : t('showApiKey', 'Показать API-ключ');
+            toggleGroqBtn.setAttribute('aria-label', newLabel);
+            toggleGroqBtn.title = newLabel;
+
+            if (isPassword) {
+                eyeOpenGroq.style.display = 'none';
+                eyeClosedGroq.style.display = 'block';
+            } else {
+                eyeOpenGroq.style.display = 'block';
+                eyeClosedGroq.style.display = 'none';
             }
         });
     }

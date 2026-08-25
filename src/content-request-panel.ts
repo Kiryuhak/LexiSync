@@ -522,7 +522,10 @@ export function executeRequest(
                         minShort: t('statsMinutesShort', 'мин'),
                     });
                     const durationText = t('requestCompletedIn', 'Ready in $1 s').replace('$1', duration);
-                    showActionStatus(stats ? `${durationText} • ${stats}` : durationText);
+                    const baseStatus = stats ? `${durationText} • ${stats}` : durationText;
+                    showActionStatus(
+                        response.fallbackNotification ? `⚡ ${response.fallbackNotification}` : baseStatus,
+                    );
                 }
 
                 const historyItem: HistoryItem = {

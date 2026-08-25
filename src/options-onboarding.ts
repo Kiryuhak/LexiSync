@@ -1,10 +1,13 @@
 import { t } from './i18n';
 import { validateApiKey } from './mistral-client';
+import { validateGroqApiKey } from './groq-client';
 import { logger } from './logger';
 
 export interface OnboardingOptions {
     getApiKey: () => string;
+    getGroqApiKey?: () => string;
     onApiKeySaved: (key: string) => Promise<void>;
+    onGroqApiKeySaved?: (key: string) => Promise<void>;
 }
 
 export async function setupOnboarding(options: OnboardingOptions): Promise<void> {
@@ -32,7 +35,7 @@ export async function setupOnboarding(options: OnboardingOptions): Promise<void>
     const open = () => {
         previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         activeStep = 0;
-        if (keyInput) keyInput.value = options.getApiKey();
+        if (keyInput) keyInput.value = options.getApiKey() || options.getGroqApiKey?.() || '';
         if (keyStatus) {
             keyStatus.textContent = '';
             delete keyStatus.dataset.kind;
@@ -70,15 +73,40 @@ export async function setupOnboarding(options: OnboardingOptions): Promise<void>
         keyStatus.textContent = '';
         delete keyStatus.dataset.kind;
         try {
-            const validation = await validateApiKey(apiKey);
-            if (!validation.ok) {
-                keyStatus.textContent = validation.message;
+            if (apiKey.startsWith('gsk_')) {
+                const groqVal = await validateGroqApiKey(apiKey);
+                if (groqVal.ok) {
+                    if (options.onGroqApiKeySaved) await options.onGroqApiKeySaved(apiKey);
+                    else await options.onApiKeySaved(apiKey);
+                    keyStatus.textContent = groqVal.message;
+                    keyStatus.dataset.kind = 'success';
+                    return;
+                }
+                keyStatus.textContent = groqVal.message;
                 keyStatus.dataset.kind = 'error';
                 return;
             }
-            await options.onApiKeySaved(apiKey);
+
+            const validation = await validateApiKey(apiKey);
+            if (validation.ok) {
+                await options.onApiKeySaved(apiKey);
+                keyStatus.textContent = validation.message;
+                keyStatus.dataset.kind = 'success';
+                return;
+            }
+
+            // Попытка проверить как Groq ключ, если Mistral вернул ошибку
+            const groqFallback = await validateGroqApiKey(apiKey);
+            if (groqFallback.ok) {
+                if (options.onGroqApiKeySaved) await options.onGroqApiKeySaved(apiKey);
+                else await options.onApiKeySaved(apiKey);
+                keyStatus.textContent = groqFallback.message;
+                keyStatus.dataset.kind = 'success';
+                return;
+            }
+
             keyStatus.textContent = validation.message;
-            keyStatus.dataset.kind = 'success';
+            keyStatus.dataset.kind = 'error';
         } catch (error) {
             logger.error('Ошибка проверки API-ключа в обучении', error);
             keyStatus.textContent = t('keyCheckUnavailable', 'Сейчас не удалось проверить ключ. Попробуйте ещё раз.');

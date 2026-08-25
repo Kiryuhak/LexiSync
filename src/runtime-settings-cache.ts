@@ -19,6 +19,8 @@ export const RUNTIME_SETTING_KEYS = [
     'warnLargeText',
     'autoFastMode',
     'enablePiiMasking',
+    'primaryAiProvider',
+    'autoFallbackEnabled',
 ] as const;
 
 export type RuntimeSettingKey = (typeof RUNTIME_SETTING_KEYS)[number];

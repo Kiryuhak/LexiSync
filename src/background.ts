@@ -15,13 +15,9 @@ import { applyAdaptiveMutation, type AdaptiveMutation } from './adaptive-model-s
 import { createSettingsFingerprint } from './request-cache';
 import { applySettingsMutation, type SettingsMutation } from './settings-store';
 import { initializeSettingsSync, restoreSyncedSettings } from './settings-transfer';
-import {
-    formatMistralError,
-    isRetryableMistralError,
-    processOcr,
-    streamText,
-    type MistralRequest,
-} from './mistral-client';
+import { formatMistralError, isRetryableMistralError, processOcr, type MistralRequest } from './mistral-client';
+import { executeAiStreamRequest } from './ai-client';
+import type { PrimaryAiProvider } from './ai-provider-types';
 import { validateMistralRequest } from './request-validation';
 import { resolveStyleProfile } from './site-profiles';
 import {
@@ -35,7 +31,13 @@ import {
 import { getPrivacySettings, isSiteDisabled, normalizeDisabledSites } from './privacy';
 import { DEFAULT_BUDGET_SETTINGS, estimateTokens } from './budget';
 import { finalizeBudgetReservation, reserveBudgetIfActive } from './budget-reservations';
-import { getStoredApiKey, migrateApiKeyToSecretStore, setStoredApiKey } from './secret-store';
+import {
+    getStoredApiKey,
+    getStoredGroqApiKey,
+    migrateApiKeyToSecretStore,
+    setStoredApiKey,
+    setStoredGroqApiKey,
+} from './secret-store';
 import { logger } from './logger';
 import { isRuntimeSettingKey, pickRuntimeSettings, RUNTIME_SETTING_KEYS } from './runtime-settings-cache';
 import { isExtensionAllowedForUrl } from './site-runtime-access';
@@ -291,10 +293,28 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) }),
             );
         return true;
+    } else if (request.action === 'getGroqApiKey' || request.action === 'setGroqApiKey') {
+        const trustedSender = Boolean(sender.url?.startsWith(chrome.runtime.getURL('')));
+        if (!trustedSender) {
+            sendResponse({ ok: false, error: 'UNTRUSTED_SECRET_REQUEST' });
+            return;
+        }
+        const operation =
+            request.action === 'getGroqApiKey'
+                ? initializationPromise.then(getStoredGroqApiKey).then((value) => ({ value }))
+                : initializationPromise
+                      .then(() => setStoredGroqApiKey(typeof request.value === 'string' ? request.value : ''))
+                      .then(() => ({ value: '' }));
+        void operation
+            .then((data) => sendResponse({ ok: true, ...data }))
+            .catch((error) =>
+                sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) }),
+            );
+        return true;
     } else if (request.action === 'getRuntimeSettings') {
         void initializationPromise
             .then(async () => {
-                const [settings, apiKey] = await Promise.all([
+                const [settings, apiKey, groqApiKey] = await Promise.all([
                     getCachedSettings({
                         sendPageContext: false,
                         contextDisabledSites: [],
@@ -307,12 +327,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         compactResultMode: null,
                         resultDisplayMode: '',
                         enablePiiMasking: true,
+                        primaryAiProvider: 'auto',
+                        autoFallbackEnabled: true,
                     }),
                     getStoredApiKey(),
+                    getStoredGroqApiKey(),
                 ]);
-                return { settings, apiKey };
+                return { settings, apiKey, groqApiKey };
             })
-            .then(({ settings, apiKey }) => {
+            .then(({ settings, apiKey, groqApiKey }) => {
                 const profiles = Array.isArray(settings.styleProfiles)
                     ? (settings.styleProfiles as StyleProfile[])
                     : [];
@@ -323,7 +346,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 );
                 sendResponse({
                     ok: true,
-                    hasApiKey: apiKey.length > 0,
+                    hasApiKey: apiKey.length > 0 || groqApiKey.length > 0,
+                    hasMistralApiKey: apiKey.length > 0,
+                    hasGroqApiKey: groqApiKey.length > 0,
+                    primaryAiProvider: settings.primaryAiProvider || 'auto',
+                    autoFallbackEnabled: settings.autoFallbackEnabled !== false,
                     sendPageContext: settings.sendPageContext === true,
                     contextDisabledSites: settings.contextDisabledSites,
                     compactResultMode: settings.compactResultMode === true,
@@ -538,8 +565,10 @@ chrome.runtime.onConnect.addListener((port) => {
                     }
                 }
             }
-            const apiKey = await getStoredApiKey();
-            if (!apiKey) throw new Error(t('apiKeyMissing', 'API-ключ не настроен'));
+            const [mistralApiKey, groqApiKey] = await Promise.all([getStoredApiKey(), getStoredGroqApiKey()]);
+            if (!mistralApiKey && !groqApiKey) {
+                throw new Error(t('apiKeyMissing', 'API-ключ не настроен'));
+            }
 
             const budgetReservation = await reserveBudgetIfActive(
                 {
@@ -587,7 +616,12 @@ chrome.runtime.onConnect.addListener((port) => {
             }
 
             if (msg.mode === 'ocr') {
-                const text = await processOcr(msg, apiKey, requestController.signal);
+                if (!mistralApiKey) {
+                    throw new Error(
+                        t('ocrMistralKeyRequired', 'Для распознавания текста (OCR) требуется API-ключ Mistral.'),
+                    );
+                }
+                const text = await processOcr(msg, mistralApiKey, requestController.signal);
                 if (isCurrentRequest()) safePostMessage({ status: 'chunk', text });
                 outputText = text;
                 if (canUseOcrCache) {
@@ -597,11 +631,11 @@ chrome.runtime.onConnect.addListener((port) => {
                         logger.error('Не удалось сохранить OCR-кэш:', error);
                     }
                 }
+                if (isCurrentRequest()) safePostMessage({ status: 'done', provider: 'mistral' });
             } else {
-                await streamText(
-                    msg,
-                    apiKey,
-                    {
+                const execResult = await executeAiStreamRequest({
+                    request: msg,
+                    settings: {
                         selectedTone: settings.selectedTone as string,
                         sendPageContext:
                             settings.sendPageContext === true && msg.allowPageContext !== false && contextAllowedOnSite,
@@ -616,14 +650,24 @@ chrome.runtime.onConnect.addListener((port) => {
                                 : 'quality',
                         enablePiiMasking: settings.enablePiiMasking !== false,
                     },
-                    requestController.signal,
-                    (text) => {
+                    primaryProvider: (settings.primaryAiProvider as PrimaryAiProvider) || 'auto',
+                    autoFallback: settings.autoFallbackEnabled !== false,
+                    mistralApiKey,
+                    groqApiKey,
+                    signal: requestController.signal,
+                    onChunk: (text) => {
                         outputText += text;
                         if (isCurrentRequest()) safePostMessage({ status: 'chunk', text });
                     },
-                );
+                });
+                if (isCurrentRequest()) {
+                    safePostMessage({
+                        status: 'done',
+                        provider: execResult.providerUsed,
+                        fallbackNotification: execResult.fallbackNotification,
+                    });
+                }
             }
-            if (isCurrentRequest()) safePostMessage({ status: 'done' });
             completedSuccessfully = true;
         } catch (error) {
             if (!isCurrentRequest()) return;
@@ -638,10 +682,15 @@ chrome.runtime.onConnect.addListener((port) => {
                     retryable: !cancelledByUser,
                 });
             } else {
+                const errorMessage = error instanceof Error ? error.message : formatMistralError(error);
+                const retryable =
+                    error && typeof error === 'object' && 'retryable' in error
+                        ? Boolean((error as { retryable: boolean }).retryable)
+                        : isRetryableMistralError(error);
                 safePostMessage({
                     status: 'error',
-                    error: formatMistralError(error),
-                    retryable: isRetryableMistralError(error),
+                    error: errorMessage,
+                    retryable,
                 });
             }
         } finally {

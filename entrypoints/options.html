@@ -96,6 +96,25 @@
                 </div>
             </section>
 
+            <label for="primaryAiProvider" data-settings-group="main" data-i18n="primaryAiProviderLabel"
+                >Основной AI-провайдер:</label
+            >
+            <select id="primaryAiProvider" data-settings-group="main">
+                <option value="auto" data-i18n="providerAuto">⚡ Автоматически (рекомендуется)</option>
+                <option value="mistral" data-i18n="providerMistral">🌪️ Mistral AI (Mistral Small / Large)</option>
+                <option value="groq" data-i18n="providerGroq">⚡ Groq (Qwen 3.6 27B)</option>
+            </select>
+
+            <div class="privacy-option" data-settings-group="main" style="margin-top: 10px; margin-bottom: 16px">
+                <label for="autoFallbackEnabled">
+                    <span data-i18n="autoFallbackLabel">Автоматический fallback при лимитах</span>
+                    <small data-i18n="autoFallbackHint"
+                        >Переключает на резервного провайдера при ошибке 429, исчерпании квоты или сбоях.</small
+                    >
+                </label>
+                <input type="checkbox" id="autoFallbackEnabled" checked />
+            </div>
+
             <label for="apiKey" data-settings-group="main" data-i18n="apiKeyLabel">Ваш Mistral API Key:</label>
             <div class="password-wrapper" data-settings-group="main">
                 <input
@@ -150,7 +169,64 @@
                 </button>
             </div>
             <p class="field-hint" data-settings-group="main" data-i18n="apiKeySimpleHint">
-                Нужен только для AI-команд. Ключ хранится локально и недоступен сайтам.
+                Нужен для команд Mistral. Ключ хранится локально и недоступен сайтам.
+            </p>
+
+            <label for="groqApiKey" data-settings-group="main" data-i18n="groqApiKeyLabel"
+                >Ваш Groq API Key (Qwen 3.6 27B):</label
+            >
+            <div class="password-wrapper" data-settings-group="main">
+                <input
+                    type="password"
+                    id="groqApiKey"
+                    placeholder="gsk_..."
+                    data-i18n-placeholder="groqApiKeyPlaceholder"
+                />
+                <button
+                    type="button"
+                    id="toggleGroqApiKey"
+                    class="toggle-password"
+                    title="Показать/скрыть"
+                    aria-label="Показать или скрыть API-ключ Groq"
+                    aria-pressed="false"
+                    data-i18n-title="toggleGroqApiKey"
+                    data-i18n-aria-label="toggleGroqApiKey"
+                >
+                    <svg
+                        id="eyeOpenGroq"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                    <svg
+                        id="eyeClosedGroq"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        style="display: none"
+                    >
+                        <path
+                            d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"
+                        ></path>
+                        <line x1="1" y1="1" x2="23" y2="23"></line>
+                    </svg>
+                </button>
+            </div>
+            <p class="field-hint" data-settings-group="main" data-i18n="groqApiKeySimpleHint">
+                Бесплатный ключ для молниеносной работы с Qwen 3.6 27B через Groq API.
             </p>
 
             <label for="toneSelect" data-settings-group="main" data-i18n="toneLabel"

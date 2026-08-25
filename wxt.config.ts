@@ -18,7 +18,11 @@ export default defineConfig({
         description: '__MSG_extDesc__',
         default_locale: 'ru',
         permissions: ['storage', 'activeTab', 'scripting', 'contextMenus'],
-        host_permissions: ['https://api.mistral.ai/*', ...(includeE2eHostAccess ? WEB_ORIGINS : [])],
+        host_permissions: [
+            'https://api.mistral.ai/*',
+            'https://api.groq.com/*',
+            ...(includeE2eHostAccess ? WEB_ORIGINS : []),
+        ],
         optional_host_permissions: includeE2eHostAccess ? [] : WEB_ORIGINS,
         commands: {
             spellcheck: {

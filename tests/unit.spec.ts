@@ -81,9 +81,9 @@ test('безопасно нормализует поисковик и повре
 });
 
 test('история обновлений содержит все выпуски и поддерживает поиск', () => {
-    expect(RELEASE_NOTES[0].version).toBe('5.4.1');
+    expect(RELEASE_NOTES[0].version).toBe('5.5.0');
     expect(RELEASE_NOTES.at(-1)?.version).toBe('2.5');
-    expect(RELEASE_NOTES).toHaveLength(50);
+    expect(RELEASE_NOTES).toHaveLength(51);
     expect(new Set(RELEASE_NOTES.map((release) => release.version)).size).toBe(RELEASE_NOTES.length);
     expect(filterReleaseNotes(RELEASE_NOTES, 'MagicOS', 'ru').map((release) => release.version)).toEqual([
         '5.3.4',
@@ -1850,4 +1850,593 @@ test('CSV-экспорт истории защищает Excel от формул
     expect(csv.startsWith('\uFEFF')).toBe(true);
     expect(csv).toContain("'=HYPERLINK");
     expect(csv).toContain("'  +SUM");
+});
+
+test('Unit 1: Mistral успешный стриминг (200 OK)', async () => {
+    const { executeAiStreamRequest } = await import('../src/ai-client');
+    const chunks: string[] = [];
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+        start(controller) {
+            controller.enqueue(
+                encoder.encode(
+                    'data: {"choices":[{"delta":{"content":"Привет"}}]}\n\ndata: {"choices":[{"delta":{"content":" мир!"}}]}\n\ndata: [DONE]\n\n',
+                ),
+            );
+            controller.close();
+        },
+    });
+
+    const testRequest = { action: 'callMistral' as const, text: 'Тест', mode: 'style' as const };
+    const testSettings = {
+        selectedTone: 'business',
+        sendPageContext: false,
+        personalDictionary: [],
+        glossary: [],
+        aiMode: 'quality' as const,
+    };
+
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: new Headers({ 'content-type': 'text/event-stream' }),
+        body: stream,
+    } as unknown as Response);
+
+    const result = await executeAiStreamRequest({
+        request: testRequest,
+        settings: testSettings,
+        primaryProvider: 'mistral',
+        autoFallback: true,
+        mistralApiKey: 'mistral-key-123',
+        groqApiKey: 'groq-key-456',
+        signal: new AbortController().signal,
+        onChunk: (chunk: string) => chunks.push(chunk),
+    });
+
+    expect(result.providerUsed).toBe('mistral');
+    expect(result.fallbackOccurred).toBe(false);
+    expect(chunks.join('')).toBe('Привет мир!');
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    mockFetch.mockRestore();
+});
+
+test('Unit 2: Mistral 429 Rate Limit переключается на Groq (Qwen 3.6 27B)', async () => {
+    const { executeAiStreamRequest } = await import('../src/ai-client');
+    const chunks: string[] = [];
+    const encoder = new TextEncoder();
+    const groqStream = new ReadableStream({
+        start(controller) {
+            controller.enqueue(
+                encoder.encode('data: {"choices":[{"delta":{"content":"Ответ от Qwen 3.6"}}]}\n\ndata: [DONE]\n\n'),
+            );
+            controller.close();
+        },
+    });
+
+    const testRequest = { action: 'callMistral' as const, text: 'Тест', mode: 'style' as const };
+    const testSettings = {
+        selectedTone: 'business',
+        sendPageContext: false,
+        personalDictionary: [],
+        glossary: [],
+        aiMode: 'quality' as const,
+    };
+
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockImplementation((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes('mistral.ai')) {
+            return Promise.resolve({
+                ok: false,
+                status: 429,
+                statusText: 'Too Many Requests',
+                headers: new Headers(),
+                text: async () => 'Rate limit exceeded',
+                json: async () => ({ message: 'Rate limit exceeded' }),
+                body: null,
+            } as unknown as Response);
+        }
+        return Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: new Headers({ 'content-type': 'text/event-stream' }),
+            body: groqStream,
+        } as unknown as Response);
+    });
+
+    const result = await executeAiStreamRequest({
+        request: testRequest,
+        settings: testSettings,
+        primaryProvider: 'mistral',
+        autoFallback: true,
+        mistralApiKey: 'mistral-key-123',
+        groqApiKey: 'groq-key-456',
+        signal: new AbortController().signal,
+        onChunk: (chunk: string) => chunks.push(chunk),
+    });
+
+    expect(result.providerUsed).toBe('groq');
+    expect(result.fallbackOccurred).toBe(true);
+    expect(result.fallbackNotification).toContain('Mistral');
+    expect(result.fallbackNotification).toContain('Groq');
+    expect(chunks.join('')).toBe('Ответ от Qwen 3.6');
+    expect(mockFetch).toHaveBeenCalledTimes(4); // 3 попытки Mistral + 1 Groq
+    mockFetch.mockRestore();
+});
+
+test('Unit 3: Groq успешный стриминг (200 OK) с моделью qwen/qwen3.6-27b', async () => {
+    const { executeAiStreamRequest } = await import('../src/ai-client');
+    const chunks: string[] = [];
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+        start(controller) {
+            controller.enqueue(
+                encoder.encode(
+                    'data: {"choices":[{"delta":{"content":"Qwen 3.6 27B быстрый ответ"}}]}\n\ndata: [DONE]\n\n',
+                ),
+            );
+            controller.close();
+        },
+    });
+
+    const testRequest = { action: 'callMistral' as const, text: 'Тест', mode: 'style' as const };
+    const testSettings = {
+        selectedTone: 'business',
+        sendPageContext: false,
+        personalDictionary: [],
+        glossary: [],
+        aiMode: 'quality' as const,
+    };
+
+    let requestBody = '';
+    const mockFetch = vi
+        .spyOn(globalThis, 'fetch')
+        .mockImplementation((_url: RequestInfo | URL, init?: RequestInit) => {
+            requestBody = String(init?.body || '');
+            return Promise.resolve({
+                ok: true,
+                status: 200,
+                headers: new Headers({ 'content-type': 'text/event-stream' }),
+                body: stream,
+            } as unknown as Response);
+        });
+
+    const result = await executeAiStreamRequest({
+        request: testRequest,
+        settings: testSettings,
+        primaryProvider: 'groq',
+        autoFallback: true,
+        mistralApiKey: 'mistral-key-123',
+        groqApiKey: 'groq-key-456',
+        signal: new AbortController().signal,
+        onChunk: (chunk: string) => chunks.push(chunk),
+    });
+
+    expect(result.providerUsed).toBe('groq');
+    expect(result.fallbackOccurred).toBe(false);
+    expect(chunks.join('')).toBe('Qwen 3.6 27B быстрый ответ');
+    expect(requestBody).toContain('"model":"qwen/qwen3.6-27b"');
+    expect(requestBody).toContain('"stream":true');
+    mockFetch.mockRestore();
+});
+
+test('Unit 4: Groq 429 Rate Limit переключается на Mistral', async () => {
+    const { executeAiStreamRequest } = await import('../src/ai-client');
+    const chunks: string[] = [];
+    const encoder = new TextEncoder();
+    const mistralStream = new ReadableStream({
+        start(controller) {
+            controller.enqueue(
+                encoder.encode('data: {"choices":[{"delta":{"content":"Ответ от Mistral"}}]}\n\ndata: [DONE]\n\n'),
+            );
+            controller.close();
+        },
+    });
+
+    const testRequest = { action: 'callMistral' as const, text: 'Тест', mode: 'style' as const };
+    const testSettings = {
+        selectedTone: 'business',
+        sendPageContext: false,
+        personalDictionary: [],
+        glossary: [],
+        aiMode: 'quality' as const,
+    };
+
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockImplementation((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes('groq.com')) {
+            return Promise.resolve({
+                ok: false,
+                status: 429,
+                statusText: 'Too Many Requests',
+                headers: new Headers(),
+                text: async () => 'Rate limit exceeded on Groq',
+                json: async () => ({ error: { message: 'Rate limit' } }),
+                body: null,
+            } as unknown as Response);
+        }
+        return Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: new Headers({ 'content-type': 'text/event-stream' }),
+            body: mistralStream,
+        } as unknown as Response);
+    });
+
+    const result = await executeAiStreamRequest({
+        request: testRequest,
+        settings: testSettings,
+        primaryProvider: 'groq',
+        autoFallback: true,
+        mistralApiKey: 'mistral-key-123',
+        groqApiKey: 'groq-key-456',
+        signal: new AbortController().signal,
+        onChunk: (chunk: string) => chunks.push(chunk),
+    });
+
+    expect(result.providerUsed).toBe('mistral');
+    expect(result.fallbackOccurred).toBe(true);
+    expect(result.fallbackNotification).toContain('Groq');
+    expect(result.fallbackNotification).toContain('Mistral');
+    expect(chunks.join('')).toBe('Ответ от Mistral');
+    mockFetch.mockRestore();
+});
+
+test('Unit 5: 500 Server Error переключается на резервного провайдера', async () => {
+    const { executeAiStreamRequest } = await import('../src/ai-client');
+    const chunks: string[] = [];
+    const encoder = new TextEncoder();
+    const groqStream = new ReadableStream({
+        start(controller) {
+            controller.enqueue(
+                encoder.encode('data: {"choices":[{"delta":{"content":"Резервный ответ"}}]}\n\ndata: [DONE]\n\n'),
+            );
+            controller.close();
+        },
+    });
+
+    const testRequest = { action: 'callMistral' as const, text: 'Тест', mode: 'style' as const };
+    const testSettings = {
+        selectedTone: 'business',
+        sendPageContext: false,
+        personalDictionary: [],
+        glossary: [],
+        aiMode: 'quality' as const,
+    };
+
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockImplementation((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes('mistral.ai')) {
+            return Promise.resolve({
+                ok: false,
+                status: 503,
+                statusText: 'Service Unavailable',
+                headers: new Headers(),
+                text: async () => 'Server error',
+                body: null,
+            } as unknown as Response);
+        }
+        return Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: new Headers({ 'content-type': 'text/event-stream' }),
+            body: groqStream,
+        } as unknown as Response);
+    });
+
+    const result = await executeAiStreamRequest({
+        request: testRequest,
+        settings: testSettings,
+        primaryProvider: 'mistral',
+        autoFallback: true,
+        mistralApiKey: 'mistral-key-123',
+        groqApiKey: 'groq-key-456',
+        signal: new AbortController().signal,
+        onChunk: (chunk: string) => chunks.push(chunk),
+    });
+
+    expect(result.providerUsed).toBe('groq');
+    expect(result.fallbackOccurred).toBe(true);
+    expect(chunks.join('')).toBe('Резервный ответ');
+    mockFetch.mockRestore();
+});
+
+test('Unit 6: Network Failure переключается на резервного провайдера', async () => {
+    const { executeAiStreamRequest } = await import('../src/ai-client');
+    const chunks: string[] = [];
+    const encoder = new TextEncoder();
+    const groqStream = new ReadableStream({
+        start(controller) {
+            controller.enqueue(
+                encoder.encode(
+                    'data: {"choices":[{"delta":{"content":"Успех после сетевого сбоя"}}]}\n\ndata: [DONE]\n\n',
+                ),
+            );
+            controller.close();
+        },
+    });
+
+    const testRequest = { action: 'callMistral' as const, text: 'Тест', mode: 'style' as const };
+    const testSettings = {
+        selectedTone: 'business',
+        sendPageContext: false,
+        personalDictionary: [],
+        glossary: [],
+        aiMode: 'quality' as const,
+    };
+
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockImplementation((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes('mistral.ai')) {
+            return Promise.reject(new TypeError('Failed to fetch'));
+        }
+        return Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: new Headers({ 'content-type': 'text/event-stream' }),
+            body: groqStream,
+        } as unknown as Response);
+    });
+
+    const result = await executeAiStreamRequest({
+        request: testRequest,
+        settings: testSettings,
+        primaryProvider: 'mistral',
+        autoFallback: true,
+        mistralApiKey: 'mistral-key-123',
+        groqApiKey: 'groq-key-456',
+        signal: new AbortController().signal,
+        onChunk: (chunk: string) => chunks.push(chunk),
+    });
+
+    expect(result.providerUsed).toBe('groq');
+    expect(result.fallbackOccurred).toBe(true);
+    expect(chunks.join('')).toBe('Успех после сетевого сбоя');
+    mockFetch.mockRestore();
+});
+
+test('Unit 7: 401/403 Auth Error НЕ вызывает fallback и выбрасывает ошибку сразу', async () => {
+    const { executeAiStreamRequest } = await import('../src/ai-client');
+    const testRequest = { action: 'callMistral' as const, text: 'Тест', mode: 'style' as const };
+    const testSettings = {
+        selectedTone: 'business',
+        sendPageContext: false,
+        personalDictionary: [],
+        glossary: [],
+        aiMode: 'quality' as const,
+    };
+
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+        ok: false,
+        status: 401,
+        statusText: 'Unauthorized',
+        headers: new Headers(),
+        text: async () => 'Invalid API Key',
+        body: null,
+    } as unknown as Response);
+
+    await expect(
+        executeAiStreamRequest({
+            request: testRequest,
+            settings: testSettings,
+            primaryProvider: 'mistral',
+            autoFallback: true,
+            mistralApiKey: 'bad-key',
+            groqApiKey: 'groq-key-456',
+            signal: new AbortController().signal,
+            onChunk: () => undefined,
+        }),
+    ).rejects.toThrow(/недействителен|отозван|API-ключ/i);
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    mockFetch.mockRestore();
+});
+
+test('Unit 8: Отсутствие API-ключа резервного провайдера возвращает понятное сообщение', async () => {
+    const { executeAiStreamRequest } = await import('../src/ai-client');
+    const testRequest = { action: 'callMistral' as const, text: 'Тест', mode: 'style' as const };
+    const testSettings = {
+        selectedTone: 'business',
+        sendPageContext: false,
+        personalDictionary: [],
+        glossary: [],
+        aiMode: 'quality' as const,
+    };
+
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+        ok: false,
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: new Headers(),
+        text: async () => 'Rate limit reached',
+        body: null,
+    } as unknown as Response);
+
+    await expect(
+        executeAiStreamRequest({
+            request: testRequest,
+            settings: testSettings,
+            primaryProvider: 'mistral',
+            autoFallback: true,
+            mistralApiKey: 'mistral-key',
+            groqApiKey: '',
+            signal: new AbortController().signal,
+            onChunk: () => undefined,
+        }),
+    ).rejects.toThrow(/добавьте Groq API/i);
+
+    mockFetch.mockRestore();
+});
+
+test('Unit 9: Оба провайдера возвращают 429 Rate Limit — возвращается общая ошибка', async () => {
+    const { executeAiStreamRequest } = await import('../src/ai-client');
+    const testRequest = { action: 'callMistral' as const, text: 'Тест', mode: 'style' as const };
+    const testSettings = {
+        selectedTone: 'business',
+        sendPageContext: false,
+        personalDictionary: [],
+        glossary: [],
+        aiMode: 'quality' as const,
+    };
+
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+        ok: false,
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: new Headers(),
+        text: async () => 'Rate limit reached on both',
+        body: null,
+    } as unknown as Response);
+
+    await expect(
+        executeAiStreamRequest({
+            request: testRequest,
+            settings: testSettings,
+            primaryProvider: 'mistral',
+            autoFallback: true,
+            mistralApiKey: 'mistral-key',
+            groqApiKey: 'groq-key',
+            signal: new AbortController().signal,
+            onChunk: () => undefined,
+        }),
+    ).rejects.toThrow(/Лимиты всех доступных AI-провайдеров/i);
+
+    mockFetch.mockRestore();
+});
+
+test('Unit 10: Отключение autoFallback=false предотвращает fallback', async () => {
+    const { executeAiStreamRequest } = await import('../src/ai-client');
+    const testRequest = { action: 'callMistral' as const, text: 'Тест', mode: 'style' as const };
+    const testSettings = {
+        selectedTone: 'business',
+        sendPageContext: false,
+        personalDictionary: [],
+        glossary: [],
+        aiMode: 'quality' as const,
+    };
+
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+        ok: false,
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: new Headers(),
+        text: async () => 'Rate limit reached',
+        body: null,
+    } as unknown as Response);
+
+    await expect(
+        executeAiStreamRequest({
+            request: testRequest,
+            settings: testSettings,
+            primaryProvider: 'mistral',
+            autoFallback: false,
+            mistralApiKey: 'mistral-key',
+            groqApiKey: 'groq-key',
+            signal: new AbortController().signal,
+            onChunk: () => undefined,
+        }),
+    ).rejects.toThrow(/Превышен лимит запросов Mistral/i);
+
+    mockFetch.mockRestore();
+});
+
+test('Unit 11: Парсинг SSE стрима Groq / OpenAI-совместимого формата', async () => {
+    const { readGroqSsePayload } = await import('../src/groq-client');
+    const line1 = 'data: {"choices":[{"delta":{"content":"Часть 1 "}}]}';
+    const line2 = 'data: {"choices":[{"delta":{"content":"Часть 2"}}]}';
+    const lineDone = 'data: [DONE]';
+    expect(readGroqSsePayload(line1)).toBe('Часть 1 ');
+    expect(readGroqSsePayload(line2)).toBe('Часть 2');
+    expect(readGroqSsePayload(lineDone)).toBeNull();
+    expect(readGroqSsePayload(': keepalive')).toBeNull();
+});
+
+test('Unit 12: Валидация Groq API-ключа (validateGroqApiKey: 200, 401, error)', async () => {
+    const { validateGroqApiKey } = await import('../src/groq-client');
+
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ data: [{ id: 'qwen/qwen3.6-27b' }] }),
+    } as unknown as Response);
+
+    const success = await validateGroqApiKey('gsk_valid');
+    expect(success.ok).toBe(true);
+
+    mockFetch.mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: async () => ({ error: { message: 'Invalid API Key' } }),
+    } as unknown as Response);
+
+    const authFail = await validateGroqApiKey('gsk_invalid');
+    expect(authFail.ok).toBe(false);
+    expect(authFail.message).toContain('недействителен');
+
+    const empty = await validateGroqApiKey('');
+    expect(empty.ok).toBe(false);
+    mockFetch.mockRestore();
+});
+
+test('Unit 13: Режим primaryProvider auto выбирает провайдера по наличию ключей', async () => {
+    const { resolveExecutionPlan } = await import('../src/ai-client');
+
+    // Когда оба ключа есть, auto использует mistral основным и groq резервным
+    const planBoth = resolveExecutionPlan({
+        primaryProvider: 'auto',
+        autoFallback: true,
+        mistralApiKey: 'mistral',
+        groqApiKey: 'groq',
+    });
+    expect(planBoth.primary).toBe('mistral');
+    expect(planBoth.backup).toBe('groq');
+
+    // Когда есть только Groq ключ, auto выбирает Groq
+    const planGroqOnly = resolveExecutionPlan({
+        primaryProvider: 'auto',
+        autoFallback: true,
+        mistralApiKey: '',
+        groqApiKey: 'groq',
+    });
+    expect(planGroqOnly.primary).toBe('groq');
+    expect(planGroqOnly.backup).toBeUndefined();
+
+    // Когда есть только Mistral ключ, auto выбирает Mistral
+    const planMistralOnly = resolveExecutionPlan({
+        primaryProvider: 'auto',
+        autoFallback: true,
+        mistralApiKey: 'mistral',
+        groqApiKey: '',
+    });
+    expect(planMistralOnly.primary).toBe('mistral');
+    expect(planMistralOnly.backup).toBeUndefined();
+});
+
+test('Unit 14: AIProviderError правильно вычисляет флаг isFallbackEligible', async () => {
+    const { AiProviderError } = await import('../src/ai-provider-types');
+
+    const rateLimitError = new AiProviderError('Limit reached', 'RATE_LIMIT', 'mistral', true, 429);
+    expect(rateLimitError.isFallbackEligible).toBe(true);
+
+    const authError = new AiProviderError('Unauthorized', 'AUTH_ERROR', 'mistral', false, 401);
+    expect(authError.isFallbackEligible).toBe(false);
+
+    const serverError = new AiProviderError('503', 'SERVER_ERROR', 'groq', true, 503);
+    expect(serverError.isFallbackEligible).toBe(true);
+
+    const networkError = new AiProviderError('fetch failed', 'NETWORK_ERROR', 'groq', true);
+    expect(networkError.isFallbackEligible).toBe(true);
+});
+
+test('Unit 15: Форматирование уведомления о fallback содержит имена моделей и провайдеров', async () => {
+    const { getFallbackNotification } = await import('../src/ai-client');
+
+    const notificationMistralToGroq = getFallbackNotification('mistral', 'groq', 'RATE_LIMIT');
+    expect(notificationMistralToGroq).toContain('Mistral');
+    expect(notificationMistralToGroq).toContain('Groq');
+    expect(notificationMistralToGroq).toContain('Qwen 3.6');
+
+    const notificationGroqToMistral = getFallbackNotification('groq', 'mistral', 'SERVER_ERROR');
+    expect(notificationGroqToMistral).toContain('Groq');
+    expect(notificationGroqToMistral).toContain('Mistral');
 });

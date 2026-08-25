@@ -38,6 +38,8 @@ const PORTABLE_SETTING_KEYS = [
     'autoFastMode',
     'liveProofreadDisabledSites',
     'textSnippets',
+    'primaryAiProvider',
+    'autoFallbackEnabled',
 ] as const;
 
 const SYNC_SETTING_KEYS = [
@@ -61,6 +63,8 @@ const SYNC_SETTING_KEYS = [
     'monthlyTokenLimit',
     'warnLargeText',
     'autoFastMode',
+    'primaryAiProvider',
+    'autoFallbackEnabled',
 ] as const;
 
 export interface SettingsSyncStatus {
@@ -132,9 +136,11 @@ function sanitizePortableSetting(key: (typeof PORTABLE_SETTING_KEYS)[number], va
             'liveProofreadEnabled',
             'warnLargeText',
             'autoFastMode',
+            'autoFallbackEnabled',
         ].includes(key)
     )
-        return value === true;
+        return value !== false;
+    if (key === 'primaryAiProvider') return ['auto', 'mistral', 'groq'].includes(String(value)) ? value : 'auto';
     if (key === 'selectedTone')
         return ['business', 'friendly', 'persuasive', 'creative'].includes(String(value)) ? value : 'business';
     if (key === 'selectedTheme') return ['auto', 'light', 'dark'].includes(String(value)) ? value : 'auto';

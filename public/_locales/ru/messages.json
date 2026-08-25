@@ -817,5 +817,98 @@
     },
     "cleanTypography": {
         "message": "Типографика"
+    },
+    "primaryAiProviderLabel": {
+        "message": "Основной AI-провайдер:"
+    },
+    "providerAuto": {
+        "message": "⚡ Автоматически (рекомендуется)"
+    },
+    "providerMistral": {
+        "message": "🌪️ Mistral AI (Mistral Small / Large)"
+    },
+    "providerGroq": {
+        "message": "⚡ Groq (Qwen 3.6 27B)"
+    },
+    "autoFallbackLabel": {
+        "message": "Автоматический fallback при лимитах"
+    },
+    "autoFallbackHint": {
+        "message": "Переключает на резервного провайдера при ошибке 429, исчерпании квоты или сбоях."
+    },
+    "groqApiKeyLabel": {
+        "message": "Ваш Groq API Key (Qwen 3.6 27B):"
+    },
+    "groqApiKeyPlaceholder": {
+        "message": "Вставьте ключ Groq (gsk_...)"
+    },
+    "groqApiKeySimpleHint": {
+        "message": "Бесплатный ключ для молниеносной работы с Qwen 3.6 27B через Groq API."
+    },
+    "checkGroqApiKey": {
+        "message": "Проверить Groq ключ"
+    },
+    "toggleGroqApiKey": {
+        "message": "Показать или скрыть API-ключ Groq"
+    },
+    "groqApiKeyInvalid": {
+        "message": "API-ключ Groq недействителен. Проверьте ключ в настройках."
+    },
+    "groqRateLimit": {
+        "message": "Превышен лимит запросов Groq. Попробуйте немного позже."
+    },
+    "groqUnavailable": {
+        "message": "Сервис Groq временно недоступен. Попробуйте ещё раз."
+    },
+    "groqApiError": {
+        "message": "Ошибка Groq API"
+    },
+    "groqNetworkFailed": {
+        "message": "Не удалось подключиться к сервису Groq. Проверьте интернет и повторите попытку."
+    },
+    "tutorialGroqKeyRequired": {
+        "message": "Сначала вставьте API-ключ Groq."
+    },
+    "groqApiKeyValid": {
+        "message": "API-ключ Groq проверен и готов к работе."
+    },
+    "groqApiKeyMissing": {
+        "message": "API-ключ Groq не настроен."
+    },
+    "groqEmptyStream": {
+        "message": "Groq вернул пустой поток данных."
+    },
+    "groqIncompleteStream": {
+        "message": "Ответ Groq прервался до завершения. Повторите запрос."
+    },
+    "fallbackToGroqDueToRateLimit": {
+        "message": "Лимит Mistral достигнут. Запрос выполнен через Groq (Qwen 3.6)."
+    },
+    "fallbackToMistralDueToRateLimit": {
+        "message": "Лимит Groq достигнут. Запрос выполнен через Mistral."
+    },
+    "fallbackToGroqDueToOutage": {
+        "message": "Сервис Mistral временно недоступен. Использован Groq (Qwen 3.6)."
+    },
+    "fallbackToMistralDueToOutage": {
+        "message": "Сервис Groq временно недоступен. Использован Mistral."
+    },
+    "mistralRateLimitNeedGroqKey": {
+        "message": "Лимит Mistral достигнут. Для автоматического переключения добавьте Groq API Key в настройках."
+    },
+    "groqRateLimitNeedMistralKey": {
+        "message": "Лимит Groq достигнут. Для автоматического переключения добавьте Mistral API Key в настройках."
+    },
+    "allProvidersRateLimited": {
+        "message": "Лимиты всех доступных AI-провайдеров (Mistral и Groq) исчерпаны. Попробуйте позже."
+    },
+    "ocrMistralKeyRequired": {
+        "message": "Для распознавания текста (OCR) требуется API-ключ Mistral."
+    },
+    "getGroqKeyGuide": {
+        "message": "Где взять Groq API Key бесплатно? ➔ console.groq.com/keys"
+    },
+    "tutorialOpenGroq": {
+        "message": "Открыть Groq Console ↗"
     }
 }
