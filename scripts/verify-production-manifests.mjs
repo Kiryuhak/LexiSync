@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 
 const BASE_PERMISSIONS = ['storage', 'activeTab', 'scripting', 'contextMenus'];
-const REQUIRED_ORIGINS = ['https://api.mistral.ai/*'];
+const REQUIRED_ORIGINS = ['https://api.mistral.ai/*', 'https://api.groq.com/*'];
 const OPTIONAL_WEB_ORIGINS = ['http://*/*', 'https://*/*'];
 const EXTENSION_NAMES = {
     ru: 'Корректор грамматики и орфографии - LexiSync',
@@ -45,7 +45,7 @@ for (const browser of ['chrome', 'firefox']) {
         throw new Error(`${browser}: удалённая рабочая панель не должна присутствовать в манифесте`);
     if (manifest.action?.default_popup !== 'popup.html') throw new Error(`${browser}: toolbar popup is not configured`);
     if (!sameValues(requiredOrigins, REQUIRED_ORIGINS))
-        throw new Error(`${browser}: обязательный доступ разрешён только для Mistral API`);
+        throw new Error(`${browser}: обязательный доступ разрешён только для Mistral API и Groq API`);
     if (manifest.content_scripts) throw new Error(`${browser}: content script не должен быть статическим`);
     if (!sameValues(optionalOrigins, OPTIONAL_WEB_ORIGINS))
         throw new Error(`${browser}: изменён опциональный доступ к веб-сайтам`);
