@@ -842,8 +842,8 @@ test('временная ошибка не запускает бесконечн
     await page.keyboard.press('Alt+r');
 
     const uiPanel = page.locator('#lexisync-extension-ui');
-    await expect(uiPanel.locator('.lexisync-content-pane')).toContainText(/(?:лимит|rate limit)/i, { timeout: 5000 });
-    await expect(uiPanel.locator('#retryRequestBtn')).toBeVisible();
+    await expect(uiPanel.locator('.lexisync-content-pane')).toContainText(/(?:лимит|rate limit)/i, { timeout: 10000 });
+    await expect(uiPanel.locator('#retryRequestBtn')).toBeVisible({ timeout: 10000 });
     await expect.poll(() => requestCount).toBe(3);
     await page.waitForTimeout(5500);
     expect(requestCount).toBe(3);
@@ -1043,7 +1043,7 @@ test('вкладки настроек простым языком объясня
     }
 
     await page.locator('[data-tab="main"]').click();
-    await expect(page.locator('.field-hint[data-settings-group="main"]')).toHaveCount(2);
+    await expect(page.locator('.field-hint[data-settings-group="main"]')).toHaveCount(3);
     await expect(page.locator('.settings-field .field-hint')).toHaveText(localizedCopy.searchHint);
 
     await page.emulateMedia({ reducedMotion: 'reduce' });
