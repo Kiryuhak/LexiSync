@@ -16,46 +16,56 @@ export function normalizeAiError(error: unknown, provider: AiProviderType): AiPr
         return new AiProviderError(t('requestCancelled', 'Запрос отменён.'), 'TIMEOUT', provider, false);
     }
     const message = error instanceof Error ? error.message : String(error);
+    const lower = message.toLowerCase();
+    const sourceRetryable =
+        error &&
+        typeof error === 'object' &&
+        'retryable' in error &&
+        typeof (error as { retryable: unknown }).retryable === 'boolean'
+            ? Boolean((error as { retryable: boolean }).retryable)
+            : undefined;
+
     const isNetwork =
-        message.includes('Failed to fetch') ||
-        message.includes('NetworkError') ||
-        message.includes('network') ||
-        message.includes('Не удалось подключиться') ||
+        lower.includes('failed to fetch') ||
+        lower.includes('networkerror') ||
+        lower.includes('network') ||
+        lower.includes('не удалось подключиться') ||
         error instanceof TypeError;
     if (isNetwork) {
-        return new AiProviderError(message, 'NETWORK_ERROR', provider, true);
+        return new AiProviderError(message, 'NETWORK_ERROR', provider, sourceRetryable ?? true);
     }
     if (
-        message.includes('Превышен лимит запросов') ||
-        message.includes('Rate limit') ||
-        message.includes('rate_limit') ||
-        message.includes('Too Many Requests') ||
-        message.includes('429')
+        lower.includes('лимит') ||
+        lower.includes('limit') ||
+        lower.includes('rate_limit') ||
+        lower.includes('too many requests') ||
+        lower.includes('429') ||
+        lower.includes('quota')
     ) {
-        return new AiProviderError(message, 'RATE_LIMIT', provider, true, 429);
+        return new AiProviderError(message, 'RATE_LIMIT', provider, sourceRetryable ?? true, 429);
     }
     if (
-        message.includes('недействителен') ||
-        message.includes('отозван') ||
-        message.includes('Invalid API Key') ||
-        message.includes('Unauthorized') ||
-        message.includes('401') ||
-        message.includes('403')
+        lower.includes('недействителен') ||
+        lower.includes('отозван') ||
+        lower.includes('invalid') ||
+        lower.includes('unauthorized') ||
+        lower.includes('401') ||
+        lower.includes('403')
     ) {
         return new AiProviderError(message, 'AUTH_ERROR', provider, false, 401);
     }
     if (
-        message.includes('временно недоступен') ||
-        message.includes('Service Unavailable') ||
-        message.includes('Internal Server Error') ||
-        message.includes('500') ||
-        message.includes('502') ||
-        message.includes('503') ||
-        message.includes('504')
+        lower.includes('временно') ||
+        lower.includes('unavailable') ||
+        lower.includes('internal server error') ||
+        lower.includes('500') ||
+        lower.includes('502') ||
+        lower.includes('503') ||
+        lower.includes('504')
     ) {
-        return new AiProviderError(message, 'SERVER_ERROR', provider, true, 503);
+        return new AiProviderError(message, 'SERVER_ERROR', provider, sourceRetryable ?? true, 503);
     }
-    return new AiProviderError(message, 'UNKNOWN_ERROR', provider, false);
+    return new AiProviderError(message, 'UNKNOWN_ERROR', provider, sourceRetryable ?? false);
 }
 
 export function getFallbackNotification(
