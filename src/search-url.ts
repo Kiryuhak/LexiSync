@@ -1,5 +1,7 @@
 export type SearchEngine = 'google' | 'yandex' | 'duckduckgo';
 
+export const SEARCH_ENGINE_IDS = ['google', 'yandex', 'duckduckgo'] as const satisfies readonly SearchEngine[];
+
 const SEARCH_ENGINES: Record<SearchEngine, { baseUrl: string; parameter: string }> = {
     google: { baseUrl: 'https://www.google.com/search', parameter: 'q' },
     yandex: { baseUrl: 'https://yandex.ru/search/', parameter: 'text' },
@@ -8,6 +10,10 @@ const SEARCH_ENGINES: Record<SearchEngine, { baseUrl: string; parameter: string 
 
 function normalizeSearchText(value: unknown): string {
     return typeof value === 'string' ? value.replace(/\s+/gu, ' ').trim() : '';
+}
+
+export function normalizeSearchEngine(value: unknown): SearchEngine {
+    return SEARCH_ENGINE_IDS.includes(value as SearchEngine) ? (value as SearchEngine) : 'google';
 }
 
 export function resolveSearchText(capturedText: unknown, visibleText: unknown): string {
@@ -23,8 +29,7 @@ export function resolveSearchText(capturedText: unknown, visibleText: unknown): 
 }
 
 export function buildSearchUrl(engine: unknown, text: unknown): string {
-    const normalizedEngine: SearchEngine =
-        engine === 'yandex' || engine === 'duckduckgo' || engine === 'google' ? engine : 'google';
+    const normalizedEngine = normalizeSearchEngine(engine);
     const config = SEARCH_ENGINES[normalizedEngine];
     const url = new URL(config.baseUrl);
     url.searchParams.set(config.parameter, normalizeSearchText(text));

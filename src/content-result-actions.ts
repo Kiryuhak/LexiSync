@@ -143,7 +143,7 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
         document.body.appendChild(a);
         a.click();
         a.remove();
-        URL.revokeObjectURL(url);
+        window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
         showStatus(t('fileDownloaded', 'Файл сохранён!'));
     };
     actionsContainer.appendChild(downloadButton);

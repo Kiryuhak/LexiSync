@@ -50,9 +50,10 @@ import { formatTextStats } from '../src/text-stats';
 import { activateDialogKeyboard } from '../src/content-dialog-accessibility';
 import { cleanupExpiredAiCacheLocally } from '../src/ai-cache';
 import { getLastUsedAction, setLastUsedAction } from '../src/content-menus';
-import { buildSearchUrl, resolveSearchText } from '../src/search-url';
+import { buildSearchUrl, normalizeSearchEngine, resolveSearchText } from '../src/search-url';
 import { isRuntimeSettingKey, pickRuntimeSettings, RUNTIME_SETTING_KEYS } from '../src/runtime-settings-cache';
 import { isExtensionAllowedForUrl } from '../src/site-runtime-access';
+import { parsePortableSettingsJson } from '../src/settings-transfer';
 
 test.each([
     ['google', 'https://www.google.com/search', 'q'],
@@ -72,10 +73,17 @@ test('восстанавливает полное визуальное выде�
     expect(resolveSearchText('  текст\nиз редактора  ', '')).toBe('текст из редактора');
 });
 
+test('безопасно нормализует поисковик и повреждённый JSON настроек', () => {
+    expect(normalizeSearchEngine('yandex')).toBe('yandex');
+    expect(normalizeSearchEngine('неизвестный')).toBe('google');
+    expect(parsePortableSettingsJson('{"format":"lexisync-settings"}')).toEqual({ format: 'lexisync-settings' });
+    expect(() => parsePortableSettingsJson('{повреждённый json')).toThrowError('INVALID_SETTINGS_FILE');
+});
+
 test('история обновлений содержит все выпуски и поддерживает поиск', () => {
-    expect(RELEASE_NOTES[0].version).toBe('5.4.0');
+    expect(RELEASE_NOTES[0].version).toBe('5.4.1');
     expect(RELEASE_NOTES.at(-1)?.version).toBe('2.5');
-    expect(RELEASE_NOTES).toHaveLength(49);
+    expect(RELEASE_NOTES).toHaveLength(50);
     expect(new Set(RELEASE_NOTES.map((release) => release.version)).size).toBe(RELEASE_NOTES.length);
     expect(filterReleaseNotes(RELEASE_NOTES, 'MagicOS', 'ru').map((release) => release.version)).toEqual([
         '5.3.4',

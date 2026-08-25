@@ -75,6 +75,14 @@ export interface PortableSettings {
     settings: Record<string, unknown>;
 }
 
+export function parsePortableSettingsJson(value: string): unknown {
+    try {
+        return JSON.parse(value) as unknown;
+    } catch {
+        throw new Error('INVALID_SETTINGS_FILE');
+    }
+}
+
 async function setSettingsSyncStatus(state: SettingsSyncStatus['state']): Promise<void> {
     await chrome.storage.local.set({
         settingsSyncStatus: { state, updatedAt: Date.now() } satisfies SettingsSyncStatus,

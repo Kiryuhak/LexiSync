@@ -1054,6 +1054,44 @@ test('вкладки настроек простым языком объясня
     expect(reducedMotionStyles).toEqual({ backgroundAnimation: 'none', logoAnimation: 'none' });
 });
 
+test('выбор поисковика доступен с клавиатуры, сохраняется и не создаёт повторные обработчики', async ({
+    page,
+    context,
+}) => {
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() => chrome.storage.local.set({ onboardingCompleted: true, searchEngine: 'yandex' }));
+    const extensionId = new URL(background.url()).host;
+    await page.goto(`chrome-extension://${extensionId}/options.html`);
+
+    const selector = page.locator('#searchEngineSelector');
+    const chips = selector.locator('.search-engine-chip');
+    await expect(page.getByRole('radiogroup', { name: 'Поисковая система:' })).toBeVisible();
+    await expect(chips.filter({ hasText: 'Яндекс' })).toHaveAttribute('aria-checked', 'true');
+    await expect(chips.filter({ hasText: 'Яндекс' })).toHaveAttribute('tabindex', '0');
+    await expect(chips.filter({ hasText: 'Google' })).toHaveAttribute('tabindex', '-1');
+
+    await chips.filter({ hasText: 'Яндекс' }).focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(chips.filter({ hasText: 'DuckDuckGo' })).toHaveAttribute('aria-checked', 'true');
+    await expect(page.locator('#searchEngine')).toHaveValue('duckduckgo');
+    await expect(page.locator('#saveBtn')).toBeEnabled();
+    await page.locator('#saveBtn').click();
+
+    await page.reload();
+    await expect(chips.filter({ hasText: 'DuckDuckGo' })).toHaveAttribute('aria-checked', 'true');
+    await chips.filter({ hasText: 'DuckDuckGo' }).focus();
+    await page.keyboard.press('Home');
+    await expect(chips.filter({ hasText: 'Google' })).toHaveAttribute('aria-checked', 'true');
+    await page.keyboard.press('End');
+    await expect(chips.filter({ hasText: 'DuckDuckGo' })).toHaveAttribute('aria-checked', 'true');
+
+    const accessibility = await new AxeBuilder({ page }).include('#searchEngineSelector').analyze();
+    expect(accessibility.violations).toEqual([]);
+    await page.setViewportSize({ width: 320, height: 700 });
+    expect(await selector.evaluate((element) => element.scrollWidth - element.clientWidth)).toBe(0);
+});
+
 test('руководство и галерея остаются доступными и компактными во всех стеклянных темах', async ({ page, context }) => {
     let [background] = context.serviceWorkers();
     if (!background) background = await context.waitForEvent('serviceworker');

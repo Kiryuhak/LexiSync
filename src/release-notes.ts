@@ -36,6 +36,31 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.4.1',
+        '2026-08-25',
+        'improved',
+        'Наглядный выбор поисковика и надёжные загрузки',
+        'Visual search engine picker and reliable downloads',
+        [
+            [
+                'Google, Яндекс и DuckDuckGo теперь выбираются компактными кнопками с узнаваемыми значками и полноценным управлением с клавиатуры.',
+                'Google, Yandex, and DuckDuckGo can now be selected with compact branded buttons and full keyboard navigation.',
+            ],
+            [
+                'Галерея шаблонов, инструкции и длинные названия в руководстве стали компактнее и лучше адаптируются к узким экранам.',
+                'The template library, instructions, and long guide titles are now more compact and adapt better to narrow screens.',
+            ],
+            [
+                'Повреждённый файл настроек показывает понятную ошибку, а повторный импорт больше не создаёт лишние обработчики интерфейса.',
+                'A damaged settings file now shows a clear error, and repeated imports no longer create duplicate UI handlers.',
+            ],
+            [
+                'Экспорт настроек и скачивание результата стали надёжнее в Firefox благодаря безопасному освобождению временных файлов.',
+                'Settings export and result downloads are now more reliable in Firefox thanks to safe temporary file cleanup.',
+            ],
+        ],
+    ),
+    note(
         '5.4.0',
         '2026-08-24',
         'new',

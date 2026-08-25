@@ -593,7 +593,8 @@ p {
     margin-bottom: 12px;
     line-height: 1.45;
 }
-label {
+label,
+.settings-label {
     font-weight: 500;
     font-size: 13px;
     display: block;
@@ -663,6 +664,65 @@ textarea:hover {
     margin: 5px 0 0;
 }
 
+.search-engine-selector {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.search-engine-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-input);
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-main);
+    cursor: pointer;
+    transition: all 0.18s ease;
+    user-select: none;
+    font-family: inherit;
+}
+
+.search-engine-chip:hover {
+    border-color: color-mix(in srgb, var(--primary) 42%, var(--border-input));
+    background: var(--box-bg);
+}
+
+.search-engine-chip:focus-visible {
+    border-color: var(--primary);
+    outline: 3px solid color-mix(in srgb, var(--primary) 28%, transparent);
+    outline-offset: 2px;
+}
+
+.search-engine-chip.is-active {
+    background: color-mix(in srgb, var(--primary) 12%, var(--bg-card));
+    border-color: var(--primary);
+    color: var(--primary-strong, var(--primary));
+    box-shadow: 0 0 0 1px var(--primary);
+    font-weight: 600;
+}
+
+.search-engine-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+@media (max-width: 520px) {
+    .search-engine-selector {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* 🔥 НОВЫЕ СТИЛИ ДЛЯ ГЛАЗКА */
 .password-wrapper {
     position: relative;
@@ -707,14 +767,18 @@ textarea:hover {
     font-weight: 600;
 }
 .instruction-box ol {
-    margin: 0;
-    padding-left: 20px;
+    margin: 0 0 10px 0;
+    padding-left: 16px;
     color: var(--text-secondary);
     font-size: 13px;
-    line-height: 1.6;
+    line-height: 1.55;
+}
+.instruction-box ol li {
+    padding-left: 2px;
+    margin-bottom: 3px;
 }
 .instruction-box #openOnboarding {
-    margin-top: 10px;
+    margin-top: 6px;
 }
 .instruction-box a {
     color: var(--primary);
@@ -2467,11 +2531,11 @@ input[type='range'] {
     padding: 16px;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
     gap: 12px;
     transition: all 200ms ease;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
     min-width: 0;
+    box-sizing: border-box;
 }
 
 .prompt-library-card:hover {
@@ -2500,37 +2564,37 @@ input[type='range'] {
 
 .prompt-library-card-prompt {
     font-size: 12px;
-    font-family: monospace;
+    font-family: inherit;
     color: var(--text-secondary);
     background: var(--box-bg);
     border: 1px solid var(--box-border);
-    padding: 8px 10px;
-    border-radius: 8px;
-    line-height: 1.4;
-    max-height: 54px;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    padding: 10px 12px;
+    border-radius: 10px;
+    line-height: 1.45;
     min-width: 0;
     word-break: break-word;
-    overflow-wrap: break-word;
+    overflow-wrap: anywhere;
+    flex-grow: 1;
 }
 
 .prompt-library-add-btn {
-    align-self: flex-start;
-    padding: 6px 14px;
+    width: 100%;
+    text-align: center;
+    padding: 8px 14px;
     font-size: 13px;
-    border-radius: 12px;
+    border-radius: 10px;
     border: 1px solid var(--primary);
     background: transparent;
     color: var(--primary);
     cursor: pointer;
     font-weight: 600;
     transition: all 160ms ease;
+    margin-top: auto;
 }
 
 .prompt-library-add-btn:hover {
     background: var(--primary);
-    color: var(--bg-card);
+    color: #ffffff;
 }
 
 .prompt-library-add-btn:disabled {
@@ -2623,6 +2687,8 @@ input[type='range'] {
     display: flex;
     align-items: center;
     gap: 12px;
+    min-width: 0;
+    flex: 1 1 auto;
 }
 
 .guide-num-badge {
@@ -2632,30 +2698,41 @@ input[type='range'] {
     background: var(--badge-bg);
     padding: 4px 10px;
     border-radius: 20px;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    flex-shrink: 0;
 }
 
 .guide-header-title {
     font-size: 15px;
     font-weight: 600;
+    min-width: 0;
+    word-break: break-word;
 }
 
 .guide-header-meta {
     display: flex;
     align-items: center;
     gap: 12px;
+    flex-shrink: 0;
 }
 
 .guide-shortcut-kbd,
 .onboarding-shortcuts-list kbd {
-    font-family: ui-monospace, monospace;
-    font-size: 11px;
+    font-family: inherit;
+    font-size: 11.5px;
     font-weight: 600;
     padding: 4px 8px;
     background: var(--bg-card);
     border: 1px solid var(--border-input);
     border-radius: 6px;
-    color: var(--text-main);
+    color: var(--text-secondary);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .guide-chevron {

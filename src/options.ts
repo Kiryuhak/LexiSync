@@ -4,6 +4,7 @@ import { calculateProductivityMetrics, clearUsageStats, EMPTY_USAGE_STATS } from
 import {
     exportPortableSettings,
     importPortableSettings,
+    parsePortableSettingsJson,
     retrySettingsSync,
     type SettingsSyncStatus,
 } from './settings-transfer';
@@ -35,10 +36,12 @@ import {
 import { hasAllSitesAccess, requestAllSitesAccess, removeAllSitesAccess } from './site-access';
 import { setupOnboarding } from './options-onboarding';
 import { DEFAULT_TEXT_SNIPPETS } from './text-snippets';
+import { normalizeSearchEngine, SEARCH_ENGINE_IDS, type SearchEngine } from './search-url';
 
 let restoredApiKey = '';
 let savedOptionsState = '';
 let saveInProgress = false;
+let syncSearchEngineSelector = (): void => undefined;
 
 function setupReleaseNotesTrigger(): void {
     const trigger = document.getElementById('app-version') as HTMLButtonElement | null;
@@ -485,7 +488,7 @@ async function restoreOptions(): Promise<void> {
     resultDisplayModeSelect.value = normalizeResultDisplayMode(items.resultDisplayMode, items.compactResultMode);
     adaptiveSuggestionsInput.checked = items.adaptiveSuggestionsEnabled === true;
     adaptiveLearningInput.checked = items.adaptiveLearningEnabled !== false;
-    searchSelect.value = items.searchEngine as string;
+    searchSelect.value = normalizeSearchEngine(items.searchEngine);
     sendPageContextInput.checked = items.sendPageContext === true;
     enablePiiMaskingInput.checked = items.enablePiiMasking !== false;
     historyEnabledInput.checked = items.historyEnabled !== false;
@@ -527,6 +530,7 @@ async function restoreOptions(): Promise<void> {
     renderUsageStats(items.usageStats as UsageStats);
     renderSettingsSyncStatus(items.settingsSyncStatus);
     renderDisabledSites();
+    syncSearchEngineSelector();
     updateAppearancePreview();
     updateAdaptiveControls();
     renderAdaptiveStats(items.adaptiveLanguageModel);
@@ -596,6 +600,58 @@ function setupPromptLibrary(): void {
     });
 }
 
+function setupSearchEngineSelector(): void {
+    const selector = document.getElementById('searchEngineSelector');
+    const select = document.getElementById('searchEngine') as HTMLSelectElement | null;
+    if (!selector || !select) return;
+
+    const chips = [...selector.querySelectorAll<HTMLButtonElement>('.search-engine-chip')];
+    const updateActiveChip = () => {
+        const selectedEngine = normalizeSearchEngine(select.value);
+        if (select.value !== selectedEngine) select.value = selectedEngine;
+        chips.forEach((chip) => {
+            const isActive = chip.dataset.engine === selectedEngine;
+            chip.classList.toggle('is-active', isActive);
+            chip.setAttribute('aria-checked', String(isActive));
+            chip.tabIndex = isActive ? 0 : -1;
+        });
+    };
+
+    const selectEngine = (engine: SearchEngine, focus = false) => {
+        if (select.value !== engine) {
+            select.value = engine;
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        updateActiveChip();
+        if (focus) chips.find((chip) => chip.dataset.engine === engine)?.focus();
+    };
+
+    selector.addEventListener('click', (event) => {
+        const chip = (event.target as Element | null)?.closest<HTMLButtonElement>('.search-engine-chip');
+        if (!chip || !selector.contains(chip)) return;
+        const engine = normalizeSearchEngine(chip.dataset.engine);
+        selectEngine(engine);
+    });
+
+    selector.addEventListener('keydown', (event) => {
+        if (!(event.target instanceof HTMLButtonElement) || !event.target.matches('.search-engine-chip')) return;
+        const currentIndex = SEARCH_ENGINE_IDS.indexOf(normalizeSearchEngine(event.target.dataset.engine));
+        let nextIndex: number;
+        if (event.key === 'ArrowRight' || event.key === 'ArrowDown') nextIndex = (currentIndex + 1) % chips.length;
+        else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp')
+            nextIndex = (currentIndex - 1 + chips.length) % chips.length;
+        else if (event.key === 'Home') nextIndex = 0;
+        else if (event.key === 'End') nextIndex = chips.length - 1;
+        else return;
+        event.preventDefault();
+        selectEngine(SEARCH_ENGINE_IDS[nextIndex], true);
+    });
+
+    select.addEventListener('change', updateActiveChip);
+    syncSearchEngineSelector = updateActiveChip;
+    updateActiveChip();
+}
+
 function setupFactoryReset(): void {
     const resetBtn = document.getElementById('factoryResetBtn') as HTMLButtonElement | null;
     const dialog = document.getElementById('factoryResetDialog') as HTMLDialogElement | null;
@@ -627,6 +683,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.classList.add('settings-restoring');
     document.querySelector('main')?.setAttribute('aria-busy', 'true');
     localizeDocument();
+    setupSearchEngineSelector();
     setupReleaseNotesTrigger();
     installResultPreviewStyles();
     void restoreOptions()
@@ -736,8 +793,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const link = document.createElement('a');
         link.href = url;
         link.download = `lexisync-settings-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(link);
         link.click();
-        URL.revokeObjectURL(url);
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
     });
     document.getElementById('importSettings')?.addEventListener('click', () => importFile?.click());
     importFile?.addEventListener('change', async () => {
@@ -745,7 +804,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!file) return;
         try {
             if (file.size > 1_000_000) throw new Error(t('settingsFileTooLarge', 'Файл настроек слишком большой.'));
-            await importPortableSettings(JSON.parse(await file.text()));
+            await importPortableSettings(parsePortableSettingsJson(await file.text()));
             await restoreOptions();
             const status = document.getElementById('status');
             if (status) {
