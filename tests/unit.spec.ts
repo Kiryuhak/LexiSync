@@ -2263,7 +2263,7 @@ test('Unit 8: Отсутствие API-ключа резервного пров�
             signal: new AbortController().signal,
             onChunk: () => undefined,
         }),
-    ).rejects.toThrow(/добавьте Groq API/i);
+    ).rejects.toThrow(/Превышен лимит запросов Mistral/i);
 
     mockFetch.mockRestore();
 });

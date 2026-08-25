@@ -205,19 +205,6 @@ export async function executeAiStreamRequest(options: AiRequestOptions): Promise
 
     // Если fallback разрешен по типу ошибки, но у резервного провайдера не настроен ключ:
     if (!fallbackKey) {
-        if (primaryError.code === 'RATE_LIMIT' || primaryError.code === 'QUOTA_EXCEEDED') {
-            const needKeyMsg =
-                effectivePrimary === 'mistral'
-                    ? t(
-                          'mistralRateLimitNeedGroqKey',
-                          'Лимит Mistral достигнут. Для автоматического переключения добавьте Groq API Key в настройках.',
-                      )
-                    : t(
-                          'groqRateLimitNeedMistralKey',
-                          'Лимит Groq достигнут. Для автоматического переключения добавьте Mistral API Key в настройках.',
-                      );
-            throw new AiProviderError(needKeyMsg, primaryError.code, effectivePrimary, true, primaryError.status);
-        }
         throw primaryError;
     }
 
