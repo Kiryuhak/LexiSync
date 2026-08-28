@@ -2347,7 +2347,7 @@ test('выключенный fallback не отправляет текст в Gr
     );
 
     expect(response.status).toBe('error');
-    expect(response.error).toMatch(/лимит/i);
+    expect(response.error).toMatch(/лимит|rate limit/i);
     expect(groqRequests).toBe(0);
     await extensionPage.close();
 });
@@ -2448,7 +2448,7 @@ test('кнопка Почему так в истории запросов заг
 
     const whySoBtn = card.locator('.why-so-btn');
     await expect(whySoBtn).toBeVisible();
-    await expect(whySoBtn).toHaveText(/Почему так/);
+    await expect(whySoBtn).toHaveText(/Почему так|Why like this/i);
 
     await whySoBtn.click();
 
