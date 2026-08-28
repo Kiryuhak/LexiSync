@@ -39,6 +39,7 @@ export interface HistoryItem {
     date: string;
     customName?: string;
     favorite?: boolean;
+    explanation?: string;
 }
 
 export interface StyleProfile {

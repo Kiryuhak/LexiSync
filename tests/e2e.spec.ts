@@ -2305,3 +2305,155 @@ test('результат AI-запроса отображает бейдж ис�
     await expect(providerBadge).toBeVisible();
     await expect(providerBadge).toHaveText(/Mistral|Groq/);
 });
+
+test('выключенный fallback не отправляет текст в Groq при ошибке Mistral', async ({ context }) => {
+    await setFakeApiKey(context);
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    const extensionId = new URL(background.url()).host;
+    const extensionPage = await context.newPage();
+    await extensionPage.goto(`chrome-extension://${extensionId}/options.html`);
+    await extensionPage.evaluate(() =>
+        chrome.runtime.sendMessage({ action: 'setGroqApiKey', value: 'gsk_mock-test-key-123' }),
+    );
+    await background.evaluate(() =>
+        chrome.storage.local.set({ primaryAiProvider: 'mistral', autoFallbackEnabled: false }),
+    );
+    await expect
+        .poll(() => extensionPage.evaluate(() => chrome.runtime.sendMessage({ action: 'getRuntimeSettings' })))
+        .toMatchObject({ ok: true, primaryAiProvider: 'mistral', autoFallbackEnabled: false });
+
+    let groqRequests = 0;
+    await context.route('https://api.mistral.ai/v1/chat/completions', (route) =>
+        route.fulfill({ status: 429, contentType: 'application/json', body: '{"message":"rate limit"}' }),
+    );
+    await context.route('https://api.groq.com/openai/v1/chat/completions', (route) => {
+        groqRequests += 1;
+        return route.fulfill({ status: 500, body: 'Groq не должен вызываться' });
+    });
+
+    const response = await extensionPage.evaluate(
+        () =>
+            new Promise<{ status: string; error?: string }>((resolve) => {
+                const port = chrome.runtime.connect({ name: 'mistralStream' });
+                port.onMessage.addListener((message) => {
+                    if (message.status === 'error' || message.status === 'done') {
+                        resolve(message);
+                        port.disconnect();
+                    }
+                });
+                port.postMessage({ action: 'callMistral', mode: 'spellcheck', text: 'Текст с ошибкой' });
+            }),
+    );
+
+    expect(response.status).toBe('error');
+    expect(response.error).toMatch(/лимит/i);
+    expect(groqRequests).toBe(0);
+    await extensionPage.close();
+});
+
+test('виджет статуса серверов отображается в настройках и обновляется по кнопке', async ({ page, context }) => {
+    await setFakeApiKey(context);
+    await context.route('https://api.groq.com/openai/v1/models', async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({ data: [{ id: 'qwen/qwen3.6-27b' }] }),
+        });
+    });
+    await context.route('https://api.mistral.ai/v1/models', async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({ data: [{ id: 'mistral-small-latest' }] }),
+        });
+    });
+
+    const [background] = context.serviceWorkers();
+    await background.evaluate(() => chrome.storage.local.set({ onboardingCompleted: true }));
+    const extensionId = new URL(background.url()).host;
+    await page.goto(`chrome-extension://${extensionId}/options.html`);
+
+    const groqCard = page.locator('#groqStatusCard');
+    const mistralCard = page.locator('#mistralStatusCard');
+    const refreshBtn = page.locator('#checkServerStatusBtn');
+
+    await expect(groqCard).toBeVisible();
+    await expect(mistralCard).toBeVisible();
+    await expect(refreshBtn).toBeVisible();
+
+    await refreshBtn.click();
+    await expect(groqCard.locator('.server-status-dot')).toBeVisible();
+    await expect(mistralCard.locator('.server-status-dot')).toBeVisible();
+});
+
+test('popup отображает компактный статус-бар серверов', async ({ page, context }) => {
+    const [background] = context.serviceWorkers();
+    const extensionId = new URL(background.url()).host;
+    await page.goto(`chrome-extension://${extensionId}/popup.html`);
+
+    const statusBar = page.locator('#popup-server-status-bar');
+    await expect(statusBar).toBeVisible();
+    await expect(page.locator('#popupGroqStatus')).toBeVisible();
+    await expect(page.locator('#popupMistralStatus')).toBeVisible();
+});
+
+test('блок инструкций в настройках содержит инструкции для Mistral и Groq', async ({ page, context }) => {
+    const [background] = context.serviceWorkers();
+    await background.evaluate(() => chrome.storage.local.set({ onboardingCompleted: true }));
+    const extensionId = new URL(background.url()).host;
+    await page.goto(`chrome-extension://${extensionId}/options.html`);
+
+    const instructionBox = page.locator('.instruction-box');
+    await expect(instructionBox).toBeVisible();
+    await expect(instructionBox).toContainText(/Mistral/);
+    await expect(instructionBox).toContainText(/Groq/);
+    await expect(instructionBox).toContainText(/console\.mistral\.ai/);
+    await expect(instructionBox).toContainText(/console\.groq\.com/);
+});
+
+test('кнопка Почему так в истории запросов загружает и отображает разбор правил', async ({ page, context }) => {
+    await setFakeApiKey(context);
+    await context.route('https://api.mistral.ai/v1/chat/completions', async (route) => {
+        const content =
+            '1. Ошибка в слове "ошыбка" — орфография.\n2. Правило: буквы И/Ы после шипящих. ЖИ/ШИ пиши с буквой И.';
+        await route.fulfill({
+            status: 200,
+            contentType: 'text/event-stream',
+            body: `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\ndata: [DONE]\n\n`,
+        });
+    });
+
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() =>
+        chrome.storage.local.set({
+            aiHistory: [
+                {
+                    id: 1001,
+                    mode: 'spellcheck',
+                    original: 'ошыбка',
+                    result: 'ошибка',
+                    date: new Date().toISOString(),
+                },
+            ],
+        }),
+    );
+
+    const extensionId = new URL(background.url()).host;
+    await page.goto(`chrome-extension://${extensionId}/lexisync-history.html`);
+
+    const card = page.locator('.history-card').first();
+    await expect(card).toBeVisible();
+
+    const whySoBtn = card.locator('.why-so-btn');
+    await expect(whySoBtn).toBeVisible();
+    await expect(whySoBtn).toHaveText(/Почему так/);
+
+    await whySoBtn.click();
+
+    const explanationBlock = card.locator('.explanation-block');
+    await expect(explanationBlock).toBeVisible();
+    await expect(explanationBlock).toContainText(/Правило/);
+    await expect(explanationBlock).toContainText(/ЖИ\/ШИ/);
+});

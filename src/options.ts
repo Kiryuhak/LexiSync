@@ -23,7 +23,14 @@ import { applyThemeCustomization, DEFAULT_THEME_CUSTOMIZATION } from './theme-cu
 import { DEFAULT_BUDGET_SETTINGS } from './budget';
 import { validateApiKey } from './mistral-client';
 import { validateGroqApiKey } from './groq-client';
+import {
+    checkProviderHealth,
+    loadCachedHealthStatus,
+    saveCachedHealthStatus,
+    type ProviderHealthStatus,
+} from './provider-health';
 import { logger } from './logger';
+import { normalizeAutoFallbackEnabled, normalizePrimaryAiProvider } from './runtime-settings-cache';
 import { setupSettingsTabs } from './options-tabs';
 import { setupInteractiveGuide } from './options-guide';
 import { PROMPT_LIBRARY_TEMPLATES } from './prompt-library';
@@ -41,6 +48,7 @@ import { normalizeSearchEngine, SEARCH_ENGINE_IDS, type SearchEngine } from './s
 
 let restoredApiKey = '';
 let restoredGroqApiKey = '';
+let serverHealthRefresh: Promise<void> | null = null;
 let savedOptionsState = '';
 let saveInProgress = false;
 let syncSearchEngineSelector = (): void => undefined;
@@ -452,6 +460,7 @@ async function saveOptions(): Promise<void> {
         savedOptionsState = captureOptionsState();
         const combinedStatus = apiKeyStatus || groqKeyStatus || t('saveSuccess', '✓ Настройки успешно сохранены!');
         showOptionsStatus(combinedStatus, apiKeyStatus || groqKeyStatus ? 'warning' : 'success');
+        void refreshServerHealthStatus(false);
         window.setTimeout(() => {
             const status = document.getElementById('status');
             if (status) status.style.display = 'none';
@@ -531,8 +540,8 @@ async function restoreOptions(): Promise<void> {
     restoredApiKey = apiKeyInput.value;
     groqApiKeyInput.value = privateGroqApiKey;
     restoredGroqApiKey = groqApiKeyInput.value;
-    primaryAiProviderSelect.value = (items.primaryAiProvider as string) || 'auto';
-    autoFallbackEnabledInput.checked = items.autoFallbackEnabled !== false;
+    primaryAiProviderSelect.value = normalizePrimaryAiProvider(items.primaryAiProvider);
+    autoFallbackEnabledInput.checked = normalizeAutoFallbackEnabled(items.autoFallbackEnabled);
     toneSelect.value = items.selectedTone as string;
     themeSelect.value = items.selectedTheme as string;
     visualStyleSelect.value = normalizeAppearanceStyle(items.visualStyle);
@@ -588,6 +597,70 @@ async function restoreOptions(): Promise<void> {
     renderAdaptiveStats(items.adaptiveLanguageModel);
     savedOptionsState = captureOptionsState();
     updateSaveButtonState();
+
+    void initializeServerHealth();
+}
+
+function renderServerHealthCard(provider: 'groq' | 'mistral', status: ProviderHealthStatus): void {
+    const card = document.getElementById(`${provider}StatusCard`);
+    const dot = document.getElementById(`${provider}StatusDot`);
+    const text = document.getElementById(`${provider}StatusText`);
+    const latency = document.getElementById(`${provider}StatusLatency`);
+    if (!card || !dot || !text || !latency) return;
+
+    card.dataset.status = status.state;
+    dot.className = `server-status-dot dot-${status.state}`;
+    text.textContent = status.message;
+    latency.textContent =
+        typeof status.latencyMs === 'number' ? `${Math.round(status.latencyMs)} ${t('millisecondsShort', 'мс')}` : '';
+}
+
+async function refreshServerHealthStatus(showChecking = true): Promise<void> {
+    if (serverHealthRefresh) return serverHealthRefresh;
+
+    const refreshButton = document.getElementById('checkServerStatusBtn') as HTMLButtonElement | null;
+    const groqKey = (document.getElementById('groqApiKey') as HTMLInputElement)?.value || restoredGroqApiKey;
+    const mistralKey = (document.getElementById('apiKey') as HTMLInputElement)?.value || restoredApiKey;
+
+    if (showChecking) {
+        renderServerHealthCard('groq', {
+            provider: 'groq',
+            state: 'checking',
+            message: t('serverStatusChecking', 'Проверка связи...'),
+            checkedAt: Date.now(),
+        });
+        renderServerHealthCard('mistral', {
+            provider: 'mistral',
+            state: 'checking',
+            message: t('serverStatusChecking', 'Проверка связи...'),
+            checkedAt: Date.now(),
+        });
+    }
+
+    refreshButton?.setAttribute('aria-busy', 'true');
+    if (refreshButton) refreshButton.disabled = true;
+    serverHealthRefresh = (async () => {
+        const [groqStatus, mistralStatus] = await Promise.all([
+            checkProviderHealth('groq', groqKey),
+            checkProviderHealth('mistral', mistralKey),
+        ]);
+
+        renderServerHealthCard('groq', groqStatus);
+        renderServerHealthCard('mistral', mistralStatus);
+        await saveCachedHealthStatus({ groq: groqStatus, mistral: mistralStatus });
+    })().finally(() => {
+        refreshButton?.removeAttribute('aria-busy');
+        if (refreshButton) refreshButton.disabled = false;
+        serverHealthRefresh = null;
+    });
+    return serverHealthRefresh;
+}
+
+async function initializeServerHealth(): Promise<void> {
+    const cached = await loadCachedHealthStatus();
+    if (cached.groq) renderServerHealthCard('groq', cached.groq);
+    if (cached.mistral) renderServerHealthCard('mistral', cached.mistral);
+    await refreshServerHealthStatus(false);
 }
 
 function setupPromptLibrary(): void {
@@ -824,6 +897,9 @@ document.addEventListener('DOMContentLoaded', () => {
     setupPromptLibrary();
     setupFactoryReset();
     setupInteractiveGuide();
+    document.getElementById('checkServerStatusBtn')?.addEventListener('click', () => {
+        void refreshServerHealthStatus(true);
+    });
 
     const clearAdaptiveDataButton = document.getElementById('clearAdaptiveData') as HTMLButtonElement | null;
     clearAdaptiveDataButton?.addEventListener('click', async () => {

@@ -86,9 +86,9 @@ test('безопасно нормализует поисковик и повре
 });
 
 test('история обновлений содержит все выпуски и поддерживает поиск', () => {
-    expect(RELEASE_NOTES[0].version).toBe('5.5.1');
+    expect(RELEASE_NOTES[0].version).toBe('5.5.2');
     expect(RELEASE_NOTES.at(-1)?.version).toBe('2.5');
-    expect(RELEASE_NOTES).toHaveLength(52);
+    expect(RELEASE_NOTES).toHaveLength(53);
     expect(new Set(RELEASE_NOTES.map((release) => release.version)).size).toBe(RELEASE_NOTES.length);
     expect(filterReleaseNotes(RELEASE_NOTES, 'MagicOS', 'ru').map((release) => release.version)).toEqual([
         '5.3.4',
@@ -1779,7 +1779,7 @@ test('renderPrimaryResultActions создает кнопку скачивани�
     }
 });
 
-test('cleanMarkdownArtifacts удаляет паразитные таблицы и символы | вокруг обычного текста', async () => {
+test('cleanMarkdownArtifacts удаляет паразитные таблицы и символы | вокруг обычного текста, а также звездочки Markdown', async () => {
     const { cleanMarkdownArtifacts } = await import('../src/markdown');
 
     const tableGarbage = `| Регистрация нового пользователя | |\n| --- | --- |`;
@@ -1790,6 +1790,15 @@ test('cleanMarkdownArtifacts удаляет паразитные таблицы 
 
     const regularText = 'Обычный текст без таблиц';
     expect(cleanMarkdownArtifacts(regularText)).toBe('Обычный текст без таблиц');
+
+    const boldText = '**Привет! Данные по приборам учёта обновлены.**';
+    expect(cleanMarkdownArtifacts(boldText)).toBe('Привет! Данные по приборам учёта обновлены.');
+
+    const mixedAsterisks = '***Важное*** сообщение: **внимание**!';
+    expect(cleanMarkdownArtifacts(mixedAsterisks)).toBe('Важное сообщение: внимание!');
+
+    const multiplication = 'Расчёт: 2 * 3 = 6';
+    expect(cleanMarkdownArtifacts(multiplication)).toBe(multiplication);
 });
 
 test('maskPii и unmaskPii корректно маскируют и восстанавливают чувствительные данные', async () => {
@@ -2556,6 +2565,17 @@ test('Unit 10: Отключение autoFallback=false предотвращае�
     mockFetch.mockRestore();
 });
 
+test('настройки AI нормализуют выключенный fallback и старые строковые значения', async () => {
+    const { normalizeAutoFallbackEnabled, normalizePrimaryAiProvider } = await import('../src/runtime-settings-cache');
+
+    expect(normalizeAutoFallbackEnabled(false)).toBe(false);
+    expect(normalizeAutoFallbackEnabled('false')).toBe(false);
+    expect(normalizeAutoFallbackEnabled(true)).toBe(true);
+    expect(normalizeAutoFallbackEnabled(undefined)).toBe(true);
+    expect(normalizePrimaryAiProvider('mistral')).toBe('mistral');
+    expect(normalizePrimaryAiProvider('unknown')).toBe('auto');
+});
+
 test('Unit 11: Парсинг SSE стрима Groq / OpenAI-совместимого формата', async () => {
     const { readGroqSsePayload } = await import('../src/groq-client');
     const line1 = 'data: {"choices":[{"delta":{"content":"Часть 1 "}}]}';
@@ -2699,4 +2719,150 @@ test('Unit 16: showMoreMenu экспортируется и создает ме�
         vi.stubGlobal('document', originalDocument);
         vi.stubGlobal('DOMParser', originalDOMParser);
     }
+});
+
+test('Unit 18: checkProviderHealth классифицирует состояния серверов (healthy, degraded, outage, unconfigured)', async () => {
+    const { checkProviderHealth } = await import('../src/provider-health');
+
+    // 1. Без ключа -> unconfigured
+    const unconfigured = await checkProviderHealth('groq', '');
+    expect(unconfigured.state).toBe('unconfigured');
+
+    // 2. 200 OK -> healthy
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ data: [] }),
+    });
+
+    try {
+        const healthy = await checkProviderHealth('groq', 'gsk_test_key');
+        expect(healthy.state).toBe('healthy');
+        expect(typeof healthy.latencyMs).toBe('number');
+
+        // 3. 429 Rate Limit -> degraded (желтый)
+        globalThis.fetch = vi.fn().mockResolvedValue({
+            ok: false,
+            status: 429,
+        });
+        const degraded = await checkProviderHealth('mistral', 'test_key');
+        expect(degraded.state).toBe('degraded');
+
+        // 4. 503 Server Error -> outage (красный)
+        globalThis.fetch = vi.fn().mockResolvedValue({
+            ok: false,
+            status: 503,
+        });
+        const outage = await checkProviderHealth('groq', 'gsk_test_key');
+        expect(outage.state).toBe('outage');
+
+        // 5. 401 Auth Error -> outage (красный)
+        globalThis.fetch = vi.fn().mockResolvedValue({
+            ok: false,
+            status: 401,
+        });
+        const authError = await checkProviderHealth('mistral', 'invalid_key');
+        expect(authError.state).toBe('outage');
+
+        // 6. Network Error / Timeout -> outage (красный)
+        globalThis.fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+        const netError = await checkProviderHealth('groq', 'gsk_test_key');
+        expect(netError.state).toBe('outage');
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
+test('Unit 19: getHealthStateColor и getHealthStateBadge возвращают корректные цвета и эмодзи', async () => {
+    const { getHealthStateColor, getHealthStateBadge } = await import('../src/provider-health');
+
+    expect(getHealthStateColor('healthy')).toBe('#10b981');
+    expect(getHealthStateBadge('healthy')).toBe('🟢');
+
+    expect(getHealthStateColor('degraded')).toBe('#f59e0b');
+    expect(getHealthStateBadge('degraded')).toBe('🟡');
+
+    expect(getHealthStateColor('outage')).toBe('#ef4444');
+    expect(getHealthStateBadge('outage')).toBe('🔴');
+
+    expect(getHealthStateColor('unconfigured')).toBe('#9ca3af');
+    expect(getHealthStateBadge('unconfigured')).toBe('⚪');
+});
+
+test('Unit 20: evaluateHealthFromRuntimeResponse корректно оценивает статус после выполнения запроса', async () => {
+    const { evaluateHealthFromRuntimeResponse } = await import('../src/provider-health');
+
+    const fastOk = evaluateHealthFromRuntimeResponse('groq', 450);
+    expect(fastOk.state).toBe('healthy');
+
+    const slowOk = evaluateHealthFromRuntimeResponse('mistral', 4200);
+    expect(slowOk.state).toBe('degraded');
+
+    const rateLimit = evaluateHealthFromRuntimeResponse('groq', 200, 429);
+    expect(rateLimit.state).toBe('degraded');
+
+    const serverError = evaluateHealthFromRuntimeResponse('mistral', 100, 500);
+    expect(serverError.state).toBe('outage');
+
+    const netFail = evaluateHealthFromRuntimeResponse('groq', 1500, undefined, true);
+    expect(netFail.state).toBe('outage');
+});
+
+test('Unit 21: buildGrammarExplanationPayload формирует сообщения для объяснения правил и ошибок', async () => {
+    const { buildGrammarExplanationPayload } = await import('../src/prompt-builder');
+
+    const payload = buildGrammarExplanationPayload('Привет мир', 'Привет, мир!', 'spellcheck');
+    expect(payload.messages.length).toBe(2);
+    expect(payload.messages[0].role).toBe('system');
+    expect(payload.messages[0].content).toContain('филолог');
+    expect(payload.messages[0].content).toMatch(/правил/i);
+    expect(payload.messages[1].role).toBe('user');
+    expect(payload.messages[1].content).toContain('Привет мир');
+    expect(payload.messages[1].content).toContain('Привет, мир!');
+});
+
+test('разбор правил маскирует чувствительные данные перед отправкой в AI', async () => {
+    const { buildGrammarExplanationPayload, buildPromptPayload } = await import('../src/prompt-builder');
+    const explanation = buildGrammarExplanationPayload(
+        'Почта user@example.com',
+        'Почта: user@example.com',
+        'spellcheck',
+    );
+    const payload = buildPromptPayload(
+        { rawMessages: explanation.messages },
+        {
+            selectedTone: 'business',
+            sendPageContext: false,
+            personalDictionary: [],
+            glossary: [],
+            enablePiiMasking: true,
+        },
+    );
+
+    expect(payload.messages[1].content).not.toContain('user@example.com');
+    expect(Object.values(payload.piiMaskMap)).toContain('user@example.com');
+});
+
+test('Unit 22: formatHistoryAsCsv и formatHistoryAsMarkdown экспортируют разбор правил', async () => {
+    const { formatHistoryAsCsv, formatHistoryAsMarkdown } = await import('../src/history-export');
+    const items = [
+        {
+            id: 1,
+            mode: 'spellcheck' as const,
+            date: '2026-08-27T10:00:00.000Z',
+            original: 'ошыбка',
+            result: 'ошибка',
+            favorite: true,
+            explanation: 'Правило: жи/ши пиши с буквой и.',
+        },
+    ];
+
+    const csv = formatHistoryAsCsv(items);
+    expect(csv).toContain('explanation');
+    expect(csv).toContain('жи/ши пиши с буквой и');
+
+    const md = formatHistoryAsMarkdown(items, { spellcheck: 'Ошибки' });
+    expect(md).toContain('**Разбор правил:**');
+    expect(md).toContain('жи/ши пиши с буквой и');
 });

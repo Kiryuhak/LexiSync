@@ -17,7 +17,8 @@ import { applySettingsMutation, type SettingsMutation } from './settings-store';
 import { initializeSettingsSync, restoreSyncedSettings } from './settings-transfer';
 import { formatMistralError, isRetryableMistralError, processOcr, type MistralRequest } from './mistral-client';
 import { executeAiStreamRequest } from './ai-client';
-import type { PrimaryAiProvider } from './ai-provider-types';
+import { buildGrammarExplanationPayload } from './prompt-builder';
+import { cleanMarkdownArtifacts } from './markdown';
 import { validateMistralRequest } from './request-validation';
 import { resolveStyleProfile } from './site-profiles';
 import {
@@ -39,7 +40,14 @@ import {
     setStoredGroqApiKey,
 } from './secret-store';
 import { logger } from './logger';
-import { isRuntimeSettingKey, pickRuntimeSettings, RUNTIME_SETTING_KEYS } from './runtime-settings-cache';
+import {
+    AI_PROVIDER_RUNTIME_DEFAULTS,
+    isRuntimeSettingKey,
+    normalizeAutoFallbackEnabled,
+    normalizePrimaryAiProvider,
+    pickRuntimeSettings,
+    RUNTIME_SETTING_KEYS,
+} from './runtime-settings-cache';
 import { isExtensionAllowedForUrl } from './site-runtime-access';
 
 const REQUEST_TIMEOUT_MS = 45_000;
@@ -327,8 +335,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         compactResultMode: null,
                         resultDisplayMode: '',
                         enablePiiMasking: true,
-                        primaryAiProvider: 'auto',
-                        autoFallbackEnabled: true,
+                        ...AI_PROVIDER_RUNTIME_DEFAULTS,
                     }),
                     getStoredApiKey(),
                     getStoredGroqApiKey(),
@@ -349,8 +356,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     hasApiKey: apiKey.length > 0 || groqApiKey.length > 0,
                     hasMistralApiKey: apiKey.length > 0,
                     hasGroqApiKey: groqApiKey.length > 0,
-                    primaryAiProvider: settings.primaryAiProvider || 'auto',
-                    autoFallbackEnabled: settings.autoFallbackEnabled !== false,
+                    primaryAiProvider: normalizePrimaryAiProvider(settings.primaryAiProvider),
+                    autoFallbackEnabled: normalizeAutoFallbackEnabled(settings.autoFallbackEnabled),
                     sendPageContext: settings.sendPageContext === true,
                     contextDisabledSites: settings.contextDisabledSites,
                     compactResultMode: settings.compactResultMode === true,
@@ -447,6 +454,78 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) }),
             );
         return true;
+    } else if (request.action === 'explainHistoryGrammar') {
+        const original = typeof request.original === 'string' ? request.original : '';
+        const result = typeof request.result === 'string' ? request.result : '';
+        const mode = request.mode || 'spellcheck';
+        if (!original || !result) {
+            sendResponse({ ok: false, error: 'MISSING_DATA' });
+            return false;
+        }
+        void (async () => {
+            try {
+                await initializationPromise;
+                const [mistralApiKey, groqApiKey, settings] = await Promise.all([
+                    getStoredApiKey(),
+                    getStoredGroqApiKey(),
+                    getCachedSettings({
+                        selectedTone: 'business',
+                        ...AI_PROVIDER_RUNTIME_DEFAULTS,
+                        aiMode: 'quality',
+                    }),
+                ]);
+                if (!mistralApiKey && !groqApiKey) {
+                    throw new Error(t('apiKeyMissing', 'API-ключ не настроен'));
+                }
+                const payload = buildGrammarExplanationPayload(original, result, mode);
+                let explanationText = '';
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 30_000);
+                try {
+                    await executeAiStreamRequest({
+                        request: {
+                            action: 'callMistral',
+                            text: '',
+                            mode: 'explain',
+                            rawMessages: payload.messages,
+                        },
+                        settings: {
+                            selectedTone: (settings.selectedTone as string) || 'business',
+                            sendPageContext: false,
+                            personalDictionary: [],
+                            glossary: [],
+                            aiMode: 'quality',
+                            enablePiiMasking: true,
+                        },
+                        mistralApiKey,
+                        groqApiKey,
+                        primaryProvider: normalizePrimaryAiProvider(settings.primaryAiProvider),
+                        autoFallback: normalizeAutoFallbackEnabled(settings.autoFallbackEnabled),
+                        signal: controller.signal,
+                        onChunk: (chunk) => {
+                            explanationText += chunk;
+                        },
+                        onReset: () => {
+                            explanationText = '';
+                        },
+                    });
+                } finally {
+                    clearTimeout(timeout);
+                }
+                const cleaned = cleanMarkdownArtifacts(explanationText.trim());
+                sendResponse({ ok: true, explanation: cleaned });
+            } catch (error) {
+                logger.error('Failed to generate grammar explanation:', error);
+                sendResponse({
+                    ok: false,
+                    error:
+                        error instanceof Error
+                            ? error.message
+                            : t('explanationFailed', 'Не удалось получить разбор правил.'),
+                });
+            }
+        })();
+        return true;
     }
     return false;
 });
@@ -528,6 +607,7 @@ chrome.runtime.onConnect.addListener((port) => {
                 activeStyleProfileId: '',
                 aiMode: 'quality',
                 contextDisabledSites: [],
+                ...AI_PROVIDER_RUNTIME_DEFAULTS,
                 ...DEFAULT_BUDGET_SETTINGS,
                 enablePiiMasking: true,
             });
@@ -650,8 +730,8 @@ chrome.runtime.onConnect.addListener((port) => {
                                 : 'quality',
                         enablePiiMasking: settings.enablePiiMasking !== false,
                     },
-                    primaryProvider: (settings.primaryAiProvider as PrimaryAiProvider) || 'auto',
-                    autoFallback: settings.autoFallbackEnabled !== false,
+                    primaryProvider: normalizePrimaryAiProvider(settings.primaryAiProvider),
+                    autoFallback: normalizeAutoFallbackEnabled(settings.autoFallbackEnabled),
                     mistralApiKey,
                     groqApiKey,
                     signal: requestController.signal,

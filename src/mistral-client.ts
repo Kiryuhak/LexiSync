@@ -15,6 +15,7 @@ export interface MistralRequest {
     allowPageContext?: boolean;
     customPrompt?: string;
     replyIntent?: 'agree' | 'decline' | 'clarify' | 'alternative';
+    rawMessages?: Array<{ role: 'system' | 'user'; content: string }>;
 }
 
 export interface MistralSettings {

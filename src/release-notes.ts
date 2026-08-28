@@ -36,6 +36,31 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.5.2',
+        '2026-08-27',
+        'fixed',
+        'Точный выбор AI и понятная диагностика подключения',
+        'Reliable AI selection and clear connection diagnostics',
+        [
+            [
+                'Отключённое резервное переключение теперь строго запрещает отправку текста второму AI-провайдеру во всех командах.',
+                'Disabling backup provider switching now strictly prevents sending text to a second AI provider in every command.',
+            ],
+            [
+                'Ожидание первого фрагмента ответа сокращено, а активный поток больше не обрывается, пока данные продолжают поступать.',
+                'The first response chunk now has a shorter timeout, while an active stream remains open as long as data keeps arriving.',
+            ],
+            [
+                'В настройках появился тест подключения к Mistral и Groq, а окно результата показывает время выполнения запроса.',
+                'Settings now include Mistral and Groq connection checks, and the result window shows request duration.',
+            ],
+            [
+                'В истории можно запросить понятный разбор исправлений и правил; он сохраняется локально и включается в экспорт.',
+                'History items can now provide a plain-language explanation of corrections and rules, stored locally and included in exports.',
+            ],
+        ],
+    ),
+    note(
         '5.5.1',
         '2026-08-25',
         'improved',

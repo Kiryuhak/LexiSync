@@ -51,6 +51,8 @@ export interface AiRequestOptions {
     onReset?: () => void;
     /** Отдельный лимит ожидания одного провайдера; общий запрос по-прежнему контролируется вызывающим кодом. */
     providerTimeoutMs?: number;
+    /** Максимальная пауза между частями уже начавшегося потокового ответа. */
+    providerStallTimeoutMs?: number;
 }
 
 export interface AiExecutionResult {

@@ -662,6 +662,48 @@
                     0 7px 16px rgba(23, 108, 98, 0.14);
             }
 
+            .popup-server-status-bar {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                margin-top: 4px;
+                font-size: 11px;
+                color: var(--text-muted);
+            }
+            .popup-server-item {
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                cursor: default;
+            }
+            .popup-status-dot {
+                width: 6px;
+                height: 6px;
+                border-radius: 50%;
+                background: #9ca3af;
+                flex-shrink: 0;
+                transition: background 200ms ease;
+            }
+            .popup-status-dot.dot-healthy {
+                background: #10b981;
+                box-shadow: 0 0 4px rgba(16, 185, 129, 0.6);
+            }
+            .popup-status-dot.dot-degraded {
+                background: #f59e0b;
+                box-shadow: 0 0 4px rgba(245, 158, 11, 0.6);
+            }
+            .popup-status-dot.dot-outage {
+                background: #ef4444;
+                box-shadow: 0 0 4px rgba(239, 68, 68, 0.6);
+            }
+            .popup-status-dot.dot-checking {
+                background: #3b82f6;
+            }
+            .popup-server-sep {
+                opacity: 0.5;
+                font-size: 9px;
+            }
+
             @media (prefers-reduced-motion: reduce) {
                 .action,
                 .chevron {
@@ -681,6 +723,22 @@
                     <p class="brand-subtitle">
                         <span class="status-dot"></span><span data-i18n="ready">AI-помощник готов к работе</span>
                     </p>
+                    <div
+                        id="popup-server-status-bar"
+                        class="popup-server-status-bar"
+                        title="Состояние AI-подключений"
+                        data-i18n-title="serverStatusTitle"
+                    >
+                        <span class="popup-server-item" id="popupGroqStatus" title="Groq: проверка...">
+                            <span class="popup-status-dot" id="popupGroqDot"></span>
+                            <span class="popup-server-name">Groq</span>
+                        </span>
+                        <span class="popup-server-sep">•</span>
+                        <span class="popup-server-item" id="popupMistralStatus" title="Mistral: проверка...">
+                            <span class="popup-status-dot" id="popupMistralDot"></span>
+                            <span class="popup-server-name">Mistral</span>
+                        </span>
+                    </div>
                 </div>
             </header>
 

@@ -135,6 +135,21 @@ export const POPUP_STYLE_TEXT = `
             @keyframes lexiSyncDropdownIn { 0% { opacity: 0; transform: translateY(-4px) scale(0.97); } 100% { opacity: 1; transform: translateY(0) scale(1); }}
             .lexisync-dropdown { animation: lexiSyncDropdownIn 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
             .lexisync-loader { width: 14px; height: 14px; border: 2.5px solid var(--text-secondary); border-top-color: transparent; border-radius: 50%; animation: lexisync-spin 0.8s linear infinite; }
+            .lexisync-request-timer {
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                font-size: 11px;
+                font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+                font-weight: 600;
+                color: var(--accent-primary, #2563eb);
+                background: color-mix(in srgb, var(--accent-primary, #2563eb) 12%, transparent);
+                border: 1px solid color-mix(in srgb, var(--accent-primary, #2563eb) 25%, transparent);
+                padding: 2px 7px;
+                border-radius: 6px;
+                user-select: none;
+                line-height: 1.4;
+            }
             .lexisync-hourglass { animation: lexisync-flip 2s ease-in-out infinite; display: flex; align-items: center; justify-content: center; }
             #lexisync-extension-ui mark { background: #dcfce7; color: #166534; padding: 2px 4px; border-radius: 4px; font-weight: 500; }
             #lexisync-extension-ui[data-theme="dark"] mark { background: #0f5223; color: #c4eed0; }
@@ -380,6 +395,22 @@ export const POPUP_STYLE_TEXT = `
                     background-color 0.15s ease,
                     border-color 0.15s ease;
                 white-space: nowrap;
+            }
+            .lexisync-provider-dot {
+                width: 5px;
+                height: 5px;
+                border-radius: 50%;
+                background: #10b981;
+                flex-shrink: 0;
+            }
+            .lexisync-provider-dot.dot-healthy {
+                background: #10b981;
+            }
+            .lexisync-provider-dot.dot-degraded {
+                background: #f59e0b;
+            }
+            .lexisync-provider-dot.dot-outage {
+                background: #ef4444;
             }
             .lexisync-provider-groq {
                 background: rgba(245, 80, 54, 0.12);

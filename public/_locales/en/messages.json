@@ -130,6 +130,13 @@
     "historyExported": { "message": "History file prepared." },
     "historyActionFailed": { "message": "Could not complete the history action. Please try again." },
     "historyLoadFailed": { "message": "Could not load history. Reload the page." },
+    "whySo": { "message": "💡 Why like this?" },
+    "hideExplanation": { "message": "Hide breakdown" },
+    "explanationLoading": { "message": "Analyzing mistakes and grammar rules..." },
+    "explanationTitle": { "message": "Grammar & Rules Breakdown" },
+    "explanationCopy": { "message": "Copy explanation" },
+    "explanationCopied": { "message": "Explanation copied!" },
+    "explanationFailed": { "message": "Failed to generate grammar breakdown." },
     "searchGoogle": { "message": "Search with Google" },
     "searchYandex": { "message": "Search with Yandex" },
     "searchDuckDuckGo": { "message": "Search with DuckDuckGo" },
@@ -202,11 +209,16 @@
     "days30": { "message": "30 days" },
     "disabledSitesLabel": { "message": "Do not save data on:" },
     "dictionaryTitle": { "message": "Personal dictionary" },
-    "dictionaryLabel": { "message": "Words that should not be corrected:" },
-    "getApiKeyTitle": { "message": "Where do I get an API key?" },
+    "dictionaryLabel": { "message": "Words not to correct:" },
+    "getApiKeyTitle": { "message": "Where do I get API keys?" },
+    "getMistralApiKeySubTitle": { "message": "✦ Mistral AI" },
     "getApiKeyStep1": { "message": "Open console.mistral.ai." },
     "getApiKeyStep2": { "message": "Find API Keys in the left menu." },
     "getApiKeyStep3": { "message": "Select Create new key and copy it." },
+    "getGroqApiKeySubTitle": { "message": "⚡ Groq (Qwen 3.6 27B)" },
+    "getGroqApiKeyStep1": { "message": "Open console.groq.com/keys." },
+    "getGroqApiKeyStep2": { "message": "Open the API Keys section." },
+    "getGroqApiKeyStep3": { "message": "Select Create API Key and copy it." },
     "save": { "message": "Save" },
     "saved": { "message": "✓ Saved successfully!" },
     "onboardingIntro": { "message": "The extension corrects, translates, and improves text directly on the page." },
@@ -235,9 +247,6 @@
     "tutorialOpenMistral": { "message": "Open Mistral Studio ↗" },
     "tutorialMistralSignIn": { "message": "Sign in to Mistral or create an account" },
     "tutorialGroqSignIn": { "message": "Sign in to your Groq account or create a new one" },
-    "getGroqApiKeyStep1": { "message": "Go to console.groq.com/keys." },
-    "getGroqApiKeyStep2": { "message": "Find API Keys in the left menu." },
-    "getGroqApiKeyStep3": { "message": "Click Create API Key and copy it." },
     "tutorialApiKeyLabel": { "message": "Mistral API key" },
     "tutorialGroqApiKeyLabel": { "message": "Groq API key" },
     "tutorialCheckKey": { "message": "Verify" },
@@ -842,10 +851,10 @@
         "message": "⚡ Groq (Qwen 3.6 27B · Preview)"
     },
     "autoFallbackLabel": {
-        "message": "Automatic Fallback on Limits"
+        "message": "Allow backup provider switching"
     },
     "autoFallbackHint": {
-        "message": "Switches to the backup service after a rate limit, timeout, or temporary failure."
+        "message": "When disabled, text is never sent to another AI provider. When enabled, the backup is used only after a rate limit, timeout, or temporary failure."
     },
     "groqApiKeyLabel": {
         "message": "Your Groq API Key (Qwen 3.6 27B):"
@@ -927,5 +936,44 @@
     },
     "tutorialOpenGroq": {
         "message": "Open Groq Console ↗"
+    },
+    "serverStatusHealthy": {
+        "message": "Operational"
+    },
+    "serverStatusDegradedLatency": {
+        "message": "Degraded latency"
+    },
+    "serverStatusRateLimit": {
+        "message": "Rate limit reached"
+    },
+    "serverStatusAuthError": {
+        "message": "Invalid API key"
+    },
+    "serverStatusServerError": {
+        "message": "Server error"
+    },
+    "serverStatusHttpError": {
+        "message": "HTTP error"
+    },
+    "serverStatusTimeout": {
+        "message": "Connection timeout"
+    },
+    "serverStatusNetworkError": {
+        "message": "Network error / unavailable"
+    },
+    "serverStatusUnconfigured": {
+        "message": "Not configured"
+    },
+    "serverStatusTitle": {
+        "message": "AI connection status"
+    },
+    "checkServerStatusBtn": {
+        "message": "Check server status"
+    },
+    "serverStatusChecking": {
+        "message": "Checking connection..."
+    },
+    "millisecondsShort": {
+        "message": "ms"
     }
 }

@@ -130,6 +130,13 @@
     "historyExported": { "message": "Файл истории подготовлен." },
     "historyActionFailed": { "message": "Не удалось выполнить действие с историей. Попробуйте ещё раз." },
     "historyLoadFailed": { "message": "Не удалось загрузить историю. Перезагрузите страницу." },
+    "whySo": { "message": "💡 Почему так?" },
+    "hideExplanation": { "message": "Свернуть разбор" },
+    "explanationLoading": { "message": "Анализируем ошибки и правила..." },
+    "explanationTitle": { "message": "Разбор правил и ошибок" },
+    "explanationCopy": { "message": "Копировать разбор" },
+    "explanationCopied": { "message": "Разбор скопирован!" },
+    "explanationFailed": { "message": "Не удалось получить разбор правил." },
     "searchGoogle": { "message": "Искать в Google" },
     "searchYandex": { "message": "Искать в Яндексе" },
     "searchDuckDuckGo": { "message": "Искать в DuckDuckGo" },
@@ -203,10 +210,15 @@
     "disabledSitesLabel": { "message": "Не сохранять данные на сайтах:" },
     "dictionaryTitle": { "message": "Личный словарь" },
     "dictionaryLabel": { "message": "Слова, которые не нужно исправлять:" },
-    "getApiKeyTitle": { "message": "Где взять API-ключ?" },
+    "getApiKeyTitle": { "message": "Где взять API-ключи?" },
+    "getMistralApiKeySubTitle": { "message": "✦ Mistral AI" },
     "getApiKeyStep1": { "message": "Перейдите на console.mistral.ai." },
     "getApiKeyStep2": { "message": "В меню слева найдите раздел API Keys." },
     "getApiKeyStep3": { "message": "Нажмите Create new key и скопируйте его." },
+    "getGroqApiKeySubTitle": { "message": "⚡ Groq (Qwen 3.6 27B)" },
+    "getGroqApiKeyStep1": { "message": "Перейдите на console.groq.com/keys." },
+    "getGroqApiKeyStep2": { "message": "Откройте раздел API Keys." },
+    "getGroqApiKeyStep3": { "message": "Нажмите Create API Key и скопируйте его." },
     "save": { "message": "Сохранить" },
     "saved": { "message": "✓ Сохранено успешно!" },
     "onboardingIntro": { "message": "Расширение помогает исправлять, переводить и улучшать текст прямо на странице." },
@@ -235,9 +247,6 @@
     "tutorialOpenMistral": { "message": "Открыть Mistral Studio ↗" },
     "tutorialMistralSignIn": { "message": "Войдите в аккаунт Mistral или создайте новый" },
     "tutorialGroqSignIn": { "message": "Войдите в аккаунт Groq или создайте новый" },
-    "getGroqApiKeyStep1": { "message": "Перейдите на console.groq.com/keys." },
-    "getGroqApiKeyStep2": { "message": "В меню слева найдите раздел API Keys." },
-    "getGroqApiKeyStep3": { "message": "Нажмите Create API Key и скопируйте его." },
     "tutorialApiKeyLabel": { "message": "API-ключ Mistral" },
     "tutorialGroqApiKeyLabel": { "message": "API-ключ Groq" },
     "tutorialCheckKey": { "message": "Проверить" },
@@ -842,10 +851,10 @@
         "message": "⚡ Groq (Qwen 3.6 27B · Preview)"
     },
     "autoFallbackLabel": {
-        "message": "Автоматический fallback при лимитах"
+        "message": "Разрешить резервное переключение"
     },
     "autoFallbackHint": {
-        "message": "Переключает на резервный сервис при лимите, таймауте или временном сбое."
+        "message": "Если выключено, текст никогда не отправляется другому AI-провайдеру. Если включено, резерв используется только при лимите, таймауте или временном сбое."
     },
     "groqApiKeyLabel": {
         "message": "Ваш Groq API Key (Qwen 3.6 27B):"
@@ -927,5 +936,44 @@
     },
     "tutorialOpenGroq": {
         "message": "Открыть Groq Console ↗"
+    },
+    "serverStatusHealthy": {
+        "message": "Работает отлично"
+    },
+    "serverStatusDegradedLatency": {
+        "message": "Замедление ответа"
+    },
+    "serverStatusRateLimit": {
+        "message": "Лимит запросов (Rate Limit)"
+    },
+    "serverStatusAuthError": {
+        "message": "Недействительный API-ключ"
+    },
+    "serverStatusServerError": {
+        "message": "Сбой сервера"
+    },
+    "serverStatusHttpError": {
+        "message": "Ошибка HTTP"
+    },
+    "serverStatusTimeout": {
+        "message": "Таймаут подключения"
+    },
+    "serverStatusNetworkError": {
+        "message": "Ошибка сети / недоступен"
+    },
+    "serverStatusUnconfigured": {
+        "message": "Ключ не настроен"
+    },
+    "serverStatusTitle": {
+        "message": "Состояние AI-подключений"
+    },
+    "checkServerStatusBtn": {
+        "message": "Проверить статус серверов"
+    },
+    "serverStatusChecking": {
+        "message": "Проверка связи..."
+    },
+    "millisecondsShort": {
+        "message": "мс"
     }
 }

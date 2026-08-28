@@ -46,17 +46,8 @@ export function appendIconAndText(element: Element, markup: string, text: string
 }
 
 function appendInlineMarkup(parent: Node, value: string): void {
-    const pattern = /\*\*([\s\S]*?)(?:\*\*|$)/g;
-    let cursor = 0;
-    for (const match of value.matchAll(pattern)) {
-        const index = match.index ?? 0;
-        if (index > cursor) parent.appendChild(document.createTextNode(value.slice(cursor, index).replace(/\*/g, '')));
-        const mark = document.createElement('mark');
-        mark.textContent = match[1].replace(/\*/g, '');
-        parent.appendChild(mark);
-        cursor = index + match[0].length;
-    }
-    if (cursor < value.length) parent.appendChild(document.createTextNode(value.slice(cursor).replace(/\*/g, '')));
+    const cleanValue = value.replace(/\*{1,3}([^*]+?)\*{1,3}/g, '$1');
+    parent.appendChild(document.createTextNode(cleanValue));
 }
 
 export function createMarkdownFragment(text: string): DocumentFragment {

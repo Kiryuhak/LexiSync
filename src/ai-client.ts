@@ -10,7 +10,8 @@ import {
     type PrimaryAiProvider,
 } from './ai-provider-types';
 
-const DEFAULT_PROVIDER_TIMEOUT_MS = 20_000;
+const DEFAULT_PROVIDER_TIMEOUT_MS = 12_000;
+const DEFAULT_PROVIDER_STALL_TIMEOUT_MS = 15_000;
 const DEFAULT_RATE_LIMIT_COOLDOWN_MS = 60_000;
 const MAX_RATE_LIMIT_COOLDOWN_MS = 10 * 60_000;
 const CIRCUIT_BREAKER_FAILURES = 2;
@@ -61,29 +62,39 @@ async function runWithProviderTimeout<T>(
     provider: AiProviderType,
     parentSignal: AbortSignal,
     timeoutMs: number,
-    task: (signal: AbortSignal) => Promise<T>,
+    stallTimeoutMs: number,
+    task: (signal: AbortSignal, markActivity: () => void) => Promise<T>,
 ): Promise<T> {
     const controller = new AbortController();
     let timedOut = false;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
     const abortFromParent = () => controller.abort(parentSignal.reason);
     if (parentSignal.aborted) abortFromParent();
     else parentSignal.addEventListener('abort', abortFromParent, { once: true });
-    const timeout = setTimeout(
-        () => {
-            timedOut = true;
-            controller.abort(new DOMException(t('providerTimeout', 'AI-сервис не ответил вовремя.'), 'TimeoutError'));
-        },
-        Math.max(1, timeoutMs),
-    );
+
+    const armTimeout = (delayMs: number) => {
+        if (timeout) clearTimeout(timeout);
+        timeout = setTimeout(
+            () => {
+                timedOut = true;
+                controller.abort(
+                    new DOMException(t('providerTimeout', 'AI-сервис не ответил вовремя.'), 'TimeoutError'),
+                );
+            },
+            Math.max(1, delayMs),
+        );
+    };
+
+    armTimeout(timeoutMs);
     try {
-        return await task(controller.signal);
+        return await task(controller.signal, () => armTimeout(stallTimeoutMs));
     } catch (error) {
         if (timedOut && !parentSignal.aborted) {
             throw new AiProviderError(t('providerTimeout', 'AI-сервис не ответил вовремя.'), 'TIMEOUT', provider, true);
         }
         throw error;
     } finally {
-        clearTimeout(timeout);
+        if (timeout) clearTimeout(timeout);
         parentSignal.removeEventListener('abort', abortFromParent);
     }
 }
@@ -263,9 +274,14 @@ export async function executeAiStreamRequest(options: AiRequestOptions): Promise
             provider,
             signal,
             options.providerTimeoutMs ?? DEFAULT_PROVIDER_TIMEOUT_MS,
-            async (providerSignal) => {
-                if (provider === 'mistral') await streamText(msg, key, settings, providerSignal, onChunk);
-                else await streamGroqText(msg, key, settings, providerSignal, onChunk);
+            options.providerStallTimeoutMs ?? DEFAULT_PROVIDER_STALL_TIMEOUT_MS,
+            async (providerSignal, markActivity) => {
+                const onProviderChunk = (text: string) => {
+                    markActivity();
+                    onChunk(text);
+                };
+                if (provider === 'mistral') await streamText(msg, key, settings, providerSignal, onProviderChunk);
+                else await streamGroqText(msg, key, settings, providerSignal, onProviderChunk);
             },
         );
     };
@@ -274,7 +290,7 @@ export async function executeAiStreamRequest(options: AiRequestOptions): Promise
     let effectivePrimary = plan.primary;
     let fallbackProvider = plan.backup;
     let preemptiveFallback = false;
-    if (!getKey(effectivePrimary) && fallbackProvider && getKey(fallbackProvider)) {
+    if (!getKey(effectivePrimary) && options.autoFallback && fallbackProvider && getKey(fallbackProvider)) {
         effectivePrimary = fallbackProvider;
         fallbackProvider = undefined;
     } else if (!getKey(effectivePrimary)) {
@@ -284,6 +300,7 @@ export async function executeAiStreamRequest(options: AiRequestOptions): Promise
                 : t('groqApiKeyMissing', 'API-ключ Groq не настроен.');
         throw new AiProviderError(missingMsg, 'AUTH_ERROR', effectivePrimary, false, 401);
     } else if (
+        options.autoFallback &&
         fallbackProvider &&
         getAiProviderCooldownRemaining(effectivePrimary) > 0 &&
         getAiProviderCooldownRemaining(fallbackProvider) === 0

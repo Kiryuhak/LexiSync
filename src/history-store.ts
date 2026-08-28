@@ -43,7 +43,9 @@ function isHistoryItem(value: unknown): value is HistoryItem {
         Number.isFinite(new Date(item.date).getTime()) &&
         (item.customName === undefined ||
             (typeof item.customName === 'string' && item.customName.length <= HISTORY_NAME_MAX_LENGTH)) &&
-        (item.favorite === undefined || typeof item.favorite === 'boolean')
+        (item.favorite === undefined || typeof item.favorite === 'boolean') &&
+        (item.explanation === undefined ||
+            (typeof item.explanation === 'string' && item.explanation.length <= HISTORY_TEXT_MAX_LENGTH))
     );
 }
 
@@ -126,6 +128,10 @@ export async function updateHistoryItemResult(id: number, result: string): Promi
     await requestHistoryMutation('updateResult', { id, result });
 }
 
+export async function updateHistoryItemExplanation(id: number, explanation: string): Promise<void> {
+    await requestHistoryMutation('updateExplanation', { id, explanation });
+}
+
 export async function setHistoryItemFavorite(id: number, favorite: boolean): Promise<void> {
     await requestHistoryMutation('setFavorite', { id, favorite });
 }
@@ -147,13 +153,15 @@ export async function importHistoryItems(items: HistoryItem[]): Promise<number> 
     return Number(response.data?.importedCount) || 0;
 }
 
-export type HistoryMutation = 'add' | 'delete' | 'updateResult' | 'setFavorite' | 'clear' | 'import';
+export type HistoryMutation =
+    'add' | 'delete' | 'updateResult' | 'updateExplanation' | 'setFavorite' | 'clear' | 'import';
 
 type HistoryMutationPayload = {
     item?: HistoryItem;
     items?: HistoryItem[];
     id?: number;
     result?: string;
+    explanation?: string;
     favorite?: boolean;
 };
 
@@ -187,6 +195,7 @@ export function applyHistoryMutation(
                     item.result,
                     item.customName || '',
                     item.favorite === true,
+                    item.explanation || '',
                 ]);
             const fingerprints = new Set(existing.map(fingerprint));
             let nextId = Math.max(Date.now(), ...existing.map((item) => item.id)) + 1;
@@ -233,6 +242,19 @@ export function applyHistoryMutation(
             const item = await idbGet<HistoryItem>(db, STORE_NAME, payload.id);
             if (item) {
                 item.result = payload.result;
+                await idbPut(db, STORE_NAME, item);
+            }
+            return { ok: true };
+        } else if (
+            mutation === 'updateExplanation' &&
+            typeof payload.id === 'number' &&
+            Number.isFinite(payload.id) &&
+            typeof payload.explanation === 'string' &&
+            payload.explanation.length <= HISTORY_TEXT_MAX_LENGTH
+        ) {
+            const item = await idbGet<HistoryItem>(db, STORE_NAME, payload.id);
+            if (item) {
+                item.explanation = payload.explanation;
                 await idbPut(db, STORE_NAME, item);
             }
             return { ok: true };

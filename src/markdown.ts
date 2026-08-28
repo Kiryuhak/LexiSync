@@ -6,33 +6,43 @@ export function stripSummaryPrefix(text: string): string {
 }
 
 export function cleanMarkdownArtifacts(text: string): string {
-    if (!text || !text.includes('|')) return text;
+    if (!text) return '';
 
-    const lines = text.split('\n');
-    const hasTableDivider = lines.some((line) => /^\s*\|?[\s:-]+(?:\|[\s:-]+)+\|?\s*$/.test(line));
+    let cleaned = text;
 
-    if (hasTableDivider) {
-        const cleanedLines: string[] = [];
-        for (const line of lines) {
-            if (/^\s*\|?[\s:-]+(?:\|[\s:-]+)+\|?\s*$/.test(line)) {
-                continue;
-            }
-            if (/^\s*\|.*\|\s*$/.test(line)) {
-                const cells = line
-                    .split('|')
-                    .map((c) => c.trim())
-                    .filter(Boolean);
-                if (cells.length > 0) {
-                    cleanedLines.push(cells.join(' • '));
+    if (cleaned.includes('|')) {
+        const lines = cleaned.split('\n');
+        const hasTableDivider = lines.some((line) => /^\s*\|?[\s:-]+(?:\|[\s:-]+)+\|?\s*$/.test(line));
+
+        if (hasTableDivider) {
+            const cleanedLines: string[] = [];
+            for (const line of lines) {
+                if (/^\s*\|?[\s:-]+(?:\|[\s:-]+)+\|?\s*$/.test(line)) {
+                    continue;
                 }
-            } else {
-                cleanedLines.push(line);
+                if (/^\s*\|.*\|\s*$/.test(line)) {
+                    const cells = line
+                        .split('|')
+                        .map((c) => c.trim())
+                        .filter(Boolean);
+                    if (cells.length > 0) {
+                        cleanedLines.push(cells.join(' • '));
+                    }
+                } else {
+                    cleanedLines.push(line);
+                }
             }
+            cleaned = cleanedLines.join('\n').trim();
+        } else {
+            cleaned = cleaned.replace(/^\s*\|\s*([^|\n]+?)\s*(?:\|\s*)*$/gm, '$1').trim();
         }
-        return cleanedLines.join('\n').trim();
     }
 
-    return text.replace(/^\s*\|\s*([^|\n]+?)\s*(?:\|\s*)*$/gm, '$1').trim();
+    // Удаление парных маркеров Markdown; обычный символ умножения `*` сохраняется.
+    cleaned = cleaned.replace(/\*{1,3}([^*]+?)\*{1,3}/g, '$1');
+    cleaned = cleaned.replace(/^\s*\*\s+/gm, '- ');
+
+    return cleaned.trim();
 }
 
 export function escapeHTML(text: string): string {

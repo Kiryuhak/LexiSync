@@ -105,14 +105,56 @@
                 <option value="groq" data-i18n="providerGroq">⚡ Groq (Qwen 3.6 27B · Preview)</option>
             </select>
 
-            <div class="privacy-option" data-settings-group="main" style="margin-top: 10px; margin-bottom: 16px">
+            <div class="privacy-option" data-settings-group="main" style="margin-top: 10px; margin-bottom: 12px">
                 <label for="autoFallbackEnabled">
-                    <span data-i18n="autoFallbackLabel">Автоматический fallback при лимитах</span>
-                    <small data-i18n="autoFallbackHint"
-                        >Переключает на резервный сервис при лимите, таймауте или временном сбое.</small
+                    <span data-i18n="autoFallbackLabel">Разрешить резервное переключение</span>
+                    <small id="autoFallbackHint" data-i18n="autoFallbackHint"
+                        >Если выключено, текст никогда не отправляется другому AI-провайдеру.</small
                     >
                 </label>
-                <input type="checkbox" id="autoFallbackEnabled" checked />
+                <input type="checkbox" id="autoFallbackEnabled" aria-describedby="autoFallbackHint" checked />
+            </div>
+
+            <!-- Виджет статуса серверов Groq и Mistral -->
+            <div class="server-status-container" data-settings-group="main">
+                <div class="server-status-header">
+                    <span class="server-status-title" data-i18n="serverStatusTitle">Состояние AI-подключений</span>
+                    <button
+                        type="button"
+                        id="checkServerStatusBtn"
+                        class="server-status-refresh-btn"
+                        data-i18n-aria-label="checkServerStatusBtn"
+                    >
+                        <span class="refresh-icon" aria-hidden="true">🔄</span>
+                        <span data-i18n="checkServerStatusBtn">Проверить статус</span>
+                    </button>
+                </div>
+                <div class="server-status-grid">
+                    <div class="server-status-card" id="groqStatusCard" data-status="unconfigured">
+                        <div class="server-status-card-header">
+                            <span class="server-status-dot" id="groqStatusDot"></span>
+                            <span class="server-status-name">⚡ Groq (Qwen 3.6 27B)</span>
+                        </div>
+                        <div class="server-status-card-body">
+                            <span class="server-status-text" id="groqStatusText" data-i18n="serverStatusUnconfigured"
+                                >Ключ не настроен</span
+                            >
+                            <span class="server-status-latency" id="groqStatusLatency"></span>
+                        </div>
+                    </div>
+                    <div class="server-status-card" id="mistralStatusCard" data-status="unconfigured">
+                        <div class="server-status-card-header">
+                            <span class="server-status-dot" id="mistralStatusDot"></span>
+                            <span class="server-status-name">✦ Mistral AI (Small/Large)</span>
+                        </div>
+                        <div class="server-status-card-body">
+                            <span class="server-status-text" id="mistralStatusText" data-i18n="serverStatusUnconfigured"
+                                >Ключ не настроен</span
+                            >
+                            <span class="server-status-latency" id="mistralStatusLatency"></span>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <label for="apiKey" data-settings-group="main" data-i18n="apiKeyLabel">Ваш Mistral API Key:</label>
@@ -946,12 +988,26 @@
             </section>
 
             <div class="instruction-box" data-settings-group="main">
-                <h2 data-i18n="getApiKeyTitle">Где взять API-ключ?</h2>
-                <ol>
-                    <li data-i18n="getApiKeyStep1">Перейдите на console.mistral.ai.</li>
-                    <li data-i18n="getApiKeyStep2">В меню слева найдите раздел API Keys.</li>
-                    <li data-i18n="getApiKeyStep3">Нажмите Create new key и скопируйте его.</li>
-                </ol>
+                <h2 data-i18n="getApiKeyTitle">Где взять API-ключи?</h2>
+
+                <div class="instruction-provider-section">
+                    <h3 class="instruction-provider-title" data-i18n="getMistralApiKeySubTitle">✦ Mistral AI</h3>
+                    <ol>
+                        <li data-i18n="getApiKeyStep1">Перейдите на console.mistral.ai.</li>
+                        <li data-i18n="getApiKeyStep2">В меню слева найдите раздел API Keys.</li>
+                        <li data-i18n="getApiKeyStep3">Нажмите Create new key и скопируйте его.</li>
+                    </ol>
+                </div>
+
+                <div class="instruction-provider-section">
+                    <h3 class="instruction-provider-title" data-i18n="getGroqApiKeySubTitle">⚡ Groq (Qwen 3.6 27B)</h3>
+                    <ol>
+                        <li data-i18n="getGroqApiKeyStep1">Перейдите на console.groq.com/keys.</li>
+                        <li data-i18n="getGroqApiKeyStep2">В меню слева найдите раздел API Keys.</li>
+                        <li data-i18n="getGroqApiKeyStep3">Нажмите Create API Key и скопируйте его.</li>
+                    </ol>
+                </div>
+
                 <button
                     id="openOnboarding"
                     class="onboarding-button secondary"

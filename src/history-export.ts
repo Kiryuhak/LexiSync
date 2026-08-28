@@ -9,7 +9,7 @@ function escapeCsv(value: unknown): string {
 }
 
 export function formatHistoryAsCsv(items: HistoryItem[]): string {
-    const header = ['id', 'mode', 'date', 'favorite', 'original', 'result'];
+    const header = ['id', 'mode', 'date', 'favorite', 'original', 'result', 'explanation'];
     const rows = items.map((item) => [
         String(item.id),
         escapeCsv(item.mode),
@@ -17,6 +17,7 @@ export function formatHistoryAsCsv(items: HistoryItem[]): string {
         item.favorite ? 'true' : 'false',
         escapeCsv(item.original),
         escapeCsv(item.result),
+        escapeCsv(item.explanation || ''),
     ]);
     return `\uFEFF${[header.join(','), ...rows.map((row) => row.join(','))].join('\r\n')}`;
 }
@@ -27,6 +28,9 @@ export function formatHistoryAsMarkdown(items: HistoryItem[], modeNames: Partial
         lines.push(`### ${index + 1}. [${modeNames[item.mode] || item.mode}] ${item.date}${item.favorite ? ' ★' : ''}`);
         lines.push(`**Исходный текст:**\n> ${item.original.replace(/\n/g, '\n> ')}\n`);
         lines.push(`**Результат:**\n${item.result}\n`);
+        if (item.explanation) {
+            lines.push(`**Разбор правил:**\n${item.explanation}\n`);
+        }
         lines.push('---\n');
     });
     return lines.join('\n');

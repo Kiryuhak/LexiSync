@@ -212,9 +212,26 @@ export function executeRequest(
         headerTitleWrapper.appendChild(tokenBadge);
     }
 
-    const initialLoader = document.createElement('div');
-    initialLoader.className = 'lexisync-loader';
-    loaderOrClose.appendChild(initialLoader);
+    let requestTimerInterval: number | null = null;
+    let requestStartTime = performance.now();
+
+    function stopRequestTimer(): void {
+        if (requestTimerInterval !== null) {
+            window.clearInterval(requestTimerInterval);
+            requestTimerInterval = null;
+        }
+    }
+
+    function createTimerBadge(): HTMLElement {
+        const timerBadge = document.createElement('span');
+        timerBadge.className = 'lexisync-request-timer';
+        timerBadge.setAttribute('role', 'timer');
+        timerBadge.setAttribute('aria-live', 'off');
+        timerBadge.textContent = '⏱️ 0.0s';
+        return timerBadge;
+    }
+
+    loaderOrClose.appendChild(createTimerBadge());
     adjustPopupPosition();
     deactivateDialogKeyboard = activateDialogKeyboard(popupUI, closePopup, () => {
         const primaryBtn = actionsContainer.querySelector<HTMLButtonElement>('.lexisync-result-button--primary');
@@ -226,16 +243,21 @@ export function executeRequest(
 
     let activeProvider: 'mistral' | 'groq' | null = mode === 'ocr' ? 'mistral' : null;
 
-    function createProviderBadge(provider: 'mistral' | 'groq'): HTMLElement {
+    function createProviderBadge(provider: 'mistral' | 'groq', isFallback = false): HTMLElement {
         const badge = document.createElement('span');
         badge.className = `lexisync-provider-badge lexisync-provider-${provider}`;
+        const dot = document.createElement('span');
+        dot.className = `lexisync-provider-dot ${isFallback ? 'dot-degraded' : 'dot-healthy'}`;
+        badge.appendChild(dot);
+        const text = document.createElement('span');
         if (provider === 'groq') {
-            badge.textContent = '⚡ Groq';
-            badge.title = 'Groq • Qwen 3.6 27B';
+            text.textContent = '⚡ Groq';
+            badge.title = isFallback ? 'Groq (резервный) • Qwen 3.6 27B' : 'Groq • Qwen 3.6 27B';
         } else {
-            badge.textContent = '✦ Mistral';
-            badge.title = 'Mistral AI';
+            text.textContent = '✦ Mistral';
+            badge.title = isFallback ? 'Mistral (резервный) • Mistral AI' : 'Mistral AI';
         }
+        badge.appendChild(text);
         return badge;
     }
 
@@ -300,8 +322,7 @@ export function executeRequest(
         if (contentPane.contentEditable === 'true') return contentPane.innerText.trim();
         let base = cleanMarkdownArtifacts(fullResult);
         if (mode === 'summary') base = stripSummaryPrefix(base);
-        const clean = base.replace(/\*/g, '');
-        return mode === 'spellcheck' ? spellcheckUi.getResult(clean) : clean;
+        return mode === 'spellcheck' ? spellcheckUi.getResult(base) : base;
     }
 
     function showActionStatus(message: string, isError = false): void {
@@ -356,11 +377,22 @@ export function executeRequest(
     });
 
     function renderLoadingControl(): void {
+        stopRequestTimer();
         loaderOrClose.replaceChildren();
         const wrapper = document.createElement('div');
-        wrapper.style.cssText = 'display:flex; align-items:center; gap:8px;';
-        const loader = document.createElement('div');
-        loader.className = 'lexisync-loader';
+        wrapper.style.cssText = 'display:flex; align-items:center; gap:6px;';
+
+        const timerBadge = createTimerBadge();
+        requestStartTime = performance.now();
+        requestTimerInterval = window.setInterval(() => {
+            if (lifecycle.disposed) {
+                stopRequestTimer();
+                return;
+            }
+            const elapsed = (performance.now() - requestStartTime) / 1000;
+            timerBadge.textContent = `⏱️ ${elapsed.toFixed(1)}s`;
+        }, 100);
+
         const cancelBtn = document.createElement('button');
         cancelBtn.type = 'button';
         cancelBtn.className = 'lexisync-cancel-button';
@@ -372,6 +404,7 @@ export function executeRequest(
         cancelBtn.onclick = (event) => {
             event.preventDefault();
             event.stopPropagation();
+            stopRequestTimer();
             cancelBtn.disabled = true;
             contentPane.textContent = t('cancelling', 'Отменяем запрос…');
             if (!streamPort) {
@@ -387,7 +420,7 @@ export function executeRequest(
                 showRequestError(t('reloadPage', 'Пожалуйста, обновите страницу (F5).'));
             }
         };
-        wrapper.append(loader, cancelBtn);
+        wrapper.append(timerBadge, cancelBtn);
         loaderOrClose.appendChild(wrapper);
     }
 
@@ -534,7 +567,7 @@ export function executeRequest(
                     renderMarkdown(contentPane, fullResult);
                 }
                 contentPane.removeAttribute('aria-live');
-                finishStream();
+                finishStream(true, Boolean(response.fallbackNotification));
                 if (requestStartedAt !== null) {
                     const duration = formatRequestDuration(performance.now() - requestStartedAt);
                     requestStartedAt = null;
@@ -546,7 +579,9 @@ export function executeRequest(
                     const durationText = t('requestCompletedIn', 'Ready in $1 s').replace('$1', duration);
                     const baseStatus = stats ? `${durationText} • ${stats}` : durationText;
                     showActionStatus(
-                        response.fallbackNotification ? `⚡ ${response.fallbackNotification}` : baseStatus,
+                        response.fallbackNotification
+                            ? `⚡ ${response.fallbackNotification} • ${durationText}`
+                            : baseStatus,
                     );
                 }
 
@@ -591,11 +626,12 @@ export function executeRequest(
         });
     }
 
-    function finishStream(success = true) {
+    function finishStream(success = true, isFallback = false) {
+        stopRequestTimer();
         disconnectStreamPort();
         loaderOrClose.replaceChildren();
         if (activeProvider) {
-            loaderOrClose.appendChild(createProviderBadge(activeProvider));
+            loaderOrClose.appendChild(createProviderBadge(activeProvider, isFallback));
         }
         const closeBtn = document.createElement('button');
         closeBtn.type = 'button';

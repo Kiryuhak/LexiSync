@@ -4,6 +4,7 @@ import {
     getHistory,
     setHistoryItemFavorite,
     importHistoryItems,
+    updateHistoryItemExplanation,
 } from './history-store';
 import type { HistoryItem, RequestMode } from './types';
 import { localizeDocument, t } from './i18n';
@@ -13,6 +14,7 @@ import { copyText } from './clipboard';
 import { sortHistoryItems, type HistorySortOption } from './history-sort';
 import { formatHistoryAsCsv, formatHistoryAsMarkdown } from './history-export';
 import { HISTORY_LIMIT } from './history-store';
+import { logger } from './logger';
 
 const MODE_NAMES: Record<RequestMode, string> = {
     spellcheck: t('modeSpellcheck', 'Ошибки'),
@@ -117,6 +119,47 @@ function createTextBlock(labelText: string, value: string, result = false): HTML
     return block;
 }
 
+function renderExplanationContent(container: HTMLElement, explanation: string, onHide: () => void): void {
+    container.replaceChildren();
+
+    const header = document.createElement('div');
+    header.className = 'explanation-header';
+
+    const title = document.createElement('span');
+    title.className = 'explanation-title';
+    title.textContent = t('explanationTitle', 'Разбор правил и ошибок');
+
+    const actionWrap = document.createElement('div');
+    actionWrap.className = 'explanation-actions';
+
+    const copyBtn = document.createElement('button');
+    copyBtn.type = 'button';
+    copyBtn.className = 'explanation-btn';
+    copyBtn.textContent = t('explanationCopy', 'Копировать');
+    copyBtn.addEventListener('click', async () => {
+        await copyText(explanation);
+        copyBtn.textContent = t('explanationCopied', 'Скопировано!');
+        setTimeout(() => {
+            copyBtn.textContent = t('explanationCopy', 'Копировать');
+        }, 2000);
+    });
+
+    const hideBtn = document.createElement('button');
+    hideBtn.type = 'button';
+    hideBtn.className = 'explanation-btn';
+    hideBtn.textContent = t('hideExplanation', 'Свернуть');
+    hideBtn.addEventListener('click', onHide);
+
+    actionWrap.append(copyBtn, hideBtn);
+    header.append(title, actionWrap);
+
+    const body = document.createElement('div');
+    body.className = 'explanation-content';
+    body.textContent = explanation;
+
+    container.append(header, body);
+}
+
 function createHistoryCard(item: HistoryItem): HTMLElement {
     const card = document.createElement('article');
     card.className = 'history-card';
@@ -129,6 +172,80 @@ function createHistoryCard(item: HistoryItem): HTMLElement {
     const date = document.createElement('span');
     date.textContent = new Date(item.date).toLocaleString(chrome.i18n.getUILanguage());
     header.append(badge, date);
+
+    const explanationBlock = document.createElement('div');
+    explanationBlock.className = 'explanation-block';
+    explanationBlock.id = `history-explanation-${item.id}`;
+    explanationBlock.setAttribute('role', 'region');
+    explanationBlock.setAttribute('aria-label', t('explanationTitle', 'Разбор правил и ошибок'));
+    explanationBlock.hidden = true;
+
+    let isExplanationVisible = false;
+
+    const toggleExplanation = async (btn: HTMLButtonElement) => {
+        if (isExplanationVisible) {
+            explanationBlock.hidden = true;
+            isExplanationVisible = false;
+            btn.setAttribute('aria-expanded', 'false');
+            return;
+        }
+
+        explanationBlock.hidden = false;
+        isExplanationVisible = true;
+        btn.setAttribute('aria-expanded', 'true');
+
+        if (item.explanation) {
+            renderExplanationContent(explanationBlock, item.explanation, () => {
+                explanationBlock.hidden = true;
+                isExplanationVisible = false;
+                btn.setAttribute('aria-expanded', 'false');
+            });
+            return;
+        }
+
+        // Индикатор загрузки при первом запросе разбора
+        explanationBlock.replaceChildren();
+        const loading = document.createElement('div');
+        loading.className = 'explanation-loading';
+        loading.setAttribute('role', 'status');
+        loading.textContent = t('explanationLoading', 'Анализируем ошибки и правила...');
+        explanationBlock.appendChild(loading);
+
+        try {
+            btn.disabled = true;
+            const response = await chrome.runtime.sendMessage({
+                action: 'explainHistoryGrammar',
+                original: item.original,
+                result: item.result,
+                mode: item.mode,
+            });
+
+            if (response?.ok === true && typeof response.explanation === 'string' && response.explanation.trim()) {
+                const explanationText = response.explanation.trim();
+                item.explanation = explanationText;
+                void updateHistoryItemExplanation(item.id, explanationText).catch((error) =>
+                    logger.error('Не удалось сохранить разбор правил:', error),
+                );
+                renderExplanationContent(explanationBlock, explanationText, () => {
+                    explanationBlock.hidden = true;
+                    isExplanationVisible = false;
+                    btn.setAttribute('aria-expanded', 'false');
+                });
+            } else {
+                throw new Error(response?.error || t('explanationFailed', 'Не удалось получить разбор правил.'));
+            }
+        } catch (error) {
+            explanationBlock.replaceChildren();
+            const errDiv = document.createElement('div');
+            errDiv.className = 'explanation-content';
+            errDiv.style.color = '#d93025';
+            errDiv.textContent =
+                error instanceof Error ? error.message : t('explanationFailed', 'Не удалось получить разбор правил.');
+            explanationBlock.appendChild(errDiv);
+        } finally {
+            btn.disabled = false;
+        }
+    };
 
     const actions = document.createElement('div');
     actions.className = 'card-actions';
@@ -233,6 +350,17 @@ function createHistoryCard(item: HistoryItem): HTMLElement {
             },
             t('historyCommandSaved', 'Команда сохранена в настройках.'),
         ),
+        (() => {
+            const button = createButton(
+                t('whySo', '💡 Почему так?'),
+                'why-so-btn',
+                async () => toggleExplanation(button),
+                '',
+            );
+            button.setAttribute('aria-controls', explanationBlock.id);
+            button.setAttribute('aria-expanded', 'false');
+            return button;
+        })(),
         createButton(
             t('delete', 'Удалить'),
             'delete-btn',
@@ -249,6 +377,7 @@ function createHistoryCard(item: HistoryItem): HTMLElement {
         header,
         createTextBlock(t('original', 'Оригинал'), item.original),
         createTextBlock(t('aiResult', 'Результат AI'), item.result, true),
+        explanationBlock,
         actions,
     );
     return card;

@@ -6,6 +6,7 @@ import { applyThemeCustomization } from './theme-customization';
 import { hasAllSitesAccess, requestAllSitesAccess, removeAllSitesAccess, detectTabFrameOrigins } from './site-access';
 import { applyFastTypographyAndTypoFixes } from './local-text-rules';
 import { logger } from './logger';
+import { loadCachedHealthStatus, type ProviderHealthStatus } from './provider-health';
 
 type Theme = 'auto' | 'light' | 'dark';
 
@@ -328,4 +329,30 @@ async function initializeSiteControls(): Promise<void> {
     contextInput.addEventListener('change', () => void savePreference(contextInput, 'context'));
 }
 
+function renderPopupHealthDot(provider: 'groq' | 'mistral', status: ProviderHealthStatus | null): void {
+    const dot = document.getElementById(`popup${provider === 'groq' ? 'Groq' : 'Mistral'}Dot`);
+    const item = document.getElementById(`popup${provider === 'groq' ? 'Groq' : 'Mistral'}Status`);
+    if (!dot || !item) return;
+
+    if (!status) {
+        dot.className = 'popup-status-dot';
+        item.title = `${provider === 'groq' ? 'Groq' : 'Mistral'}: ${t('serverStatusUnconfigured', 'Ключ не настроен')}`;
+        return;
+    }
+
+    dot.className = `popup-status-dot dot-${status.state}`;
+    const latencyStr =
+        typeof status.latencyMs === 'number'
+            ? ` (${Math.round(status.latencyMs)} ${t('millisecondsShort', 'мс')})`
+            : '';
+    item.title = `${provider === 'groq' ? 'Groq' : 'Mistral'}: ${status.message}${latencyStr}`;
+}
+
+async function initializePopupServerStatus(): Promise<void> {
+    const cached = await loadCachedHealthStatus();
+    renderPopupHealthDot('groq', cached.groq);
+    renderPopupHealthDot('mistral', cached.mistral);
+}
+
 void initializeSiteControls();
+void initializePopupServerStatus();
