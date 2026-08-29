@@ -36,6 +36,31 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.5.4',
+        '2026-08-29',
+        'improved',
+        'Карточки лимитов Groq и Mistral по МСК и гарантированный сброс ключей',
+        'Groq & Mistral rate limit cards in MSK and guaranteed key wipe on factory reset',
+        [
+            [
+                'В «Лимиты и экономия» появились наглядные карточки квот для Groq и Mistral с таймером сброса по МСК (03:00).',
+                'Added visual quota cards for Groq and Mistral with daily reset countdown in Moscow Time (03:00 MSK).',
+            ],
+            [
+                'Журнал ошибок перенесен в раздел «Диагностика» во вкладке «Приватность».',
+                'The Error Log is now organized under the Diagnostics section in the Privacy tab.',
+            ],
+            [
+                '«Сброс до заводских настроек» теперь гарантированно удаляет все API-ключи из хранилища IndexedDB.',
+                'Factory reset now strictly wipes all API keys from IndexedDB secret storage.',
+            ],
+            [
+                'Упрощена форма обратной связи в модальном окне «Написать разработчику».',
+                'Streamlined feedback options in the Contact Developer dialog.',
+            ],
+        ],
+    ),
+    note(
         '5.5.3',
         '2026-08-29',
         'improved',
