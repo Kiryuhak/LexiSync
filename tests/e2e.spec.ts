@@ -50,6 +50,7 @@ const test = base.extend({
 async function setFakeApiKey(context: BrowserContext) {
     let [background] = context.serviceWorkers();
     if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() => chrome.storage.local.set({ onboardingCompleted: true }));
     const extensionId = new URL(background.url()).host;
     const extensionPage = await context.newPage();
     await extensionPage.goto(`chrome-extension://${extensionId}/options.html`);
@@ -2096,6 +2097,51 @@ test('отключение автопроверки отменяет отлож�
     await expect(page.locator('[data-lexisync-live-proof]')).toHaveCount(0);
 });
 
+test('новый Mistral API-ключ применяется к следующей команде без перезапуска расширения', async ({ page, context }) => {
+    await setFakeApiKey(context);
+    const newKey = 'new-mistral-key-456';
+    await context.route('https://api.mistral.ai/v1/models', async (route) => {
+        const authorized = route.request().headers().authorization === `Bearer ${newKey}`;
+        await route.fulfill({
+            status: authorized ? 200 : 401,
+            contentType: 'application/json',
+            body: JSON.stringify(authorized ? { data: [] } : { message: 'Your API key expired.' }),
+        });
+    });
+
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    const extensionId = new URL(background.url()).host;
+    const optionsPage = await context.newPage();
+    await optionsPage.goto(`chrome-extension://${extensionId}/options.html`);
+    await optionsPage.locator('#apiKey').fill(newKey);
+    await optionsPage.locator('#saveBtn').click();
+    await expect
+        .poll(() => optionsPage.evaluate(() => chrome.runtime.sendMessage({ action: 'getApiKey' })))
+        .toMatchObject({ ok: true, value: newKey });
+
+    let authorization = '';
+    await context.route('https://api.mistral.ai/v1/chat/completions', async (route) => {
+        authorization = route.request().headers().authorization || '';
+        await route.fulfill({
+            status: authorization === `Bearer ${newKey}` ? 200 : 401,
+            contentType: authorization === `Bearer ${newKey}` ? 'text/event-stream' : 'application/json',
+            body:
+                authorization === `Bearer ${newKey}`
+                    ? 'data: {"choices":[{"delta":{"content":"Ключ обновлён"}}]}\n\ndata: [DONE]\n\n'
+                    : JSON.stringify({ message: 'Your API key expired.' }),
+        });
+    });
+
+    await page.goto('https://example.com');
+    await grantSiteAccess(context, page);
+    await selectTextOnPage(page);
+    await page.keyboard.press('Alt+r');
+    await expect(page.locator('#lexisync-extension-ui')).toContainText('Ключ обновлён', { timeout: 10_000 });
+    expect(authorization).toBe(`Bearer ${newKey}`);
+    await optionsPage.close();
+});
+
 test('API-ключ хранится вне доступного content scripts storage.local', async ({ context }) => {
     await setFakeApiKey(context);
     let [background] = context.serviceWorkers();
@@ -2456,4 +2502,63 @@ test('кнопка Почему так в истории запросов заг
     await expect(explanationBlock).toBeVisible();
     await expect(explanationBlock).toContainText(/Правило/);
     await expect(explanationBlock).toContainText(/ЖИ\/ШИ/);
+});
+
+test('Test 65: Карточка журнала ошибок в Настройках и модальное окно обратной связи', async ({ context, page }) => {
+    const background = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
+    const extensionId = new URL(background.url()).host;
+
+    // Записываем тестовую ошибку в appErrorLogs и скрываем онбординг
+    await background.evaluate(async () => {
+        await chrome.storage.local.set({
+            onboardingCompleted: true,
+            appErrorLogs: [
+                {
+                    id: 'test-log-1',
+                    timestamp: new Date().toISOString(),
+                    level: 'error',
+                    source: 'ai-client',
+                    provider: 'mistral',
+                    errorCode: 'AUTH_ERROR',
+                    status: 401,
+                    message: 'Недействительный ключ API',
+                },
+            ],
+        });
+    });
+
+    await page.goto(`chrome-extension://${extensionId}/options.html`);
+
+    // Проверяем счетчик ошибок и кнопки
+    const errorCounter = page.locator('#errorLogCounter');
+    await expect(errorCounter).toBeVisible();
+    await expect(errorCounter).toContainText(/1 ошибка/);
+
+    const toggleViewerBtn = page.locator('#toggleLogViewerBtn');
+    await expect(toggleViewerBtn).toBeVisible();
+    await toggleViewerBtn.click();
+
+    const logViewer = page.locator('#errorLogViewer');
+    await expect(logViewer).toBeVisible();
+    await expect(logViewer).toContainText(/AUTH_ERROR/);
+    await expect(logViewer).toContainText(/Недействительный ключ API/);
+
+    // Проверяем модальное окно «Написать разработчику»
+    const feedbackLink = page.locator('#feedback-link');
+    await expect(feedbackLink).toBeVisible();
+    await feedbackLink.click();
+
+    const feedbackModal = page.locator('#feedbackModal');
+    await expect(feedbackModal).toBeVisible();
+    await expect(feedbackModal.locator('#sendFeedbackWithLog')).toBeVisible();
+    await expect(feedbackModal.locator('#sendFeedbackWithoutLog')).toBeVisible();
+
+    const closeBtn = page.locator('#closeFeedbackModal');
+    await closeBtn.click();
+    await expect(feedbackModal).not.toBeVisible();
+
+    // Очистка журнала ошибок
+    const clearBtn = page.locator('#clearLogBtn');
+    await clearBtn.click();
+    await expect(errorCounter).toContainText(/0 ошибок/);
 });

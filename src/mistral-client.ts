@@ -1,6 +1,7 @@
 import { t } from './i18n';
 import { unmaskPii } from './pii-masker';
 import { buildPromptPayload } from './prompt-builder';
+import { recordErrorLog } from './error-log';
 import type { AiMode, RequestMode, StyleProfile } from './types';
 
 export interface MistralRequest {
@@ -111,20 +112,62 @@ export function formatMistralError(error: unknown): string {
     return t('unknownNetworkError', 'Неизвестная ошибка сети.');
 }
 
-function getApiError(status: number): string {
-    if (status === 401 || status === 403)
-        return t('apiKeyInvalid', 'API-ключ недействителен или был отозван. Проверьте ключ.');
+function readProviderErrorMessage(payload: unknown): string {
+    if (!payload || typeof payload !== 'object') return '';
+    const record = payload as Record<string, unknown>;
+    if (typeof record.message === 'string') return record.message.slice(0, 500);
+    if (typeof record.detail === 'string') return record.detail.slice(0, 500);
+    if (record.error && typeof record.error === 'object') {
+        const nestedMessage = (record.error as Record<string, unknown>).message;
+        if (typeof nestedMessage === 'string') return nestedMessage.slice(0, 500);
+    }
+    return '';
+}
+
+async function readResponseErrorMessage(response: Response): Promise<string> {
+    try {
+        const text = await response.text();
+        if (!text) return '';
+        try {
+            return readProviderErrorMessage(JSON.parse(text));
+        } catch {
+            return text.slice(0, 500);
+        }
+    } catch {
+        return '';
+    }
+}
+
+export function getApiError(status: number, providerMessage = ''): string {
+    if ((status === 401 || status === 403) && /\bexpired\b|ист[её]к/iu.test(providerMessage))
+        return t(
+            'mistralApiKeyExpired',
+            'Срок действия API-ключа Mistral истёк. Сохраните новый ключ в настройках LexiSync.',
+        );
+    if (status === 401) return t('apiKeyInvalid', 'API-ключ недействителен или был отозван. Проверьте ключ.');
+    if (status === 402)
+        return t(
+            'mistralBillingRequired',
+            'Для Mistral API не активирован биллинг. Проверьте способ оплаты в Mistral AI Studio.',
+        );
+    if (status === 403)
+        return t(
+            'mistralAccessForbidden',
+            'Mistral распознал ключ, но запретил доступ. Проверьте рабочее пространство, права и биллинг.',
+        );
     if (status === 429) return t('mistralRateLimit', 'Превышен лимит запросов Mistral. Попробуйте немного позже.');
     if (status >= 500) return t('mistralUnavailable', 'Сервис Mistral временно недоступен. Попробуйте ещё раз.');
     return `${t('mistralApiError', 'Ошибка Mistral API')} (${status}).`;
 }
 
-function createApiError(status: number, retryAfterHeader?: string | null): MistralRequestError {
+async function createApiError(response: Response): Promise<MistralRequestError> {
+    const providerMessage = await readResponseErrorMessage(response);
+    const retryAfterHeader = response.headers?.get('Retry-After');
     return new MistralRequestError(
-        getApiError(status),
-        status === 429 || RETRYABLE_SERVER_STATUSES.has(status),
-        status,
-        status === 429 ? (parseRetryAfterMs(retryAfterHeader ?? null) ?? undefined) : undefined,
+        getApiError(response.status, providerMessage),
+        response.status === 429 || RETRYABLE_SERVER_STATUSES.has(response.status),
+        response.status,
+        response.status === 429 ? (parseRetryAfterMs(retryAfterHeader ?? null) ?? undefined) : undefined,
     );
 }
 
@@ -142,9 +185,27 @@ export async function validateApiKey(apiKey: string): Promise<{ ok: boolean; mes
         if (response.ok) {
             return { ok: true, message: t('apiKeyValid', 'API-ключ проверен и готов к работе.') };
         }
-        return { ok: false, message: getApiError(response.status) };
+        const providerMsg = await readResponseErrorMessage(response);
+        const userMsg = getApiError(response.status, providerMsg);
+        void recordErrorLog({
+            level: 'error',
+            source: 'mistral-client',
+            provider: 'mistral',
+            status: response.status,
+            message: `Проверка API-ключа Mistral завершилась с ошибкой: ${userMsg}`,
+            knownKeys: [trimmed],
+        });
+        return { ok: false, message: userMsg };
     } catch (error) {
-        return { ok: false, message: formatMistralError(error) };
+        const formatted = formatMistralError(error);
+        void recordErrorLog({
+            level: 'error',
+            source: 'mistral-client',
+            provider: 'mistral',
+            message: `Сбой при проверке API-ключа Mistral: ${formatted}`,
+            knownKeys: [trimmed],
+        });
+        return { ok: false, message: formatted };
     }
 }
 
@@ -181,7 +242,7 @@ export async function processOcr(msg: MistralRequest, apiKey: string, signal: Ab
         },
         signal,
     );
-    if (!response.ok) throw createApiError(response.status, response.headers.get('Retry-After'));
+    if (!response.ok) throw await createApiError(response);
     const result = (await response.json()) as { pages?: Array<{ markdown?: string }> };
     const text = result.pages
         ?.map((page) => page.markdown || '')
@@ -201,20 +262,29 @@ export async function streamText(
 ): Promise<void> {
     const prompt = buildPromptPayload(msg, settings);
     const shouldRestorePii = Object.keys(prompt.piiMaskMap).length > 0;
-    const response = await fetchWithRetry(
-        `${API_BASE_URL}/chat/completions`,
-        {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-            body: JSON.stringify({
-                model: settings.aiMode === 'fast' ? 'mistral-small-latest' : 'mistral-large-latest',
-                messages: prompt.messages,
-                stream: true,
-            }),
-        },
-        signal,
-    );
-    if (!response.ok) throw createApiError(response.status, response.headers.get('Retry-After'));
+    const requestInit: RequestInit = {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey.trim()}` },
+        body: JSON.stringify({
+            model: settings.aiMode === 'fast' ? 'mistral-small-latest' : 'mistral-large-latest',
+            messages: prompt.messages,
+            stream: true,
+        }),
+    };
+    const requestCompletion = () => fetchWithRetry(`${API_BASE_URL}/chat/completions`, requestInit, signal);
+    let response = await requestCompletion();
+
+    // У нового ключа иногда раньше начинает работать /models, чем потоковый endpoint.
+    // На ошибке авторизации перепроверяем тот же ключ и выполняем только один повтор.
+    if (response.status === 401 || response.status === 403) {
+        const validation = await validateApiKey(apiKey);
+        if (validation.ok && !signal.aborted) {
+            await response.body?.cancel();
+            await wait(300, signal);
+            response = await requestCompletion();
+        }
+    }
+    if (!response.ok) throw await createApiError(response);
     const reader = response.body?.getReader();
     if (!reader) throw new MistralRequestError(t('emptyStream', 'Mistral вернул пустой поток данных.'), true);
 

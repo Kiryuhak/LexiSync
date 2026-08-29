@@ -45,6 +45,9 @@ import { hasAllSitesAccess, requestAllSitesAccess, removeAllSitesAccess } from '
 import { setupOnboarding } from './options-onboarding';
 import { DEFAULT_TEXT_SNIPPETS } from './text-snippets';
 import { normalizeSearchEngine, SEARCH_ENGINE_IDS, type SearchEngine } from './search-url';
+import { getErrorLogs, clearErrorLogs, formatErrorLogsAsText, downloadErrorLogsText } from './error-log';
+import { createDiagnosticReport } from './diagnostics';
+import { copyText } from './clipboard';
 
 let restoredApiKey = '';
 let restoredGroqApiKey = '';
@@ -804,12 +807,133 @@ function setupFactoryReset(): void {
     });
 }
 
+function formatErrorCount(count: number): string {
+    if (count === 0) return t('errorCountZero', '0 ошибок');
+    const mod10 = count % 10;
+    const mod100 = count % 100;
+    if (mod10 === 1 && mod100 !== 11) return `${count} ошибка`;
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return `${count} ошибки`;
+    return `${count} ошибок`;
+}
+
+async function refreshErrorLogUI(): Promise<void> {
+    const counterEl = document.getElementById('errorLogCounter');
+    const contentEl = document.getElementById('errorLogContent');
+    const logs = await getErrorLogs();
+    if (counterEl) {
+        counterEl.textContent = formatErrorCount(logs.length);
+        counterEl.setAttribute('data-count', String(logs.length));
+    }
+    if (contentEl) {
+        contentEl.textContent = formatErrorLogsAsText(logs);
+    }
+}
+
+function setupErrorLogControls(): void {
+    void refreshErrorLogUI();
+
+    document.getElementById('downloadLogBtn')?.addEventListener('click', async () => {
+        await downloadErrorLogsText();
+    });
+
+    document.getElementById('copyLogBtn')?.addEventListener('click', async () => {
+        const logs = await getErrorLogs();
+        const text = formatErrorLogsAsText(logs);
+        await copyText(text);
+        showOptionsStatus(t('logCopied', 'Лог ошибок скопирован в буфер обмена!'), 'success');
+    });
+
+    document.getElementById('toggleLogViewerBtn')?.addEventListener('click', () => {
+        const viewer = document.getElementById('errorLogViewer');
+        if (viewer) {
+            viewer.hidden = !viewer.hidden;
+            if (!viewer.hidden) void refreshErrorLogUI();
+        }
+    });
+
+    document.getElementById('clearLogBtn')?.addEventListener('click', async () => {
+        await clearErrorLogs();
+        await refreshErrorLogUI();
+        showOptionsStatus(t('logCleared', 'Журнал ошибок очищен.'), 'success');
+    });
+}
+
+function setupFeedbackModal(): void {
+    const feedbackLink = document.getElementById('feedback-link') as HTMLAnchorElement | null;
+    const modal = document.getElementById('feedbackModal') as HTMLDialogElement | null;
+    if (!feedbackLink || !modal) return;
+
+    feedbackLink.addEventListener('click', (event) => {
+        event.preventDefault();
+        modal.showModal();
+    });
+
+    document.getElementById('closeFeedbackModal')?.addEventListener('click', () => {
+        modal.close();
+    });
+    document.getElementById('cancelFeedbackModal')?.addEventListener('click', () => {
+        modal.close();
+    });
+
+    document.getElementById('sendFeedbackWithLog')?.addEventListener('click', async () => {
+        const [diagReport, logs] = await Promise.all([createDiagnosticReport(), getErrorLogs()]);
+        const logsText = formatErrorLogsAsText(logs);
+        const reportSummary = [
+            `LexiSync v${diagReport.extension.version}`,
+            `Браузер: ${diagReport.environment.userAgent}`,
+            `Язык: ${diagReport.environment.language}`,
+            `Запросов: ${diagReport.usage.requests}, Сбоев: ${diagReport.usage.failures}`,
+            '',
+            '=== Описание проблемы ===',
+            '(Опишите, что пошло не так)',
+            '',
+            '=== Лог ошибок (Ключи и личные данные удалены) ===',
+            logsText,
+        ].join('\n');
+
+        try {
+            await copyText(reportSummary);
+        } catch {
+            // буфер опционален
+        }
+
+        const subject = encodeURIComponent(`LexiSync v${diagReport.extension.version} — Отзыв / Диагностический лог`);
+        const body = encodeURIComponent(reportSummary.slice(0, 1500));
+        window.location.href = `mailto:arm2402@yandex.ru?subject=${subject}&body=${body}`;
+        modal.close();
+    });
+
+    document.getElementById('sendFeedbackWithoutLog')?.addEventListener('click', () => {
+        const subject = encodeURIComponent('LexiSync — Отзыв и пожелания');
+        window.location.href = `mailto:arm2402@yandex.ru?subject=${subject}`;
+        modal.close();
+    });
+
+    document.getElementById('copyDiagnosticsAndLogsBtn')?.addEventListener('click', async () => {
+        const [diagReport, logs] = await Promise.all([createDiagnosticReport(), getErrorLogs()]);
+        const fullReport = [
+            `LexiSync Diagnostics Report (${new Date().toLocaleString()})`,
+            `Версия: v${diagReport.extension.version}`,
+            `Среда: ${diagReport.environment.userAgent}`,
+            `Хранилище: ${Math.round(diagReport.storageBytes / 1024)} КБ`,
+            `Запросов: ${diagReport.usage.requests}, Сбоев: ${diagReport.usage.failures}`,
+            '',
+            formatErrorLogsAsText(logs),
+        ].join('\n');
+
+        await copyText(fullReport);
+        showOptionsStatus(t('diagnosticsCopied', 'Диагностический отчет скопирован в буфер обмена!'), 'success');
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     document.body.classList.add('settings-restoring');
     document.querySelector('main')?.setAttribute('aria-busy', 'true');
     localizeDocument();
     setupSearchEngineSelector();
     setupReleaseNotesTrigger();
+    setupErrorLogControls();
+    setupFeedbackModal();
     installResultPreviewStyles();
     void restoreOptions()
         .then(() => {
@@ -1029,6 +1153,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     if (changes.textSnippets) restoreTextSnippetSettings(changes.textSnippets.newValue);
     if (changes.usageStats) renderUsageStats(changes.usageStats.newValue as UsageStats);
     if (changes.settingsSyncStatus) renderSettingsSyncStatus(changes.settingsSyncStatus.newValue);
+    if (changes.appErrorLogs) void refreshErrorLogUI();
     if (changes.themeCustomization)
         applyThemeCustomization(document.documentElement, changes.themeCustomization.newValue);
 });

@@ -363,6 +363,13 @@
     "mistralRateLimit": { "message": "The Mistral rate limit was exceeded. Try again shortly." },
     "mistralUnavailable": { "message": "Mistral is temporarily unavailable. Try again." },
     "mistralApiError": { "message": "Mistral API error" },
+    "mistralApiKeyExpired": { "message": "The Mistral API key has expired. Save a new key in LexiSync settings." },
+    "mistralBillingRequired": {
+        "message": "Billing is not active for the Mistral API. Check the payment method in Mistral AI Studio."
+    },
+    "mistralAccessForbidden": {
+        "message": "Mistral recognized the key but denied access. Check the workspace, permissions, and billing."
+    },
     "imageMissing": { "message": "No image was received for recognition." },
     "ocrNoText": { "message": "Mistral OCR found no text in the selected area." },
     "emptyStream": { "message": "Mistral returned an empty response stream." },
@@ -624,6 +631,69 @@
     },
     "feedbackAria": {
         "message": "Email developer at arm2402@yandex.ru"
+    },
+    "errorLogTitle": {
+        "message": "Error & Diagnostics Log"
+    },
+    "errorLogSubtitle": {
+        "message": "Logs are strictly anonymous: API keys, passwords, and personal data are removed."
+    },
+    "downloadLogBtn": {
+        "message": "Download log (.txt)"
+    },
+    "copyLogBtn": {
+        "message": "Copy log"
+    },
+    "toggleLogViewerBtn": {
+        "message": "👁️ View log"
+    },
+    "clearLogBtn": {
+        "message": "Clear log"
+    },
+    "logCopied": {
+        "message": "Error log copied to clipboard!"
+    },
+    "logCleared": {
+        "message": "Error log cleared."
+    },
+    "errorCountZero": {
+        "message": "0 errors"
+    },
+    "feedbackModalEyebrow": {
+        "message": "Support & Feedback"
+    },
+    "feedbackModalTitle": {
+        "message": "Contact Developer"
+    },
+    "feedbackModalClose": {
+        "message": "Close modal"
+    },
+    "feedbackModalDesc": {
+        "message": "Would you like to attach a diagnostic error log to your message? This helps investigate and resolve issues much faster."
+    },
+    "feedbackPrivacyTitle": {
+        "message": "100% Privacy Protection:"
+    },
+    "feedbackPrivacyDesc": {
+        "message": "API keys, passwords, auth headers, and user text are strictly excluded from logs."
+    },
+    "sendWithLogTitle": {
+        "message": "Yes, attach diagnostics & log"
+    },
+    "sendWithLogHint": {
+        "message": "Extension version, browser, server connection status, and recent error messages"
+    },
+    "sendWithoutLogTitle": {
+        "message": "Send without log"
+    },
+    "sendWithoutLogHint": {
+        "message": "Standard email with your feedback or question"
+    },
+    "copyDiagnosticsBtn": {
+        "message": "Copy diagnostics"
+    },
+    "diagnosticsCopied": {
+        "message": "Diagnostic report copied to clipboard!"
     },
     "shortcutTesterTitle": {
         "message": "Interactive Shortcut Tester"

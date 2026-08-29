@@ -17,6 +17,7 @@ import { applySettingsMutation, type SettingsMutation } from './settings-store';
 import { initializeSettingsSync, restoreSyncedSettings } from './settings-transfer';
 import { formatMistralError, isRetryableMistralError, processOcr, type MistralRequest } from './mistral-client';
 import { executeAiStreamRequest } from './ai-client';
+import { AiProviderError } from './ai-provider-types';
 import { buildGrammarExplanationPayload } from './prompt-builder';
 import { cleanMarkdownArtifacts } from './markdown';
 import { validateMistralRequest } from './request-validation';
@@ -645,7 +646,7 @@ chrome.runtime.onConnect.addListener((port) => {
                     }
                 }
             }
-            const [mistralApiKey, groqApiKey] = await Promise.all([getStoredApiKey(), getStoredGroqApiKey()]);
+            let [mistralApiKey, groqApiKey] = await Promise.all([getStoredApiKey(), getStoredGroqApiKey()]);
             if (!mistralApiKey && !groqApiKey) {
                 throw new Error(t('apiKeyMissing', 'API-ключ не настроен'));
             }
@@ -695,6 +696,10 @@ chrome.runtime.onConnect.addListener((port) => {
                 }
             }
 
+            // Ключ мог быть заменён, пока запрос ожидал резервирования бюджета
+            // или подготовки контекста. Перечитываем секрет непосредственно перед API-вызовом.
+            [mistralApiKey, groqApiKey] = await Promise.all([getStoredApiKey(), getStoredGroqApiKey()]);
+
             if (msg.mode === 'ocr') {
                 if (!mistralApiKey) {
                     throw new Error(
@@ -713,37 +718,61 @@ chrome.runtime.onConnect.addListener((port) => {
                 }
                 if (isCurrentRequest()) safePostMessage({ status: 'done', provider: 'mistral' });
             } else {
-                const execResult = await executeAiStreamRequest({
-                    request: msg,
-                    settings: {
-                        selectedTone: settings.selectedTone as string,
-                        sendPageContext:
-                            settings.sendPageContext === true && msg.allowPageContext !== false && contextAllowedOnSite,
-                        personalDictionary: Array.isArray(settings.personalDictionary)
-                            ? settings.personalDictionary.map(String)
-                            : [],
-                        glossary: Array.isArray(settings.glossary) ? settings.glossary.map(String) : [],
-                        activeStyleProfile,
-                        aiMode:
-                            settings.aiMode === 'fast' || (settings.autoFastMode !== false && inputTokens > 2500)
-                                ? 'fast'
-                                : 'quality',
-                        enablePiiMasking: settings.enablePiiMasking !== false,
-                    },
-                    primaryProvider: normalizePrimaryAiProvider(settings.primaryAiProvider),
-                    autoFallback: normalizeAutoFallbackEnabled(settings.autoFallbackEnabled),
-                    mistralApiKey,
-                    groqApiKey,
-                    signal: requestController.signal,
-                    onChunk: (text) => {
-                        outputText += text;
-                        if (isCurrentRequest()) safePostMessage({ status: 'chunk', text });
-                    },
-                    onReset: () => {
-                        outputText = '';
-                        if (isCurrentRequest()) safePostMessage({ status: 'reset' });
-                    },
-                });
+                const aiSettings = {
+                    selectedTone: settings.selectedTone as string,
+                    sendPageContext:
+                        settings.sendPageContext === true && msg.allowPageContext !== false && contextAllowedOnSite,
+                    personalDictionary: Array.isArray(settings.personalDictionary)
+                        ? settings.personalDictionary.map(String)
+                        : [],
+                    glossary: Array.isArray(settings.glossary) ? settings.glossary.map(String) : [],
+                    activeStyleProfile,
+                    aiMode:
+                        settings.aiMode === 'fast' || (settings.autoFastMode !== false && inputTokens > 2500)
+                            ? 'fast'
+                            : 'quality',
+                    enablePiiMasking: settings.enablePiiMasking !== false,
+                } as const;
+                const runAiRequest = (currentMistralKey: string, currentGroqKey: string) =>
+                    executeAiStreamRequest({
+                        request: msg,
+                        settings: aiSettings,
+                        primaryProvider: normalizePrimaryAiProvider(settings.primaryAiProvider),
+                        autoFallback: normalizeAutoFallbackEnabled(settings.autoFallbackEnabled),
+                        mistralApiKey: currentMistralKey,
+                        groqApiKey: currentGroqKey,
+                        signal: requestController.signal,
+                        onChunk: (text) => {
+                            outputText += text;
+                            if (isCurrentRequest()) safePostMessage({ status: 'chunk', text });
+                        },
+                        onReset: () => {
+                            outputText = '';
+                            if (isCurrentRequest()) safePostMessage({ status: 'reset' });
+                        },
+                    });
+
+                let execResult;
+                try {
+                    execResult = await runAiRequest(mistralApiKey, groqApiKey);
+                } catch (error) {
+                    if (!(error instanceof AiProviderError) || error.code !== 'AUTH_ERROR') throw error;
+                    const [latestMistralKey, latestGroqKey] = await Promise.all([
+                        getStoredApiKey(),
+                        getStoredGroqApiKey(),
+                    ]);
+                    const attemptedKey = error.provider === 'mistral' ? mistralApiKey : groqApiKey;
+                    const latestKey = error.provider === 'mistral' ? latestMistralKey : latestGroqKey;
+                    if (!latestKey || latestKey === attemptedKey) throw error;
+
+                    // Сохранение ключа завершилось во время запроса. Сбрасываем возможный
+                    // незавершённый вывод и один раз повторяем команду с новым секретом.
+                    outputText = '';
+                    if (isCurrentRequest()) safePostMessage({ status: 'reset' });
+                    mistralApiKey = latestMistralKey;
+                    groqApiKey = latestGroqKey;
+                    execResult = await runAiRequest(mistralApiKey, groqApiKey);
+                }
                 if (isCurrentRequest()) {
                     safePostMessage({
                         status: 'done',

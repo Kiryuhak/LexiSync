@@ -86,9 +86,9 @@ test('безопасно нормализует поисковик и повре
 });
 
 test('история обновлений содержит все выпуски и поддерживает поиск', () => {
-    expect(RELEASE_NOTES[0].version).toBe('5.5.2');
+    expect(RELEASE_NOTES[0].version).toBe('5.5.3');
     expect(RELEASE_NOTES.at(-1)?.version).toBe('2.5');
-    expect(RELEASE_NOTES).toHaveLength(53);
+    expect(RELEASE_NOTES).toHaveLength(54);
     expect(new Set(RELEASE_NOTES.map((release) => release.version)).size).toBe(RELEASE_NOTES.length);
     expect(filterReleaseNotes(RELEASE_NOTES, 'MagicOS', 'ru').map((release) => release.version)).toEqual([
         '5.3.4',
@@ -662,6 +662,75 @@ test('валидирует API-ключ с возвратом понятного
         const invalidResult = await validateApiKey('bad-key');
         expect(invalidResult.ok).toBe(false);
         expect(invalidResult.message).toContain('API-ключ недействителен');
+    } finally {
+        vi.unstubAllGlobals();
+    }
+});
+
+test('показывает точную причину 401, если срок действия ключа Mistral истёк', async () => {
+    vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue(
+            new Response(JSON.stringify({ message: 'Your API key expired on 2026-08-29.' }), {
+                status: 401,
+                headers: { 'content-type': 'application/json' },
+            }),
+        ),
+    );
+    try {
+        const result = await validateApiKey('expired-key');
+        expect(result).toEqual({
+            ok: false,
+            message: 'Срок действия API-ключа Mistral истёк. Сохраните новый ключ в настройках LexiSync.',
+        });
+    } finally {
+        vi.unstubAllGlobals();
+    }
+});
+
+test('один раз повторяет потоковый запрос, когда новый ключ уже работает на endpoint моделей', async () => {
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+        start(controller) {
+            controller.enqueue(
+                encoder.encode('data: {"choices":[{"delta":{"content":"Новый ключ работает"}}]}\n\ndata: [DONE]\n\n'),
+            );
+            controller.close();
+        },
+    });
+    const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(
+            new Response(JSON.stringify({ message: 'Unauthorized' }), {
+                status: 401,
+                headers: { 'content-type': 'application/json' },
+            }),
+        )
+        .mockResolvedValueOnce(new Response(JSON.stringify({ data: [] }), { status: 200 }))
+        .mockResolvedValueOnce(new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } }));
+    vi.stubGlobal('fetch', fetchMock);
+    const chunks: string[] = [];
+    try {
+        await streamText(
+            { action: 'callMistral', text: 'Тест', mode: 'spellcheck' },
+            'new-key',
+            {
+                selectedTone: 'business',
+                sendPageContext: false,
+                personalDictionary: [],
+                glossary: [],
+                aiMode: 'quality',
+            },
+            new AbortController().signal,
+            (chunk) => chunks.push(chunk),
+        );
+        expect(chunks.join('')).toBe('Новый ключ работает');
+        expect(fetchMock).toHaveBeenCalledTimes(3);
+        expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([
+            'https://api.mistral.ai/v1/chat/completions',
+            'https://api.mistral.ai/v1/models',
+            'https://api.mistral.ai/v1/chat/completions',
+        ]);
     } finally {
         vi.unstubAllGlobals();
     }
@@ -2453,7 +2522,11 @@ test('Unit 7: 401/403 Auth Error НЕ вызывает fallback и выбрас�
         }),
     ).rejects.toThrow(/недействителен|отозван|API-ключ/i);
 
-    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(mockFetch.mock.calls.map(([url]) => String(url))).toEqual([
+        'https://api.mistral.ai/v1/chat/completions',
+        'https://api.mistral.ai/v1/models',
+    ]);
     mockFetch.mockRestore();
 });
 
@@ -2865,4 +2938,106 @@ test('Unit 22: formatHistoryAsCsv и formatHistoryAsMarkdown экспортир�
     const md = formatHistoryAsMarkdown(items, { spellcheck: 'Ошибки' });
     expect(md).toContain('**Разбор правил:**');
     expect(md).toContain('жи/ши пиши с буквой и');
+});
+
+test('Unit 23: sanitizeLogMessage строго маскирует API-ключи, токены, пароли и личные данные', async () => {
+    const { sanitizeLogMessage } = await import('../src/error-log');
+
+    const rawGroq = 'Error with key gsk_1234567890abcdef1234567890abcdef and token Bearer eyJhbGciOiJIUzI1NiJ9';
+    const cleanGroq = sanitizeLogMessage(rawGroq);
+    expect(cleanGroq).not.toContain('gsk_1234567890abcdef1234567890abcdef');
+    expect(cleanGroq).toContain('gsk_[REDACTED_GROQ_KEY]');
+    expect(cleanGroq).toContain('Bearer [REDACTED_TOKEN]');
+
+    const rawMistral = 'Failed auth with 0123456789abcdef0123456789abcdef';
+    const cleanMistral = sanitizeLogMessage(rawMistral);
+    expect(cleanMistral).not.toContain('0123456789abcdef0123456789abcdef');
+    expect(cleanMistral).toContain('[REDACTED_HEX_KEY]');
+
+    const rawContact =
+        'Contact me at test.user@example.com or +7 (999) 123-4567 with https://api.com?api_key=secretKey123';
+    const cleanContact = sanitizeLogMessage(rawContact, ['customSecretKeyToScrub']);
+    expect(cleanContact).not.toContain('test.user@example.com');
+    expect(cleanContact).not.toContain('+7 (999) 123-4567');
+    expect(cleanContact).not.toContain('secretKey123');
+    expect(cleanContact).toContain('[REDACTED_EMAIL]');
+    expect(cleanContact).toContain('[REDACTED_PHONE]');
+    expect(cleanContact).toContain('[REDACTED_PARAM]');
+});
+
+test('Unit 24: recordErrorLog, getErrorLogs, clearErrorLogs корректно управляют журналом ошибок', async () => {
+    const mockStorage: Record<string, unknown> = {};
+    const origChrome = globalThis.chrome;
+    globalThis.chrome = {
+        storage: {
+            local: {
+                get: vi.fn(async (keys) => {
+                    if (typeof keys === 'object' && keys !== null && !Array.isArray(keys)) {
+                        const result: Record<string, unknown> = {};
+                        for (const [k, defaultVal] of Object.entries(keys)) {
+                            result[k] = mockStorage[k] !== undefined ? mockStorage[k] : defaultVal;
+                        }
+                        return result;
+                    }
+                    return mockStorage;
+                }),
+                set: vi.fn(async (items) => Object.assign(mockStorage, items)),
+                remove: vi.fn(async (keys: string[]) => {
+                    for (const k of keys) delete mockStorage[k];
+                }),
+            },
+        },
+    } as unknown as typeof chrome;
+
+    try {
+        const { recordErrorLog, getErrorLogs, clearErrorLogs, formatErrorLogsAsText, formatErrorLogsAsJson } =
+            await import('../src/error-log');
+
+        await clearErrorLogs();
+        let logs = await getErrorLogs();
+        expect(logs).toEqual([]);
+
+        await recordErrorLog({
+            level: 'error',
+            source: 'mistral-client',
+            provider: 'mistral',
+            status: 401,
+            message: 'Недействительный ключ API mistralKeySecret12345678',
+            knownKeys: ['mistralKeySecret12345678'],
+        });
+
+        logs = await getErrorLogs();
+        expect(logs.length).toBe(1);
+        expect(logs[0].provider).toBe('mistral');
+        expect(logs[0].message).not.toContain('mistralKeySecret12345678');
+        expect(logs[0].message).toContain('[REDACTED_KEY]');
+
+        const text = formatErrorLogsAsText(logs);
+        expect(text).toContain('LEXISYNC ERROR LOG');
+        expect(text).toContain('mistral');
+        expect(text).toContain('401');
+
+        const json = formatErrorLogsAsJson(logs);
+        expect(JSON.parse(json).format).toBe('lexisync-error-log');
+
+        await clearErrorLogs();
+        logs = await getErrorLogs();
+        expect(logs).toEqual([]);
+    } finally {
+        globalThis.chrome = origChrome;
+    }
+});
+
+test('Unit 25: options.html содержит карточку журнала ошибок и диалог обратной связи', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const optionsHtml = await fs.readFile(path.resolve(__dirname, '../entrypoints/options.html'), 'utf8');
+
+    expect(optionsHtml).toContain('id="downloadLogBtn"');
+    expect(optionsHtml).toContain('id="copyLogBtn"');
+    expect(optionsHtml).toContain('id="clearLogBtn"');
+    expect(optionsHtml).toContain('id="errorLogCounter"');
+    expect(optionsHtml).toContain('id="feedbackModal"');
+    expect(optionsHtml).toContain('id="sendFeedbackWithLog"');
+    expect(optionsHtml).toContain('id="sendFeedbackWithoutLog"');
 });

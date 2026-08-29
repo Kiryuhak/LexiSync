@@ -1,3 +1,5 @@
+import { recordErrorLog } from './error-log';
+
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 class Logger {
@@ -13,10 +15,20 @@ class Logger {
 
     warn(message: string, ...args: unknown[]): void {
         console.warn(`${this.prefix} ${message}`, ...args);
+        void recordErrorLog({
+            level: 'warn',
+            source: 'logger',
+            message: `${message}${args.length > 0 ? ' ' + args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ') : ''}`,
+        });
     }
 
     error(message: string, ...args: unknown[]): void {
         console.error(`${this.prefix} ${message}`, ...args);
+        void recordErrorLog({
+            level: 'error',
+            source: 'logger',
+            message: `${message}${args.length > 0 ? ' ' + args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ') : ''}`,
+        });
     }
 }
 

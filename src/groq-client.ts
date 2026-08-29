@@ -4,6 +4,7 @@ import { buildPromptPayload } from './prompt-builder';
 import type { MistralRequest, MistralSettings } from './mistral-client';
 import { parseRetryAfterMs } from './mistral-client';
 import { AiProviderError } from './ai-provider-types';
+import { recordErrorLog } from './error-log';
 
 export const GROQ_API_BASE_URL = 'https://api.groq.com/openai/v1';
 export const GROQ_DEFAULT_MODEL = 'qwen/qwen3.6-27b';
@@ -102,21 +103,49 @@ export async function validateGroqApiKey(apiKey: string): Promise<{ ok: boolean;
             cache: 'no-store',
             signal: AbortSignal.timeout(10_000),
         });
-        if (!response.ok) return { ok: false, message: classifyGroqError(response.status).message };
+        if (!response.ok) {
+            const err = classifyGroqError(response.status);
+            void recordErrorLog({
+                level: 'error',
+                source: 'groq-client',
+                provider: 'groq',
+                status: response.status,
+                errorCode: err.error.code,
+                message: `Проверка API-ключа Groq завершилась с ошибкой: ${err.message}`,
+                knownKeys: [trimmed],
+            });
+            return { ok: false, message: err.message };
+        }
         const payload = (await response.json()) as { data?: Array<{ id?: string }> };
         const modelAvailable = payload.data?.some((model) => model.id === GROQ_DEFAULT_MODEL) === true;
         if (!modelAvailable) {
+            const msg = t(
+                'groqModelUnavailable',
+                'Ключ работает, но модель Qwen 3.6 27B пока недоступна для этого аккаунта Groq.',
+            );
+            void recordErrorLog({
+                level: 'warn',
+                source: 'groq-client',
+                provider: 'groq',
+                message: `Модель ${GROQ_DEFAULT_MODEL} недоступна для аккаунта Groq.`,
+                knownKeys: [trimmed],
+            });
             return {
                 ok: false,
-                message: t(
-                    'groqModelUnavailable',
-                    'Ключ работает, но модель Qwen 3.6 27B пока недоступна для этого аккаунта Groq.',
-                ),
+                message: msg,
             };
         }
         return { ok: true, message: t('groqApiKeyValid', 'API-ключ Groq проверен и готов к работе.') };
     } catch (error) {
-        return { ok: false, message: formatGroqError(error) };
+        const formatted = formatGroqError(error);
+        void recordErrorLog({
+            level: 'error',
+            source: 'groq-client',
+            provider: 'groq',
+            message: `Сбой при проверке API-ключа Groq: ${formatted}`,
+            knownKeys: [trimmed],
+        });
+        return { ok: false, message: formatted };
     }
 }
 

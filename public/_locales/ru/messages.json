@@ -363,6 +363,15 @@
     "mistralRateLimit": { "message": "Превышен лимит запросов Mistral. Попробуйте немного позже." },
     "mistralUnavailable": { "message": "Сервис Mistral временно недоступен. Попробуйте ещё раз." },
     "mistralApiError": { "message": "Ошибка Mistral API" },
+    "mistralApiKeyExpired": {
+        "message": "Срок действия API-ключа Mistral истёк. Сохраните новый ключ в настройках LexiSync."
+    },
+    "mistralBillingRequired": {
+        "message": "Для Mistral API не активирован биллинг. Проверьте способ оплаты в Mistral AI Studio."
+    },
+    "mistralAccessForbidden": {
+        "message": "Mistral распознал ключ, но запретил доступ. Проверьте рабочее пространство, права и биллинг."
+    },
     "imageMissing": { "message": "Изображение для распознавания не получено." },
     "ocrNoText": { "message": "Mistral OCR не обнаружил текст в выбранной области." },
     "emptyStream": { "message": "Mistral вернул пустой поток данных." },
@@ -624,6 +633,69 @@
     },
     "feedbackAria": {
         "message": "Написать разработчику на arm2402@yandex.ru"
+    },
+    "errorLogTitle": {
+        "message": "Журнал ошибок и диагностика"
+    },
+    "errorLogSubtitle": {
+        "message": "Лог полностью анонимен: API-ключи, пароли и личные данные автоматически удалены."
+    },
+    "downloadLogBtn": {
+        "message": "Скачать лог (.txt)"
+    },
+    "copyLogBtn": {
+        "message": "Скопировать лог"
+    },
+    "toggleLogViewerBtn": {
+        "message": "👁️ Просмотр лога"
+    },
+    "clearLogBtn": {
+        "message": "Очистить"
+    },
+    "logCopied": {
+        "message": "Лог ошибок скопирован в буфер обмена!"
+    },
+    "logCleared": {
+        "message": "Журнал ошибок очищен."
+    },
+    "errorCountZero": {
+        "message": "0 ошибок"
+    },
+    "feedbackModalEyebrow": {
+        "message": "Поддержка и связь"
+    },
+    "feedbackModalTitle": {
+        "message": "Написать разработчику"
+    },
+    "feedbackModalClose": {
+        "message": "Закрыть окно"
+    },
+    "feedbackModalDesc": {
+        "message": "Хотите прикрепить диагностический лог к обращению? Это поможет быстрее выявить причину сбоя и помочь вам."
+    },
+    "feedbackPrivacyTitle": {
+        "message": "100% защита данных:"
+    },
+    "feedbackPrivacyDesc": {
+        "message": "API-ключи, пароли, заголовки авторизации и тексты запросов полностью исключены из лога."
+    },
+    "sendWithLogTitle": {
+        "message": "Да, прикрепить диагностику и лог"
+    },
+    "sendWithLogHint": {
+        "message": "Версия расширения, браузер, статус связи с серверами и последние ошибки"
+    },
+    "sendWithoutLogTitle": {
+        "message": "Отправить без лога"
+    },
+    "sendWithoutLogHint": {
+        "message": "Обычное письмо с вашим отзывом или вопросом"
+    },
+    "copyDiagnosticsBtn": {
+        "message": "Скопировать диагностику"
+    },
+    "diagnosticsCopied": {
+        "message": "Диагностический отчет скопирован в буфер обмена!"
     },
     "shortcutTesterTitle": {
         "message": "Интерактивный тест горячих клавиш"

@@ -1,6 +1,7 @@
 import { t } from './i18n';
 import { streamText, type MistralRequest, type MistralSettings } from './mistral-client';
 import { streamGroqText } from './groq-client';
+import { recordErrorLog } from './error-log';
 import {
     AiProviderError,
     type AiErrorCode,
@@ -44,6 +45,14 @@ function recordProviderSuccess(provider: AiProviderType): void {
 }
 
 function recordProviderFailure(error: AiProviderError, now = Date.now()): void {
+    void recordErrorLog({
+        level: 'error',
+        source: 'ai-client',
+        provider: error.provider,
+        errorCode: error.code,
+        status: error.status,
+        message: error.message,
+    });
     if (!error.isFallbackEligible) return;
     const state = providerHealth[error.provider];
     state.consecutiveFailures += 1;

@@ -3,32 +3,50 @@ import { deletePrivateRecord, readPrivateRecord, writePrivateRecord } from './ex
 const API_KEY_RECORD = 'mistralApiKey';
 const GROQ_API_KEY_RECORD = 'groqApiKey';
 
+let mistralApiKeyCache: string | undefined;
+let groqApiKeyCache: string | undefined;
+let pendingSecretWrite: Promise<void> = Promise.resolve();
+
+function queueSecretWrite(operation: () => Promise<void>): Promise<void> {
+    const queued = pendingSecretWrite.then(operation, operation);
+    pendingSecretWrite = queued.catch(() => undefined);
+    return queued;
+}
+
 export async function getStoredApiKey(): Promise<string> {
-    return (await readPrivateRecord<string>('secrets', API_KEY_RECORD)) || '';
+    await pendingSecretWrite;
+    if (mistralApiKeyCache !== undefined) return mistralApiKeyCache;
+    mistralApiKeyCache = (await readPrivateRecord<string>('secrets', API_KEY_RECORD)) || '';
+    return mistralApiKeyCache;
 }
 
 export async function setStoredApiKey(value: string): Promise<void> {
     const normalized = value.trim();
-    if (!normalized) {
-        await deletePrivateRecord('secrets', API_KEY_RECORD);
-        return;
-    }
     if (normalized.length > 512) throw new Error('API_KEY_TOO_LONG');
-    await writePrivateRecord('secrets', API_KEY_RECORD, normalized);
+    await queueSecretWrite(async () => {
+        if (normalized) await writePrivateRecord('secrets', API_KEY_RECORD, normalized);
+        else await deletePrivateRecord('secrets', API_KEY_RECORD);
+        // Обновляем снимок только после завершения транзакции IndexedDB.
+        // Следующий AI-запрос гарантированно получит уже сохранённый ключ.
+        mistralApiKeyCache = normalized;
+    });
 }
 
 export async function getStoredGroqApiKey(): Promise<string> {
-    return (await readPrivateRecord<string>('secrets', GROQ_API_KEY_RECORD)) || '';
+    await pendingSecretWrite;
+    if (groqApiKeyCache !== undefined) return groqApiKeyCache;
+    groqApiKeyCache = (await readPrivateRecord<string>('secrets', GROQ_API_KEY_RECORD)) || '';
+    return groqApiKeyCache;
 }
 
 export async function setStoredGroqApiKey(value: string): Promise<void> {
     const normalized = value.trim();
-    if (!normalized) {
-        await deletePrivateRecord('secrets', GROQ_API_KEY_RECORD);
-        return;
-    }
     if (normalized.length > 512) throw new Error('API_KEY_TOO_LONG');
-    await writePrivateRecord('secrets', GROQ_API_KEY_RECORD, normalized);
+    await queueSecretWrite(async () => {
+        if (normalized) await writePrivateRecord('secrets', GROQ_API_KEY_RECORD, normalized);
+        else await deletePrivateRecord('secrets', GROQ_API_KEY_RECORD);
+        groqApiKeyCache = normalized;
+    });
 }
 
 export async function migrateApiKeyToSecretStore(): Promise<void> {

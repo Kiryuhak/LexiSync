@@ -36,6 +36,35 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.5.3',
+        '2026-08-29',
+        'improved',
+        'Журнал ошибок, секундомер запросов и удобная связь с разработчиком',
+        'Error diagnostics log, live request stopwatch, and developer feedback modal',
+        [
+            [
+                'Добавлен защищённый журнал ошибок (Error Log): API-ключи, пароли и личные данные автоматически маскируются.',
+                'Added a privacy-safe Error Log: API keys, passwords, and personal data are strictly masked.',
+            ],
+            [
+                'В настройках появилась карточка диагностики: просмотр, скачивание (.txt), копирование и очистка журнала ошибок.',
+                'Settings now feature a diagnostics card: preview, download (.txt), copy, and clear error logs.',
+            ],
+            [
+                'Модальное окно «Написать разработчику» позволяет прикрепить диагностику и лог для быстрого решения вопросов.',
+                'The Contact Developer modal lets you attach diagnostics and logs to resolve issues faster.',
+            ],
+            [
+                'В шапке плавающей панели появился живой мини-секундомер, наглядно показывающий время ответа AI.',
+                'The floating panel header now displays a live mini-stopwatch showing AI response time in real time.',
+            ],
+            [
+                'Переключение основного AI-провайдера и чекбокса fallback теперь мгновенно сохраняются в память расширения.',
+                'Switching primary AI provider and fallback toggle are now immediately saved into extension storage.',
+            ],
+        ],
+    ),
+    note(
         '5.5.2',
         '2026-08-27',
         'fixed',
