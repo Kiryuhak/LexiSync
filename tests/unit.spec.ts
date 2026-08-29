@@ -3028,7 +3028,7 @@ test('Unit 24: recordErrorLog, getErrorLogs, clearErrorLogs корректно �
     }
 });
 
-test('Unit 25: options.html содержит карточку журнала ошибок и диалог обратной связи', async () => {
+test('Unit 25: options.html содержит карточки лимитов Groq/Mistral, журнал ошибок в Диагностике и модальное окно обратной связи', async () => {
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const optionsHtml = await fs.readFile(path.resolve(__dirname, '../entrypoints/options.html'), 'utf8');
@@ -3040,4 +3040,26 @@ test('Unit 25: options.html содержит карточку журнала о�
     expect(optionsHtml).toContain('id="feedbackModal"');
     expect(optionsHtml).toContain('id="sendFeedbackWithLog"');
     expect(optionsHtml).toContain('id="sendFeedbackWithoutLog"');
+    expect(optionsHtml).not.toContain('id="copyDiagnosticsAndLogsBtn"');
+    expect(optionsHtml).not.toContain('id="styleProfileForm"');
+    expect(optionsHtml).toContain('id="groqUsageToday"');
+    expect(optionsHtml).toContain('id="groqResetDisplay"');
+    expect(optionsHtml).toContain('id="mistralActiveModelDisplay"');
+    expect(optionsHtml).toContain('id="mistralUsageToday"');
+});
+
+test('Unit 26: clearAllSecrets гарантированно очищает сохранённые ключи и кэш', async () => {
+    const { setStoredApiKey, setStoredGroqApiKey, getStoredApiKey, getStoredGroqApiKey, clearAllSecrets } =
+        await import('../src/secret-store');
+
+    await setStoredApiKey('mistral-test-key-12345');
+    await setStoredGroqApiKey('gsk_groq-test-key-12345');
+
+    expect(await getStoredApiKey()).toBe('mistral-test-key-12345');
+    expect(await getStoredGroqApiKey()).toBe('gsk_groq-test-key-12345');
+
+    await clearAllSecrets();
+
+    expect(await getStoredApiKey()).toBe('');
+    expect(await getStoredGroqApiKey()).toBe('');
 });

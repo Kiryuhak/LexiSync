@@ -59,3 +59,12 @@ export async function migrateApiKeyToSecretStore(): Promise<void> {
     if (legacyGroqKey && !(await getStoredGroqApiKey())) await setStoredGroqApiKey(legacyGroqKey);
     if ('groqApiKey' in stored) await chrome.storage.local.remove('groqApiKey');
 }
+
+export async function clearAllSecrets(): Promise<void> {
+    await queueSecretWrite(async () => {
+        await deletePrivateRecord('secrets', API_KEY_RECORD);
+        await deletePrivateRecord('secrets', GROQ_API_KEY_RECORD);
+        mistralApiKeyCache = '';
+        groqApiKeyCache = '';
+    });
+}

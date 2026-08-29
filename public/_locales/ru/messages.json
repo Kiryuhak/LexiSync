@@ -304,6 +304,8 @@
     "keyCheckUnavailable": { "message": "Настройки сохранены. Проверить API-ключ сейчас не удалось." },
     "saveSuccess": { "message": "✓ Настройки успешно сохранены!" },
     "clearAdaptiveConfirm": { "message": "Удалить все локально изученные слова и словосочетания?" },
+    "adaptiveDataCleared": { "message": "Адаптивные данные очищены." },
+    "adaptiveClearFailed": { "message": "Не удалось очистить адаптивные данные." },
     "of": { "message": "из" },
     "secondsShort": { "message": "с" },
     "historyPromptSpellcheck": {
@@ -691,8 +693,38 @@
     "sendWithoutLogHint": {
         "message": "Обычное письмо с вашим отзывом или вопросом"
     },
-    "copyDiagnosticsBtn": {
-        "message": "Скопировать диагностику"
+    "providerLimitsTitle": {
+        "message": "Лимиты и квоты провайдеров"
+    },
+    "providerLimitsIntro": {
+        "message": "Актуальные лимиты скорости (RPM/RPS), суточных квот и моделей с отображением времени сброса по московскому времени (МСК)."
+    },
+    "groqTierFree": {
+        "message": "Бесплатный (Free Tier)"
+    },
+    "providerModelLabel": {
+        "message": "Активная модель:"
+    },
+    "providerSpeedLimit": {
+        "message": "Лимит скорости:"
+    },
+    "providerDailyQuota": {
+        "message": "Суточная квота:"
+    },
+    "providerDailyUsage": {
+        "message": "Расход за сегодня:"
+    },
+    "providerMonthlyUsage": {
+        "message": "Расход за месяц:"
+    },
+    "providerResetTime": {
+        "message": "Сброс суточного лимита:"
+    },
+    "providerStatusLabel": {
+        "message": "Статус ожидания / сбоя:"
+    },
+    "userBudgetLimitsTitle": {
+        "message": "Пользовательские ограничения"
     },
     "diagnosticsCopied": {
         "message": "Диагностический отчет скопирован в буфер обмена!"

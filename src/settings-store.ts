@@ -1,6 +1,7 @@
 import { enqueueStorageMutation } from './storage-queue';
 import type { CustomCommand, StyleProfile, TextSnippet } from './types';
 import { normalizeDisabledSites, normalizeSiteEntries } from './privacy';
+import { clearAllSecrets } from './secret-store';
 import {
     DEFAULT_TEXT_SNIPPETS,
     isTextSnippet,
@@ -233,6 +234,11 @@ export function applySettingsMutation(mutation: SettingsMutation, payload: Setti
                 } catch {
                     // Ignore if sync is unavailable
                 }
+            }
+            try {
+                await clearAllSecrets();
+            } catch {
+                // Ignore secret store reset failure
             }
             return;
         }

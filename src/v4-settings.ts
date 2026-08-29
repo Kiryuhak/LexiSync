@@ -2,7 +2,6 @@ import { DEFAULT_BUDGET_SETTINGS } from './budget';
 import { DEFAULT_THEME_CUSTOMIZATION, normalizeThemeCustomization } from './theme-customization';
 import type { ThemeCustomization } from './types';
 import { normalizeSiteEntries } from './privacy';
-import { downloadDiagnosticReport } from './diagnostics';
 
 function byId<T extends HTMLElement>(id: string): T {
     return document.getElementById(id) as T;
@@ -127,9 +126,5 @@ export function setupV4Settings(): void {
     byId<HTMLButtonElement>('resetThemeEditor').addEventListener('click', () => {
         fillThemeEditor(DEFAULT_THEME_CUSTOMIZATION);
         void chrome.storage.local.set({ themeCustomization: DEFAULT_THEME_CUSTOMIZATION });
-    });
-
-    byId<HTMLButtonElement>('downloadDiagnostics').addEventListener('click', () => {
-        void downloadDiagnosticReport();
     });
 }

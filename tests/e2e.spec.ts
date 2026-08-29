@@ -2529,6 +2529,9 @@ test('Test 65: Карточка журнала ошибок в Настройк�
 
     await page.goto(`chrome-extension://${extensionId}/options.html`);
 
+    // Переходим на вкладку «Приватность» (где расположен раздел «Диагностика»)
+    await page.click('button[data-tab="privacy"]');
+
     // Проверяем счетчик ошибок и кнопки
     const errorCounter = page.locator('#errorLogCounter');
     await expect(errorCounter).toBeVisible();

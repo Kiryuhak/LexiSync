@@ -8,7 +8,6 @@ import {
     retrySettingsSync,
     type SettingsSyncStatus,
 } from './settings-transfer';
-import { restoreStyleProfileSettings, setupStyleProfileSettings } from './style-profile-settings';
 import {
     restoreCustomCommandSettings,
     restoreTextSnippetSettings,
@@ -20,7 +19,8 @@ import { normalizeSiteEntries } from './privacy';
 import { normalizeAppearanceStyle } from './appearance-style';
 import { restoreV4Settings, setupV4Settings } from './v4-settings';
 import { applyThemeCustomization, DEFAULT_THEME_CUSTOMIZATION } from './theme-customization';
-import { DEFAULT_BUDGET_SETTINGS } from './budget';
+import { DEFAULT_BUDGET_SETTINGS, getMonthUsage } from './budget';
+import { clearAllSecrets } from './secret-store';
 import { validateApiKey } from './mistral-client';
 import { validateGroqApiKey } from './groq-client';
 import {
@@ -589,7 +589,6 @@ async function restoreOptions(): Promise<void> {
     }
     restoreCustomCommandSettings(items.customCommands);
     restoreTextSnippetSettings(items.textSnippets);
-    restoreStyleProfileSettings(items.styleProfiles, items.activeStyleProfileId);
     await restoreV4Settings(items);
     renderUsageStats(items.usageStats as UsageStats);
     renderSettingsSyncStatus(items.settingsSyncStatus);
@@ -799,12 +798,88 @@ function setupFactoryReset(): void {
         confirmBtn.disabled = true;
         try {
             await factoryResetAllSettings();
+            try {
+                await clearAllSecrets();
+            } catch {
+                // Ignore secret store clear failure
+            }
             window.location.reload();
         } catch {
             confirmBtn.disabled = false;
             dialog.close();
         }
     });
+}
+
+function formatCountdownToMskReset(): string {
+    const now = new Date();
+    // Сброс лимитов Groq происходит в 00:00 UTC, что соответствует 03:00 по московскому времени (МСК, UTC+3)
+    const nextUtcMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0);
+    const diffMs = Math.max(0, nextUtcMidnight - now.getTime());
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    return `в 03:00 МСК (через ${hours} ч ${mins} мин)`;
+}
+
+async function refreshProviderQuotasUI(): Promise<void> {
+    const stored = await chrome.storage.local.get({
+        usageStats: EMPTY_USAGE_STATS,
+        aiMode: 'quality',
+    });
+    const stats = stored.usageStats as UsageStats;
+    const aiMode = stored.aiMode;
+
+    const groqUsageEl = document.getElementById('groqUsageToday');
+    const groqResetEl = document.getElementById('groqResetDisplay');
+    const mistralModelEl = document.getElementById('mistralActiveModelDisplay');
+    const mistralUsageTodayEl = document.getElementById('mistralUsageToday');
+    const mistralUsageMonthEl = document.getElementById('mistralUsageMonth');
+    const mistralCooldownEl = document.getElementById('mistralCooldownDisplay');
+
+    if (groqResetEl) {
+        groqResetEl.textContent = formatCountdownToMskReset();
+    }
+
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const todayStats = stats?.daily?.[todayKey] || { requests: 0, tokens: 0 };
+    const monthUsage = getMonthUsage(stats || EMPTY_USAGE_STATS);
+
+    if (groqUsageEl) {
+        groqUsageEl.textContent = `${todayStats.requests} запросов / 14 400`;
+    }
+
+    if (mistralModelEl) {
+        const isQuality = aiMode === 'quality';
+        const label = isQuality ? 'Mistral Large ' : 'Mistral Small ';
+        const codeText = isQuality ? 'mistral-large-latest' : 'mistral-small-latest';
+        mistralModelEl.textContent = label;
+        const codeEl = document.createElement('code');
+        codeEl.textContent = `(${codeText})`;
+        mistralModelEl.appendChild(codeEl);
+    }
+
+    if (mistralUsageTodayEl) {
+        mistralUsageTodayEl.textContent = `${todayStats.requests} запросов`;
+    }
+
+    if (mistralUsageMonthEl) {
+        mistralUsageMonthEl.textContent = `${monthUsage.tokens.toLocaleString('ru-RU')} токенов`;
+    }
+
+    if (mistralCooldownEl) {
+        mistralCooldownEl.textContent = 'В норме';
+    }
+}
+
+function setupProviderQuotaCards(): void {
+    void refreshProviderQuotasUI();
+    // Обновляем таймер сброса по МСК каждую минуту
+    setInterval(() => {
+        const groqResetEl = document.getElementById('groqResetDisplay');
+        if (groqResetEl) {
+            groqResetEl.textContent = formatCountdownToMskReset();
+        }
+    }, 60000);
 }
 
 function formatErrorCount(count: number): string {
@@ -912,22 +987,6 @@ function setupFeedbackModal(): void {
         window.location.href = `mailto:arm2402@yandex.ru?subject=${subject}`;
         modal.close();
     });
-
-    document.getElementById('copyDiagnosticsAndLogsBtn')?.addEventListener('click', async () => {
-        const [diagReport, logs] = await Promise.all([createDiagnosticReport(), getErrorLogs()]);
-        const fullReport = [
-            `LexiSync Diagnostics Report (${new Date().toLocaleString()})`,
-            `Версия: v${diagReport.extension.version}`,
-            `Среда: ${diagReport.environment.userAgent}`,
-            `Хранилище: ${Math.round(diagReport.storageBytes / 1024)} КБ`,
-            `Запросов: ${diagReport.usage.requests}, Сбоев: ${diagReport.usage.failures}`,
-            '',
-            formatErrorLogsAsText(logs),
-        ].join('\n');
-
-        await copyText(fullReport);
-        showOptionsStatus(t('diagnosticsCopied', 'Диагностический отчет скопирован в буфер обмена!'), 'success');
-    });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -1019,7 +1078,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     setupCustomCommandSettings();
     setupTextSnippetSettings();
-    setupStyleProfileSettings();
+    setupProviderQuotaCards();
     setupSettingsTabs();
     setupShortcutTester();
     setupPromptLibrary();
@@ -1027,6 +1086,11 @@ document.addEventListener('DOMContentLoaded', () => {
     setupInteractiveGuide();
     document.getElementById('checkServerStatusBtn')?.addEventListener('click', () => {
         void refreshServerHealthStatus(true);
+    });
+
+    const aiModeSelect = document.getElementById('aiMode') as HTMLSelectElement | null;
+    aiModeSelect?.addEventListener('change', () => {
+        void refreshProviderQuotasUI();
     });
 
     const clearAdaptiveDataButton = document.getElementById('clearAdaptiveData') as HTMLButtonElement | null;
@@ -1042,8 +1106,12 @@ document.addEventListener('DOMContentLoaded', () => {
             mutation: 'clear',
             payload: {},
         });
-        if (response?.ok !== true) throw new Error(response?.error || 'ADAPTIVE_CLEAR_FAILED');
-        renderAdaptiveStats(emptyModel);
+        if (response && response.success) {
+            renderAdaptiveStats(emptyModel);
+            showOptionsStatus(t('adaptiveDataCleared', 'Адаптивные данные очищены.'), 'success');
+        } else {
+            showOptionsStatus(t('adaptiveClearFailed', 'Не удалось очистить адаптивные данные.'), 'error');
+        }
     });
 
     document.getElementById('clearUsageStats')?.addEventListener('click', async () => {
@@ -1051,16 +1119,16 @@ document.addEventListener('DOMContentLoaded', () => {
         renderUsageStats(EMPTY_USAGE_STATS);
     });
 
+    const exportBtn = document.getElementById('exportSettings');
     const importFile = document.getElementById('importSettingsFile') as HTMLInputElement | null;
-    document.getElementById('exportSettings')?.addEventListener('click', async () => {
-        const payload = await exportPortableSettings();
-        const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `lexisync-settings-${new Date().toISOString().slice(0, 10)}.json`;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
+    exportBtn?.addEventListener('click', async () => {
+        const json = await exportPortableSettings();
+        const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `lexisync-settings-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
         window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
     });
     document.getElementById('importSettings')?.addEventListener('click', () => importFile?.click());
@@ -1155,7 +1223,11 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== 'local') return;
     if (changes.adaptiveLanguageModel) renderAdaptiveStats(changes.adaptiveLanguageModel.newValue);
     if (changes.textSnippets) restoreTextSnippetSettings(changes.textSnippets.newValue);
-    if (changes.usageStats) renderUsageStats(changes.usageStats.newValue as UsageStats);
+    if (changes.usageStats) {
+        renderUsageStats(changes.usageStats.newValue as UsageStats);
+        void refreshProviderQuotasUI();
+    }
+    if (changes.aiMode) void refreshProviderQuotasUI();
     if (changes.settingsSyncStatus) renderSettingsSyncStatus(changes.settingsSyncStatus.newValue);
     if (changes.appErrorLogs) void refreshErrorLogUI();
     if (changes.themeCustomization)

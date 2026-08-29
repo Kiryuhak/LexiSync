@@ -284,75 +284,6 @@
                 Используется при улучшении и переписывании текста. Перевод и исправление ошибок не меняются.
             </p>
 
-            <!-- Карточка журнала ошибок и диагностики -->
-            <div class="error-log-card" data-settings-group="main">
-                <div class="error-log-header">
-                    <div class="error-log-title-wrap">
-                        <span class="error-log-icon" aria-hidden="true">📋</span>
-                        <div>
-                            <h3 data-i18n="errorLogTitle">Журнал ошибок и диагностика</h3>
-                            <p class="error-log-subtitle" data-i18n="errorLogSubtitle">
-                                Лог полностью анонимен: API-ключи, пароли и личные данные автоматически удалены.
-                            </p>
-                        </div>
-                    </div>
-                    <span id="errorLogCounter" class="error-log-counter" data-count="0">0 ошибок</span>
-                </div>
-                <div class="error-log-actions">
-                    <button id="downloadLogBtn" type="button" class="btn-log-action">
-                        <svg
-                            aria-hidden="true"
-                            viewBox="0 0 24 24"
-                            width="14"
-                            height="14"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                        >
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
-                        </svg>
-                        <span data-i18n="downloadLogBtn">Скачать лог (.txt)</span>
-                    </button>
-                    <button id="copyLogBtn" type="button" class="btn-log-action">
-                        <svg
-                            aria-hidden="true"
-                            viewBox="0 0 24 24"
-                            width="14"
-                            height="14"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                        >
-                            <rect width="13" height="13" x="9" y="9" rx="2" ry="2" />
-                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                        </svg>
-                        <span data-i18n="copyLogBtn">Скопировать лог</span>
-                    </button>
-                    <button id="toggleLogViewerBtn" type="button" class="btn-log-action">
-                        <span data-i18n="toggleLogViewerBtn">👁️ Просмотр лога</span>
-                    </button>
-                    <button id="clearLogBtn" type="button" class="btn-log-action btn-log-clear">
-                        <svg
-                            aria-hidden="true"
-                            viewBox="0 0 24 24"
-                            width="14"
-                            height="14"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                        >
-                            <path
-                                d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
-                            />
-                        </svg>
-                        <span data-i18n="clearLogBtn">Очистить</span>
-                    </button>
-                </div>
-                <div id="errorLogViewer" class="error-log-viewer" hidden>
-                    <pre id="errorLogContent">Ошибок не зафиксировано.</pre>
-                </div>
-            </div>
-
             <label for="themeSelect" data-settings-group="appearance" data-i18n="themeLabel" hidden
                 >Тема оформления:</label
             >
@@ -591,55 +522,6 @@
                 </p>
             </section>
 
-            <section class="settings-section" data-settings-group="ai" hidden>
-                <h2 data-i18n="styleProfilesTitle">Профили стиля</h2>
-                <p data-i18n="styleProfilesIntro">Создайте инструкции для рабочей почты, чатов или публикаций.</p>
-                <div id="styleProfileList" class="command-list"></div>
-                <form id="styleProfileForm" class="command-form">
-                    <input id="styleProfileId" type="hidden" />
-                    <label for="styleProfileName" data-i18n="profileName">Название профиля</label>
-                    <input
-                        id="styleProfileName"
-                        type="text"
-                        maxlength="40"
-                        placeholder="Рабочая почта"
-                        data-i18n-placeholder="profileNamePlaceholder"
-                        required
-                    />
-                    <label for="styleProfileInstruction" data-i18n="profileInstruction">Инструкция по стилю</label>
-                    <textarea
-                        id="styleProfileInstruction"
-                        maxlength="1000"
-                        placeholder="Пиши кратко, профессионально и без канцеляризмов."
-                        data-i18n-placeholder="profileInstructionPlaceholder"
-                        required
-                    ></textarea>
-                    <label for="styleProfileSites" data-i18n="profileSites">Сайты для автоматического включения</label>
-                    <textarea
-                        id="styleProfileSites"
-                        maxlength="2000"
-                        placeholder="mail.example.com&#10;docs.example.org"
-                        data-i18n-placeholder="profileSitesPlaceholder"
-                    ></textarea>
-                    <p data-i18n="profileSitesHint">
-                        По одному домену на строку. Профиль будет выбран автоматически на домене и его поддоменах.
-                    </p>
-                    <div class="command-form-actions">
-                        <button
-                            id="cancelStyleProfileEdit"
-                            class="secondary-button"
-                            type="button"
-                            data-i18n="cancel"
-                            hidden
-                        >
-                            Отмена</button
-                        ><button class="onboarding-button primary" type="submit" data-i18n="saveProfile">
-                            Сохранить профиль
-                        </button>
-                    </div>
-                </form>
-            </section>
-
             <section class="settings-section shortcut-tester-section" data-settings-group="ai" hidden>
                 <h2 data-i18n="shortcutTesterTitle">Интерактивный тест горячих клавиш</h2>
                 <p data-i18n="shortcutTesterHint">
@@ -836,11 +718,73 @@
             </div>
 
             <div class="settings-section" data-settings-group="privacy" hidden>
-                <h2>Диагностика</h2>
-                <p>Отчёт не содержит API-ключ, историю, тексты документов и адреса исключённых сайтов.</p>
-                <button type="button" id="downloadDiagnostics" class="secondary-button">
-                    Скачать диагностический отчёт
-                </button>
+                <div class="error-log-card">
+                    <div class="error-log-header">
+                        <div class="error-log-title-wrap">
+                            <span class="error-log-icon" aria-hidden="true">📋</span>
+                            <div>
+                                <h3 data-i18n="errorLogTitle">Журнал ошибок и диагностика</h3>
+                                <p class="error-log-subtitle" data-i18n="errorLogSubtitle">
+                                    Лог полностью анонимен: API-ключи, пароли и личные данные автоматически удалены.
+                                </p>
+                            </div>
+                        </div>
+                        <span id="errorLogCounter" class="error-log-counter" data-count="0">0 ошибок</span>
+                    </div>
+                    <div class="error-log-actions">
+                        <button id="downloadLogBtn" type="button" class="btn-log-action">
+                            <svg
+                                aria-hidden="true"
+                                viewBox="0 0 24 24"
+                                width="14"
+                                height="14"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                            >
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
+                            </svg>
+                            <span data-i18n="downloadLogBtn">Скачать лог (.txt)</span>
+                        </button>
+                        <button id="copyLogBtn" type="button" class="btn-log-action">
+                            <svg
+                                aria-hidden="true"
+                                viewBox="0 0 24 24"
+                                width="14"
+                                height="14"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                            >
+                                <rect width="13" height="13" x="9" y="9" rx="2" ry="2" />
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                            </svg>
+                            <span data-i18n="copyLogBtn">Скопировать лог</span>
+                        </button>
+                        <button id="toggleLogViewerBtn" type="button" class="btn-log-action">
+                            <span data-i18n="toggleLogViewerBtn">👁️ Просмотр лога</span>
+                        </button>
+                        <button id="clearLogBtn" type="button" class="btn-log-action btn-log-clear">
+                            <svg
+                                aria-hidden="true"
+                                viewBox="0 0 24 24"
+                                width="14"
+                                height="14"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                            >
+                                <path
+                                    d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+                                />
+                            </svg>
+                            <span data-i18n="clearLogBtn">Очистить</span>
+                        </button>
+                    </div>
+                    <div id="errorLogViewer" class="error-log-viewer" hidden>
+                        <pre id="errorLogContent">Ошибок не зафиксировано.</pre>
+                    </div>
+                </div>
             </div>
 
             <div class="settings-section" data-settings-group="privacy" hidden>
@@ -1013,7 +957,109 @@
             </section>
 
             <section class="settings-section v4-settings" data-settings-group="ai" hidden>
-                <h2>Лимиты и экономия</h2>
+                <h2 data-i18n="providerLimitsTitle">Лимиты и квоты провайдеров</h2>
+                <p data-i18n="providerLimitsIntro">
+                    Актуальные лимиты скорости (RPM/RPS), суточных квот и моделей с отображением времени сброса по
+                    московскому времени (МСК).
+                </p>
+
+                <div class="provider-quota-cards-grid">
+                    <!-- Карточка Groq -->
+                    <div class="provider-quota-card groq-quota-card">
+                        <div class="provider-quota-header">
+                            <div class="provider-quota-title-wrap">
+                                <span class="provider-quota-logo">⚡</span>
+                                <div>
+                                    <h4>Groq Cloud</h4>
+                                    <span class="provider-quota-badge free-badge" data-i18n="groqTierFree"
+                                        >Бесплатный (Free Tier)</span
+                                    >
+                                </div>
+                            </div>
+                            <span class="provider-quota-status-dot is-active" title="Провайдер готов к работе"></span>
+                        </div>
+
+                        <div class="provider-quota-details">
+                            <div class="quota-stat-row">
+                                <span class="quota-stat-label" data-i18n="providerModelLabel">Активная модель:</span>
+                                <strong class="quota-stat-val"
+                                    >Qwen 3.6 27B · Preview (<code>qwen/qwen3.6-27b</code>)</strong
+                                >
+                            </div>
+                            <div class="quota-stat-row">
+                                <span class="quota-stat-label" data-i18n="providerSpeedLimit">Лимит скорости:</span>
+                                <span class="quota-stat-val"
+                                    ><strong>30</strong> запр./мин (RPM) · <strong>6 000</strong> токенов/мин
+                                    (TPM)</span
+                                >
+                            </div>
+                            <div class="quota-stat-row">
+                                <span class="quota-stat-label" data-i18n="providerDailyQuota">Суточная квота:</span>
+                                <span class="quota-stat-val"><strong>14 400</strong> запросов в день (RPD)</span>
+                            </div>
+                            <div class="quota-stat-row">
+                                <span class="quota-stat-label" data-i18n="providerDailyUsage">Расход за сегодня:</span>
+                                <strong class="quota-stat-val" id="groqUsageToday">0 запросов</strong>
+                            </div>
+                            <div class="quota-stat-row quota-reset-row">
+                                <span class="quota-stat-label" data-i18n="providerResetTime"
+                                    >Сброс суточного лимита:</span
+                                >
+                                <span class="quota-stat-val highlight-reset" id="groqResetDisplay"
+                                    >в 03:00 МСК (00:00 UTC)</span
+                                >
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Карточка Mistral AI -->
+                    <div class="provider-quota-card mistral-quota-card">
+                        <div class="provider-quota-header">
+                            <div class="provider-quota-title-wrap">
+                                <span class="provider-quota-logo">🌪️</span>
+                                <div>
+                                    <h4>Mistral AI</h4>
+                                    <span class="provider-quota-badge mistral-badge" id="mistralTierBadge"
+                                        >La Plateforme</span
+                                    >
+                                </div>
+                            </div>
+                            <span class="provider-quota-status-dot is-active" title="Провайдер готов к работе"></span>
+                        </div>
+
+                        <div class="provider-quota-details">
+                            <div class="quota-stat-row">
+                                <span class="quota-stat-label" data-i18n="providerModelLabel">Активная модель:</span>
+                                <strong class="quota-stat-val" id="mistralActiveModelDisplay"
+                                    >Mistral Small (<code>mistral-small-latest</code>)</strong
+                                >
+                            </div>
+                            <div class="quota-stat-row">
+                                <span class="quota-stat-label" data-i18n="providerSpeedLimit">Лимит скорости:</span>
+                                <span class="quota-stat-val"
+                                    ><strong>1 RPS</strong> (Free) / <strong>5 RPS</strong> (Tier 1) ·
+                                    <strong>500k</strong> TPM</span
+                                >
+                            </div>
+                            <div class="quota-stat-row">
+                                <span class="quota-stat-label" data-i18n="providerDailyUsage">Расход за сегодня:</span>
+                                <strong class="quota-stat-val" id="mistralUsageToday">0 запросов</strong>
+                            </div>
+                            <div class="quota-stat-row">
+                                <span class="quota-stat-label" data-i18n="providerMonthlyUsage">Расход за месяц:</span>
+                                <span class="quota-stat-val" id="mistralUsageMonth">0 токенов</span>
+                            </div>
+                            <div class="quota-stat-row quota-reset-row">
+                                <span class="quota-stat-label" data-i18n="providerStatusLabel"
+                                    >Статус ожидания / сбоя:</span
+                                >
+                                <span class="quota-stat-val" id="mistralCooldownDisplay">В норме</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 style="margin-top: 24px" data-i18n="userBudgetLimitsTitle">Пользовательские ограничения</h3>
                 <div class="v4-grid">
                     <label for="dailyRequestLimit">Запросов в день <small>0 — без лимита</small></label>
                     <input id="dailyRequestLimit" type="number" min="0" max="10000" step="1" />
@@ -1202,21 +1248,6 @@
                 </div>
 
                 <footer class="feedback-modal-footer">
-                    <button id="copyDiagnosticsAndLogsBtn" type="button" class="feedback-footer-btn">
-                        <svg
-                            aria-hidden="true"
-                            viewBox="0 0 24 24"
-                            width="14"
-                            height="14"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                        >
-                            <rect width="13" height="13" x="9" y="9" rx="2" ry="2" />
-                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                        </svg>
-                        <span data-i18n="copyDiagnosticsBtn">Скопировать диагностику</span>
-                    </button>
                     <button
                         id="cancelFeedbackModal"
                         type="button"

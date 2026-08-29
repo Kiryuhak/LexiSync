@@ -302,6 +302,8 @@
     "keyCheckUnavailable": { "message": "Settings were saved. The API key could not be checked right now." },
     "saveSuccess": { "message": "✓ Settings saved successfully!" },
     "clearAdaptiveConfirm": { "message": "Delete all locally learned words and phrases?" },
+    "adaptiveDataCleared": { "message": "Adaptive data cleared." },
+    "adaptiveClearFailed": { "message": "Failed to clear adaptive data." },
     "of": { "message": "of" },
     "secondsShort": { "message": "s" },
     "historyPromptSpellcheck": {
@@ -689,8 +691,38 @@
     "sendWithoutLogHint": {
         "message": "Standard email with your feedback or question"
     },
-    "copyDiagnosticsBtn": {
-        "message": "Copy diagnostics"
+    "providerLimitsTitle": {
+        "message": "Provider Limits & Quotas"
+    },
+    "providerLimitsIntro": {
+        "message": "Current rate limits (RPM/RPS), daily quotas, and models with reset time in Moscow Time (MSK)."
+    },
+    "groqTierFree": {
+        "message": "Free Tier"
+    },
+    "providerModelLabel": {
+        "message": "Active model:"
+    },
+    "providerSpeedLimit": {
+        "message": "Rate limit:"
+    },
+    "providerDailyQuota": {
+        "message": "Daily quota:"
+    },
+    "providerDailyUsage": {
+        "message": "Today's usage:"
+    },
+    "providerMonthlyUsage": {
+        "message": "Monthly usage:"
+    },
+    "providerResetTime": {
+        "message": "Daily quota reset:"
+    },
+    "providerStatusLabel": {
+        "message": "Status / Cooldown:"
+    },
+    "userBudgetLimitsTitle": {
+        "message": "Custom Limits"
     },
     "diagnosticsCopied": {
         "message": "Diagnostic report copied to clipboard!"
