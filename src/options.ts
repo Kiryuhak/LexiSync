@@ -809,6 +809,10 @@ function setupFactoryReset(): void {
 
 function formatErrorCount(count: number): string {
     if (count === 0) return t('errorCountZero', '0 ошибок');
+    const isEn = (typeof chrome !== 'undefined' && chrome.i18n?.getUILanguage?.()?.startsWith('en')) ?? false;
+    if (isEn) {
+        return count === 1 ? '1 error' : `${count} errors`;
+    }
     const mod10 = count % 10;
     const mod100 = count % 100;
     if (mod10 === 1 && mod100 !== 11) return `${count} ошибка`;

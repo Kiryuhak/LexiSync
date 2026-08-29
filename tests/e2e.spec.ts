@@ -2532,7 +2532,7 @@ test('Test 65: Карточка журнала ошибок в Настройк�
     // Проверяем счетчик ошибок и кнопки
     const errorCounter = page.locator('#errorLogCounter');
     await expect(errorCounter).toBeVisible();
-    await expect(errorCounter).toContainText(/1 ошибка/);
+    await expect(errorCounter).toContainText(/1 ошибка|1 error/i);
 
     const toggleViewerBtn = page.locator('#toggleLogViewerBtn');
     await expect(toggleViewerBtn).toBeVisible();
@@ -2560,5 +2560,5 @@ test('Test 65: Карточка журнала ошибок в Настройк�
     // Очистка журнала ошибок
     const clearBtn = page.locator('#clearLogBtn');
     await clearBtn.click();
-    await expect(errorCounter).toContainText(/0 ошибок/);
+    await expect(errorCounter).toContainText(/0 ошибок|0 errors/i);
 });
