@@ -58,11 +58,29 @@
     "next": { "message": "Next" },
     "skip": { "message": "Skip" },
     "start": { "message": "Get started" },
-    "tabAi": { "message": "AI & style" },
-    "aiModeTitle": { "message": "AI mode" },
+    "tabAi": { "message": "AI Models" },
+    "aiModeTitle": { "message": "AI Modes" },
     "aiModeLabel": { "message": "Speed and quality balance" },
     "aiModeFast": { "message": "Fast — Mistral Small" },
+    "aiModeBalanced": { "message": "Balanced — Qwen 3.6 / Mistral" },
     "aiModeQuality": { "message": "Quality — Mistral Large" },
+    "aiModeIntro": {
+        "message": "Choose your balance between generation speed, analysis depth, and token consumption."
+    },
+    "aiModeFastTitle": { "message": "Fast Response" },
+    "aiModeFastDesc": { "message": "Instant response and minimal token usage. Perfect for fast spellcheck." },
+    "aiModeBalancedTitle": { "message": "Balanced" },
+    "aiModeBalancedDesc": { "message": "Optimal balance of rich vocabulary, natural style, and high speed." },
+    "aiModeQualityTitle": { "message": "Maximum Quality" },
+    "aiModeQualityDesc": { "message": "Deep analysis of complex texts, professional style, and nuanced translations." },
+    "userBudgetLimitsHint": {
+        "message": "Set daily and monthly thresholds or apply ready provider quota templates with a single click."
+    },
+    "presetGroqQuota": { "message": "⚡ Groq Free Quota (14,400)" },
+    "presetMistralQuota": { "message": "🌪️ Mistral Quota (1,000)" },
+    "presetSafeDaily": { "message": "🛡️ Conservative (100)" },
+    "presetSyncActiveProvider": { "message": "🔄 Sync with Active Provider" },
+    "presetUnlimited": { "message": "♾️ Unlimited" },
     "glossaryLabel": { "message": "Translation glossary" },
     "glossaryHint": {
         "message": "Use one “source term = translation” pair per line. The glossary stays on this device."
@@ -470,9 +488,9 @@
     "tabGuideMainDescription": {
         "message": "Connect Mistral or Groq, then choose the primary service and response style."
     },
-    "tabGuideAiTitle": { "message": "Control quality and usage" },
+    "tabGuideAiTitle": { "message": "Manage models, quotas, and limits" },
     "tabGuideAiDescription": {
-        "message": "Choose a model and configure your glossary, style profiles, and request limits."
+        "message": "Select speed and quality mode (fast, balanced, maximum), configure glossary and request limits."
     },
     "tabGuideAppearanceTitle": { "message": "Make LexiSync feel like yours" },
     "tabGuideAppearanceDescription": {
@@ -1020,6 +1038,18 @@
     },
     "fallbackToMistralDueToOutage": {
         "message": "Groq temporarily unavailable. Used Mistral."
+    },
+    "fallbackToGroqDueToAuth": {
+        "message": "Mistral auth issue. Request fulfilled via fallback Groq (Qwen 3.6)."
+    },
+    "fallbackToMistralDueToAuth": {
+        "message": "Groq auth issue. Request fulfilled via fallback Mistral."
+    },
+    "screenCaptureRestricted": {
+        "message": "Screen capture (Alt+S) is not available on browser internal pages. Open a regular web page."
+    },
+    "ocrKeyRequired": {
+        "message": "Mistral or Groq API key is required for text recognition (OCR)."
     },
     "mistralRateLimitNeedGroqKey": {
         "message": "Mistral rate limit reached. Add Groq API Key in settings to enable automatic fallback."

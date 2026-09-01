@@ -60,9 +60,7 @@
                 <button class="settings-tab is-active" type="button" role="tab" data-tab="main" data-i18n="tabMain">
                     Основные
                 </button>
-                <button class="settings-tab" type="button" role="tab" data-tab="ai" data-i18n="tabAi">
-                    AI и стиль
-                </button>
+                <button class="settings-tab" type="button" role="tab" data-tab="ai" data-i18n="tabAi">AI-модели</button>
                 <button class="settings-tab" type="button" role="tab" data-tab="appearance" data-i18n="tabAppearance">
                     Оформление
                 </button>
@@ -527,21 +525,89 @@
                 </div>
             </div>
 
-            <section class="settings-section" data-settings-group="ai" hidden>
-                <h2 data-i18n="aiModeTitle">Режим AI</h2>
-                <label for="aiMode" data-i18n="aiModeLabel">Баланс скорости и качества</label>
-                <select id="aiMode">
+            <section class="settings-section ai-mode-section" data-settings-group="ai" hidden>
+                <div class="ai-mode-header">
+                    <h2 data-i18n="aiModeTitle">Режимы AI</h2>
+                    <p class="field-hint" data-i18n="aiModeIntro">
+                        Выберите баланс между скоростью генерации, качеством анализа и расходом токенов.
+                    </p>
+                </div>
+
+                <div class="ai-mode-cards-grid" id="aiModeCardsGroup" role="radiogroup" aria-label="Режим AI">
+                    <!-- Экономный -->
+                    <div class="ai-mode-card" data-mode="fast" tabindex="0" role="radio" aria-checked="false">
+                        <div class="ai-mode-card-header">
+                            <span class="ai-mode-card-badge fast-badge">⚡ Экономный</span>
+                            <span class="ai-mode-card-icon" aria-hidden="true">⚡</span>
+                        </div>
+                        <div class="ai-mode-card-title" data-i18n="aiModeFastTitle">Быстрый отклик</div>
+                        <div class="ai-mode-card-model">Mistral Small · Groq</div>
+                        <p class="ai-mode-card-desc" data-i18n="aiModeFastDesc">
+                            Мгновенный ответ и минимальный расход токенов. Идеально для быстрой проверки ошибок.
+                        </p>
+                        <div class="ai-mode-card-tags">
+                            <span class="ai-tag">~200 мс</span>
+                            <span class="ai-tag">Экономия x3</span>
+                        </div>
+                    </div>
+
+                    <!-- Сбалансированный -->
+                    <div
+                        class="ai-mode-card is-active"
+                        data-mode="balanced"
+                        tabindex="0"
+                        role="radio"
+                        aria-checked="true"
+                    >
+                        <div class="ai-mode-card-header">
+                            <span class="ai-mode-card-badge balanced-badge">⚖️ Баланс</span>
+                            <span class="ai-mode-card-icon" aria-hidden="true">⚖️</span>
+                        </div>
+                        <div class="ai-mode-card-title" data-i18n="aiModeBalancedTitle">Сбалансированный</div>
+                        <div class="ai-mode-card-model">Qwen 3.6 27B · Mistral Small</div>
+                        <p class="ai-mode-card-desc" data-i18n="aiModeBalancedDesc">
+                            Оптимальный баланс богатого словарного запаса, естественного стиля и высокой скорости.
+                        </p>
+                        <div class="ai-mode-card-tags">
+                            <span class="ai-tag">Рекомендуется</span>
+                            <span class="ai-tag">Умный выбор</span>
+                        </div>
+                    </div>
+
+                    <!-- Максимальное качество -->
+                    <div class="ai-mode-card" data-mode="quality" tabindex="0" role="radio" aria-checked="false">
+                        <div class="ai-mode-card-header">
+                            <span class="ai-mode-card-badge quality-badge">👑 Максимум</span>
+                            <span class="ai-mode-card-icon" aria-hidden="true">👑</span>
+                        </div>
+                        <div class="ai-mode-card-title" data-i18n="aiModeQualityTitle">Высшее качество</div>
+                        <div class="ai-mode-card-model">Mistral Large</div>
+                        <p class="ai-mode-card-desc" data-i18n="aiModeQualityDesc">
+                            Глубокий анализ сложных текстов, академический и деловой стиль, тонкие нюансы перевода.
+                        </p>
+                        <div class="ai-mode-card-tags">
+                            <span class="ai-tag">Большие тексты</span>
+                            <span class="ai-tag">PRO-качество</span>
+                        </div>
+                    </div>
+                </div>
+
+                <select id="aiMode" hidden aria-hidden="true" tabindex="-1">
                     <option value="fast" data-i18n="aiModeFast">Быстро — Mistral Small</option>
-                    <option value="quality" data-i18n="aiModeQuality">Качественно — Mistral Large</option>
+                    <option value="balanced" data-i18n="aiModeBalanced">Баланс — Qwen 3.6 / Mistral</option>
+                    <option value="quality" data-i18n="aiModeQuality" selected>Качественно — Mistral Large</option>
                 </select>
-                <label for="glossary" data-i18n="glossaryLabel">Глоссарий перевода</label>
-                <textarea
-                    id="glossary"
-                    placeholder="LexiSync = LexiSync&#10;workspace = рабочее пространство"
-                ></textarea>
-                <p data-i18n="glossaryHint">
-                    Одна пара «исходный термин = перевод» на строку. Глоссарий хранится локально.
-                </p>
+
+                <div class="glossary-section-wrap" style="margin-top: 20px">
+                    <label for="glossary" data-i18n="glossaryLabel">Глоссарий перевода</label>
+                    <textarea
+                        id="glossary"
+                        placeholder="LexiSync = LexiSync&#10;workspace = рабочее пространство"
+                    ></textarea>
+                    <p class="field-hint" data-i18n="glossaryHint">
+                        Одна пара «исходный термин = перевод» на строку. Глоссарий хранится локально.
+                    </p>
+                </div>
             </section>
 
             <section class="settings-section shortcut-tester-section" data-settings-group="ai" hidden>
@@ -1081,23 +1147,127 @@
                     </div>
                 </div>
 
-                <h3 style="margin-top: 24px" data-i18n="userBudgetLimitsTitle">Пользовательские ограничения</h3>
-                <div class="v4-grid">
-                    <label for="dailyRequestLimit">Запросов в день <small>0 — без лимита</small></label>
-                    <input id="dailyRequestLimit" type="number" min="0" max="10000" step="1" />
-                    <label for="monthlyTokenLimit">Токенов в месяц <small>0 — без лимита</small></label>
-                    <input id="monthlyTokenLimit" type="number" min="0" max="100000000" step="1000" />
-                </div>
-                <div class="privacy-option budget-warning-option">
-                    <label for="warnLargeText"><span>Предупреждать о большом тексте</span></label>
-                    <input id="warnLargeText" type="checkbox" />
-                </div>
-                <div class="privacy-option">
-                    <label for="autoFastMode">
-                        <span>Экономить на больших запросах</span>
-                        <small>Автоматически использовать Mistral Small для текста длиннее ≈ 2500 токенов.</small>
-                    </label>
-                    <input id="autoFastMode" type="checkbox" />
+                <div class="budget-limits-section">
+                    <h3 style="margin-top: 24px" data-i18n="userBudgetLimitsTitle">Пользовательские ограничения</h3>
+                    <p class="field-hint" data-i18n="userBudgetLimitsHint">
+                        Установите суточные и месячные пороги или примените готовые лимиты по квотам провайдеров в один
+                        клик.
+                    </p>
+
+                    <div class="budget-presets-bar">
+                        <span class="budget-presets-title">⚡ Авто-шаблоны квот:</span>
+                        <div class="budget-presets-buttons">
+                            <button
+                                type="button"
+                                class="budget-preset-btn"
+                                id="presetGroqQuotaBtn"
+                                title="Применить квоту Groq Free (14 400 запр/день, 1M токенов)"
+                                data-i18n="presetGroqQuota"
+                            >
+                                ⚡ Квота Groq Free (14 400)
+                            </button>
+                            <button
+                                type="button"
+                                class="budget-preset-btn"
+                                id="presetMistralQuotaBtn"
+                                title="Применить безопасный лимит Mistral (1 000 запр/день, 500k токенов)"
+                                data-i18n="presetMistralQuota"
+                            >
+                                🌪️ Квота Mistral (1 000)
+                            </button>
+                            <button
+                                type="button"
+                                class="budget-preset-btn"
+                                id="presetSafeDailyBtn"
+                                title="Установить экономный лимит (100 запр/день, 100k токенов)"
+                                data-i18n="presetSafeDaily"
+                            >
+                                🛡️ Экономный (100)
+                            </button>
+                            <button
+                                type="button"
+                                class="budget-preset-btn"
+                                id="presetSyncActiveProviderBtn"
+                                title="Автоматически взять лимиты активного AI-провайдера"
+                                data-i18n="presetSyncActiveProvider"
+                            >
+                                🔄 По активному провайдеру
+                            </button>
+                            <button
+                                type="button"
+                                class="budget-preset-btn preset-reset-btn"
+                                id="presetUnlimitedBtn"
+                                title="Снять все лимиты"
+                                data-i18n="presetUnlimited"
+                            >
+                                ♾️ Без лимита
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="v4-grid budget-inputs-grid">
+                        <div class="budget-input-card">
+                            <label for="dailyRequestLimit">
+                                <span>Запросов в день</span>
+                                <small id="dailyLimitHint">0 — без лимита</small>
+                            </label>
+                            <div class="budget-input-wrap">
+                                <input
+                                    id="dailyRequestLimit"
+                                    type="number"
+                                    min="0"
+                                    max="50000"
+                                    step="1"
+                                    placeholder="0"
+                                />
+                                <span class="budget-input-unit">запр/день</span>
+                            </div>
+                            <div class="budget-usage-indicator" id="dailyUsageIndicator">
+                                <div class="budget-progress-bar">
+                                    <div class="budget-progress-fill" id="dailyProgressFill" style="width: 0%"></div>
+                                </div>
+                                <span class="budget-progress-text" id="dailyProgressText">Сегодня: 0 запр.</span>
+                            </div>
+                        </div>
+
+                        <div class="budget-input-card">
+                            <label for="monthlyTokenLimit">
+                                <span>Токенов в месяц</span>
+                                <small id="monthlyLimitHint">0 — без лимита</small>
+                            </label>
+                            <div class="budget-input-wrap">
+                                <input
+                                    id="monthlyTokenLimit"
+                                    type="number"
+                                    min="0"
+                                    max="100000000"
+                                    step="1000"
+                                    placeholder="0"
+                                />
+                                <span class="budget-input-unit">токенов</span>
+                            </div>
+                            <div class="budget-usage-indicator" id="monthlyUsageIndicator">
+                                <div class="budget-progress-bar">
+                                    <div class="budget-progress-fill" id="monthlyProgressFill" style="width: 0%"></div>
+                                </div>
+                                <span class="budget-progress-text" id="monthlyProgressText"
+                                    >В этом месяце: 0 токенов</span
+                                >
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="privacy-option budget-warning-option" style="margin-top: 14px">
+                        <label for="warnLargeText"><span>Предупреждать о большом тексте</span></label>
+                        <input id="warnLargeText" type="checkbox" />
+                    </div>
+                    <div class="privacy-option">
+                        <label for="autoFastMode">
+                            <span>Экономить на больших запросах</span>
+                            <small>Автоматически использовать Mistral Small для текста длиннее ≈ 2500 токенов.</small>
+                        </label>
+                        <input id="autoFastMode" type="checkbox" />
+                    </div>
                 </div>
             </section>
 

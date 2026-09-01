@@ -204,6 +204,10 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             return;
         }
         if (!extensionEnabledOnSite) return;
+        if (request.action === 'showToast' && typeof request.message === 'string') {
+            showToast(request.message);
+            return;
+        }
         if (request.action === 'startOcrMode') {
             const screenshotUrl = typeof request.screenshotUrl === 'string' ? request.screenshotUrl : '';
             if (screenshotUrl) {

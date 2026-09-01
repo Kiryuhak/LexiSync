@@ -11,6 +11,7 @@ import { createSettingsFingerprint } from './request-cache';
 import { applySettingsMutation, type SettingsMutation } from './settings-store';
 import { initializeSettingsSync, restoreSyncedSettings } from './settings-transfer';
 import { formatMistralError, isRetryableMistralError, processOcr, type MistralRequest } from './mistral-client';
+import { processGroqOcr } from './groq-client';
 import { executeAiStreamRequest } from './ai-client';
 import { AiProviderError } from './ai-provider-types';
 import { buildGrammarExplanationPayload } from './prompt-builder';
@@ -228,8 +229,20 @@ async function sendOcrCommand(tabId: number, windowId?: number): Promise<void> {
         return;
     }
     const handleCapture = (dataUrl?: string) => {
-        if (chrome.runtime.lastError || !dataUrl) {
-            logger.error('Ошибка захвата экрана:', chrome.runtime.lastError);
+        const lastErr = chrome.runtime.lastError;
+        if (lastErr || !dataUrl) {
+            const errDetail =
+                lastErr?.message || (typeof lastErr === 'object' ? JSON.stringify(lastErr) : String(lastErr || ''));
+            logger.error('Ошибка захвата экрана:', errDetail || 'No screenshot data');
+            void chrome.tabs
+                .sendMessage(tabId, {
+                    action: 'showToast',
+                    message: t(
+                        'screenCaptureRestricted',
+                        'Захват экрана (Alt+S) недоступен на системных страницах браузера. Откройте обычную веб-страницу.',
+                    ),
+                })
+                .catch(() => undefined);
             return;
         }
         void chrome.tabs
@@ -709,12 +722,35 @@ chrome.runtime.onConnect.addListener((port) => {
             [mistralApiKey, groqApiKey] = await Promise.all([getStoredApiKey(), getStoredGroqApiKey()]);
 
             if (msg.mode === 'ocr') {
-                if (!mistralApiKey) {
+                const hasMistral = Boolean(mistralApiKey?.trim());
+                const hasGroq = Boolean(groqApiKey?.trim());
+                if (!hasMistral && !hasGroq) {
                     throw new Error(
-                        t('ocrMistralKeyRequired', 'Для распознавания текста (OCR) требуется API-ключ Mistral.'),
+                        t('ocrKeyRequired', 'Для распознавания текста (OCR) требуется API-ключ Mistral или Groq.'),
                     );
                 }
-                const text = await processOcr(msg, mistralApiKey, requestController.signal);
+
+                let text = '';
+                let usedProvider: 'mistral' | 'groq' = 'mistral';
+
+                if (hasMistral) {
+                    try {
+                        text = await processOcr(msg, mistralApiKey!, requestController.signal);
+                        usedProvider = 'mistral';
+                    } catch (mistralErr) {
+                        if (hasGroq && !requestController.signal.aborted) {
+                            logger.warn('Mistral OCR завершился с ошибкой, переключаемся на Groq Vision:', mistralErr);
+                            text = await processGroqOcr(msg, groqApiKey!, requestController.signal);
+                            usedProvider = 'groq';
+                        } else {
+                            throw mistralErr;
+                        }
+                    }
+                } else {
+                    text = await processGroqOcr(msg, groqApiKey!, requestController.signal);
+                    usedProvider = 'groq';
+                }
+
                 if (isCurrentRequest()) safePostMessage({ status: 'chunk', text });
                 outputText = text;
                 if (canUseOcrCache) {
@@ -724,7 +760,7 @@ chrome.runtime.onConnect.addListener((port) => {
                         logger.error('Не удалось сохранить OCR-кэш:', error);
                     }
                 }
-                if (isCurrentRequest()) safePostMessage({ status: 'done', provider: 'mistral' });
+                if (isCurrentRequest()) safePostMessage({ status: 'done', provider: usedProvider });
             } else {
                 const aiSettings = {
                     selectedTone: settings.selectedTone as string,

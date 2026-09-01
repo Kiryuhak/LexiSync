@@ -2489,7 +2489,7 @@ test('Unit 6: Network Failure переключается на резервног
     mockFetch.mockRestore();
 });
 
-test('Unit 7: 401/403 Auth Error НЕ вызывает fallback и выбрасывает ошибку сразу', async () => {
+test('Unit 7: 401/403 Auth Error без autoFallback выбрасывает ошибку сразу, а с autoFallback переключается на резерв', async () => {
     const { executeAiStreamRequest } = await import('../src/ai-client');
     const testRequest = { action: 'callMistral' as const, text: 'Тест', mode: 'style' as const };
     const testSettings = {
@@ -2500,21 +2500,50 @@ test('Unit 7: 401/403 Auth Error НЕ вызывает fallback и выбрас�
         aiMode: 'quality' as const,
     };
 
-    const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-        ok: false,
-        status: 401,
-        statusText: 'Unauthorized',
-        headers: new Headers(),
-        text: async () => 'Invalid API Key',
-        body: null,
-    } as unknown as Response);
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.includes('api.mistral.ai')) {
+            return {
+                ok: false,
+                status: 401,
+                statusText: 'Unauthorized',
+                headers: new Headers(),
+                text: async () => 'Invalid API Key',
+                body: null,
+            } as unknown as Response;
+        }
+        return {
+            ok: true,
+            status: 200,
+            headers: new Headers(),
+            body: {
+                getReader: () => {
+                    let done = false;
+                    return {
+                        read: async () => {
+                            if (done) return { done: true, value: undefined };
+                            done = true;
+                            return {
+                                done: false,
+                                value: new TextEncoder().encode(
+                                    'data: {"choices":[{"delta":{"content":"Готово"}}]}\n\ndata: [DONE]\n\n',
+                                ),
+                            };
+                        },
+                        cancel: async () => undefined,
+                    };
+                },
+            },
+        } as unknown as Response;
+    });
 
+    // Без autoFallback выбрасывает ошибку сразу
     await expect(
         executeAiStreamRequest({
             request: testRequest,
             settings: testSettings,
             primaryProvider: 'mistral',
-            autoFallback: true,
+            autoFallback: false,
             mistralApiKey: 'bad-key',
             groqApiKey: 'groq-key-456',
             signal: new AbortController().signal,
@@ -2522,11 +2551,25 @@ test('Unit 7: 401/403 Auth Error НЕ вызывает fallback и выбрас�
         }),
     ).rejects.toThrow(/недействителен|отозван|API-ключ/i);
 
-    expect(mockFetch).toHaveBeenCalledTimes(2);
-    expect(mockFetch.mock.calls.map(([url]) => String(url))).toEqual([
-        'https://api.mistral.ai/v1/chat/completions',
-        'https://api.mistral.ai/v1/models',
-    ]);
+    // С autoFallback переключается на Groq
+    let streamedChunk = '';
+    const res = await executeAiStreamRequest({
+        request: testRequest,
+        settings: testSettings,
+        primaryProvider: 'mistral',
+        autoFallback: true,
+        mistralApiKey: 'bad-key',
+        groqApiKey: 'groq-key-456',
+        signal: new AbortController().signal,
+        onChunk: (c) => {
+            streamedChunk += c;
+        },
+    });
+
+    expect(res.fallbackOccurred).toBe(true);
+    expect(res.providerUsed).toBe('groq');
+    expect(streamedChunk).toBe('Готово');
+
     mockFetch.mockRestore();
 });
 
@@ -3450,4 +3493,34 @@ test('Unit 33: createLanguagePicker обрабатывает Escape и возв�
         globalThis.document = originalDocument;
         globalThis.DOMParser = originalDOMParser;
     }
+});
+
+test('Unit 34: processGroqOcr распознаёт текст через модель Vision', async () => {
+    const { processGroqOcr } = await import('../src/groq-client');
+
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: new Headers(),
+        json: async () => ({
+            choices: [{ message: { content: 'Распознанный текст на скриншоте' } }],
+        }),
+    } as unknown as Response);
+
+    const result = await processGroqOcr(
+        { action: 'callMistral', imageUrl: 'data:image/png;base64,AAAA' },
+        'gsk-valid-key',
+        new AbortController().signal,
+    );
+
+    expect(result).toBe('Распознанный текст на скриншоте');
+    expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.groq.com/openai/v1/chat/completions',
+        expect.objectContaining({
+            method: 'POST',
+            body: expect.stringContaining('llama-3.2-11b-vision-preview'),
+        }),
+    );
+
+    mockFetch.mockRestore();
 });

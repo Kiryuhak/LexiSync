@@ -75,13 +75,68 @@ export async function restoreV4Settings(storedSettings?: StoredV4Settings): Prom
     byId<HTMLTextAreaElement>('liveProofreadDisabledSites').value = Array.isArray(stored.liveProofreadDisabledSites)
         ? stored.liveProofreadDisabledSites.join('\n')
         : '';
-    byId<HTMLInputElement>('dailyRequestLimit').value = String(clampInteger(stored.dailyRequestLimit, 0, 10_000));
+    byId<HTMLInputElement>('dailyRequestLimit').value = String(clampInteger(stored.dailyRequestLimit, 0, 50_000));
     byId<HTMLInputElement>('monthlyTokenLimit').value = String(clampInteger(stored.monthlyTokenLimit, 0, 100_000_000));
     byId<HTMLInputElement>('warnLargeText').checked = stored.warnLargeText !== false;
     byId<HTMLInputElement>('autoFastMode').checked = stored.autoFastMode !== false;
     const piiEl = byId<HTMLInputElement>('enablePiiMasking');
     if (piiEl) piiEl.checked = stored.enablePiiMasking === true;
     fillThemeEditor(normalizeThemeCustomization(stored.themeCustomization));
+    void updateBudgetProgressIndicators();
+}
+
+export async function updateBudgetProgressIndicators(): Promise<void> {
+    const dailyInput = document.getElementById('dailyRequestLimit') as HTMLInputElement | null;
+    const monthlyInput = document.getElementById('monthlyTokenLimit') as HTMLInputElement | null;
+    const dailyFill = document.getElementById('dailyProgressFill');
+    const dailyText = document.getElementById('dailyProgressText');
+    const monthlyFill = document.getElementById('monthlyProgressFill');
+    const monthlyText = document.getElementById('monthlyProgressText');
+
+    if (!dailyInput && !monthlyInput) return;
+
+    const stored = await chrome.storage.local.get({ usageStats: { daily: {} } });
+    const stats = (stored.usageStats || { daily: {} }) as {
+        daily?: Record<string, { requests?: number; tokens?: number }>;
+    };
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const monthKey = todayKey.slice(0, 7);
+    const todayRequests = stats.daily?.[todayKey]?.requests || 0;
+
+    let monthTokens = 0;
+    for (const [day, dayStats] of Object.entries(stats.daily || {})) {
+        if (day.startsWith(monthKey)) {
+            monthTokens += dayStats.tokens || 0;
+        }
+    }
+
+    const dailyLimit = clampInteger(dailyInput?.value, 0, 50_000);
+    if (dailyFill && dailyText) {
+        if (dailyLimit === 0) {
+            dailyFill.style.width = '0%';
+            dailyFill.classList.remove('is-high');
+            dailyText.textContent = `Сегодня: ${todayRequests} запр. (без ограничений)`;
+        } else {
+            const pct = Math.min(100, Math.round((todayRequests / dailyLimit) * 100));
+            dailyFill.style.width = `${pct}%`;
+            dailyFill.classList.toggle('is-high', pct >= 85);
+            dailyText.textContent = `Сегодня: ${todayRequests} из ${dailyLimit.toLocaleString('ru-RU')} (${pct}%)`;
+        }
+    }
+
+    const monthlyLimit = clampInteger(monthlyInput?.value, 0, 100_000_000);
+    if (monthlyFill && monthlyText) {
+        if (monthlyLimit === 0) {
+            monthlyFill.style.width = '0%';
+            monthlyFill.classList.remove('is-high');
+            monthlyText.textContent = `В этом месяце: ${monthTokens.toLocaleString('ru-RU')} токенов (без ограничений)`;
+        } else {
+            const pct = Math.min(100, Math.round((monthTokens / monthlyLimit) * 100));
+            monthlyFill.style.width = `${pct}%`;
+            monthlyFill.classList.toggle('is-high', pct >= 85);
+            monthlyText.textContent = `В этом месяце: ${monthTokens.toLocaleString('ru-RU')} из ${monthlyLimit.toLocaleString('ru-RU')} (${pct}%)`;
+        }
+    }
 }
 
 export function setupV4Settings(): void {
@@ -98,14 +153,16 @@ export function setupV4Settings(): void {
         void chrome.storage.local.set({ liveProofreadDisabledSites: normalized.valid });
     });
     byId<HTMLInputElement>('dailyRequestLimit').addEventListener('change', (event) => {
-        const value = clampInteger((event.target as HTMLInputElement).value, 0, 10_000);
+        const value = clampInteger((event.target as HTMLInputElement).value, 0, 50_000);
         (event.target as HTMLInputElement).value = String(value);
         void chrome.storage.local.set({ dailyRequestLimit: value });
+        void updateBudgetProgressIndicators();
     });
     byId<HTMLInputElement>('monthlyTokenLimit').addEventListener('change', (event) => {
         const value = clampInteger((event.target as HTMLInputElement).value, 0, 100_000_000);
         (event.target as HTMLInputElement).value = String(value);
         void chrome.storage.local.set({ monthlyTokenLimit: value });
+        void updateBudgetProgressIndicators();
     });
     for (const id of ['warnLargeText', 'autoFastMode', 'enablePiiMasking'] as const) {
         const el = byId<HTMLInputElement>(id);
@@ -115,6 +172,41 @@ export function setupV4Settings(): void {
             });
         }
     }
+
+    const applyBudgetPreset = (daily: number, monthly: number) => {
+        const dailyInput = document.getElementById('dailyRequestLimit') as HTMLInputElement | null;
+        const monthlyInput = document.getElementById('monthlyTokenLimit') as HTMLInputElement | null;
+        if (dailyInput) {
+            dailyInput.value = String(daily);
+            dailyInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        if (monthlyInput) {
+            monthlyInput.value = String(monthly);
+            monthlyInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    };
+
+    document.getElementById('presetGroqQuotaBtn')?.addEventListener('click', () => {
+        applyBudgetPreset(14400, 1000000);
+    });
+    document.getElementById('presetMistralQuotaBtn')?.addEventListener('click', () => {
+        applyBudgetPreset(1000, 500000);
+    });
+    document.getElementById('presetSafeDailyBtn')?.addEventListener('click', () => {
+        applyBudgetPreset(100, 100000);
+    });
+    document.getElementById('presetSyncActiveProviderBtn')?.addEventListener('click', async () => {
+        const stored = await chrome.storage.local.get({ primaryAiProvider: 'auto' });
+        const provider = stored.primaryAiProvider as string;
+        if (provider === 'mistral') {
+            applyBudgetPreset(1000, 500000);
+        } else {
+            applyBudgetPreset(14400, 1000000);
+        }
+    });
+    document.getElementById('presetUnlimitedBtn')?.addEventListener('click', () => {
+        applyBudgetPreset(0, 0);
+    });
 
     for (const id of ['themeAccent', 'themeRadius', 'themeDensity', 'themeTransparency', 'themeFontScale']) {
         byId<HTMLInputElement>(id).addEventListener('input', () => {

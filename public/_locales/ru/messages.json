@@ -60,11 +60,33 @@
     "next": { "message": "Далее" },
     "skip": { "message": "Пропустить" },
     "start": { "message": "Начать работу" },
-    "tabAi": { "message": "AI и стиль" },
-    "aiModeTitle": { "message": "Режим AI" },
+    "tabAi": { "message": "AI-модели" },
+    "aiModeTitle": { "message": "Режимы AI" },
     "aiModeLabel": { "message": "Баланс скорости и качества" },
     "aiModeFast": { "message": "Быстро — Mistral Small" },
+    "aiModeBalanced": { "message": "Баланс — Qwen 3.6 / Mistral" },
     "aiModeQuality": { "message": "Качественно — Mistral Large" },
+    "aiModeIntro": { "message": "Выберите баланс между скоростью генерации, качеством анализа и расходом токенов." },
+    "aiModeFastTitle": { "message": "Быстрый отклик" },
+    "aiModeFastDesc": {
+        "message": "Мгновенный ответ и минимальный расход токенов. Идеально для частой проверки ошибок."
+    },
+    "aiModeBalancedTitle": { "message": "Сбалансированный" },
+    "aiModeBalancedDesc": {
+        "message": "Оптимальный баланс богатого словарного запаса, естественного стиля и высокой скорости."
+    },
+    "aiModeQualityTitle": { "message": "Высшее качество" },
+    "aiModeQualityDesc": {
+        "message": "Глубокий анализ сложных текстов, академический и деловой стиль, тонкие нюансы перевода."
+    },
+    "userBudgetLimitsHint": {
+        "message": "Установите суточные и месячные пороги или примените готовые лимиты по квотам провайдеров в один клик."
+    },
+    "presetGroqQuota": { "message": "⚡ Квота Groq Free (14 400)" },
+    "presetMistralQuota": { "message": "🌪️ Квота Mistral (1 000)" },
+    "presetSafeDaily": { "message": "🛡️ Экономный (100)" },
+    "presetSyncActiveProvider": { "message": "🔄 По активному провайдеру" },
+    "presetUnlimited": { "message": "♾️ Без лимита" },
     "glossaryLabel": { "message": "Глоссарий перевода" },
     "glossaryHint": { "message": "Одна пара «исходный термин = перевод» на строку. Глоссарий хранится локально." },
     "styleProfilesTitle": { "message": "Профили стиля" },
@@ -472,9 +494,9 @@
     "tabGuideMainDescription": {
         "message": "Подключите Mistral или Groq, выберите основной сервис и стиль ответа."
     },
-    "tabGuideAiTitle": { "message": "Управляйте качеством и расходами" },
+    "tabGuideAiTitle": { "message": "Управляйте моделями, квотами и лимитами" },
     "tabGuideAiDescription": {
-        "message": "Выберите модель, настройте словарь, профили стиля и лимиты запросов."
+        "message": "Выберите режим скорости и качества (экономный, баланс, максимум), настройте глоссарий и лимиты запросов."
     },
     "tabGuideAppearanceTitle": { "message": "Настройте LexiSync под себя" },
     "tabGuideAppearanceDescription": {
@@ -1022,6 +1044,18 @@
     },
     "fallbackToMistralDueToOutage": {
         "message": "Сервис Groq временно недоступен. Использован Mistral."
+    },
+    "fallbackToGroqDueToAuth": {
+        "message": "Ошибка ключа Mistral. Запрос выполнен через резервный Groq (Qwen 3.6)."
+    },
+    "fallbackToMistralDueToAuth": {
+        "message": "Ошибка ключа Groq. Запрос выполнен через резервный Mistral."
+    },
+    "screenCaptureRestricted": {
+        "message": "Захват экрана (Alt+S) недоступен на системных страницах браузера. Откройте обычную веб-страницу."
+    },
+    "ocrKeyRequired": {
+        "message": "Для распознавания текста (OCR) требуется API-ключ Mistral или Groq."
     },
     "mistralRateLimitNeedGroqKey": {
         "message": "Лимит Mistral достигнут. Для автоматического переключения добавьте Groq API Key в настройках."

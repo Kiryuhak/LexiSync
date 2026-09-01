@@ -412,7 +412,10 @@ async function saveOptions(): Promise<void> {
                 .map((word) => word.trim())
                 .filter(Boolean)
                 .slice(0, 2000);
-        if (changed('aiMode')) updates.aiMode = aiModeSelect.value === 'fast' ? 'fast' : 'quality';
+        if (changed('aiMode'))
+            updates.aiMode = ['fast', 'balanced', 'quality'].includes(aiModeSelect.value)
+                ? aiModeSelect.value
+                : 'quality';
         if (changed('glossary'))
             updates.glossary = glossaryInput.value
                 .split(/\r?\n/)
@@ -571,7 +574,11 @@ async function restoreOptions(): Promise<void> {
     historyRetentionSelect.value = String(items.historyRetentionDays || 30);
     disabledSitesInput.value = Array.isArray(items.disabledSites) ? items.disabledSites.join('\n') : '';
     personalDictionaryInput.value = Array.isArray(items.personalDictionary) ? items.personalDictionary.join('\n') : '';
-    aiModeSelect.value = items.aiMode === 'fast' ? 'fast' : 'quality';
+    const initialAiMode = ['fast', 'balanced', 'quality'].includes(String(items.aiMode))
+        ? String(items.aiMode)
+        : 'quality';
+    aiModeSelect.value = initialAiMode;
+    syncAiModeCards(initialAiMode);
     glossaryInput.value = Array.isArray(items.glossary) ? items.glossary.join('\n') : '';
     const allSitesAccessInput = document.getElementById('allSitesAccess') as HTMLInputElement | null;
     if (allSitesAccessInput) {
@@ -833,6 +840,37 @@ function formatCountdownToMskReset(): string {
     return `в 03:00 МСК (через ${hours} ч ${mins} мин)`;
 }
 
+function syncAiModeCards(mode: string): void {
+    const cards = document.querySelectorAll<HTMLElement>('.ai-mode-card');
+    cards.forEach((card) => {
+        const isActive = card.dataset.mode === mode;
+        card.classList.toggle('is-active', isActive);
+        card.setAttribute('aria-checked', String(isActive));
+    });
+}
+
+function setupAiModeSelector(): void {
+    const aiModeSelect = document.getElementById('aiMode') as HTMLSelectElement | null;
+    const cards = document.querySelectorAll<HTMLElement>('.ai-mode-card');
+    cards.forEach((card) => {
+        const selectMode = () => {
+            const mode = card.dataset.mode || 'quality';
+            if (aiModeSelect) {
+                aiModeSelect.value = mode;
+                aiModeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            syncAiModeCards(mode);
+        };
+        card.addEventListener('click', selectMode);
+        card.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                selectMode();
+            }
+        });
+    });
+}
+
 async function refreshProviderQuotasUI(): Promise<void> {
     const stored = await chrome.storage.local.get({
         usageStats: EMPTY_USAGE_STATS,
@@ -861,9 +899,15 @@ async function refreshProviderQuotasUI(): Promise<void> {
     }
 
     if (mistralModelEl) {
-        const isQuality = aiMode === 'quality';
-        const label = isQuality ? 'Mistral Large ' : 'Mistral Small ';
-        const codeText = isQuality ? 'mistral-large-latest' : 'mistral-small-latest';
+        let label = 'Mistral Large ';
+        let codeText = 'mistral-large-latest';
+        if (aiMode === 'fast') {
+            label = 'Mistral Small ';
+            codeText = 'mistral-small-latest';
+        } else if (aiMode === 'balanced') {
+            label = 'Qwen 3.6 / Mistral Small ';
+            codeText = 'qwen3.6-27b / mistral-small';
+        }
         mistralModelEl.textContent = label;
         const codeEl = document.createElement('code');
         codeEl.textContent = `(${codeText})`;
@@ -1100,8 +1144,10 @@ document.addEventListener('DOMContentLoaded', () => {
         void refreshServerHealthStatus(true);
     });
 
+    setupAiModeSelector();
     const aiModeSelect = document.getElementById('aiMode') as HTMLSelectElement | null;
     aiModeSelect?.addEventListener('change', () => {
+        syncAiModeCards(aiModeSelect.value);
         void refreshProviderQuotasUI();
     });
 

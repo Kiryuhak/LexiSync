@@ -147,11 +147,11 @@ function sanitizePortableSetting(key: (typeof PORTABLE_SETTING_KEYS)[number], va
     if (key === 'visualStyle') return normalizeAppearanceStyle(value);
     if (key === 'resultDisplayMode') return ['auto', 'compact', 'detailed'].includes(String(value)) ? value : 'compact';
     if (key === 'searchEngine') return ['google', 'yandex', 'duckduckgo'].includes(String(value)) ? value : 'google';
-    if (key === 'aiMode') return value === 'fast' ? 'fast' : 'quality';
+    if (key === 'aiMode') return ['fast', 'balanced', 'quality'].includes(String(value)) ? value : 'quality';
     if (key === 'interfaceScale') return Math.min(110, Math.max(75, Number(value) || 90));
     if (key === 'historyRetentionDays') return [1, 7, 30].includes(Number(value)) ? Number(value) : 30;
     if (key === 'liveProofreadDelay') return [600, 900, 1500, 2500].includes(Number(value)) ? Number(value) : 900;
-    if (key === 'dailyRequestLimit') return Math.min(10_000, Math.max(0, Math.trunc(Number(value) || 0)));
+    if (key === 'dailyRequestLimit') return Math.min(50_000, Math.max(0, Math.trunc(Number(value) || 0)));
     if (key === 'monthlyTokenLimit') return Math.min(100_000_000, Math.max(0, Math.trunc(Number(value) || 0)));
     if (
         [

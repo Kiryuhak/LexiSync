@@ -11,9 +11,10 @@ export const SETTINGS_TAB_GUIDES = {
     ai: {
         icon: '◆',
         titleKey: 'tabGuideAiTitle',
-        title: 'Управляйте качеством и расходами',
+        title: 'Управляйте моделями, квотами и лимитами',
         descriptionKey: 'tabGuideAiDescription',
-        description: 'Выберите модель, настройте словарь, профили стиля и лимиты запросов.',
+        description:
+            'Выберите режим скорости и качества (экономный, баланс, максимум), настройте глоссарий и лимиты запросов.',
     },
     appearance: {
         icon: '◐',

@@ -202,11 +202,20 @@ export function getFallbackNotification(
         if (code === 'RATE_LIMIT' || code === 'QUOTA_EXCEEDED') {
             return t('fallbackToGroqDueToRateLimit', 'Лимит Mistral достигнут. Запрос выполнен через Groq (Qwen 3.6).');
         }
+        if (code === 'AUTH_ERROR') {
+            return t(
+                'fallbackToGroqDueToAuth',
+                'Ошибка ключа Mistral. Запрос выполнен через резервный Groq (Qwen 3.6).',
+            );
+        }
         return t('fallbackToGroqDueToOutage', 'Сервис Mistral временно недоступен. Использован Groq (Qwen 3.6).');
     }
     if (fromProvider === 'groq' && toProvider === 'mistral') {
         if (code === 'RATE_LIMIT' || code === 'QUOTA_EXCEEDED') {
             return t('fallbackToMistralDueToRateLimit', 'Лимит Groq достигнут. Запрос выполнен через Mistral.');
+        }
+        if (code === 'AUTH_ERROR') {
+            return t('fallbackToMistralDueToAuth', 'Ошибка ключа Groq. Запрос выполнен через резервный Mistral.');
         }
         return t('fallbackToMistralDueToOutage', 'Сервис Groq временно недоступен. Использован Mistral.');
     }
@@ -342,14 +351,14 @@ export async function executeAiStreamRequest(options: AiRequestOptions): Promise
         recordProviderFailure(primaryError);
     }
 
-    if (
-        !options.autoFallback ||
-        !primaryError.isFallbackEligible ||
-        !fallbackProvider ||
-        !getKey(fallbackProvider) ||
-        getAiProviderCooldownRemaining(fallbackProvider) > 0
-    )
-        throw primaryError;
+    const canFallback =
+        options.autoFallback &&
+        Boolean(fallbackProvider) &&
+        Boolean(getKey(fallbackProvider!)) &&
+        getAiProviderCooldownRemaining(fallbackProvider!) === 0 &&
+        (primaryError.isFallbackEligible || primaryError.code === 'AUTH_ERROR');
+
+    if (!canFallback || !fallbackProvider) throw primaryError;
 
     // Частичный поток первого сервиса нельзя смешивать с новым ответом резервного сервиса.
     if (primaryProducedContent) options.onReset?.();

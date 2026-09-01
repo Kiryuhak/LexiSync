@@ -15,7 +15,7 @@ export type TextMode =
     | 'case_convert'
     | 'text_clean';
 export type RequestMode = TextMode | 'ocr' | 'custom';
-export type AiMode = 'fast' | 'quality';
+export type AiMode = 'fast' | 'balanced' | 'quality';
 export type PrimaryAiProvider = 'auto' | 'mistral' | 'groq';
 
 export interface TextSnippet {

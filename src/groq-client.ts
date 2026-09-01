@@ -308,3 +308,66 @@ export async function streamGroqText(
         true,
     );
 }
+
+export const GROQ_VISION_MODEL = 'llama-3.2-11b-vision-preview';
+
+export async function processGroqOcr(msg: MistralRequest, apiKey: string, signal: AbortSignal): Promise<string> {
+    if (!msg.imageUrl) throw new Error(t('imageMissing', 'Изображение для распознавания не получено.'));
+    const trimmedKey = apiKey.trim();
+    if (!trimmedKey) {
+        throw new AiProviderError(
+            t('groqApiKeyMissing', 'API-ключ Groq не настроен.'),
+            'AUTH_ERROR',
+            'groq',
+            false,
+            401,
+        );
+    }
+
+    const response = await fetchGroqWithRetry(
+        `${GROQ_API_BASE_URL}/chat/completions`,
+        {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${trimmedKey}`,
+            },
+            body: JSON.stringify({
+                model: GROQ_VISION_MODEL,
+                messages: [
+                    {
+                        role: 'user',
+                        content: [
+                            {
+                                type: 'text',
+                                text: 'Recognize and extract all readable text from this image exactly as written. Return only the extracted plain text without any conversational preamble, commentary, or markdown wrapping.',
+                            },
+                            {
+                                type: 'image_url',
+                                image_url: {
+                                    url: msg.imageUrl,
+                                },
+                            },
+                        ],
+                    },
+                ],
+                temperature: 0.1,
+                max_completion_tokens: 2048,
+            }),
+        },
+        signal,
+    );
+
+    if (!response.ok) {
+        throw classifyGroqError(response.status, response.headers.get('Retry-After')).error;
+    }
+
+    const result = (await response.json()) as {
+        choices?: Array<{ message?: { content?: string } }>;
+    };
+    const text = result.choices?.[0]?.message?.content?.trim();
+    if (!text) {
+        throw new Error(t('ocrNoText', 'Текст в выбранной области не обнаружен.'));
+    }
+    return text;
+}
