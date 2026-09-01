@@ -14,6 +14,7 @@ import {
     showAIMenu as showContentAiMenu,
     type ContentMenuContext,
 } from './content-menus';
+import { showQuickBubble } from './content-quick-bubble';
 import { POPUP_STYLE_TEXT } from './content-ui-style';
 import { calculatePopupPosition } from './popup-position';
 import { unmountResultDialogFrame } from './result-dialog-view';
@@ -75,15 +76,27 @@ if (!contentRuntime.__lexisyncContentInitialized) {
         if (stored.liveProofreadEnabled === true) void ensureLiveProofread();
     };
 
+    let currentQuickActionBubbleEnabled = true;
+    let isPopupPinned = false;
+
     void chrome.storage.local
-        .get({ blockedSites: [], adaptiveSuggestionsEnabled: false, liveProofreadEnabled: false })
+        .get({
+            blockedSites: [],
+            adaptiveSuggestionsEnabled: false,
+            liveProofreadEnabled: false,
+            quickActionBubbleEnabled: true,
+        })
         .then((stored) => {
+            currentQuickActionBubbleEnabled = stored.quickActionBubbleEnabled !== false;
             extensionEnabledOnSite = !isSiteDisabled(location.hostname, normalizeDisabledSites(stored.blockedSites));
             if (!extensionEnabledOnSite) return;
             if (stored.adaptiveSuggestionsEnabled === true) void ensureAdaptiveSuggestions();
             if (stored.liveProofreadEnabled === true) void ensureLiveProofread();
         });
     chrome.storage.onChanged.addListener((changes, areaName) => {
+        if (areaName === 'local' && changes.quickActionBubbleEnabled !== undefined) {
+            currentQuickActionBubbleEnabled = changes.quickActionBubbleEnabled.newValue !== false;
+        }
         if (areaName === 'local' && extensionEnabledOnSite && changes.adaptiveSuggestionsEnabled?.newValue === true) {
             void ensureAdaptiveSuggestions();
         }
@@ -163,11 +176,14 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             if (!shouldShowSelectionMenu(extensionEnabledOnSite, Boolean(popupUI), selection.text)) return;
             currentSelection = selection;
             const coords = getSelectionCoords();
-            showToolbarMenu(
-                useSelectionCoords ? coords.x : lastMouseX || coords.x,
-                useSelectionCoords ? coords.y : lastMouseY || coords.y,
-                coords.top,
-            );
+            const posX = useSelectionCoords ? coords.x : lastMouseX || coords.x;
+            const posY = useSelectionCoords ? coords.y : lastMouseY || coords.y;
+
+            if (currentQuickActionBubbleEnabled) {
+                showQuickBubble(posX, posY, menuContext, () => showToolbarMenu(posX, posY, coords.top), coords.top);
+            } else {
+                showToolbarMenu(posX, posY, coords.top);
+            }
         }, delay);
     }
 
@@ -309,7 +325,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             if (!extensionEnabledOnSite) return;
             lastMouseX = e.clientX;
             lastMouseY = e.clientY;
-            if (popupUI && !isPopupEvent(e)) {
+            if (popupUI && !isPopupEvent(e) && !isPopupPinned) {
                 closePopup();
             }
         },
@@ -659,6 +675,10 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             activeRequestCleanup?.();
             activeRequestCleanup = cleanup;
         },
+        isPinned: () => isPopupPinned,
+        setPinned: (pinned: boolean) => {
+            isPopupPinned = pinned;
+        },
     };
 
     function handleActionClick(mode: RequestMode): void {
@@ -688,6 +708,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
     }
 
     function closePopup(removeImmediately = false, restoreFocus = true): void {
+        isPopupPinned = false;
         activeRequestCleanup?.();
         activeRequestCleanup = null;
         if (popupUI) {

@@ -14,8 +14,62 @@ export interface CancellableTextRequest {
     cancel: () => void;
 }
 
+interface StreamPort {
+    postMessage(message: unknown): void;
+    disconnect(): void;
+    onMessage: {
+        addListener(callback: (message: StreamResponse) => void): void;
+    };
+    onDisconnect: {
+        addListener(callback: () => void): void;
+    };
+}
+
+const inFlightRequests = new Map<string, CancellableTextRequest>();
+
+function getRequestFingerprint(input: StreamRequestInput): string {
+    return JSON.stringify([
+        input.mode,
+        input.targetLang || 'English',
+        input.allowPageContext === true,
+        input.customPrompt || '',
+        input.text,
+    ]);
+}
+
 export function startTextRequest(input: StreamRequestInput): CancellableTextRequest {
-    const port = browser.runtime.connect({ name: 'mistralStream' });
+    const fingerprint = getRequestFingerprint(input);
+    const existing = inFlightRequests.get(fingerprint);
+    if (existing) return existing;
+
+    const runtime =
+        typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.connect === 'function'
+            ? chrome.runtime
+            : typeof browser !== 'undefined' && browser.runtime && typeof browser.runtime.connect === 'function'
+              ? browser.runtime
+              : null;
+
+    if (!runtime) {
+        const errorPromise = Promise.reject(new Error('Соединение с обработчиком запроса не удалось установить.'));
+        errorPromise.catch(() => {});
+        return {
+            promise: errorPromise,
+            cancel: () => {},
+        };
+    }
+
+    let port: StreamPort;
+    try {
+        port = runtime.connect({ name: 'mistralStream' }) as StreamPort;
+    } catch {
+        const errorPromise = Promise.reject(new Error('Соединение с обработчиком запроса не удалось установить.'));
+        errorPromise.catch(() => {});
+        return {
+            promise: errorPromise,
+            cancel: () => {},
+        };
+    }
+
     let settled = false;
     let result = '';
     let resolvePromise!: (value: string) => void;
@@ -28,6 +82,7 @@ export function startTextRequest(input: StreamRequestInput): CancellableTextRequ
     const finish = (value?: string, error?: Error) => {
         if (settled) return;
         settled = true;
+        inFlightRequests.delete(fingerprint);
         try {
             port.disconnect();
         } catch {
@@ -57,7 +112,7 @@ export function startTextRequest(input: StreamRequestInput): CancellableTextRequ
         allowPageContext: input.allowPageContext === true,
     });
 
-    return {
+    const requestObj: CancellableTextRequest = {
         promise,
         cancel: () => {
             if (settled) return;
@@ -69,4 +124,7 @@ export function startTextRequest(input: StreamRequestInput): CancellableTextRequ
             finish(undefined, new DOMException('Запрос отменён.', 'AbortError'));
         },
     };
+
+    inFlightRequests.set(fingerprint, requestObj);
+    return requestObj;
 }

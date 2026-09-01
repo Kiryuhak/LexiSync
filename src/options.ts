@@ -115,6 +115,8 @@ const SAVED_OPTION_IDS = [
     'resultDisplayMode',
     'adaptiveSuggestionsEnabled',
     'adaptiveLearningEnabled',
+    'quickActionBubbleEnabled',
+    'contextMenuEnabled',
     'searchEngine',
     'sendPageContext',
     'enablePiiMasking',
@@ -350,6 +352,8 @@ async function saveOptions(): Promise<void> {
     const resultDisplayModeSelect = document.getElementById('resultDisplayMode') as HTMLSelectElement;
     const adaptiveSuggestionsInput = document.getElementById('adaptiveSuggestionsEnabled') as HTMLInputElement;
     const adaptiveLearningInput = document.getElementById('adaptiveLearningEnabled') as HTMLInputElement;
+    const quickActionBubbleInput = document.getElementById('quickActionBubbleEnabled') as HTMLInputElement;
+    const contextMenuInput = document.getElementById('contextMenuEnabled') as HTMLInputElement;
     const searchSelect = document.getElementById('searchEngine') as HTMLSelectElement;
     const sendPageContextInput = document.getElementById('sendPageContext') as HTMLInputElement;
     const enablePiiMaskingInput = document.getElementById('enablePiiMasking') as HTMLInputElement;
@@ -394,6 +398,8 @@ async function saveOptions(): Promise<void> {
         if (changed('adaptiveSuggestionsEnabled'))
             updates.adaptiveSuggestionsEnabled = adaptiveSuggestionsInput.checked;
         if (changed('adaptiveLearningEnabled')) updates.adaptiveLearningEnabled = adaptiveLearningInput.checked;
+        if (changed('quickActionBubbleEnabled')) updates.quickActionBubbleEnabled = quickActionBubbleInput.checked;
+        if (changed('contextMenuEnabled')) updates.contextMenuEnabled = contextMenuInput.checked;
         if (changed('searchEngine')) updates.searchEngine = searchSelect.value;
         if (changed('sendPageContext')) updates.sendPageContext = sendPageContextInput.checked;
         if (changed('enablePiiMasking')) updates.enablePiiMasking = enablePiiMaskingInput.checked;
@@ -491,6 +497,8 @@ async function restoreOptions(): Promise<void> {
     const resultDisplayModeSelect = document.getElementById('resultDisplayMode') as HTMLSelectElement;
     const adaptiveSuggestionsInput = document.getElementById('adaptiveSuggestionsEnabled') as HTMLInputElement;
     const adaptiveLearningInput = document.getElementById('adaptiveLearningEnabled') as HTMLInputElement;
+    const quickActionBubbleInput = document.getElementById('quickActionBubbleEnabled') as HTMLInputElement;
+    const contextMenuInput = document.getElementById('contextMenuEnabled') as HTMLInputElement;
     const searchSelect = document.getElementById('searchEngine') as HTMLSelectElement;
     const sendPageContextInput = document.getElementById('sendPageContext') as HTMLInputElement;
     const enablePiiMaskingInput = document.getElementById('enablePiiMasking') as HTMLInputElement;
@@ -513,6 +521,8 @@ async function restoreOptions(): Promise<void> {
             compactResultMode: true,
             adaptiveSuggestionsEnabled: false,
             adaptiveLearningEnabled: true,
+            quickActionBubbleEnabled: true,
+            contextMenuEnabled: true,
             adaptiveLanguageModel: { version: 2, words: {}, pairs: {}, rejections: {} },
             searchEngine: 'google',
             sendPageContext: false,
@@ -552,6 +562,8 @@ async function restoreOptions(): Promise<void> {
     resultDisplayModeSelect.value = normalizeResultDisplayMode(items.resultDisplayMode, items.compactResultMode);
     adaptiveSuggestionsInput.checked = items.adaptiveSuggestionsEnabled === true;
     adaptiveLearningInput.checked = items.adaptiveLearningEnabled !== false;
+    if (quickActionBubbleInput) quickActionBubbleInput.checked = items.quickActionBubbleEnabled !== false;
+    if (contextMenuInput) contextMenuInput.checked = items.contextMenuEnabled !== false;
     searchSelect.value = normalizeSearchEngine(items.searchEngine);
     sendPageContextInput.checked = items.sendPageContext === true;
     enablePiiMaskingInput.checked = items.enablePiiMasking !== false;

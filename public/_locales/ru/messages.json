@@ -1079,5 +1079,65 @@
     },
     "millisecondsShort": {
         "message": "мс"
+    },
+    "quickActionBubbleLabel": {
+        "message": "Всплывающая мини-кнопка при выделении текста"
+    },
+    "quickActionBubbleHint": {
+        "message": "Показывает аккуратную плавающую кнопку LexiSync рядом с выделением для быстрого доступа."
+    },
+    "quickActionBubbleAria": {
+        "message": "Открыть меню действий LexiSync"
+    },
+    "contextMenuLabel": {
+        "message": "Команды в контекстном меню браузера (ПКМ)"
+    },
+    "contextMenuHint": {
+        "message": "Отображает пункты «Исправить ошибки», «Стиль», «OCR» и др. при правом клике мыши на выделении."
+    },
+    "pinPanel": {
+        "message": "Закрепить окно на экране (не закрывать при клике мимо)"
+    },
+    "unpinPanel": {
+        "message": "Открепить окно"
+    },
+    "historyTabRequests": {
+        "message": "📜 Список запросов"
+    },
+    "historyTabAnalytics": {
+        "message": "📊 Аналитика грамотности"
+    },
+    "literacyIndexLabel": {
+        "message": "Грамотность"
+    },
+    "literacyStatusGreat": {
+        "message": "Отличная грамотность текстов"
+    },
+    "literacyStatusGood": {
+        "message": "Хорошая грамотность, есть редкие неточности"
+    },
+    "literacyStatusNeedsAttention": {
+        "message": "Рекомендуем уделить внимание правилам"
+    },
+    "literacyScoreDesc": {
+        "message": "Индекс рассчитан на основе чистоты формулировок и количества исправлений в вашей истории."
+    },
+    "statTotalRequests": {
+        "message": "Всего проверок"
+    },
+    "statTotalFixes": {
+        "message": "Исправлено неточностей"
+    },
+    "statCleanRequests": {
+        "message": "Текстов без ошибок"
+    },
+    "errorBreakdownTitle": {
+        "message": "Распределение частых ошибок"
+    },
+    "ruleCardsTitle": {
+        "message": "Памятка правил русского языка"
+    },
+    "noGrammarErrorsFound": {
+        "message": "В вашей истории не обнаружено частых ошибок! Отличный результат."
     }
 }

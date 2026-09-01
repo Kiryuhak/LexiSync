@@ -46,16 +46,14 @@ export function maskPii(text: string, startIndex = 0): MaskPiiResult {
 }
 
 /**
- * Восстанавливает исходные данные из токенов маскировки.
+ * Восстанавливает исходные данные из токенов маскировки за один проход без каскадных коллизий.
  */
 export function unmaskPii(text: string, maskMap: Record<string, string>): string {
     if (!text || !maskMap || Object.keys(maskMap).length === 0) {
         return text;
     }
 
-    let result = text;
-    for (const [token, original] of Object.entries(maskMap)) {
-        result = result.replaceAll(token, original);
-    }
-    return result;
+    return text.replace(/\[__[A-Z]+_\d+__\]/g, (match) => {
+        return maskMap[match] ?? match;
+    });
 }

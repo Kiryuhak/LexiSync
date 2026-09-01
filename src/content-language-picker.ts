@@ -74,6 +74,7 @@ export function createLanguagePicker({
             e.stopPropagation();
             langDropdown.style.display = 'none';
             langTrigger.setAttribute('aria-expanded', 'false');
+            langTrigger.focus();
             if (lang !== selectedLanguage) {
                 selectedLanguage = lang;
                 languageLabel.textContent = lang;
@@ -85,6 +86,16 @@ export function createLanguagePicker({
     });
 
     langWrap.appendChild(langDropdown);
+
+    langWrap.onkeydown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape' && langDropdown.style.display === 'flex') {
+            e.preventDefault();
+            e.stopPropagation();
+            langDropdown.style.display = 'none';
+            langTrigger.setAttribute('aria-expanded', 'false');
+            langTrigger.focus();
+        }
+    };
 
     langTrigger.onclick = (e) => {
         e.stopPropagation();

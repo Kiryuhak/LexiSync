@@ -4,13 +4,8 @@ import { migrateSettings } from './settings-migrations';
 import { fixKeyboardLayout } from './keyboard-layout';
 import { applyUsageMutation, type UsageMutation } from './usage-stats';
 import { applyHistoryMutation, type HistoryMutation } from './history-store';
-import {
-    applyCacheMutation,
-    cleanupExpiredAiCacheLocally,
-    getCacheHash,
-    getCachedText,
-    type CacheMutation,
-} from './ai-cache';
+import { applyCacheMutation, getCacheHash, getCachedText, type CacheMutation } from './ai-cache';
+import { runStorageGarbageCollection } from './storage-gc';
 import { applyAdaptiveMutation, type AdaptiveMutation } from './adaptive-model-store';
 import { createSettingsFingerprint } from './request-cache';
 import { applySettingsMutation, type SettingsMutation } from './settings-store';
@@ -91,7 +86,7 @@ async function canUseExtensionForSender(sender: chrome.runtime.MessageSender): P
 const initializationPromise = restoreSyncedSettings()
     .then(migrateSettings)
     .then(migrateApiKeyToSecretStore)
-    .then(() => cleanupExpiredAiCacheLocally())
+    .then(() => runStorageGarbageCollection())
     .catch((error) => {
         logger.error('Background initialization error:', error);
     });
@@ -111,6 +106,9 @@ const cacheReady = initializationPromise
 
 chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local') {
+        if (changes.contextMenuEnabled !== undefined) {
+            setupContextMenus();
+        }
         for (const [key, { newValue }] of Object.entries(changes)) {
             if (!isRuntimeSettingKey(key)) continue;
             if (newValue === undefined) delete settingsCache[key];
@@ -147,55 +145,65 @@ export async function getCachedSettings(keys: Record<string, unknown>): Promise<
     return result;
 }
 
+let contextMenuSetupGeneration = 0;
+
 function setupContextMenus(): void {
     if (!chrome.contextMenus) return;
-    chrome.contextMenus.removeAll(() => {
-        chrome.contextMenus.create({
-            id: 'spellcheck',
-            title: `${t('fixErrors', 'Исправить ошибки')} (Alt+R)`,
-            contexts: ['selection'],
-        });
-        chrome.contextMenus.create({
-            id: 'style',
-            title: `${t('rewriteText', 'Переписать текст')} (Alt+Y)`,
-            contexts: ['selection'],
-        });
-        chrome.contextMenus.create({
-            id: 'emoji',
-            title: `${t('addEmoji', 'Подобрать эмодзи')} (Alt+T)`,
-            contexts: ['selection'],
-        });
-        chrome.contextMenus.create({
-            id: 'layout',
-            title: t('fixLayout', 'Исправить раскладку'),
-            contexts: ['selection'],
-        });
-        chrome.contextMenus.create({
-            id: 'translate',
-            title: t('translate', 'Перевести'),
-            contexts: ['selection'],
-        });
-        chrome.contextMenus.create({
-            id: 'summary',
-            title: `📑 ${t('summaryTitle', 'Выжимка')}`,
-            contexts: ['selection'],
-        });
-        chrome.contextMenus.create({
-            id: 'explain',
-            title: `💡 ${t('modeExplainFull', 'Объяснение простыми словами')}`,
-            contexts: ['selection'],
-        });
-        chrome.contextMenus.create({
-            id: 'format',
-            title: `🧹 ${t('modeFormatFull', 'Очистка и форматирование')}`,
-            contexts: ['selection'],
-        });
-        chrome.contextMenus.create({
-            id: 'ocr',
-            title: `📸 ${t('recognizeText', 'Распознать текст')} (Alt+S)`,
-            contexts: ['page', 'image', 'selection'],
-        });
-    });
+    const generation = ++contextMenuSetupGeneration;
+    void chrome.storage.local
+        .get({ contextMenuEnabled: true })
+        .then((stored) => {
+            if (generation !== contextMenuSetupGeneration) return;
+            chrome.contextMenus.removeAll(() => {
+                if (generation !== contextMenuSetupGeneration || stored.contextMenuEnabled === false) return;
+                chrome.contextMenus.create({
+                    id: 'spellcheck',
+                    title: `${t('fixErrors', 'Исправить ошибки')} (Alt+R)`,
+                    contexts: ['selection'],
+                });
+                chrome.contextMenus.create({
+                    id: 'style',
+                    title: `${t('rewriteText', 'Переписать текст')} (Alt+Y)`,
+                    contexts: ['selection'],
+                });
+                chrome.contextMenus.create({
+                    id: 'emoji',
+                    title: `${t('addEmoji', 'Подобрать эмодзи')} (Alt+T)`,
+                    contexts: ['selection'],
+                });
+                chrome.contextMenus.create({
+                    id: 'layout',
+                    title: t('fixLayout', 'Исправить раскладку'),
+                    contexts: ['selection'],
+                });
+                chrome.contextMenus.create({
+                    id: 'translate',
+                    title: t('translate', 'Перевести'),
+                    contexts: ['selection'],
+                });
+                chrome.contextMenus.create({
+                    id: 'summary',
+                    title: `📑 ${t('summaryTitle', 'Выжимка')}`,
+                    contexts: ['selection'],
+                });
+                chrome.contextMenus.create({
+                    id: 'explain',
+                    title: `💡 ${t('modeExplainFull', 'Объяснение простыми словами')}`,
+                    contexts: ['selection'],
+                });
+                chrome.contextMenus.create({
+                    id: 'format',
+                    title: `🧹 ${t('modeFormatFull', 'Очистка и форматирование')}`,
+                    contexts: ['selection'],
+                });
+                chrome.contextMenus.create({
+                    id: 'ocr',
+                    title: `📸 ${t('recognizeText', 'Распознать текст')} (Alt+S)`,
+                    contexts: ['page', 'image', 'selection'],
+                });
+            });
+        })
+        .catch(() => undefined);
 }
 
 chrome.runtime.onStartup?.addListener(() => {

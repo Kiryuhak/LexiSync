@@ -81,7 +81,7 @@ async function clearApiKey(context: BrowserContext) {
     await extensionPage.close();
 }
 
-async function selectTextOnPage(page: Page, selector: string = 'p') {
+async function selectTextOnPage(page: Page, selector: string = 'p', expandBubble: boolean = false) {
     const target = page.locator(selector).first();
     await target.scrollIntoViewIfNeeded();
     const box = await target.boundingBox();
@@ -110,6 +110,16 @@ async function selectTextOnPage(page: Page, selector: string = 'p') {
         });
     }
     await expect.poll(selectionLength).toBeGreaterThan(0);
+
+    if (expandBubble) {
+        const bubble = page.locator('#lexisync-extension-ui[data-surface="quick-bubble"]');
+        try {
+            await bubble.waitFor({ state: 'visible', timeout: 1500 });
+            await bubble.click();
+        } catch {
+            // Bubble might be disabled or toolbar already opened
+        }
+    }
 }
 
 async function grantSiteAccess(context: BrowserContext, page: Page): Promise<number> {
@@ -213,7 +223,7 @@ test('Панель выделения появляется автоматиче�
         )
         .toBe(true);
 
-    await selectTextOnPage(page, 'h1');
+    await selectTextOnPage(page, 'h1', true);
     const toolbar = page.locator('#lexisync-extension-ui[data-surface="toolbar"][role="toolbar"]');
     await expect(toolbar).toBeVisible();
     const icons = toolbar.locator('svg');
@@ -259,6 +269,9 @@ test('поиск передаёт выделенный текст целиком
             return selection.toString();
         });
         expect(visibleText).toBe(query);
+        const bubble = page.locator('#lexisync-extension-ui[data-surface="quick-bubble"]');
+        await expect(bubble).toBeVisible();
+        await bubble.click();
         const searchButton = page.locator('[data-lexisync-action="search"]');
         await expect(searchButton).toBeVisible();
 
@@ -314,7 +327,7 @@ test('модальное окно остаётся рядом с указате�
         });
     });
 
-    await selectTextOnPage(page, '#position-target');
+    await selectTextOnPage(page, '#position-target', true);
     const selectionTarget = await page.locator('#position-target').boundingBox();
     expect(selectionTarget).not.toBeNull();
     await page.locator('[data-lexisync-action="edit"]').click();
@@ -337,7 +350,7 @@ test('длинные названия AI-команд не выходят за �
     await page.setViewportSize({ width: 520, height: 620 });
     await page.goto('https://example.com');
     await grantSiteAccess(context, page);
-    await selectTextOnPage(page, 'p');
+    await selectTextOnPage(page, 'p', true);
     await page.locator('[data-lexisync-action="edit"]').click();
 
     const menu = page.locator('#lexisync-extension-ui[data-surface="menu"]');
@@ -1592,7 +1605,7 @@ test('Пользовательская AI-команда передаёт соб
     });
     await page.goto('https://example.com');
     await grantSiteAccess(context, page);
-    await selectTextOnPage(page, 'h1');
+    await selectTextOnPage(page, 'h1', true);
     const toolbar = page.locator('#lexisync-extension-ui[data-surface="toolbar"][role="toolbar"]');
     await expect(toolbar).toBeVisible();
     await toolbar.locator('[data-lexisync-action="edit"]').click();
@@ -2305,7 +2318,7 @@ test('кнопка 3 точек открывает полноразмерное 
     await setFakeApiKey(context);
     await page.goto('https://example.com');
     await grantSiteAccess(context, page);
-    await selectTextOnPage(page, 'p');
+    await selectTextOnPage(page, 'p', true);
 
     const moreBtn = page.locator('[data-lexisync-action="more"]');
     await expect(moreBtn).toBeVisible();
@@ -2340,7 +2353,7 @@ test('результат AI-запроса отображает бейдж ис�
 
     await page.goto('https://example.com');
     await grantSiteAccess(context, page);
-    await selectTextOnPage(page, 'p');
+    await selectTextOnPage(page, 'p', true);
 
     await page.locator('[data-lexisync-action="edit"]').click();
     await page.locator('#lexisync-extension-ui[data-surface="menu"] [data-lexisync-mode="spellcheck"]').click();
@@ -2564,4 +2577,141 @@ test('Test 65: Карточка журнала ошибок в Настройк�
     const clearBtn = page.locator('#clearLogBtn');
     await clearBtn.click();
     await expect(errorCounter).toContainText(/0 ошибок|0 errors/i);
+});
+
+test('Test 66: Плавающая мини-кнопка LexiSync (Quick Action Bubble) появляется при выделении и открывает тулбар', async ({
+    page,
+    context,
+}) => {
+    await setFakeApiKey(context);
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() =>
+        chrome.storage.local.set({
+            quickActionBubbleEnabled: true,
+            onboardingCompleted: true,
+        }),
+    );
+
+    await page.goto('https://example.com');
+    await grantSiteAccess(context, page);
+
+    // Выделяем текст на странице
+    await selectTextOnPage(page, 'h1', false);
+
+    // Ожидаем появление плавающего бабла
+    const bubble = page.locator('#lexisync-extension-ui[data-surface="quick-bubble"]');
+    await expect(bubble).toBeVisible({ timeout: 2000 });
+
+    // Кликаем по баблу — должно открыться полноценное меню действий (toolbar)
+    await bubble.click();
+    const toolbar = page.locator('#lexisync-extension-ui[data-surface="toolbar"]');
+    await expect(toolbar).toBeVisible();
+    await expect(toolbar.locator('button')).toHaveCount(5);
+});
+
+test('Test 67: Кнопка закрепления (Pin) предотвращает закрытие окна результата при клике мимо', async ({
+    page,
+    context,
+}) => {
+    await setFakeApiKey(context);
+
+    await context.route('https://api.mistral.ai/v1/chat/completions', async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: 'text/event-stream',
+            body: 'data: {"choices":[{"delta":{"content":"Закреплённый результат"}}]}\n\ndata: [DONE]\n\n',
+        });
+    });
+
+    await page.goto('https://example.com');
+    await grantSiteAccess(context, page);
+    await selectTextOnPage(page, 'h1');
+    await page.keyboard.press('Alt+r');
+
+    const resultDialog = page.locator('#lexisync-extension-ui[data-surface="result"]');
+    await expect(resultDialog).toContainText('Закреплённый результат');
+
+    // Нажимаем кнопку Pin
+    const pinBtn = page.locator('#lexisyncPinBtn');
+    await expect(pinBtn).toBeVisible();
+    await pinBtn.click();
+    await expect(pinBtn).toHaveAttribute('aria-pressed', 'true');
+
+    // Кликаем вне окна LexiSync (по фону страницы)
+    await page.mouse.click(10, 10);
+    await page.waitForTimeout(200);
+
+    // Окно должно остаться открытым!
+    await expect(resultDialog).toBeVisible();
+
+    // Открепляем окно
+    await pinBtn.click();
+    await expect(pinBtn).toHaveAttribute('aria-pressed', 'false');
+
+    // Кликаем вне окна — теперь окно закрывается
+    await page.mouse.click(10, 10);
+    await expect(page.locator('#lexisync-shadow-host')).toHaveCount(0);
+});
+
+test('Test 68: Дашборд аналитики грамотности в Истории отображает индекс, метрики и правила', async ({
+    page,
+    context,
+}) => {
+    const background = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
+    const extensionId = new URL(background.url()).host;
+
+    // Сохраняем примеры запросов с частыми ошибками в историю
+    await background.evaluate(async () => {
+        await chrome.storage.local.set({
+            onboardingCompleted: true,
+            aiHistory: [
+                {
+                    id: 1,
+                    original: 'Он учиться в университете',
+                    result: 'Он учится в университете',
+                    mode: 'spellcheck',
+                    date: new Date().toISOString(),
+                },
+                {
+                    id: 2,
+                    original: 'Я незнаю правильного решения',
+                    result: 'Я не знаю правильного решения',
+                    mode: 'spellcheck',
+                    date: new Date().toISOString(),
+                },
+                {
+                    id: 3,
+                    original: 'Конечно мы согласны',
+                    result: 'Конечно, мы согласны',
+                    mode: 'spellcheck',
+                    date: new Date().toISOString(),
+                },
+            ],
+        });
+    });
+
+    await page.goto(`chrome-extension://${extensionId}/lexisync-history.html`);
+
+    // Проверяем наличие табов
+    const tabList = page.locator('#tabHistoryList');
+    const tabAnalytics = page.locator('#tabGrammarAnalytics');
+    await expect(tabList).toBeVisible();
+    await expect(tabAnalytics).toBeVisible();
+
+    // Переключаемся на вкладку Аналитики грамотности
+    await tabAnalytics.click();
+    await expect(page.locator('#grammarAnalyticsView')).toBeVisible();
+    await expect(page.locator('#historyListView')).toBeHidden();
+
+    // Проверяем виджеты аналитики
+    await expect(page.locator('#analyticsScoreVal')).toBeVisible();
+    await expect(page.locator('#analyticsTotalRequests')).toContainText('3');
+    await expect(page.locator('#analyticsBreakdownList')).toBeVisible();
+    await expect(page.locator('#analyticsRulesGrid')).toBeVisible();
+
+    // Проверяем переключение обратно на список
+    await tabList.click();
+    await expect(page.locator('#historyListView')).toBeVisible();
+    await expect(page.locator('#grammarAnalyticsView')).toBeHidden();
 });

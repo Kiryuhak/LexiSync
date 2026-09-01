@@ -413,57 +413,334 @@
                     animation: none;
                 }
             }
+
+            .history-view-tabs {
+                display: flex;
+                gap: 8px;
+                margin-bottom: 20px;
+                border-bottom: 1px solid var(--border);
+                padding-bottom: 10px;
+            }
+            .history-tab-btn {
+                background: transparent;
+                border: 1px solid transparent;
+                border-radius: 8px;
+                padding: 8px 16px;
+                font-size: 14px;
+                font-weight: 600;
+                color: var(--muted);
+                cursor: pointer;
+                transition: all 0.15s ease;
+            }
+            .history-tab-btn:hover {
+                color: var(--text);
+                background: var(--soft);
+            }
+            .history-tab-btn.is-active {
+                color: #ffffff;
+                background: #1967d2;
+                border-color: #1967d2;
+            }
+            [data-theme='dark'] .history-tab-btn.is-active {
+                color: #12131a;
+                background: #8ab4f8;
+                border-color: #8ab4f8;
+            }
+            .grammar-analytics-view {
+                display: flex;
+                flex-direction: column;
+                gap: 20px;
+            }
+            .grammar-analytics-view[hidden],
+            [hidden] {
+                display: none !important;
+            }
+            .analytics-hero-card {
+                background: var(--card);
+                border: 1px solid var(--border);
+                border-radius: 16px;
+                padding: 24px;
+                display: flex;
+                align-items: center;
+                gap: 24px;
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+            }
+            .score-circle {
+                width: 90px;
+                height: 90px;
+                border-radius: 50%;
+                background: radial-gradient(circle, color-mix(in srgb, var(--accent) 15%, transparent), transparent);
+                border: 4px solid var(--accent);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+            }
+            .score-number {
+                font-size: 26px;
+                font-weight: 800;
+                color: var(--accent);
+                line-height: 1;
+            }
+            .score-label {
+                font-size: 11px;
+                color: var(--muted);
+                margin-top: 2px;
+            }
+            .hero-info h2 {
+                margin: 0 0 6px;
+                font-size: 18px;
+                color: var(--text);
+            }
+            .hero-info p {
+                margin: 0;
+                color: var(--muted);
+                font-size: 13.5px;
+                line-height: 1.45;
+            }
+            .analytics-metrics-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                gap: 14px;
+            }
+            .metric-box {
+                background: var(--card);
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                padding: 16px;
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+            }
+            .metric-val {
+                font-size: 22px;
+                font-weight: 700;
+                color: var(--text);
+            }
+            .metric-desc {
+                font-size: 12px;
+                color: var(--muted);
+            }
+            .analytics-section-title {
+                font-size: 16px;
+                font-weight: 700;
+                margin: 8px 0 2px;
+                color: var(--text);
+            }
+            .analytics-breakdown-card {
+                background: var(--card);
+                border: 1px solid var(--border);
+                border-radius: 14px;
+                padding: 20px;
+            }
+            .breakdown-row {
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+                padding: 10px 0;
+                border-bottom: 1px solid var(--border);
+            }
+            .breakdown-row:last-child {
+                border-bottom: none;
+                padding-bottom: 0;
+            }
+            .breakdown-header {
+                display: flex;
+                justify-content: space-between;
+                font-size: 13.5px;
+            }
+            .breakdown-name {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-weight: 600;
+                color: var(--text);
+            }
+            .breakdown-count {
+                color: var(--muted);
+                font-size: 12.5px;
+            }
+            .breakdown-bar-wrap {
+                width: 100%;
+                height: 7px;
+                background: var(--soft);
+                border-radius: 4px;
+                overflow: hidden;
+            }
+            .breakdown-bar-fill {
+                height: 100%;
+                border-radius: 4px;
+                transition: width 0.4s ease;
+            }
+            .rules-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+                gap: 14px;
+            }
+            .rule-card {
+                background: var(--card);
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                padding: 16px;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+            .rule-card-header {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-weight: 700;
+                font-size: 14px;
+                color: var(--text);
+            }
+            .rule-card-hint {
+                font-size: 12.5px;
+                color: var(--muted);
+                line-height: 1.45;
+            }
+            .rule-card-example {
+                margin-top: auto;
+                padding: 8px 10px;
+                background: var(--soft);
+                border-radius: 8px;
+                font-size: 12px;
+                color: var(--accent);
+                font-weight: 500;
+            }
         </style>
     </head>
     <body>
         <main class="container">
             <h1 data-i18n="historyTitle">История запросов</h1>
-            <div class="toolbar">
-                <input
-                    id="historySearch"
-                    type="search"
-                    placeholder="Поиск по истории…"
-                    data-i18n-placeholder="historySearch"
-                />
-                <select id="modeFilter" aria-label="Все операции" data-i18n-aria-label="allOperations">
-                    <option value="all" data-i18n="allOperations">Все операции</option>
-                    <option value="spellcheck" data-i18n="modeSpellcheck">Ошибки</option>
-                    <option value="style" data-i18n="modeStyle">Стиль</option>
-                    <option value="emoji" data-i18n="modeEmoji">Эмодзи</option>
-                    <option value="layout" data-i18n="modeLayout">Раскладка</option>
-                    <option value="translate" data-i18n="modeTranslate">Перевод</option>
-                    <option value="summary" data-i18n="summaryShort">Выжимка</option>
-                    <option value="tone" data-i18n="modeTone">Тональность</option>
-                    <option value="continue" data-i18n="modeContinue">Дописать</option>
-                    <option value="notes_to_doc" data-i18n="modeNotesToDoc">Заметки в текст</option>
-                    <option value="headline" data-i18n="modeHeadline">Заголовки</option>
-                    <option value="reply" data-i18n="modeReply">Ответ</option>
-                    <option value="explain" data-i18n="modeExplain">Объяснить</option>
-                    <option value="format" data-i18n="modeFormat">Формат</option>
-                    <option value="ocr">OCR</option>
-                    <option value="custom" data-i18n="modeCustom">Команда</option>
-                </select>
-                <select id="historySort" aria-label="Sort history" data-i18n-aria-label="historySort">
-                    <option value="newest" data-i18n="historySortNewest">Newest first</option>
-                    <option value="oldest" data-i18n="historySortOldest">Oldest first</option>
-                    <option value="favorites" data-i18n="historySortFavorites">Favorites first</option>
-                </select>
-                <button id="favoriteFilter" type="button" aria-pressed="false" data-i18n="favoritesOnly">
-                    Только избранное
+
+            <div
+                class="history-view-tabs"
+                role="tablist"
+                aria-label="Вкладки истории"
+                data-i18n-aria-label="historyTitle"
+            >
+                <button
+                    id="tabHistoryList"
+                    class="history-tab-btn is-active"
+                    type="button"
+                    role="tab"
+                    aria-selected="true"
+                    aria-controls="historyListView"
+                    tabindex="0"
+                    data-i18n="historyTabRequests"
+                >
+                    📜 Список запросов
                 </button>
-                <button id="resetFilterBtn" type="button" data-i18n="resetFilters">Сбросить фильтры</button>
-                <select id="exportFormatSelect" class="history-export-format" aria-label="Формат экспорта">
-                    <option value="json">JSON (.json)</option>
-                    <option value="csv">CSV (.csv)</option>
-                    <option value="md">Markdown (.md)</option>
-                </select>
-                <button id="exportBtn" data-i18n="export">Экспорт</button>
-                <button id="importBtn" data-i18n="import">Импорт</button>
-                <input id="importFileInput" class="hidden" type="file" accept="application/json,.json" />
-                <button id="clearBtn" class="clear-btn" data-i18n="clear">Очистить</button>
+                <button
+                    id="tabGrammarAnalytics"
+                    class="history-tab-btn"
+                    type="button"
+                    role="tab"
+                    aria-selected="false"
+                    aria-controls="grammarAnalyticsView"
+                    tabindex="-1"
+                    data-i18n="historyTabAnalytics"
+                >
+                    📊 Аналитика грамотности
+                </button>
             </div>
-            <p id="historyStatus" class="history-status" role="status" aria-live="polite" aria-atomic="true"></p>
-            <div id="historyList"></div>
+
+            <!-- Раздел списка запросов -->
+            <div id="historyListView" role="tabpanel" aria-labelledby="tabHistoryList">
+                <div class="toolbar">
+                    <input
+                        id="historySearch"
+                        type="search"
+                        placeholder="Поиск по истории…"
+                        data-i18n-placeholder="historySearch"
+                    />
+                    <select id="modeFilter" aria-label="Все операции" data-i18n-aria-label="allOperations">
+                        <option value="all" data-i18n="allOperations">Все операции</option>
+                        <option value="spellcheck" data-i18n="modeSpellcheck">Ошибки</option>
+                        <option value="style" data-i18n="modeStyle">Стиль</option>
+                        <option value="emoji" data-i18n="modeEmoji">Эмодзи</option>
+                        <option value="layout" data-i18n="modeLayout">Раскладка</option>
+                        <option value="translate" data-i18n="modeTranslate">Перевод</option>
+                        <option value="summary" data-i18n="summaryShort">Выжимка</option>
+                        <option value="tone" data-i18n="modeTone">Тональность</option>
+                        <option value="continue" data-i18n="modeContinue">Дописать</option>
+                        <option value="notes_to_doc" data-i18n="modeNotesToDoc">Заметки в текст</option>
+                        <option value="headline" data-i18n="modeHeadline">Заголовки</option>
+                        <option value="reply" data-i18n="modeReply">Ответ</option>
+                        <option value="explain" data-i18n="modeExplain">Объяснить</option>
+                        <option value="format" data-i18n="modeFormat">Формат</option>
+                        <option value="ocr">OCR</option>
+                        <option value="custom" data-i18n="modeCustom">Команда</option>
+                    </select>
+                    <select id="historySort" aria-label="Sort history" data-i18n-aria-label="historySort">
+                        <option value="newest" data-i18n="historySortNewest">Newest first</option>
+                        <option value="oldest" data-i18n="historySortOldest">Oldest first</option>
+                        <option value="favorites" data-i18n="historySortFavorites">Favorites first</option>
+                    </select>
+                    <button id="favoriteFilter" type="button" aria-pressed="false" data-i18n="favoritesOnly">
+                        Только избранное
+                    </button>
+                    <button id="resetFilterBtn" type="button" data-i18n="resetFilters">Сбросить фильтры</button>
+                    <select id="exportFormatSelect" class="history-export-format" aria-label="Формат экспорта">
+                        <option value="json">JSON (.json)</option>
+                        <option value="csv">CSV (.csv)</option>
+                        <option value="md">Markdown (.md)</option>
+                    </select>
+                    <button id="exportBtn" data-i18n="export">Экспорт</button>
+                    <button id="importBtn" data-i18n="import">Импорт</button>
+                    <input id="importFileInput" class="hidden" type="file" accept="application/json,.json" />
+                    <button id="clearBtn" class="clear-btn" data-i18n="clear">Очистить</button>
+                </div>
+                <p id="historyStatus" class="history-status" role="status" aria-live="polite" aria-atomic="true"></p>
+                <div id="historyList"></div>
+            </div>
+
+            <!-- Раздел аналитики грамотности -->
+            <div
+                id="grammarAnalyticsView"
+                class="grammar-analytics-view"
+                role="tabpanel"
+                aria-labelledby="tabGrammarAnalytics"
+                hidden
+            >
+                <div class="analytics-hero-card">
+                    <div class="score-circle">
+                        <span id="analyticsScoreVal" class="score-number">100%</span>
+                        <span class="score-label" data-i18n="literacyIndexLabel">Грамотность</span>
+                    </div>
+                    <div class="hero-info">
+                        <h2 id="analyticsScoreTitle" data-i18n="literacyStatusGreat">Отличная грамотность текстов</h2>
+                        <p id="analyticsScoreDesc" data-i18n="literacyScoreDesc">
+                            Индекс рассчитан на основе чистоты формулировок и количества исправлений в вашей истории.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="analytics-metrics-grid">
+                    <div class="metric-box">
+                        <span id="analyticsTotalRequests" class="metric-val">0</span>
+                        <span class="metric-desc" data-i18n="statTotalRequests">Всего проверок</span>
+                    </div>
+                    <div class="metric-box">
+                        <span id="analyticsTotalFixes" class="metric-val">0</span>
+                        <span class="metric-desc" data-i18n="statTotalFixes">Исправлено неточностей</span>
+                    </div>
+                    <div class="metric-box">
+                        <span id="analyticsCleanRequests" class="metric-val">0</span>
+                        <span class="metric-desc" data-i18n="statCleanRequests">Текстов без ошибок</span>
+                    </div>
+                </div>
+
+                <h3 class="analytics-section-title" data-i18n="errorBreakdownTitle">Распределение частых ошибок</h3>
+                <div class="analytics-breakdown-card">
+                    <div id="analyticsBreakdownList"></div>
+                </div>
+
+                <h3 class="analytics-section-title" data-i18n="ruleCardsTitle">Памятка правил русского языка</h3>
+                <div id="analyticsRulesGrid" class="rules-grid"></div>
+            </div>
         </main>
         <script type="module" src="/src/history.ts"></script>
     </body>

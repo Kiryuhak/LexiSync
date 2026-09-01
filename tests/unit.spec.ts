@@ -86,9 +86,9 @@ test('безопасно нормализует поисковик и повре
 });
 
 test('история обновлений содержит все выпуски и поддерживает поиск', () => {
-    expect(RELEASE_NOTES[0].version).toBe('5.5.4');
+    expect(RELEASE_NOTES[0].version).toBe('5.5.5');
     expect(RELEASE_NOTES.at(-1)?.version).toBe('2.5');
-    expect(RELEASE_NOTES).toHaveLength(55);
+    expect(RELEASE_NOTES).toHaveLength(56);
     expect(new Set(RELEASE_NOTES.map((release) => release.version)).size).toBe(RELEASE_NOTES.length);
     expect(filterReleaseNotes(RELEASE_NOTES, 'MagicOS', 'ru').map((release) => release.version)).toEqual([
         '5.3.4',
@@ -3062,4 +3062,392 @@ test('Unit 26: clearAllSecrets гарантированно очищает со�
 
     expect(await getStoredApiKey()).toBe('');
     expect(await getStoredGroqApiKey()).toBe('');
+});
+
+test('Unit 27: grammar-analytics правильно классифицирует категории ошибок и строит сводный отчёт', async () => {
+    const { classifyTextDifference, generateGrammarAnalytics, GRAMMAR_CATEGORIES } =
+        await import('../src/grammar-analytics');
+
+    expect(GRAMMAR_CATEGORIES.tsya_tsya.id).toBe('tsya_tsya');
+
+    // 1. Проверка -тся / -ться
+    const tsyaDiff = classifyTextDifference('Он учиться в школе', 'Он учится в школе');
+    expect(tsyaDiff.has('tsya_tsya')).toBe(true);
+
+    // 2. Проверка не / ни
+    const neDiff = classifyTextDifference('я незнаю ответ', 'я не знаю ответ');
+    expect(neDiff.has('ne_ni')).toBe(true);
+
+    // 3. Проверка вводных слов
+    const introDiff = classifyTextDifference('Конечно мы успеем', 'Конечно, мы успеем');
+    expect(introDiff.has('introductory_words')).toBe(true);
+
+    // 4. Проверка раскладки
+    const layoutDiff = classifyTextDifference('ghbdtn rfr ltkf', 'привет как дела');
+    expect(layoutDiff.has('layout')).toBe(true);
+
+    // 5. Проверка генерации отчёта
+    const sampleHistory = [
+        {
+            id: 1,
+            original: 'Он учиться в школе',
+            result: 'Он учится в школе',
+            mode: 'spellcheck' as const,
+            date: '2026-08-30',
+        },
+        {
+            id: 2,
+            original: 'я незнаю ответ',
+            result: 'я не знаю ответ',
+            mode: 'spellcheck' as const,
+            date: '2026-08-30',
+        },
+        {
+            id: 3,
+            original: 'Привет мир',
+            result: 'Привет мир',
+            mode: 'spellcheck' as const,
+            date: '2026-08-30',
+        },
+    ];
+
+    const report = generateGrammarAnalytics(sampleHistory);
+    expect(report.totalEntries).toBe(3);
+    expect(report.cleanEntriesCount).toBe(1);
+    expect(report.totalCorrections).toBeGreaterThanOrEqual(2);
+    expect(report.literacyScore).toBeGreaterThanOrEqual(30);
+    expect(report.helpfulRules.length).toBeGreaterThan(0);
+
+    const reportWithCreativeCommands = generateGrammarAnalytics([
+        ...sampleHistory,
+        {
+            id: 4,
+            original: 'Привет, мир',
+            result: 'Hello, world',
+            mode: 'translate' as const,
+            date: '2026-08-30',
+        },
+        {
+            id: 5,
+            original: 'Короткий текст',
+            result: 'Расширенный художественный вариант текста',
+            mode: 'style' as const,
+            date: '2026-08-30',
+        },
+    ]);
+    expect(reportWithCreativeCommands.totalEntries).toBe(3);
+    expect(reportWithCreativeCommands.totalCorrections).toBe(report.totalCorrections);
+    expect(reportWithCreativeCommands.literacyScore).toBe(report.literacyScore);
+});
+
+test('Unit 28: showQuickBubble создаёт интерактивную кнопку с поддержкой клика и клавиатуры', async () => {
+    const { showQuickBubble } = await import('../src/content-quick-bubble');
+    const originalDocument = globalThis.document;
+    const originalDOMParser = globalThis.DOMParser;
+    vi.stubGlobal('DOMParser', MockDOMParser);
+    vi.stubGlobal('document', {
+        createElement: (tag: string) => createMockElement(tag),
+        createTextNode: (text: string) => ({ textContent: text }),
+        importNode: (node: unknown) => node,
+    });
+
+    let popupOpened = false;
+    let expanded = false;
+    let closed = false;
+
+    try {
+        const container = createMockElement('div');
+        const mockContext = {
+            openPopup: () => {
+                popupOpened = true;
+                return container;
+            },
+            getPopup: () => container,
+            getSelectionText: () => 'тестовый текст',
+            getSearchEngine: () => 'google',
+            getPopupElementById: () => null,
+            closePopup: () => {
+                closed = true;
+            },
+            adjustPopupPosition: vi.fn(),
+            handleAction: vi.fn(),
+            executeCustom: vi.fn(),
+        };
+
+        const bubble = showQuickBubble(100, 150, mockContext as never, () => {
+            expanded = true;
+        });
+
+        expect(popupOpened).toBe(true);
+        expect((bubble as unknown as HTMLElement).dataset.surface).toBe('quick-bubble');
+        expect((bubble as unknown as HTMLElement).tabIndex).toBe(0);
+
+        (bubble as unknown as { onclick?: (e: unknown) => void }).onclick?.({ stopPropagation: vi.fn() });
+        expect(expanded).toBe(true);
+
+        const escEvent = {
+            key: 'Escape',
+            preventDefault: vi.fn(),
+            stopPropagation: vi.fn(),
+        };
+        (bubble as unknown as { onkeydown?: (e: unknown) => void }).onkeydown?.(escEvent);
+        expect(closed).toBe(true);
+    } finally {
+        vi.stubGlobal('document', originalDocument);
+        vi.stubGlobal('DOMParser', originalDOMParser);
+    }
+});
+
+test('Unit 29: разметка истории и настроек содержит дашборд аналитики грамотности и новые опции', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const historyHtml = await fs.readFile(path.resolve(__dirname, '../entrypoints/lexisync-history.html'), 'utf8');
+    const optionsHtml = await fs.readFile(path.resolve(__dirname, '../entrypoints/options.html'), 'utf8');
+
+    expect(historyHtml).toContain('id="tabHistoryList"');
+    expect(historyHtml).toContain('id="tabGrammarAnalytics"');
+    expect(historyHtml).toContain('id="grammarAnalyticsView"');
+    expect(historyHtml).toContain('id="analyticsScoreVal"');
+    expect(historyHtml).toContain('id="analyticsBreakdownList"');
+    expect(historyHtml).toContain('id="analyticsRulesGrid"');
+
+    expect(optionsHtml).toContain('id="quickActionBubbleEnabled"');
+    expect(optionsHtml).toContain('id="contextMenuEnabled"');
+});
+
+test('Unit 30: runStorageGarbageCollection выполняет сборку мусора и ротацию логов', async () => {
+    const { runStorageGarbageCollection, getStorageBytesInUse } = await import('../src/storage-gc');
+
+    const fakeStorage: Record<string, unknown> = {
+        appErrorLogs: Array.from({ length: 65 }, (_, i) => ({ id: `log-${i}` })),
+    };
+
+    const originalChrome = globalThis.chrome;
+    try {
+        vi.stubGlobal('chrome', {
+            storage: {
+                local: {
+                    get: vi.fn((keys: unknown) => {
+                        if (Array.isArray(keys)) {
+                            const res: Record<string, unknown> = {};
+                            for (const k of keys) res[k] = fakeStorage[k];
+                            return Promise.resolve(res);
+                        }
+                        if (keys === null) return Promise.resolve(fakeStorage);
+                        return Promise.resolve(fakeStorage);
+                    }),
+                    set: vi.fn((data: Record<string, unknown>) => {
+                        Object.assign(fakeStorage, data);
+                        return Promise.resolve();
+                    }),
+                    remove: vi.fn((keys: string | string[]) => {
+                        const arr = Array.isArray(keys) ? keys : [keys];
+                        for (const k of arr) delete fakeStorage[k];
+                        return Promise.resolve();
+                    }),
+                    getBytesInUse: vi.fn(() => Promise.resolve(1024)),
+                },
+            },
+            runtime: {
+                sendMessage: vi.fn(() => Promise.resolve({ ok: true })),
+            },
+        });
+
+        const report = await runStorageGarbageCollection();
+        expect(report.bytesInUse).toBe(1024);
+        expect(report.logsTrimmed).toBe(15);
+        expect(Array.isArray(fakeStorage.appErrorLogs)).toBe(true);
+        expect((fakeStorage.appErrorLogs as unknown[]).length).toBe(50);
+
+        const bytes = await getStorageBytesInUse();
+        expect(bytes).toBe(1024);
+    } finally {
+        vi.stubGlobal('chrome', originalChrome);
+    }
+});
+
+test('Unit 31: startTextRequest дедуплицирует параллельные in-flight запросы', async () => {
+    let connectCount = 0;
+    const mockPort = {
+        onMessage: { addListener: vi.fn() },
+        onDisconnect: { addListener: vi.fn() },
+        postMessage: vi.fn(),
+        disconnect: vi.fn(),
+    };
+
+    const originalChrome = globalThis.chrome;
+    const originalBrowserGlobal = (globalThis as Record<string, unknown>).browser;
+    try {
+        const mockRuntime = {
+            connect: vi.fn(() => {
+                connectCount++;
+                return mockPort;
+            }),
+        };
+        vi.stubGlobal('chrome', { runtime: mockRuntime });
+        vi.stubGlobal('browser', { runtime: mockRuntime });
+
+        const { startTextRequest } = await import('../src/stream-request-client');
+
+        const req1 = startTextRequest({
+            mode: 'spellcheck',
+            text: 'Привет мир',
+            targetLang: 'English',
+        });
+        const req2 = startTextRequest({
+            mode: 'spellcheck',
+            text: 'Привет мир',
+            targetLang: 'English',
+        });
+
+        expect(req1).toBe(req2);
+        expect(connectCount).toBe(1);
+
+        req1.promise.catch(() => {});
+        req1.cancel();
+    } finally {
+        vi.stubGlobal('chrome', originalChrome);
+        vi.stubGlobal('browser', originalBrowserGlobal);
+    }
+});
+
+test('Unit 32: unmaskPii устойчив к чужим скобкам и коллизиям токенов', async () => {
+    const { unmaskPii } = await import('../src/pii-masker');
+
+    const maskMap: Record<string, string> = {
+        '[__EMAIL_1__]': 'real@example.com',
+        '[__SECRET_2__]': 'sk-1234567890abcdef1234',
+    };
+
+    const text = 'Текст с [__EMAIL_1__] и фейковым [__EMAIL_99__] и ключом [__SECRET_2__]';
+    const result = unmaskPii(text, maskMap);
+
+    expect(result).toBe('Текст с real@example.com и фейковым [__EMAIL_99__] и ключом sk-1234567890abcdef1234');
+});
+
+test('Unit 33: createLanguagePicker обрабатывает Escape и возвращает фокус', async () => {
+    type MockNode = {
+        tagName: string;
+        id?: string;
+        style: Record<string, string>;
+        attributes: Map<string, string>;
+        children: MockNode[];
+        textContent: string;
+        setAttribute: (name: string, val: string) => void;
+        getAttribute: (name: string) => string | null;
+        append: (...newNodes: unknown[]) => void;
+        appendChild: (n: MockNode) => MockNode;
+        replaceChildren: (...newNodes: unknown[]) => void;
+        querySelector: (sel: string) => MockNode | null;
+        querySelectorAll: (sel: string) => MockNode[];
+        click: () => void;
+        focus: () => void;
+        onclick?: (e: unknown) => void;
+        onkeydown?: (e: unknown) => void;
+    };
+
+    function createMock(tag: string): MockNode {
+        let children: MockNode[] = [];
+        const attributes = new Map<string, string>();
+        const style: Record<string, string> = {};
+        Object.defineProperty(style, 'cssText', {
+            set: (val: string) => {
+                const match = val.match(/display:\s*([^;!]+)/);
+                if (match) style.display = match[1].trim();
+            },
+            get: () => '',
+            configurable: true,
+        });
+
+        const node: MockNode = {
+            tagName: tag.toUpperCase(),
+            style,
+            attributes,
+            get children() {
+                return children;
+            },
+            textContent: '',
+            setAttribute: (name, val) => attributes.set(name, val),
+            getAttribute: (name) => attributes.get(name) || null,
+            append: (...newNodes) => {
+                for (const n of newNodes) {
+                    if ('tagName' in (n as Record<string, unknown>)) children.push(n as MockNode);
+                }
+            },
+            appendChild: (n) => {
+                children.push(n);
+                return n;
+            },
+            replaceChildren: (...newNodes) => {
+                children = [];
+                for (const n of newNodes) {
+                    if ('tagName' in (n as Record<string, unknown>)) children.push(n as MockNode);
+                }
+            },
+            querySelector: (sel) => {
+                if (sel === 'button') return children.find((c) => c.tagName === 'BUTTON') || null;
+                if (sel === '[role="listbox"]')
+                    return children.find((c) => c.attributes.get('role') === 'listbox') || null;
+                return null;
+            },
+            querySelectorAll: () => [],
+            click: () => {
+                node.onclick?.({ stopPropagation: () => {} });
+            },
+            focus: () => {},
+        };
+        return node;
+    }
+
+    const originalDocument = globalThis.document;
+    const originalDOMParser = globalThis.DOMParser;
+    globalThis.document = {
+        createElement: (tag: string) => createMock(tag),
+        createElementNS: (_ns: string, tag: string) => createMock(tag),
+    } as unknown as Document;
+    globalThis.DOMParser = class {
+        parseFromString() {
+            return { documentElement: createMock('svg') };
+        }
+    } as unknown as typeof DOMParser;
+
+    try {
+        const { createLanguagePicker } = await import('../src/content-language-picker');
+
+        const picker = createLanguagePicker({
+            currentLanguage: 'Русский',
+            getLanguageName: (code) => (code === 'ru' ? 'Русский' : 'English'),
+            onLanguageChange: vi.fn(),
+        }) as unknown as MockNode;
+
+        const trigger = picker.querySelector('button');
+        const dropdown = picker.querySelector('[role="listbox"]');
+
+        expect(trigger).toBeTruthy();
+        expect(dropdown?.style.display).toBe('none');
+
+        trigger?.click();
+        expect(dropdown?.style.display).toBe('flex');
+        expect(trigger?.getAttribute('aria-expanded')).toBe('true');
+
+        let defaultPrevented = false;
+        let propagationStopped = false;
+        picker.onkeydown?.({
+            key: 'Escape',
+            preventDefault: () => {
+                defaultPrevented = true;
+            },
+            stopPropagation: () => {
+                propagationStopped = true;
+            },
+        });
+
+        expect(dropdown?.style.display).toBe('none');
+        expect(trigger?.getAttribute('aria-expanded')).toBe('false');
+        expect(defaultPrevented).toBe(true);
+        expect(propagationStopped).toBe(true);
+    } finally {
+        globalThis.document = originalDocument;
+        globalThis.DOMParser = originalDOMParser;
+    }
 });

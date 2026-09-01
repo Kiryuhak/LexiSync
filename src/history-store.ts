@@ -93,11 +93,21 @@ export async function getHistory(): Promise<HistoryItem[]> {
     const cutoff = Date.now() - settings.historyRetentionDays * 24 * 60 * 60 * 1000;
 
     const raw = await idbGetAll<HistoryItem>(db, STORE_NAME);
-    const history = raw
-        .filter(isHistoryItem)
-        .filter((item) => item.favorite === true || new Date(item.date).getTime() >= cutoff)
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-        .slice(0, HISTORY_LIMIT);
+    const valid = raw.filter(isHistoryItem);
+
+    // Избранные записи сохраняются всегда, вне зависимости от возраста
+    const favorites = valid.filter((item) => item.favorite === true);
+    const nonFavorites = valid
+        .filter((item) => item.favorite !== true && new Date(item.date).getTime() >= cutoff)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    // Лимит применяется в первую очередь к неизбранным записям
+    const allowedNonFavoritesCount = Math.max(0, HISTORY_LIMIT - favorites.length);
+    const keptNonFavorites = nonFavorites.slice(0, allowedNonFavoritesCount);
+
+    const history = [...favorites, ...keptNonFavorites].sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+    );
 
     if (history.length < raw.length) {
         const toKeep = new Set(history.map((i) => i.id));

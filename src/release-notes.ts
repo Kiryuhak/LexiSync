@@ -36,6 +36,35 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.5.5',
+        '2026-09-01',
+        'improved',
+        'Быстрые действия, закрепление результата и аналитика грамотности',
+        'Quick actions, pinned results, and literacy analytics',
+        [
+            [
+                'Рядом с выделенным текстом появилась компактная кнопка LexiSync, а команды в контекстном меню теперь можно отключить отдельно.',
+                'A compact LexiSync button now appears near selected text, and browser context-menu commands can be disabled separately.',
+            ],
+            [
+                'Окно результата можно закрепить на экране и спокойно сверяться с ним во время работы на странице.',
+                'The result window can be pinned on screen while you continue working on the page.',
+            ],
+            [
+                'История получила локальную аналитику грамотности с частыми категориями исправлений и памятками правил.',
+                'History now includes local literacy analytics with frequent correction categories and rule reminders.',
+            ],
+            [
+                'Новый Mistral API-ключ применяется без перезапуска расширения; причины ошибок ключа, доступа и биллинга показываются точнее.',
+                'A new Mistral API key is applied without restarting the extension, with clearer key, access, and billing diagnostics.',
+            ],
+            [
+                'Автоматическая очистка кэша, ротация диагностики и объединение одинаковых запросов снижают лишнюю нагрузку на браузер.',
+                'Automatic cache cleanup, diagnostics rotation, and duplicate-request coalescing reduce unnecessary browser load.',
+            ],
+        ],
+    ),
+    note(
         '5.5.4',
         '2026-08-29',
         'improved',

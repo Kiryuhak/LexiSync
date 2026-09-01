@@ -15,6 +15,7 @@ import { sortHistoryItems, type HistorySortOption } from './history-sort';
 import { formatHistoryAsCsv, formatHistoryAsMarkdown } from './history-export';
 import { HISTORY_LIMIT } from './history-store';
 import { logger } from './logger';
+import { generateGrammarAnalytics } from './grammar-analytics';
 
 const MODE_NAMES: Record<RequestMode, string> = {
     spellcheck: t('modeSpellcheck', 'Ошибки'),
@@ -48,6 +49,20 @@ const favoriteFilter = document.getElementById('favoriteFilter') as HTMLButtonEl
 const sortFilter = document.getElementById('historySort') as HTMLSelectElement | null;
 const resetFilterBtn = document.getElementById('resetFilterBtn') as HTMLButtonElement | null;
 const historyStatus = document.getElementById('historyStatus');
+
+const tabHistoryList = document.getElementById('tabHistoryList') as HTMLButtonElement | null;
+const tabGrammarAnalytics = document.getElementById('tabGrammarAnalytics') as HTMLButtonElement | null;
+const historyListView = document.getElementById('historyListView') as HTMLElement | null;
+const grammarAnalyticsView = document.getElementById('grammarAnalyticsView') as HTMLElement | null;
+
+const analyticsScoreVal = document.getElementById('analyticsScoreVal');
+const analyticsScoreTitle = document.getElementById('analyticsScoreTitle');
+const analyticsTotalRequests = document.getElementById('analyticsTotalRequests');
+const analyticsTotalFixes = document.getElementById('analyticsTotalFixes');
+const analyticsCleanRequests = document.getElementById('analyticsCleanRequests');
+const analyticsBreakdownList = document.getElementById('analyticsBreakdownList');
+const analyticsRulesGrid = document.getElementById('analyticsRulesGrid');
+
 let history: HistoryItem[] = [];
 let favoritesOnly = false;
 
@@ -447,6 +462,120 @@ function renderHistory(): void {
     }
 }
 
+function renderGrammarAnalytics(): void {
+    const report = generateGrammarAnalytics(history);
+
+    if (analyticsScoreVal) analyticsScoreVal.textContent = `${report.literacyScore}%`;
+    if (analyticsScoreTitle) {
+        if (report.literacyScore >= 90) {
+            analyticsScoreTitle.textContent = t('literacyStatusGreat', 'Отличная грамотность текстов');
+        } else if (report.literacyScore >= 75) {
+            analyticsScoreTitle.textContent = t('literacyStatusGood', 'Хорошая грамотность, есть редкие неточности');
+        } else {
+            analyticsScoreTitle.textContent = t(
+                'literacyStatusNeedsAttention',
+                'Рекомендуем уделить внимание правилам',
+            );
+        }
+    }
+    if (analyticsTotalRequests) analyticsTotalRequests.textContent = String(report.totalEntries);
+    if (analyticsTotalFixes) analyticsTotalFixes.textContent = String(report.totalCorrections);
+    if (analyticsCleanRequests) analyticsCleanRequests.textContent = String(report.cleanEntriesCount);
+
+    if (analyticsBreakdownList) {
+        analyticsBreakdownList.replaceChildren();
+        if (report.totalCorrections === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'empty';
+            empty.style.marginTop = '10px';
+            empty.textContent = t(
+                'noGrammarErrorsFound',
+                'В вашей истории не обнаружено частых ошибок! Отличный результат.',
+            );
+            analyticsBreakdownList.appendChild(empty);
+        } else {
+            for (const item of report.categories) {
+                if (item.count === 0) continue;
+                const row = document.createElement('div');
+                row.className = 'breakdown-row';
+
+                const header = document.createElement('div');
+                header.className = 'breakdown-header';
+
+                const nameWrap = document.createElement('div');
+                nameWrap.className = 'breakdown-name';
+                nameWrap.textContent = `${item.category.icon} ${item.category.titleRu}`;
+
+                const countWrap = document.createElement('div');
+                countWrap.className = 'breakdown-count';
+                countWrap.textContent = `${item.count} (${item.percentage}%)`;
+
+                header.append(nameWrap, countWrap);
+
+                const barWrap = document.createElement('div');
+                barWrap.className = 'breakdown-bar-wrap';
+                const barFill = document.createElement('div');
+                barFill.className = 'breakdown-bar-fill';
+                barFill.style.width = `${item.percentage}%`;
+                barFill.style.background = item.category.color;
+                barWrap.appendChild(barFill);
+
+                row.append(header, barWrap);
+                analyticsBreakdownList.appendChild(row);
+            }
+        }
+    }
+
+    if (analyticsRulesGrid) {
+        analyticsRulesGrid.replaceChildren();
+        for (const rule of report.helpfulRules) {
+            const card = document.createElement('div');
+            card.className = 'rule-card';
+
+            const cardHeader = document.createElement('div');
+            cardHeader.className = 'rule-card-header';
+            cardHeader.textContent = `${rule.icon} ${rule.titleRu}`;
+
+            const hint = document.createElement('div');
+            hint.className = 'rule-card-hint';
+            hint.textContent = rule.ruleHintRu;
+
+            const example = document.createElement('div');
+            example.className = 'rule-card-example';
+            example.textContent = `💡 Пример: ${rule.exampleRu}`;
+
+            card.append(cardHeader, hint, example);
+            analyticsRulesGrid.appendChild(card);
+        }
+    }
+}
+
+function switchHistoryTab(tab: 'list' | 'analytics'): void {
+    if (tab === 'list') {
+        tabHistoryList?.classList.add('is-active');
+        tabHistoryList?.setAttribute('aria-selected', 'true');
+        tabHistoryList?.setAttribute('tabindex', '0');
+        tabGrammarAnalytics?.classList.remove('is-active');
+        tabGrammarAnalytics?.setAttribute('aria-selected', 'false');
+        tabGrammarAnalytics?.setAttribute('tabindex', '-1');
+        if (historyListView) historyListView.hidden = false;
+        if (grammarAnalyticsView) grammarAnalyticsView.hidden = true;
+    } else {
+        tabGrammarAnalytics?.classList.add('is-active');
+        tabGrammarAnalytics?.setAttribute('aria-selected', 'true');
+        tabGrammarAnalytics?.setAttribute('tabindex', '0');
+        tabHistoryList?.classList.remove('is-active');
+        tabHistoryList?.setAttribute('aria-selected', 'false');
+        tabHistoryList?.setAttribute('tabindex', '-1');
+        if (historyListView) historyListView.hidden = true;
+        if (grammarAnalyticsView) grammarAnalyticsView.hidden = false;
+        renderGrammarAnalytics();
+    }
+}
+
+tabHistoryList?.addEventListener('click', () => switchHistoryTab('list'));
+tabGrammarAnalytics?.addEventListener('click', () => switchHistoryTab('analytics'));
+
 async function initialize(): Promise<void> {
     localizeDocument();
     const theme = await chrome.storage.local.get({ selectedTheme: 'auto', visualStyle: 'liquid-glass' });
@@ -457,6 +586,7 @@ async function initialize(): Promise<void> {
     applyAppearanceStyle(document.documentElement, theme.visualStyle);
     history = await getHistory();
     renderHistory();
+    renderGrammarAnalytics();
 }
 
 let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;

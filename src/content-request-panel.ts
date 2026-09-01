@@ -43,6 +43,8 @@ export interface ContentRequestContext {
     closePopup: () => void;
     startDragging: (offsetX: number, offsetY: number) => void;
     registerRequestCleanup: (cleanup: () => void) => void;
+    isPinned?: () => boolean;
+    setPinned?: (pinned: boolean) => void;
 }
 
 interface RequestExecutionOptions {
@@ -633,6 +635,43 @@ export function executeRequest(
         if (activeProvider) {
             loaderOrClose.appendChild(createProviderBadge(activeProvider, isFallback));
         }
+
+        const pinBtn = document.createElement('button');
+        pinBtn.type = 'button';
+        pinBtn.className = 'lexisync-pin-button';
+        pinBtn.id = 'lexisyncPinBtn';
+        const updatePinVisual = () => {
+            const isPinned = context.isPinned?.() || false;
+            pinBtn.setAttribute('aria-pressed', String(isPinned));
+            pinBtn.title = isPinned
+                ? t('unpinPanel', 'Открепить окно')
+                : t('pinPanel', 'Закрепить окно на экране (не закрывать при клике мимо)');
+            if (isPinned) {
+                pinBtn.style.color = 'var(--accent, #6366F1)';
+                pinBtn.style.background = 'rgba(99, 102, 241, 0.15)';
+            } else {
+                pinBtn.style.color = 'var(--text-secondary)';
+                pinBtn.style.background = 'transparent';
+            }
+        };
+        setIcon(pinBtn, ICONS.pin);
+        pinBtn.style.cssText =
+            'cursor: pointer; display: flex; align-items: center; padding: 6px; border-radius: 8px; transition: background 0.15s, color 0.15s; border: none; margin-right: 2px;';
+        pinBtn.onmouseover = () => {
+            if (!context.isPinned?.()) pinBtn.style.background = 'var(--hover-bg)';
+        };
+        pinBtn.onmouseout = () => {
+            if (!context.isPinned?.()) pinBtn.style.background = 'transparent';
+        };
+        pinBtn.onclick = (e) => {
+            e.stopPropagation();
+            const next = !(context.isPinned?.() || false);
+            context.setPinned?.(next);
+            updatePinVisual();
+        };
+        updatePinVisual();
+        loaderOrClose.appendChild(pinBtn);
+
         const closeBtn = document.createElement('button');
         closeBtn.type = 'button';
         closeBtn.className = 'lexisync-close-button';

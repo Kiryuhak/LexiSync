@@ -1077,5 +1077,65 @@
     },
     "millisecondsShort": {
         "message": "ms"
+    },
+    "quickActionBubbleLabel": {
+        "message": "Floating quick button on text selection"
+    },
+    "quickActionBubbleHint": {
+        "message": "Shows a neat floating LexiSync button near selected text for quick access."
+    },
+    "quickActionBubbleAria": {
+        "message": "Open LexiSync action menu"
+    },
+    "contextMenuLabel": {
+        "message": "Browser right-click context menu commands"
+    },
+    "contextMenuHint": {
+        "message": "Shows 'Fix errors', 'Style', 'OCR', etc. in the browser context menu on selection."
+    },
+    "pinPanel": {
+        "message": "Pin window (keep open when clicking outside)"
+    },
+    "unpinPanel": {
+        "message": "Unpin window"
+    },
+    "historyTabRequests": {
+        "message": "📜 Request list"
+    },
+    "historyTabAnalytics": {
+        "message": "📊 Literacy Analytics"
+    },
+    "literacyIndexLabel": {
+        "message": "Literacy"
+    },
+    "literacyStatusGreat": {
+        "message": "Excellent text literacy"
+    },
+    "literacyStatusGood": {
+        "message": "Good literacy with rare minor issues"
+    },
+    "literacyStatusNeedsAttention": {
+        "message": "Grammar rule review recommended"
+    },
+    "literacyScoreDesc": {
+        "message": "Index calculated based on formulation accuracy and total corrections in your history."
+    },
+    "statTotalRequests": {
+        "message": "Total checks"
+    },
+    "statTotalFixes": {
+        "message": "Corrections made"
+    },
+    "statCleanRequests": {
+        "message": "Flawless texts"
+    },
+    "errorBreakdownTitle": {
+        "message": "Frequent error breakdown"
+    },
+    "ruleCardsTitle": {
+        "message": "Grammar rules cheat sheet"
+    },
+    "noGrammarErrorsFound": {
+        "message": "No frequent errors detected in your history! Excellent result."
     }
 }
