@@ -93,20 +93,53 @@ export function activateSettingsTab(tabName: string): void {
     updateSettingsTabGuide(tabName);
 }
 
+export function setupSettingsSearch(): void {
+    const searchInput = document.getElementById('settingsSearchInput') as HTMLInputElement | null;
+    if (!searchInput) return;
+
+    searchInput.addEventListener('input', () => {
+        const query = searchInput.value.trim().toLowerCase();
+        const activeTabButton = document.querySelector<HTMLButtonElement>('.settings-tab.is-active');
+        const activeTab = activeTabButton?.dataset.tab || 'main';
+
+        if (!query) {
+            activateSettingsTab(activeTab);
+            return;
+        }
+
+        document.querySelectorAll<HTMLElement>('[data-settings-group]').forEach((element) => {
+            const text = element.textContent?.toLowerCase() || '';
+            element.hidden = !text.includes(query);
+        });
+    });
+}
+
 export function setupSettingsTabs(): void {
     document.querySelectorAll<HTMLButtonElement>('.settings-tab').forEach((button) => {
-        button.addEventListener('click', () => activateSettingsTab(button.dataset.tab || 'main'));
+        button.addEventListener('click', () => {
+            const searchInput = document.getElementById('settingsSearchInput') as HTMLInputElement | null;
+            if (searchInput && searchInput.value) {
+                searchInput.value = '';
+            }
+            activateSettingsTab(button.dataset.tab || 'main');
+        });
         button.addEventListener('keydown', (event) => {
-            if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+            if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
+            event.preventDefault();
             const tabs = [...document.querySelectorAll<HTMLButtonElement>('.settings-tab')];
             const currentIndex = tabs.indexOf(button);
-            const offset = event.key === 'ArrowRight' ? 1 : -1;
+            const offset = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1;
             const next = tabs[(currentIndex + offset + tabs.length) % tabs.length];
             if (next) {
+                const searchInput = document.getElementById('settingsSearchInput') as HTMLInputElement | null;
+                if (searchInput && searchInput.value) {
+                    searchInput.value = '';
+                }
                 activateSettingsTab(next.dataset.tab || 'main');
                 next.focus();
             }
         });
     });
+    setupSettingsSearch();
     activateSettingsTab('main');
 }

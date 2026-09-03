@@ -1261,5 +1261,8 @@
     },
     "allHistoryLink": {
         "message": "All →"
+    },
+    "searchInSettings": {
+        "message": "Search in settings"
     }
 }

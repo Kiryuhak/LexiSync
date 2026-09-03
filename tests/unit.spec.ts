@@ -3581,3 +3581,14 @@ test('settings-transfer корректно нормализует pinnedToolbarA
     const glossary = sanitizePortableSetting('glossary', ['term1 = translation1', '   ']);
     expect(glossary).toEqual(['term1 = translation1']);
 });
+
+test('SETTINGS_TAB_GUIDES содержит описания всех 7 вкладок настроек', async () => {
+    const { SETTINGS_TAB_GUIDES } = await import('../src/options-tabs');
+    const tabs = Object.keys(SETTINGS_TAB_GUIDES);
+    expect(tabs).toEqual(['main', 'ai', 'appearance', 'suggestions', 'privacy', 'commands', 'guide']);
+    for (const key of tabs) {
+        const guide = SETTINGS_TAB_GUIDES[key as keyof typeof SETTINGS_TAB_GUIDES];
+        expect(guide.title).toBeTruthy();
+        expect(guide.icon).toBeTruthy();
+    }
+});
