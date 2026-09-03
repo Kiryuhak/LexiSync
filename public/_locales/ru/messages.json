@@ -16,7 +16,7 @@
     "sendContext": { "message": "Передавать контекст" },
     "commands": { "message": "Команды" },
     "optionsTitle": { "message": "Настройки нейросети" },
-    "optionsIntro": { "message": "Укажите параметры доступа к API, стиль текста и тему оформления." },
+    "optionsIntro": { "message": "Настройте подключение к AI, расход токенов и поведение расширения." },
     "tabMain": { "message": "Основные" },
     "tabAppearance": { "message": "Оформление" },
     "tabSuggestions": { "message": "Подсказки" },
@@ -60,28 +60,36 @@
     "next": { "message": "Далее" },
     "skip": { "message": "Пропустить" },
     "start": { "message": "Начать работу" },
-    "tabAi": { "message": "AI-модели" },
-    "aiModeTitle": { "message": "Режимы AI" },
+    "tabAi": { "message": "AI и расход" },
+    "aiModeTitle": { "message": "Режим обработки" },
     "aiModeLabel": { "message": "Баланс скорости и качества" },
     "aiModeFast": { "message": "Быстро — Mistral Small" },
-    "aiModeBalanced": { "message": "Баланс — Qwen 3.6 / Mistral" },
+    "aiModeBalanced": { "message": "Сбалансированно — умный расход" },
     "aiModeQuality": { "message": "Качественно — Mistral Large" },
-    "aiModeIntro": { "message": "Выберите баланс между скоростью генерации, качеством анализа и расходом токенов." },
+    "aiModeIntro": {
+        "message": "Два понятных режима управляют длиной ответа и расходом токенов без обрезания исходного текста."
+    },
     "aiModeFastTitle": { "message": "Быстрый отклик" },
     "aiModeFastDesc": {
         "message": "Мгновенный ответ и минимальный расход токенов. Идеально для частой проверки ошибок."
     },
     "aiModeBalancedTitle": { "message": "Сбалансированный" },
     "aiModeBalancedDesc": {
-        "message": "Оптимальный баланс богатого словарного запаса, естественного стиля и высокой скорости."
+        "message": "Подбирает разумный объём ответа под задачу и сохраняет баланс качества, скорости и расхода."
     },
+    "aiModeEconomyTokenCap": { "message": "до 1 536 токенов ответа" },
+    "aiModeBalancedTokenCap": { "message": "до 3 072 токенов ответа" },
+    "aiModeSmartBudget": { "message": "умный бюджет" },
     "aiModeQualityTitle": { "message": "Высшее качество" },
     "aiModeQualityDesc": {
         "message": "Глубокий анализ сложных текстов, академический и деловой стиль, тонкие нюансы перевода."
     },
     "userBudgetLimitsHint": {
-        "message": "Установите суточные и месячные пороги или примените готовые лимиты по квотам провайдеров в один клик."
+        "message": "Эти пределы действуют суммарно для обоих провайдеров и защищают от случайного перерасхода."
     },
+    "budgetProfilesTitle": { "message": "Готовые профили:" },
+    "presetEconomy": { "message": "🌿 Экономный" },
+    "presetBalanced": { "message": "⚖️ Сбалансированный" },
     "presetGroqQuota": { "message": "⚡ Квота Groq Free (14 400)" },
     "presetMistralQuota": { "message": "🌪️ Квота Mistral (1 000)" },
     "presetSafeDaily": { "message": "🛡️ Экономный (100)" },
@@ -496,7 +504,7 @@
     },
     "tabGuideAiTitle": { "message": "Управляйте моделями, квотами и лимитами" },
     "tabGuideAiDescription": {
-        "message": "Выберите режим скорости и качества (экономный, баланс, максимум), настройте глоссарий и лимиты запросов."
+        "message": "Выберите экономный или сбалансированный режим и при необходимости задайте защитные лимиты."
     },
     "tabGuideAppearanceTitle": { "message": "Настройте LexiSync под себя" },
     "tabGuideAppearanceDescription": {
@@ -716,16 +724,28 @@
         "message": "Обычное письмо с вашим отзывом или вопросом"
     },
     "providerLimitsTitle": {
-        "message": "Лимиты и квоты провайдеров"
+        "message": "Расход и лимиты"
     },
     "providerLimitsIntro": {
-        "message": "Актуальные лимиты скорости (RPM/RPS), суточных квот и моделей с отображением времени сброса по московскому времени (МСК)."
+        "message": "Фактические квоты задаются вашим тарифом Groq или Mistral. LexiSync показывает локальный расход и позволяет установить общий безопасный предел."
     },
     "groqTierFree": {
         "message": "Бесплатный (Free Tier)"
     },
     "providerModelLabel": {
         "message": "Активная модель:"
+    },
+    "providerAccountQuota": {
+        "message": "Квоты аккаунта:"
+    },
+    "providerAccountQuotaHint": {
+        "message": "Определяются вашим тарифом в Groq Console"
+    },
+    "mistralAccountQuotaHint": {
+        "message": "Определяются вашим тарифом в La Plateforme"
+    },
+    "localUsageSummaryTitle": {
+        "message": "Локальный расход LexiSync"
     },
     "providerSpeedLimit": {
         "message": "Лимит скорости:"
@@ -740,13 +760,13 @@
         "message": "Расход за месяц:"
     },
     "providerResetTime": {
-        "message": "Сброс суточного лимита:"
+        "message": "Сброс дневного учёта:"
     },
     "providerStatusLabel": {
         "message": "Статус ожидания / сбоя:"
     },
     "userBudgetLimitsTitle": {
-        "message": "Пользовательские ограничения"
+        "message": "Контроль расхода LexiSync"
     },
     "diagnosticsCopied": {
         "message": "Диагностический отчет скопирован в буфер обмена!"
@@ -971,7 +991,7 @@
         "message": "⚡ Автоматически (рекомендуется)"
     },
     "providerMistral": {
-        "message": "🌪️ Mistral AI (Mistral Small / Large)"
+        "message": "🌪️ Mistral AI (Mistral Small)"
     },
     "providerGroq": {
         "message": "⚡ Groq (Qwen 3.6 27B · Preview)"
@@ -1053,6 +1073,9 @@
     },
     "screenCaptureRestricted": {
         "message": "Захват экрана (Alt+S) недоступен на системных страницах браузера. Откройте обычную веб-страницу."
+    },
+    "screenCaptureFailed": {
+        "message": "Не удалось сделать снимок вкладки. Переключитесь на обычную веб-страницу и повторите Alt+S."
     },
     "ocrKeyRequired": {
         "message": "Для распознавания текста (OCR) требуется API-ключ Mistral или Groq."

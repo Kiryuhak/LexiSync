@@ -36,6 +36,31 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.5.6',
+        '2026-09-03',
+        'improved',
+        'Два режима расхода, надёжный OCR и точная диагностика',
+        'Two usage modes, reliable OCR, and precise diagnostics',
+        [
+            [
+                'Вкладка «AI и расход» оставляет два режима: «Экономный» и «Сбалансированный». Размер ответа подбирается под задачу без обрезания исходного текста.',
+                'The AI & Usage tab now has two modes: Economy and Balanced. Response length is adapted to the task without truncating source text.',
+            ],
+            [
+                'Удалены глоссарий перевода и устаревший третий режим, а проверка горячих клавиш перенесена в руководство.',
+                'The translation glossary and obsolete third mode were removed, and shortcut testing was moved to the guide.',
+            ],
+            [
+                '«Почему так?» в истории использует надёжный быстрый маршрут и не зависит от недоступной Mistral Large.',
+                'History explanations now use a reliable fast route and no longer depend on unavailable Mistral Large.',
+            ],
+            [
+                'Alt+S запускает захват экрана только через команду расширения, а журнал ошибок показывает настоящее сообщение браузера.',
+                "Alt+S now starts capture only through the extension command, and the error log shows the browser's actual message.",
+            ],
+        ],
+    ),
+    note(
         '5.5.5',
         '2026-09-01',
         'improved',

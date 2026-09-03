@@ -19,7 +19,7 @@ import { normalizeSiteEntries } from './privacy';
 import { normalizeAppearanceStyle } from './appearance-style';
 import { restoreV4Settings, setupV4Settings } from './v4-settings';
 import { applyThemeCustomization, DEFAULT_THEME_CUSTOMIZATION } from './theme-customization';
-import { DEFAULT_BUDGET_SETTINGS, getMonthUsage } from './budget';
+import { DEFAULT_BUDGET_SETTINGS, getLocalDayKey, getMonthUsage } from './budget';
 import { clearAllSecrets } from './secret-store';
 import { validateApiKey } from './mistral-client';
 import { validateGroqApiKey } from './groq-client';
@@ -125,8 +125,11 @@ const SAVED_OPTION_IDS = [
     'disabledSites',
     'personalDictionary',
     'aiMode',
-    'glossary',
 ] as const;
+
+function normalizeUiAiMode(value: unknown): 'fast' | 'balanced' {
+    return value === 'fast' ? 'fast' : 'balanced';
+}
 
 function readOptionValue(id: (typeof SAVED_OPTION_IDS)[number]): string | boolean {
     const element = document.getElementById(id) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
@@ -362,7 +365,6 @@ async function saveOptions(): Promise<void> {
     const disabledSitesInput = document.getElementById('disabledSites') as HTMLTextAreaElement;
     const personalDictionaryInput = document.getElementById('personalDictionary') as HTMLTextAreaElement;
     const aiModeSelect = document.getElementById('aiMode') as HTMLSelectElement;
-    const glossaryInput = document.getElementById('glossary') as HTMLTextAreaElement;
     const saveBtn = document.getElementById('saveBtn') as HTMLButtonElement;
 
     const apiKey = apiKeyInput.value.trim();
@@ -412,16 +414,7 @@ async function saveOptions(): Promise<void> {
                 .map((word) => word.trim())
                 .filter(Boolean)
                 .slice(0, 2000);
-        if (changed('aiMode'))
-            updates.aiMode = ['fast', 'balanced', 'quality'].includes(aiModeSelect.value)
-                ? aiModeSelect.value
-                : 'quality';
-        if (changed('glossary'))
-            updates.glossary = glossaryInput.value
-                .split(/\r?\n/)
-                .map((entry) => entry.trim())
-                .filter(Boolean)
-                .slice(0, 200);
+        if (changed('aiMode')) updates.aiMode = normalizeUiAiMode(aiModeSelect.value);
         if (Object.keys(updates).length) await chrome.storage.local.set(updates);
         disabledSitesInput.value = normalizedDisabledSites.valid.join('\n');
 
@@ -510,7 +503,6 @@ async function restoreOptions(): Promise<void> {
     const disabledSitesInput = document.getElementById('disabledSites') as HTMLTextAreaElement;
     const personalDictionaryInput = document.getElementById('personalDictionary') as HTMLTextAreaElement;
     const aiModeSelect = document.getElementById('aiMode') as HTMLSelectElement;
-    const glossaryInput = document.getElementById('glossary') as HTMLTextAreaElement;
 
     const [items, privateApiKey, privateGroqApiKey] = await Promise.all([
         chrome.storage.local.get({
@@ -536,8 +528,7 @@ async function restoreOptions(): Promise<void> {
             personalDictionary: [],
             customCommands: [],
             textSnippets: DEFAULT_TEXT_SNIPPETS,
-            aiMode: 'quality',
-            glossary: [],
+            aiMode: 'balanced',
             styleProfiles: [],
             activeStyleProfileId: '',
             themeCustomization: DEFAULT_THEME_CUSTOMIZATION,
@@ -574,12 +565,9 @@ async function restoreOptions(): Promise<void> {
     historyRetentionSelect.value = String(items.historyRetentionDays || 30);
     disabledSitesInput.value = Array.isArray(items.disabledSites) ? items.disabledSites.join('\n') : '';
     personalDictionaryInput.value = Array.isArray(items.personalDictionary) ? items.personalDictionary.join('\n') : '';
-    const initialAiMode = ['fast', 'balanced', 'quality'].includes(String(items.aiMode))
-        ? String(items.aiMode)
-        : 'quality';
+    const initialAiMode = normalizeUiAiMode(items.aiMode);
     aiModeSelect.value = initialAiMode;
     syncAiModeCards(initialAiMode);
-    glossaryInput.value = Array.isArray(items.glossary) ? items.glossary.join('\n') : '';
     const allSitesAccessInput = document.getElementById('allSitesAccess') as HTMLInputElement | null;
     if (allSitesAccessInput) {
         allSitesAccessInput.checked = await hasAllSitesAccess();
@@ -830,14 +818,13 @@ function setupFactoryReset(): void {
     });
 }
 
-function formatCountdownToMskReset(): string {
+function formatCountdownToLocalReset(): string {
     const now = new Date();
-    // Сброс лимитов Groq происходит в 00:00 UTC, что соответствует 03:00 по московскому времени (МСК, UTC+3)
-    const nextUtcMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0);
-    const diffMs = Math.max(0, nextUtcMidnight - now.getTime());
+    const nextLocalMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime();
+    const diffMs = Math.max(0, nextLocalMidnight - now.getTime());
     const hours = Math.floor(diffMs / (1000 * 60 * 60));
     const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-    return `в 03:00 МСК (через ${hours} ч ${mins} мин)`;
+    return `через ${hours} ч ${mins} мин`;
 }
 
 function syncAiModeCards(mode: string): void {
@@ -854,7 +841,7 @@ function setupAiModeSelector(): void {
     const cards = document.querySelectorAll<HTMLElement>('.ai-mode-card');
     cards.forEach((card) => {
         const selectMode = () => {
-            const mode = card.dataset.mode || 'quality';
+            const mode = normalizeUiAiMode(card.dataset.mode);
             if (aiModeSelect) {
                 aiModeSelect.value = mode;
                 aiModeSelect.dispatchEvent(new Event('change', { bubbles: true }));
@@ -874,67 +861,41 @@ function setupAiModeSelector(): void {
 async function refreshProviderQuotasUI(): Promise<void> {
     const stored = await chrome.storage.local.get({
         usageStats: EMPTY_USAGE_STATS,
-        aiMode: 'quality',
+        aiMode: 'balanced',
     });
     const stats = stored.usageStats as UsageStats;
-    const aiMode = stored.aiMode;
+    const aiMode = normalizeUiAiMode(stored.aiMode);
 
-    const groqUsageEl = document.getElementById('groqUsageToday');
-    const groqResetEl = document.getElementById('groqResetDisplay');
+    const localUsageTodayEl = document.getElementById('localUsageToday');
+    const localUsageMonthEl = document.getElementById('localUsageMonth');
+    const localUsageResetEl = document.getElementById('localUsageReset');
     const mistralModelEl = document.getElementById('mistralActiveModelDisplay');
-    const mistralUsageTodayEl = document.getElementById('mistralUsageToday');
-    const mistralUsageMonthEl = document.getElementById('mistralUsageMonth');
-    const mistralCooldownEl = document.getElementById('mistralCooldownDisplay');
 
-    if (groqResetEl) {
-        groqResetEl.textContent = formatCountdownToMskReset();
-    }
-
-    const todayKey = new Date().toISOString().slice(0, 10);
+    const todayKey = getLocalDayKey();
     const todayStats = stats?.daily?.[todayKey] || { requests: 0, tokens: 0 };
     const monthUsage = getMonthUsage(stats || EMPTY_USAGE_STATS);
 
-    if (groqUsageEl) {
-        groqUsageEl.textContent = `${todayStats.requests} запросов / 14 400`;
-    }
+    if (localUsageTodayEl) localUsageTodayEl.textContent = `${todayStats.requests} запросов`;
+    if (localUsageMonthEl) localUsageMonthEl.textContent = `${monthUsage.tokens.toLocaleString('ru-RU')} токенов`;
+    if (localUsageResetEl) localUsageResetEl.textContent = formatCountdownToLocalReset();
 
     if (mistralModelEl) {
-        let label = 'Mistral Large ';
-        let codeText = 'mistral-large-latest';
-        if (aiMode === 'fast') {
-            label = 'Mistral Small ';
-            codeText = 'mistral-small-latest';
-        } else if (aiMode === 'balanced') {
-            label = 'Qwen 3.6 / Mistral Small ';
-            codeText = 'qwen3.6-27b / mistral-small';
-        }
+        const [label, codeText] =
+            aiMode === 'fast'
+                ? ['Mistral Small ', 'mistral-small-latest']
+                : ['Qwen 3.6 / Mistral Small ', 'qwen3.6-27b / mistral-small'];
         mistralModelEl.textContent = label;
         const codeEl = document.createElement('code');
         codeEl.textContent = `(${codeText})`;
         mistralModelEl.appendChild(codeEl);
     }
-
-    if (mistralUsageTodayEl) {
-        mistralUsageTodayEl.textContent = `${todayStats.requests} запросов`;
-    }
-
-    if (mistralUsageMonthEl) {
-        mistralUsageMonthEl.textContent = `${monthUsage.tokens.toLocaleString('ru-RU')} токенов`;
-    }
-
-    if (mistralCooldownEl) {
-        mistralCooldownEl.textContent = 'В норме';
-    }
 }
 
 function setupProviderQuotaCards(): void {
     void refreshProviderQuotasUI();
-    // Обновляем таймер сброса по МСК каждую минуту
     setInterval(() => {
-        const groqResetEl = document.getElementById('groqResetDisplay');
-        if (groqResetEl) {
-            groqResetEl.textContent = formatCountdownToMskReset();
-        }
+        const localUsageResetEl = document.getElementById('localUsageReset');
+        if (localUsageResetEl) localUsageResetEl.textContent = formatCountdownToLocalReset();
     }, 60000);
 }
 

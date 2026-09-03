@@ -3,6 +3,7 @@ import { unmaskPii } from './pii-masker';
 import { buildPromptPayload } from './prompt-builder';
 import { recordErrorLog } from './error-log';
 import type { AiMode, RequestMode, StyleProfile } from './types';
+import { getAiOutputTokenLimit } from './ai-output-budget';
 
 export interface MistralRequest {
     action: 'callMistral' | 'cancelMistral';
@@ -266,9 +267,10 @@ export async function streamText(
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey.trim()}` },
         body: JSON.stringify({
-            model: settings.aiMode === 'fast' ? 'mistral-small-latest' : 'mistral-large-latest',
+            model: 'mistral-small-latest',
             messages: prompt.messages,
             stream: true,
+            max_tokens: getAiOutputTokenLimit(msg.mode, settings.aiMode, msg.text, msg.rawMessages),
         }),
     };
     const requestCompletion = () => fetchWithRetry(`${API_BASE_URL}/chat/completions`, requestInit, signal);

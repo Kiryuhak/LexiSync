@@ -3549,6 +3549,10 @@ input[type='range'] {
     gap: 14px;
     margin: 16px 0;
 }
+
+.local-usage-card {
+    margin-top: 12px;
+}
 .provider-quota-card {
     background: var(--bg-card, rgba(255, 255, 255, 0.03));
     border: 1px solid var(--box-border, rgba(255, 255, 255, 0.08));
@@ -3678,6 +3682,11 @@ input[type='range'] {
     user-select: none;
     transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
     outline: none;
+    width: 100%;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    appearance: none;
 }
 .ai-mode-card:hover {
     border-color: var(--accent, #6366f1);
@@ -3697,11 +3706,6 @@ input[type='range'] {
     background: linear-gradient(135deg, rgba(16, 185, 129, 0.14) 0%, rgba(5, 150, 105, 0.06) 100%);
     border-color: #10b981;
     box-shadow: 0 4px 18px rgba(16, 185, 129, 0.22);
-}
-.ai-mode-card[data-mode='quality'].is-active {
-    background: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(139, 92, 246, 0.08) 100%);
-    border-color: #a855f7;
-    box-shadow: 0 4px 18px rgba(168, 85, 247, 0.22);
 }
 .ai-mode-card-header {
     display: flex;
@@ -3724,11 +3728,6 @@ input[type='range'] {
     background: rgba(99, 102, 241, 0.16);
     color: #6366f1;
     border: 1px solid rgba(99, 102, 241, 0.3);
-}
-.ai-mode-card-badge.quality-badge {
-    background: rgba(168, 85, 247, 0.16);
-    color: #a855f7;
-    border: 1px solid rgba(168, 85, 247, 0.3);
 }
 .ai-mode-card-icon {
     font-size: 18px;

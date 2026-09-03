@@ -416,11 +416,6 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             }
             if (e.altKey && !e.ctrlKey && !e.shiftKey) {
                 const key = e.key.toLowerCase();
-                if (key === 's' || key === 'ы') {
-                    e.preventDefault();
-                    void chrome.runtime.sendMessage({ action: 'requestOcrCapture' });
-                    return;
-                }
                 let mode: RequestMode | null = null;
                 if (key === 'r' || key === 'к') mode = 'spellcheck';
                 else if (key === 'y' || key === 'н') mode = 'style';

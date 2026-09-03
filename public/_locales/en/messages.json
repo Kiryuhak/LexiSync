@@ -16,7 +16,7 @@
     "sendContext": { "message": "Share page context" },
     "commands": { "message": "Commands" },
     "optionsTitle": { "message": "AI settings" },
-    "optionsIntro": { "message": "Configure API access, writing style and appearance." },
+    "optionsIntro": { "message": "Configure AI connections, token usage, and extension behavior." },
     "tabMain": { "message": "General" },
     "tabAppearance": { "message": "Appearance" },
     "tabSuggestions": { "message": "Suggestions" },
@@ -58,24 +58,30 @@
     "next": { "message": "Next" },
     "skip": { "message": "Skip" },
     "start": { "message": "Get started" },
-    "tabAi": { "message": "AI Models" },
-    "aiModeTitle": { "message": "AI Modes" },
+    "tabAi": { "message": "AI & Usage" },
+    "aiModeTitle": { "message": "Processing Mode" },
     "aiModeLabel": { "message": "Speed and quality balance" },
     "aiModeFast": { "message": "Fast — Mistral Small" },
-    "aiModeBalanced": { "message": "Balanced — Qwen 3.6 / Mistral" },
+    "aiModeBalanced": { "message": "Balanced — smart usage" },
     "aiModeQuality": { "message": "Quality — Mistral Large" },
     "aiModeIntro": {
-        "message": "Choose your balance between generation speed, analysis depth, and token consumption."
+        "message": "Two clear modes control response length and token usage without truncating the source text."
     },
     "aiModeFastTitle": { "message": "Fast Response" },
     "aiModeFastDesc": { "message": "Instant response and minimal token usage. Perfect for fast spellcheck." },
     "aiModeBalancedTitle": { "message": "Balanced" },
-    "aiModeBalancedDesc": { "message": "Optimal balance of rich vocabulary, natural style, and high speed." },
+    "aiModeBalancedDesc": { "message": "Adapts response size to the task while balancing quality, speed, and usage." },
+    "aiModeEconomyTokenCap": { "message": "up to 1,536 output tokens" },
+    "aiModeBalancedTokenCap": { "message": "up to 3,072 output tokens" },
+    "aiModeSmartBudget": { "message": "smart budget" },
     "aiModeQualityTitle": { "message": "Maximum Quality" },
     "aiModeQualityDesc": { "message": "Deep analysis of complex texts, professional style, and nuanced translations." },
     "userBudgetLimitsHint": {
-        "message": "Set daily and monthly thresholds or apply ready provider quota templates with a single click."
+        "message": "These limits apply to both providers together and protect against accidental overuse."
     },
+    "budgetProfilesTitle": { "message": "Ready profiles:" },
+    "presetEconomy": { "message": "🌿 Economy" },
+    "presetBalanced": { "message": "⚖️ Balanced" },
     "presetGroqQuota": { "message": "⚡ Groq Free Quota (14,400)" },
     "presetMistralQuota": { "message": "🌪️ Mistral Quota (1,000)" },
     "presetSafeDaily": { "message": "🛡️ Conservative (100)" },
@@ -490,7 +496,7 @@
     },
     "tabGuideAiTitle": { "message": "Manage models, quotas, and limits" },
     "tabGuideAiDescription": {
-        "message": "Select speed and quality mode (fast, balanced, maximum), configure glossary and request limits."
+        "message": "Choose Economy or Balanced mode and optionally set protective usage limits."
     },
     "tabGuideAppearanceTitle": { "message": "Make LexiSync feel like yours" },
     "tabGuideAppearanceDescription": {
@@ -710,16 +716,28 @@
         "message": "Standard email with your feedback or question"
     },
     "providerLimitsTitle": {
-        "message": "Provider Limits & Quotas"
+        "message": "Usage & Limits"
     },
     "providerLimitsIntro": {
-        "message": "Current rate limits (RPM/RPS), daily quotas, and models with reset time in Moscow Time (MSK)."
+        "message": "Actual quotas depend on your Groq or Mistral plan. LexiSync shows local usage and lets you set a shared safety limit."
     },
     "groqTierFree": {
         "message": "Free Tier"
     },
     "providerModelLabel": {
         "message": "Active model:"
+    },
+    "providerAccountQuota": {
+        "message": "Account quotas:"
+    },
+    "providerAccountQuotaHint": {
+        "message": "Defined by your plan in Groq Console"
+    },
+    "mistralAccountQuotaHint": {
+        "message": "Defined by your plan in La Plateforme"
+    },
+    "localUsageSummaryTitle": {
+        "message": "LexiSync local usage"
     },
     "providerSpeedLimit": {
         "message": "Rate limit:"
@@ -734,13 +752,13 @@
         "message": "Monthly usage:"
     },
     "providerResetTime": {
-        "message": "Daily quota reset:"
+        "message": "Daily counter reset:"
     },
     "providerStatusLabel": {
         "message": "Status / Cooldown:"
     },
     "userBudgetLimitsTitle": {
-        "message": "Custom Limits"
+        "message": "LexiSync Usage Control"
     },
     "diagnosticsCopied": {
         "message": "Diagnostic report copied to clipboard!"
@@ -965,7 +983,7 @@
         "message": "⚡ Automatic (Recommended)"
     },
     "providerMistral": {
-        "message": "🌪️ Mistral AI (Mistral Small / Large)"
+        "message": "🌪️ Mistral AI (Mistral Small)"
     },
     "providerGroq": {
         "message": "⚡ Groq (Qwen 3.6 27B · Preview)"
@@ -1047,6 +1065,9 @@
     },
     "screenCaptureRestricted": {
         "message": "Screen capture (Alt+S) is not available on browser internal pages. Open a regular web page."
+    },
+    "screenCaptureFailed": {
+        "message": "Could not capture this tab. Switch to a regular web page and press Alt+S again."
     },
     "ocrKeyRequired": {
         "message": "Mistral or Groq API key is required for text recognition (OCR)."

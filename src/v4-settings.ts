@@ -1,4 +1,4 @@
-import { DEFAULT_BUDGET_SETTINGS } from './budget';
+import { DEFAULT_BUDGET_SETTINGS, getLocalDayKey } from './budget';
 import { DEFAULT_THEME_CUSTOMIZATION, normalizeThemeCustomization } from './theme-customization';
 import type { ThemeCustomization } from './types';
 import { normalizeSiteEntries } from './privacy';
@@ -99,7 +99,7 @@ export async function updateBudgetProgressIndicators(): Promise<void> {
     const stats = (stored.usageStats || { daily: {} }) as {
         daily?: Record<string, { requests?: number; tokens?: number }>;
     };
-    const todayKey = new Date().toISOString().slice(0, 10);
+    const todayKey = getLocalDayKey();
     const monthKey = todayKey.slice(0, 7);
     const todayRequests = stats.daily?.[todayKey]?.requests || 0;
 
@@ -186,23 +186,11 @@ export function setupV4Settings(): void {
         }
     };
 
-    document.getElementById('presetGroqQuotaBtn')?.addEventListener('click', () => {
-        applyBudgetPreset(14400, 1000000);
-    });
-    document.getElementById('presetMistralQuotaBtn')?.addEventListener('click', () => {
-        applyBudgetPreset(1000, 500000);
-    });
-    document.getElementById('presetSafeDailyBtn')?.addEventListener('click', () => {
+    document.getElementById('presetEconomyBtn')?.addEventListener('click', () => {
         applyBudgetPreset(100, 100000);
     });
-    document.getElementById('presetSyncActiveProviderBtn')?.addEventListener('click', async () => {
-        const stored = await chrome.storage.local.get({ primaryAiProvider: 'auto' });
-        const provider = stored.primaryAiProvider as string;
-        if (provider === 'mistral') {
-            applyBudgetPreset(1000, 500000);
-        } else {
-            applyBudgetPreset(14400, 1000000);
-        }
+    document.getElementById('presetBalancedBtn')?.addEventListener('click', () => {
+        applyBudgetPreset(500, 1000000);
     });
     document.getElementById('presetUnlimitedBtn')?.addEventListener('click', () => {
         applyBudgetPreset(0, 0);

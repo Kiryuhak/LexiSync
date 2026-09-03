@@ -26,7 +26,6 @@ const PORTABLE_SETTING_KEYS = [
     'personalDictionary',
     'customCommands',
     'aiMode',
-    'glossary',
     'styleProfiles',
     'activeStyleProfileId',
     'themeCustomization',
@@ -147,7 +146,7 @@ function sanitizePortableSetting(key: (typeof PORTABLE_SETTING_KEYS)[number], va
     if (key === 'visualStyle') return normalizeAppearanceStyle(value);
     if (key === 'resultDisplayMode') return ['auto', 'compact', 'detailed'].includes(String(value)) ? value : 'compact';
     if (key === 'searchEngine') return ['google', 'yandex', 'duckduckgo'].includes(String(value)) ? value : 'google';
-    if (key === 'aiMode') return ['fast', 'balanced', 'quality'].includes(String(value)) ? value : 'quality';
+    if (key === 'aiMode') return value === 'fast' ? 'fast' : 'balanced';
     if (key === 'interfaceScale') return Math.min(110, Math.max(75, Number(value) || 90));
     if (key === 'historyRetentionDays') return [1, 7, 30].includes(Number(value)) ? Number(value) : 30;
     if (key === 'liveProofreadDelay') return [600, 900, 1500, 2500].includes(Number(value)) ? Number(value) : 900;
@@ -164,7 +163,6 @@ function sanitizePortableSetting(key: (typeof PORTABLE_SETTING_KEYS)[number], va
     )
         return normalizeDisabledSites(stringList(value, 500, 2_048));
     if (key === 'adaptiveBlockedWords' || key === 'personalDictionary') return stringList(value, 2000, 120);
-    if (key === 'glossary') return stringList(value, 200, 240);
     if (key === 'textSnippets') return normalizeTextSnippets(value, []);
     if (key === 'activeStyleProfileId') return String(value || '').slice(0, 100);
     if (key === 'customCommands') {

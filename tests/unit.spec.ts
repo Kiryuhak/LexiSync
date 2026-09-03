@@ -34,6 +34,8 @@ import { sortHistoryItems } from '../src/history-sort';
 import { formatRequestDuration } from '../src/request-duration';
 import { filterReleaseNotes, RELEASE_NOTES, resolveReleaseNotesLocale } from '../src/release-notes';
 import { logger } from '../src/logger';
+import { formatLogArgument } from '../src/logger';
+import { getAiOutputTokenLimit } from '../src/ai-output-budget';
 import { clampInterfaceScale } from '../src/options-appearance';
 import { SETTINGS_TAB_GUIDES } from '../src/options-tabs';
 import { createDiagnosticReport } from '../src/diagnostics';
@@ -86,9 +88,9 @@ test('безопасно нормализует поисковик и повре
 });
 
 test('история обновлений содержит все выпуски и поддерживает поиск', () => {
-    expect(RELEASE_NOTES[0].version).toBe('5.5.5');
+    expect(RELEASE_NOTES[0].version).toBe('5.5.6');
     expect(RELEASE_NOTES.at(-1)?.version).toBe('2.5');
-    expect(RELEASE_NOTES).toHaveLength(56);
+    expect(RELEASE_NOTES).toHaveLength(57);
     expect(new Set(RELEASE_NOTES.map((release) => release.version)).size).toBe(RELEASE_NOTES.length);
     expect(filterReleaseNotes(RELEASE_NOTES, 'MagicOS', 'ru').map((release) => release.version)).toEqual([
         '5.3.4',
@@ -2309,7 +2311,7 @@ test('Unit 3: Groq успешный стриминг (200 OK) с моделью 
     expect(chunks.join('')).toBe('Qwen 3.6 27B быстрый ответ');
     expect(requestBody).toContain('"model":"qwen/qwen3.6-27b"');
     expect(requestBody).toContain('"stream":true');
-    expect(requestBody).toContain('"max_completion_tokens":2048');
+    expect(requestBody).toContain('"max_completion_tokens":512');
     expect(requestBody).toContain('"reasoning_effort":"none"');
     mockFetch.mockRestore();
 });
@@ -3008,6 +3010,20 @@ test('Unit 23: sanitizeLogMessage строго маскирует API-ключи
     expect(cleanContact).toContain('[REDACTED_PARAM]');
 });
 
+test('журнал ошибок сохраняет сообщение Error и runtime.lastError вместо пустого объекта', () => {
+    expect(formatLogArgument(new Error('Missing activeTab permission'))).toBe('Missing activeTab permission');
+    expect(formatLogArgument({ message: 'The page could not be captured.' })).toBe('The page could not be captured.');
+});
+
+test('режимы AI разумно ограничивают ответ, не меняя исходный текст', () => {
+    expect(getAiOutputTokenLimit('spellcheck', 'fast', 'Короткий текст')).toBe(512);
+    expect(getAiOutputTokenLimit('style', 'fast', 'а'.repeat(10_000))).toBe(1536);
+    expect(getAiOutputTokenLimit('style', 'balanced', 'а'.repeat(10_000))).toBe(3072);
+    expect(getAiOutputTokenLimit('summary', 'balanced', 'а'.repeat(1000))).toBeLessThan(
+        getAiOutputTokenLimit('style', 'balanced', 'а'.repeat(1000)),
+    );
+});
+
 test('Unit 24: recordErrorLog, getErrorLogs, clearErrorLogs корректно управляют журналом ошибок', async () => {
     const mockStorage: Record<string, unknown> = {};
     const origChrome = globalThis.chrome;
@@ -3085,10 +3101,11 @@ test('Unit 25: options.html содержит карточки лимитов Gro
     expect(optionsHtml).toContain('id="sendFeedbackWithoutLog"');
     expect(optionsHtml).not.toContain('id="copyDiagnosticsAndLogsBtn"');
     expect(optionsHtml).not.toContain('id="styleProfileForm"');
-    expect(optionsHtml).toContain('id="groqUsageToday"');
-    expect(optionsHtml).toContain('id="groqResetDisplay"');
+    expect(optionsHtml).toContain('id="localUsageToday"');
+    expect(optionsHtml).toContain('id="localUsageReset"');
     expect(optionsHtml).toContain('id="mistralActiveModelDisplay"');
-    expect(optionsHtml).toContain('id="mistralUsageToday"');
+    expect(optionsHtml).toContain('id="localUsageMonth"');
+    expect(optionsHtml).not.toContain('id="glossary"');
 });
 
 test('Unit 26: clearAllSecrets гарантированно очищает сохранённые ключи и кэш', async () => {

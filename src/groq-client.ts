@@ -5,6 +5,7 @@ import type { MistralRequest, MistralSettings } from './mistral-client';
 import { parseRetryAfterMs } from './mistral-client';
 import { AiProviderError } from './ai-provider-types';
 import { recordErrorLog } from './error-log';
+import { getAiOutputTokenLimit } from './ai-output-budget';
 
 export const GROQ_API_BASE_URL = 'https://api.groq.com/openai/v1';
 export const GROQ_DEFAULT_MODEL = 'qwen/qwen3.6-27b';
@@ -203,7 +204,7 @@ export async function streamGroqText(
                     messages: prompt.messages,
                     stream: true,
                     temperature: 0.1,
-                    max_completion_tokens: 2048,
+                    max_completion_tokens: getAiOutputTokenLimit(msg.mode, settings.aiMode, msg.text, msg.rawMessages),
                     reasoning_effort: 'none',
                 }),
             },

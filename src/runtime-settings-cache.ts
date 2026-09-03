@@ -7,7 +7,6 @@ export const RUNTIME_SETTING_KEYS = [
     'selectedTone',
     'sendPageContext',
     'personalDictionary',
-    'glossary',
     'styleProfiles',
     'activeStyleProfileId',
     'aiMode',

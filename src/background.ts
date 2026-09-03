@@ -223,37 +223,26 @@ chrome.runtime.onInstalled.addListener((details) => {
 
 async function sendOcrCommand(tabId: number, windowId?: number): Promise<void> {
     try {
+        // Захватываем вкладку прямо в контексте пользовательского жеста. Firefox может
+        // потерять временный activeTab-доступ, если сначала ждать внедрения скрипта.
+        const dataUrl =
+            typeof windowId === 'number'
+                ? await chrome.tabs.captureVisibleTab(windowId, { format: 'png' })
+                : await chrome.tabs.captureVisibleTab({ format: 'png' });
+        if (!dataUrl) throw new Error('Браузер не вернул изображение вкладки.');
         await ensureContentScript(tabId);
+        await chrome.tabs.sendMessage(tabId, { action: 'startOcrMode', screenshotUrl: dataUrl });
     } catch (error) {
-        logger.error('Не удалось запустить LexiSync на вкладке:', error);
-        return;
-    }
-    const handleCapture = (dataUrl?: string) => {
-        const lastErr = chrome.runtime.lastError;
-        if (lastErr || !dataUrl) {
-            const errDetail =
-                lastErr?.message || (typeof lastErr === 'object' ? JSON.stringify(lastErr) : String(lastErr || ''));
-            logger.error('Ошибка захвата экрана:', errDetail || 'No screenshot data');
-            void chrome.tabs
-                .sendMessage(tabId, {
-                    action: 'showToast',
-                    message: t(
-                        'screenCaptureRestricted',
-                        'Захват экрана (Alt+S) недоступен на системных страницах браузера. Откройте обычную веб-страницу.',
-                    ),
-                })
-                .catch(() => undefined);
-            return;
-        }
+        logger.error('Ошибка захвата экрана:', error);
         void chrome.tabs
-            .sendMessage(tabId, { action: 'startOcrMode', screenshotUrl: dataUrl })
-            .catch((error) => logger.error('Не удалось открыть OCR на вкладке:', error));
-    };
-
-    if (typeof windowId === 'number') {
-        chrome.tabs.captureVisibleTab(windowId, { format: 'png' }, handleCapture);
-    } else {
-        chrome.tabs.captureVisibleTab({ format: 'png' }, handleCapture);
+            .sendMessage(tabId, {
+                action: 'showToast',
+                message: t(
+                    'screenCaptureFailed',
+                    'Не удалось сделать снимок вкладки. Переключитесь на обычную веб-страницу и повторите Alt+S.',
+                ),
+            })
+            .catch(() => undefined);
     }
 }
 
@@ -288,9 +277,7 @@ chrome.commands.onCommand.addListener((command, commandTab) => {
 });
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === 'requestOcrCapture' && sender.tab?.id) {
-        void sendOcrCommand(sender.tab.id, sender.tab.windowId);
-    } else if (request.action === 'openHistory') {
+    if (request.action === 'openHistory') {
         chrome.tabs.create({ url: chrome.runtime.getURL('lexisync-history.html') });
     } else if (request.action === 'openOptionsPage') {
         chrome.runtime.openOptionsPage();
@@ -348,10 +335,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     getCachedSettings({
                         sendPageContext: false,
                         contextDisabledSites: [],
-                        aiMode: 'quality',
+                        aiMode: 'balanced',
                         selectedTone: 'business',
                         personalDictionary: [],
-                        glossary: [],
                         styleProfiles: [],
                         activeStyleProfileId: '',
                         compactResultMode: null,
@@ -395,7 +381,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         aiMode: settings.aiMode,
                         selectedTone: settings.selectedTone,
                         personalDictionary: settings.personalDictionary,
-                        glossary: settings.glossary,
+                        glossary: [],
                         activeStyleProfile: profile,
                         enablePiiMasking: settings.enablePiiMasking !== false,
                     }),
@@ -493,7 +479,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     getCachedSettings({
                         selectedTone: 'business',
                         ...AI_PROVIDER_RUNTIME_DEFAULTS,
-                        aiMode: 'quality',
+                        aiMode: 'balanced',
                     }),
                 ]);
                 if (!mistralApiKey && !groqApiKey) {
@@ -516,7 +502,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                             sendPageContext: false,
                             personalDictionary: [],
                             glossary: [],
-                            aiMode: 'quality',
+                            aiMode: 'fast',
                             enablePiiMasking: true,
                         },
                         mistralApiKey,
@@ -627,7 +613,7 @@ chrome.runtime.onConnect.addListener((port) => {
                 glossary: [],
                 styleProfiles: [],
                 activeStyleProfileId: '',
-                aiMode: 'quality',
+                aiMode: 'balanced',
                 contextDisabledSites: [],
                 ...AI_PROVIDER_RUNTIME_DEFAULTS,
                 ...DEFAULT_BUDGET_SETTINGS,
@@ -769,12 +755,12 @@ chrome.runtime.onConnect.addListener((port) => {
                     personalDictionary: Array.isArray(settings.personalDictionary)
                         ? settings.personalDictionary.map(String)
                         : [],
-                    glossary: Array.isArray(settings.glossary) ? settings.glossary.map(String) : [],
+                    glossary: [] as string[],
                     activeStyleProfile,
                     aiMode:
                         settings.aiMode === 'fast' || (settings.autoFastMode !== false && inputTokens > 2500)
                             ? 'fast'
-                            : 'quality',
+                            : 'balanced',
                     enablePiiMasking: settings.enablePiiMasking !== false,
                 } as const;
                 const runAiRequest = (currentMistralKey: string, currentGroqKey: string) =>

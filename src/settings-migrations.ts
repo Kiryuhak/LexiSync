@@ -3,7 +3,7 @@ import type { StyleProfile } from './types';
 import { DEFAULT_THEME_CUSTOMIZATION } from './theme-customization';
 import { DEFAULT_TEXT_SNIPPETS } from './text-snippets';
 
-const CURRENT_SETTINGS_SCHEMA = 12;
+const CURRENT_SETTINGS_SCHEMA = 13;
 const MIGRATION_SETTING_KEYS = [
     'settingsSchemaVersion',
     'disabledSites',
@@ -80,7 +80,7 @@ export async function migrateSettings(): Promise<void> {
     }
     if (currentVersion < 3) {
         if (!Array.isArray(stored.blockedSites)) updates.blockedSites = [];
-        if (stored.aiMode !== 'fast' && stored.aiMode !== 'quality') updates.aiMode = 'quality';
+        if (stored.aiMode !== 'fast' && stored.aiMode !== 'balanced') updates.aiMode = 'balanced';
         if (!Array.isArray(stored.glossary)) updates.glossary = [];
         if (!Array.isArray(stored.styleProfiles)) updates.styleProfiles = [];
         if (typeof stored.activeStyleProfileId !== 'string') updates.activeStyleProfileId = '';
@@ -139,6 +139,10 @@ export async function migrateSettings(): Promise<void> {
     }
     if (currentVersion < 12 && !Array.isArray(stored.textSnippets)) {
         updates.textSnippets = DEFAULT_TEXT_SNIPPETS;
+    }
+    if (currentVersion < 13) {
+        if (stored.aiMode !== 'fast' && stored.aiMode !== 'balanced') updates.aiMode = 'balanced';
+        updates.glossary = [];
     }
     updates.settingsSchemaVersion = CURRENT_SETTINGS_SCHEMA;
     const migratedKeys = Object.keys(updates).filter((key) => key !== 'settingsSchemaVersion');
