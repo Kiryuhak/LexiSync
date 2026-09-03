@@ -27,8 +27,16 @@ function isCacheIndexItem(value: unknown): value is CacheIndexItem {
     return isCacheKey(item.key) && Number.isFinite(item.expiresAt);
 }
 
+export function normalizeTextForCache(text: string): string {
+    return text
+        .trim()
+        .replace(/\r\n/g, '\n')
+        .replace(/[ \t]+/g, ' ');
+}
+
 export async function getCacheHash(mode: string, text: string): Promise<string> {
-    const msgBuffer = new TextEncoder().encode(`v${CACHE_SCHEMA_VERSION}:${mode}:${text.trim()}`);
+    const normalized = normalizeTextForCache(text);
+    const msgBuffer = new TextEncoder().encode(`v${CACHE_SCHEMA_VERSION}:${mode}:${normalized}`);
     const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     return `ai_cache_${hashArray.map((byte) => byte.toString(16).padStart(2, '0')).join('')}`;

@@ -704,6 +704,79 @@
                 font-size: 9px;
             }
 
+            .recent-card {
+                margin-top: 10px;
+                padding: 10px 12px;
+                background: var(--glass);
+                border: 1px solid var(--stroke-subtle);
+                border-radius: 12px;
+            }
+            .recent-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 8px;
+            }
+            .recent-title {
+                font-size: 11px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                color: var(--text-muted);
+            }
+            .recent-history-link {
+                background: none;
+                border: none;
+                color: var(--primary);
+                font-size: 11px;
+                font-weight: 600;
+                cursor: pointer;
+                padding: 0;
+            }
+            .recent-history-link:hover {
+                text-decoration: underline;
+            }
+            .recent-list {
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+            }
+            .recent-item {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 8px;
+                padding: 5px 8px;
+                border-radius: 7px;
+                background: var(--glass-strong);
+                border: 1px solid var(--stroke-subtle);
+                font-size: 12px;
+            }
+            .recent-item-text {
+                flex: 1;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                color: var(--text-main);
+                font-size: 11.5px;
+            }
+            .recent-copy-btn {
+                background: var(--primary-soft);
+                border: 1px solid var(--primary-soft);
+                color: var(--primary);
+                border-radius: 5px;
+                padding: 2px 7px;
+                font-size: 10.5px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.15s ease;
+                white-space: nowrap;
+            }
+            .recent-copy-btn:hover {
+                background: var(--primary);
+                color: #ffffff;
+            }
+
             @media (prefers-reduced-motion: reduce) {
                 .action,
                 .chevron {
@@ -922,6 +995,21 @@
                         ><input id="site-context" type="checkbox" /><span class="switch"></span
                     ></label>
                 </div>
+            </section>
+
+            <section id="recent-results-card" class="recent-card" hidden>
+                <div class="recent-header">
+                    <span class="recent-title" data-i18n="recentResultsTitle">Недавние результаты</span>
+                    <button
+                        id="btn-recent-history"
+                        class="recent-history-link"
+                        type="button"
+                        data-i18n="allHistoryLink"
+                    >
+                        Все →
+                    </button>
+                </div>
+                <div id="recent-results-list" class="recent-list"></div>
             </section>
 
             <footer class="shortcuts" title="Горячие клавиши LexiSync" data-i18n-title="shortcutTitle">

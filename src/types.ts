@@ -82,6 +82,10 @@ export interface PrivacySettings {
     disabledSites: string[];
 }
 
+export interface ToolbarCustomization {
+    pinnedToolbarActions?: RequestMode[];
+}
+
 export interface SelectionData {
     text: string;
     context: string;

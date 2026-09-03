@@ -169,6 +169,7 @@
     "moreOptions": { "message": "More options" },
     "moreToolsTitle": { "message": "More tools" },
     "closePanel": { "message": "Close panel" },
+    "close": { "message": "Close" },
     "layoutFixed": { "message": "Keyboard layout fixed" },
     "translation": { "message": "Translation" },
     "ocrResult": { "message": "Recognized text" },
@@ -1188,5 +1189,77 @@
     },
     "noGrammarErrorsFound": {
         "message": "No frequent errors detected in your history! Excellent result."
+    },
+    "splitView": {
+        "message": "Split"
+    },
+    "standardView": {
+        "message": "Standard"
+    },
+    "findAndReplace": {
+        "message": "🔍 Find"
+    },
+    "findPlaceholder": {
+        "message": "Find..."
+    },
+    "replacePlaceholder": {
+        "message": "Replace with..."
+    },
+    "replaceOne": {
+        "message": "Replace"
+    },
+    "replaceAll": {
+        "message": "All"
+    },
+    "originalText": {
+        "message": "Original"
+    },
+    "resultText": {
+        "message": "Result"
+    },
+    "charsNoSpaces": {
+        "message": "Characters (no spaces)"
+    },
+    "sentences": {
+        "message": "Sentences"
+    },
+    "readabilityScore": {
+        "message": "Readability"
+    },
+    "readabilityEasy": {
+        "message": "Easy to read"
+    },
+    "readabilityMedium": {
+        "message": "Optimal"
+    },
+    "readabilityHard": {
+        "message": "Complex text"
+    },
+    "pinnedToolbarTitle": {
+        "message": "Pinned Toolbar Actions"
+    },
+    "pinnedToolbarHint": {
+        "message": "Choose the tools that appear in the toolbar immediately upon text selection."
+    },
+    "modeTextClean": {
+        "message": "Clean"
+    },
+    "historyGroupToday": {
+        "message": "Today"
+    },
+    "historyGroupYesterday": {
+        "message": "Yesterday"
+    },
+    "historyGroupThisWeek": {
+        "message": "This week"
+    },
+    "historyGroupEarlier": {
+        "message": "Earlier"
+    },
+    "recentResultsTitle": {
+        "message": "Recent Results"
+    },
+    "allHistoryLink": {
+        "message": "All →"
     }
 }

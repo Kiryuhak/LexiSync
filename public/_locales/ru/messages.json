@@ -175,6 +175,7 @@
     "moreOptions": { "message": "Ещё опции" },
     "moreToolsTitle": { "message": "Дополнительные инструменты" },
     "closePanel": { "message": "Закрыть панель" },
+    "close": { "message": "Закрыть" },
     "layoutFixed": { "message": "Раскладка исправлена" },
     "translation": { "message": "Перевод" },
     "ocrResult": { "message": "Распознанный текст" },
@@ -1196,5 +1197,77 @@
     },
     "noGrammarErrorsFound": {
         "message": "В вашей истории не обнаружено частых ошибок! Отличный результат."
+    },
+    "splitView": {
+        "message": "Сплит"
+    },
+    "standardView": {
+        "message": "Обычно"
+    },
+    "findAndReplace": {
+        "message": "🔍 Поиск"
+    },
+    "findPlaceholder": {
+        "message": "Найти..."
+    },
+    "replacePlaceholder": {
+        "message": "Заменить на..."
+    },
+    "replaceOne": {
+        "message": "Заменить"
+    },
+    "replaceAll": {
+        "message": "Все"
+    },
+    "originalText": {
+        "message": "Оригинал"
+    },
+    "resultText": {
+        "message": "Результат"
+    },
+    "charsNoSpaces": {
+        "message": "Символов без пробелов"
+    },
+    "sentences": {
+        "message": "Предложений"
+    },
+    "readabilityScore": {
+        "message": "Читаемость"
+    },
+    "readabilityEasy": {
+        "message": "Легко читается"
+    },
+    "readabilityMedium": {
+        "message": "Оптимально"
+    },
+    "readabilityHard": {
+        "message": "Сложный текст"
+    },
+    "pinnedToolbarTitle": {
+        "message": "Закреплённые действия на панели"
+    },
+    "pinnedToolbarHint": {
+        "message": "Выберите инструменты, которые отображаются на панели сразу при выделении текста."
+    },
+    "modeTextClean": {
+        "message": "Очистка"
+    },
+    "historyGroupToday": {
+        "message": "Сегодня"
+    },
+    "historyGroupYesterday": {
+        "message": "Вчера"
+    },
+    "historyGroupThisWeek": {
+        "message": "На этой неделе"
+    },
+    "historyGroupEarlier": {
+        "message": "Ранее"
+    },
+    "recentResultsTitle": {
+        "message": "Недавние результаты"
+    },
+    "allHistoryLink": {
+        "message": "Все →"
     }
 }

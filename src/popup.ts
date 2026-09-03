@@ -7,6 +7,7 @@ import { hasAllSitesAccess, requestAllSitesAccess, removeAllSitesAccess, detectT
 import { applyFastTypographyAndTypoFixes } from './local-text-rules';
 import { logger } from './logger';
 import { loadCachedHealthStatus, type ProviderHealthStatus } from './provider-health';
+import { getHistory } from './history-store';
 
 type Theme = 'auto' | 'light' | 'dark';
 
@@ -354,5 +355,61 @@ async function initializePopupServerStatus(): Promise<void> {
     renderPopupHealthDot('mistral', cached.mistral);
 }
 
+async function initializeRecentResults(): Promise<void> {
+    const card = document.getElementById('recent-results-card');
+    const list = document.getElementById('recent-results-list');
+    const btnHistory = document.getElementById('btn-recent-history');
+    if (!card || !list) return;
+
+    btnHistory?.addEventListener('click', () => {
+        chrome.tabs.create({ url: chrome.runtime.getURL('lexisync-history.html') });
+        window.close();
+    });
+
+    try {
+        const history = await getHistory();
+        if (!history || history.length === 0) {
+            card.hidden = true;
+            return;
+        }
+        const recent = history.slice(0, 3);
+        list.replaceChildren();
+
+        for (const item of recent) {
+            const row = document.createElement('div');
+            row.className = 'recent-item';
+
+            const textSpan = document.createElement('span');
+            textSpan.className = 'recent-item-text';
+            const cleanText = item.result.trim().replace(/\s+/g, ' ');
+            textSpan.textContent = cleanText;
+            textSpan.title = item.result.trim();
+
+            const copyBtn = document.createElement('button');
+            copyBtn.type = 'button';
+            copyBtn.className = 'recent-copy-btn';
+            copyBtn.textContent = t('copy', 'Копировать');
+            copyBtn.onclick = async () => {
+                try {
+                    await navigator.clipboard.writeText(item.result);
+                    copyBtn.textContent = t('copied', 'Скопировано!');
+                    setTimeout(() => {
+                        copyBtn.textContent = t('copy', 'Копировать');
+                    }, 1500);
+                } catch {
+                    // ignore
+                }
+            };
+
+            row.append(textSpan, copyBtn);
+            list.appendChild(row);
+        }
+        card.hidden = false;
+    } catch {
+        card.hidden = true;
+    }
+}
+
 void initializeSiteControls();
 void initializePopupServerStatus();
+void initializeRecentResults();

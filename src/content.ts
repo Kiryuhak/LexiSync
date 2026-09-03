@@ -78,6 +78,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
 
     let currentQuickActionBubbleEnabled = true;
     let isPopupPinned = false;
+    let currentPinnedToolbarActions: RequestMode[] = [];
 
     void chrome.storage.local
         .get({
@@ -473,6 +474,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             interfaceScale: 90,
             themeCustomization: DEFAULT_THEME_CUSTOMIZATION,
             textSnippets: DEFAULT_TEXT_SNIPPETS,
+            pinnedToolbarActions: [] as RequestMode[],
         },
         (res) => {
             if (res.selectedTheme) currentTheme = res.selectedTheme as string;
@@ -481,11 +483,17 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             if (res.searchEngine) currentSearchEngine = res.searchEngine as string;
             currentInterfaceScale = normalizeInterfaceScale(res.interfaceScale);
             cachedSnippets = normalizeTextSnippets(res.textSnippets);
+            if (Array.isArray(res.pinnedToolbarActions)) {
+                currentPinnedToolbarActions = res.pinnedToolbarActions as RequestMode[];
+            }
         },
     );
 
     chrome.storage.onChanged.addListener((changes, area) => {
         if (area === 'local') {
+            if (changes.pinnedToolbarActions) {
+                currentPinnedToolbarActions = (changes.pinnedToolbarActions.newValue as RequestMode[]) || [];
+            }
             if (changes.textSnippets) {
                 cachedSnippets = normalizeTextSnippets(changes.textSnippets.newValue);
             }
@@ -643,6 +651,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
         adjustPopupPosition,
         handleAction: (mode) => handleActionClick(mode),
         executeCustom: (command) => executeRequest('custom', command),
+        getPinnedToolbarActions: () => currentPinnedToolbarActions,
     };
 
     function showToolbarMenu(x: number, y: number, top?: number): void {

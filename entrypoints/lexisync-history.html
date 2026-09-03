@@ -263,6 +263,52 @@
             .history-export-format {
                 max-width: 140px;
             }
+            .history-filter-chips {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                margin: -12px 0 20px;
+            }
+            .history-chip {
+                padding: 6px 14px;
+                border-radius: 999px;
+                border: 1px solid var(--border);
+                background: var(--card);
+                font-size: 12px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.15s ease;
+                color: var(--text);
+                font-family: inherit;
+            }
+            .history-chip:hover {
+                border-color: var(--accent);
+                color: var(--accent);
+            }
+            .history-chip.is-active {
+                background: var(--accent);
+                color: #ffffff;
+                border-color: var(--accent);
+            }
+            .history-date-group-header {
+                font-size: 12px;
+                font-weight: 700;
+                color: var(--accent);
+                margin: 22px 0 10px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                text-transform: uppercase;
+                letter-spacing: 0.6px;
+                user-select: none;
+            }
+            .history-date-group-header::after {
+                content: '';
+                flex: 1;
+                height: 1px;
+                background: var(--border);
+                opacity: 0.6;
+            }
             [data-ui-style='magicos-11'] {
                 --bg: #dfeaff;
                 --card: rgba(249, 252, 255, 0.62);
@@ -693,6 +739,26 @@
                     <input id="importFileInput" class="hidden" type="file" accept="application/json,.json" />
                     <button id="clearBtn" class="clear-btn" data-i18n="clear">Очистить</button>
                 </div>
+
+                <div class="history-filter-chips" id="historyFilterChips" role="group" aria-label="Быстрые фильтры">
+                    <button type="button" class="history-chip is-active" data-filter="all" data-i18n="allOperations">
+                        Все
+                    </button>
+                    <button type="button" class="history-chip" data-filter="spellcheck" data-i18n="modeSpellcheck">
+                        Ошибки
+                    </button>
+                    <button type="button" class="history-chip" data-filter="style" data-i18n="modeStyle">Стиль</button>
+                    <button type="button" class="history-chip" data-filter="translate" data-i18n="modeTranslate">
+                        Перевод
+                    </button>
+                    <button type="button" class="history-chip" data-filter="summary" data-i18n="summaryShort">
+                        Выжимка
+                    </button>
+                    <button type="button" class="history-chip" data-filter="favorites" data-i18n="favoritesOnly">
+                        Избранное
+                    </button>
+                </div>
+
                 <p id="historyStatus" class="history-status" role="status" aria-live="polite" aria-atomic="true"></p>
                 <div id="historyList"></div>
             </div>

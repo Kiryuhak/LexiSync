@@ -18,7 +18,7 @@ import { renderPrimaryResultActions } from './content-result-actions';
 import { formatRequestDuration } from './request-duration';
 import { mountResultDialogFrame } from './result-dialog-view';
 import { createLanguagePicker } from './content-language-picker';
-import { formatTextStats } from './text-stats';
+import { formatTextStats, calculateDetailedStats } from './text-stats';
 import { estimateTokens } from './budget';
 import { logger } from './logger';
 import {
@@ -585,6 +585,14 @@ export function executeRequest(
                             ? `⚡ ${response.fallbackNotification} • ${durationText}`
                             : baseStatus,
                     );
+                    const detailed = calculateDetailedStats(fullResult);
+                    const readabilityText =
+                        detailed.readabilityLevel === 'easy'
+                            ? t('readabilityEasy', 'Легко читается')
+                            : detailed.readabilityLevel === 'medium'
+                              ? t('readabilityMedium', 'Оптимально')
+                              : t('readabilityHard', 'Сложный текст');
+                    actionStatus.title = `${t('charsNoSpaces', 'Символов без пробелов')}: ${detailed.charsNoSpaces} | ${t('sentences', 'Предложений')}: ${detailed.sentences} | ${t('readabilityScore', 'Читаемость')}: ${detailed.readabilityScore}/100 (${readabilityText})`;
                 }
 
                 const historyItem: HistoryItem = {
@@ -725,6 +733,173 @@ export function executeRequest(
                         }
                     });
                     tools.push(compareButton);
+
+                    let isSplitView = false;
+                    const splitButton = createTool(t('splitView', 'Сплит'), () => {
+                        isSplitView = !isSplitView;
+                        if (isSplitView) {
+                            editedResultSnapshot = getEffectiveResult();
+                            contentPane.contentEditable = 'false';
+                            contentPane.replaceChildren();
+
+                            const splitContainer = document.createElement('div');
+                            splitContainer.className = 'lexisync-split-container';
+
+                            const leftPane = document.createElement('div');
+                            leftPane.className = 'lexisync-split-pane';
+                            const leftTitle = document.createElement('div');
+                            leftTitle.className = 'lexisync-split-title';
+                            leftTitle.textContent = t('originalText', 'Оригинал');
+                            const leftContent = document.createElement('div');
+                            leftContent.className = 'lexisync-split-content';
+                            leftContent.textContent = originalText;
+                            leftPane.append(leftTitle, leftContent);
+
+                            const rightPane = document.createElement('div');
+                            rightPane.className = 'lexisync-split-pane';
+                            const rightTitle = document.createElement('div');
+                            rightTitle.className = 'lexisync-split-title';
+                            rightTitle.textContent = t('resultText', 'Результат');
+                            const rightContent = document.createElement('div');
+                            rightContent.className = 'lexisync-split-content';
+                            rightContent.contentEditable = 'true';
+                            rightContent.textContent = editedResultSnapshot;
+                            rightContent.oninput = () => {
+                                editedResultSnapshot = rightContent.textContent || '';
+                            };
+                            rightPane.append(rightTitle, rightContent);
+
+                            // Синхронная прокрутка
+                            let syncing = false;
+                            leftPane.onscroll = () => {
+                                if (syncing) return;
+                                syncing = true;
+                                const ratio = leftPane.scrollTop / (leftPane.scrollHeight - leftPane.clientHeight || 1);
+                                rightPane.scrollTop = ratio * (rightPane.scrollHeight - rightPane.clientHeight);
+                                syncing = false;
+                            };
+                            rightPane.onscroll = () => {
+                                if (syncing) return;
+                                syncing = true;
+                                const ratio =
+                                    rightPane.scrollTop / (rightPane.scrollHeight - rightPane.clientHeight || 1);
+                                leftPane.scrollTop = ratio * (leftPane.scrollHeight - leftPane.clientHeight);
+                                syncing = false;
+                            };
+
+                            splitContainer.append(leftPane, rightPane);
+                            contentPane.appendChild(splitContainer);
+                            splitButton.textContent = t('standardView', 'Обычно');
+                            splitButton.style.background = 'var(--accent, #6366f1)';
+                            splitButton.style.color = '#ffffff';
+                        } else {
+                            contentPane.replaceChildren();
+                            renderMarkdown(contentPane, editedResultSnapshot);
+                            contentPane.contentEditable = 'true';
+                            splitButton.textContent = t('splitView', 'Сплит');
+                            splitButton.style.background = '';
+                            splitButton.style.color = '';
+                        }
+                    });
+                    tools.push(splitButton);
+
+                    let findReplaceBar: HTMLElement | null = null;
+                    const findReplaceButton = createTool(t('findAndReplace', '🔍 Поиск'), () => {
+                        if (findReplaceBar) {
+                            findReplaceBar.remove();
+                            findReplaceBar = null;
+                            findReplaceButton.style.background = '';
+                            findReplaceButton.style.color = '';
+                            return;
+                        }
+                        findReplaceBar = document.createElement('div');
+                        findReplaceBar.className = 'lexisync-find-replace-bar';
+
+                        const findInput = document.createElement('input');
+                        findInput.className = 'lexisync-find-input';
+                        findInput.placeholder = t('findPlaceholder', 'Найти...');
+
+                        const replaceInput = document.createElement('input');
+                        replaceInput.className = 'lexisync-find-input';
+                        replaceInput.placeholder = t('replacePlaceholder', 'Заменить на...');
+
+                        const countLabel = document.createElement('span');
+                        countLabel.className = 'lexisync-find-count';
+
+                        const updateMatchCount = () => {
+                            const query = findInput.value;
+                            if (!query) {
+                                countLabel.textContent = '';
+                                return;
+                            }
+                            const text = getEffectiveResult();
+                            const matches = (
+                                text.match(new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')) || []
+                            ).length;
+                            countLabel.textContent = `${matches} совп.`;
+                        };
+                        findInput.oninput = updateMatchCount;
+
+                        const replaceBtn = document.createElement('button');
+                        replaceBtn.type = 'button';
+                        replaceBtn.className = 'lexisync-find-btn';
+                        replaceBtn.textContent = t('replaceOne', 'Заменить');
+                        replaceBtn.onclick = () => {
+                            const query = findInput.value;
+                            if (!query) return;
+                            const text = getEffectiveResult();
+                            const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+                            const next = text.replace(regex, replaceInput.value);
+                            editedResultSnapshot = next;
+                            contentPane.replaceChildren();
+                            renderMarkdown(contentPane, next);
+                            contentPane.contentEditable = 'true';
+                            updateMatchCount();
+                        };
+
+                        const replaceAllBtn = document.createElement('button');
+                        replaceAllBtn.type = 'button';
+                        replaceAllBtn.className = 'lexisync-find-btn';
+                        replaceAllBtn.textContent = t('replaceAll', 'Все');
+                        replaceAllBtn.onclick = () => {
+                            const query = findInput.value;
+                            if (!query) return;
+                            const text = getEffectiveResult();
+                            const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+                            const next = text.replace(regex, replaceInput.value);
+                            editedResultSnapshot = next;
+                            contentPane.replaceChildren();
+                            renderMarkdown(contentPane, next);
+                            contentPane.contentEditable = 'true';
+                            updateMatchCount();
+                        };
+
+                        const closeFindBtn = document.createElement('button');
+                        closeFindBtn.type = 'button';
+                        closeFindBtn.className = 'lexisync-find-btn';
+                        closeFindBtn.textContent = '✕';
+                        closeFindBtn.title = t('close', 'Закрыть');
+                        closeFindBtn.onclick = () => {
+                            findReplaceBar?.remove();
+                            findReplaceBar = null;
+                            findReplaceButton.style.background = '';
+                            findReplaceButton.style.color = '';
+                        };
+
+                        findReplaceBar.append(
+                            findInput,
+                            replaceInput,
+                            replaceBtn,
+                            replaceAllBtn,
+                            countLabel,
+                            closeFindBtn,
+                        );
+                        contentPane.parentElement?.insertBefore(findReplaceBar, contentPane);
+                        findReplaceButton.style.background = 'var(--accent, #6366f1)';
+                        findReplaceButton.style.color = '#ffffff';
+                        findInput.focus();
+                    });
+                    tools.push(findReplaceButton);
                 }
                 const refine = (name: string, prompt: string) => {
                     const source = getEffectiveResult();

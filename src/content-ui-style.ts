@@ -730,6 +730,118 @@ export const POPUP_STYLE_TEXT = `
             .lexisync-skeleton-line:nth-child(3) { width: 64%; }
             @keyframes lexisync-shimmer { from { transform: translateX(-110%); } to { transform: translateX(240%); } }
 
+            /* Split View & Find/Replace & Stats Tooling */
+            .lexisync-split-container {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+                min-height: 120px;
+                max-height: 280px;
+                width: 100%;
+            }
+            .lexisync-split-pane {
+                border: 1px solid var(--border-color);
+                border-radius: 8px;
+                padding: 8px 10px;
+                overflow-y: auto;
+                font-size: 13px;
+                line-height: 1.45;
+                background: var(--bg-card, rgba(255, 255, 255, 0.02));
+                display: flex;
+                flex-direction: column;
+            }
+            .lexisync-split-title {
+                font-size: 10.5px;
+                font-weight: 700;
+                color: var(--text-secondary);
+                margin-bottom: 6px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                user-select: none;
+            }
+            .lexisync-split-content {
+                flex: 1;
+                outline: none;
+                word-break: break-word;
+                white-space: pre-wrap;
+            }
+            .lexisync-find-replace-bar {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+                align-items: center;
+                padding: 6px 8px;
+                background: var(--primary-soft, rgba(125, 125, 125, 0.08));
+                border: 1px solid var(--border-color);
+                border-radius: 8px;
+                margin-bottom: 8px;
+                font-size: 12px;
+            }
+            .lexisync-find-input {
+                flex: 1;
+                min-width: 80px;
+                padding: 4px 7px;
+                border: 1px solid var(--border-color);
+                border-radius: 6px;
+                background: var(--bg-card, #fff);
+                color: var(--text-color);
+                font-size: 12px;
+                outline: none;
+            }
+            .lexisync-find-input:focus {
+                border-color: var(--accent, #6366f1);
+            }
+            .lexisync-find-btn {
+                padding: 4px 8px;
+                border-radius: 6px;
+                border: 1px solid var(--border-color);
+                background: var(--bg-card, #fff);
+                color: var(--text-color);
+                cursor: pointer;
+                font-size: 11px;
+                font-weight: 600;
+                transition: background 0.15s, color 0.15s;
+            }
+            .lexisync-find-btn:hover {
+                background: var(--accent, #6366f1);
+                color: #ffffff;
+                border-color: var(--accent, #6366f1);
+            }
+            .lexisync-find-count {
+                font-size: 10.5px;
+                color: var(--text-secondary);
+                font-weight: 600;
+                white-space: nowrap;
+            }
+            .lexisync-stats-badge {
+                cursor: pointer;
+                border-bottom: 1px dashed currentColor;
+                transition: opacity 0.15s;
+            }
+            .lexisync-stats-badge:hover {
+                opacity: 0.8;
+            }
+            .lexisync-stats-popover {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                padding: 6px 10px;
+                background: var(--primary-soft, rgba(125, 125, 125, 0.08));
+                border: 1px solid var(--border-color);
+                border-radius: 8px;
+                font-size: 11px;
+                color: var(--text-color);
+                margin-top: 6px;
+            }
+            .lexisync-stat-item {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+            }
+            .lexisync-stat-item strong {
+                color: var(--accent, #6366f1);
+            }
+
             @media (prefers-reduced-motion: reduce) {
                 #lexisync-extension-ui { animation-duration: 0.01ms; }
                 .lexisync-loader, .lexisync-hourglass, .lexisync-skeleton-line::after { animation: none; }

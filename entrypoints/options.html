@@ -525,6 +525,43 @@
                         >
                     </label>
                 </div>
+
+                <div class="settings-toolbar-customizer" style="margin-top: 20px">
+                    <h3 data-i18n="pinnedToolbarTitle">Закреплённые действия на панели</h3>
+                    <p class="toolbar-customizer-hint" data-i18n="pinnedToolbarHint">
+                        Выберите инструменты, которые отображаются на панели сразу при выделении текста.
+                    </p>
+                    <div class="pinned-toolbar-chips-grid" id="pinnedToolbarChipsGroup">
+                        <label class="pinned-chip-label">
+                            <input type="checkbox" class="pinned-action-cb" value="spellcheck" />
+                            <span data-i18n="modeSpellcheck">Ошибки</span>
+                        </label>
+                        <label class="pinned-chip-label">
+                            <input type="checkbox" class="pinned-action-cb" value="style" />
+                            <span data-i18n="modeStyle">Стиль</span>
+                        </label>
+                        <label class="pinned-chip-label">
+                            <input type="checkbox" class="pinned-action-cb" value="translate" />
+                            <span data-i18n="modeTranslate">Перевод</span>
+                        </label>
+                        <label class="pinned-chip-label">
+                            <input type="checkbox" class="pinned-action-cb" value="summary" />
+                            <span data-i18n="summaryShort">Выжимка</span>
+                        </label>
+                        <label class="pinned-chip-label">
+                            <input type="checkbox" class="pinned-action-cb" value="emoji" />
+                            <span data-i18n="modeEmoji">Эмодзи</span>
+                        </label>
+                        <label class="pinned-chip-label">
+                            <input type="checkbox" class="pinned-action-cb" value="layout" />
+                            <span data-i18n="modeLayout">Раскладка</span>
+                        </label>
+                        <label class="pinned-chip-label">
+                            <input type="checkbox" class="pinned-action-cb" value="text_clean" />
+                            <span data-i18n="modeTextClean">Очистка</span>
+                        </label>
+                    </div>
+                </div>
             </div>
 
             <section class="settings-section ai-mode-section" data-settings-group="ai" hidden>

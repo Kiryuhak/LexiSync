@@ -16,6 +16,7 @@ export interface ContentMenuContext {
     adjustPopupPosition: () => void;
     handleAction: (mode: RequestMode) => void;
     executeCustom: (command: CustomCommand) => void;
+    getPinnedToolbarActions?: () => RequestMode[];
 }
 
 let lastUsedAction: RequestMode | null = null;
@@ -305,6 +306,26 @@ export function showToolbarMenu(x: number, y: number, context: ContentMenuContex
                 'quick-rerun',
             ),
         );
+    }
+
+    const pinnedActions = context.getPinnedToolbarActions?.() || [];
+    for (const actionKey of pinnedActions) {
+        const info = ACTION_INFOS[actionKey];
+        if (info && actionKey !== lastUsedAction) {
+            popupUI.appendChild(divider());
+            popupUI.appendChild(
+                createBtn(
+                    info.icon,
+                    '',
+                    info.title,
+                    () => {
+                        setLastUsedAction(actionKey);
+                        context.handleAction(actionKey);
+                    },
+                    `pinned-${actionKey}`,
+                ),
+            );
+        }
     }
 
     popupUI.appendChild(divider());

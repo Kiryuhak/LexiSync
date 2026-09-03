@@ -413,6 +413,33 @@ function getFilteredHistory(): HistoryItem[] {
 
 let activeHistoryObserver: IntersectionObserver | null = null;
 
+function getDateGroup(dateStr: string): 'today' | 'yesterday' | 'this_week' | 'earlier' {
+    const itemDate = new Date(dateStr);
+    if (isNaN(itemDate.getTime())) return 'earlier';
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const yesterdayStart = todayStart - 86400000;
+    const weekStart = todayStart - 6 * 86400000;
+    const t = itemDate.getTime();
+    if (t >= todayStart) return 'today';
+    if (t >= yesterdayStart) return 'yesterday';
+    if (t >= weekStart) return 'this_week';
+    return 'earlier';
+}
+
+function getGroupLabel(group: 'today' | 'yesterday' | 'this_week' | 'earlier'): string {
+    switch (group) {
+        case 'today':
+            return t('historyGroupToday', 'Сегодня');
+        case 'yesterday':
+            return t('historyGroupYesterday', 'Вчера');
+        case 'this_week':
+            return t('historyGroupThisWeek', 'На этой неделе');
+        case 'earlier':
+            return t('historyGroupEarlier', 'Ранее');
+    }
+}
+
 function renderHistory(): void {
     if (!historyList) return;
     activeHistoryObserver?.disconnect();
@@ -433,9 +460,28 @@ function renderHistory(): void {
         return;
     }
 
+    const isNewestSort = !sortFilter || sortFilter.value === 'newest';
+    let lastRenderedGroup = '';
+
+    const appendItemsWithGroups = (items: HistoryItem[], target: HTMLElement) => {
+        for (const item of items) {
+            if (isNewestSort) {
+                const group = getDateGroup(item.date);
+                if (group !== lastRenderedGroup) {
+                    lastRenderedGroup = group;
+                    const groupHeader = document.createElement('div');
+                    groupHeader.className = 'history-date-group-header';
+                    groupHeader.textContent = getGroupLabel(group);
+                    target.appendChild(groupHeader);
+                }
+            }
+            target.appendChild(createHistoryCard(item));
+        }
+    };
+
     const BATCH_SIZE = 40;
     const initialBatch = filtered.slice(0, BATCH_SIZE);
-    historyList.append(...initialBatch.map(createHistoryCard));
+    appendItemsWithGroups(initialBatch, historyList);
 
     if (filtered.length > BATCH_SIZE && typeof IntersectionObserver !== 'undefined') {
         let renderedCount = BATCH_SIZE;
@@ -447,7 +493,23 @@ function renderHistory(): void {
             if (entries[0]?.isIntersecting && renderedCount < filtered.length) {
                 const nextBatch = filtered.slice(renderedCount, renderedCount + BATCH_SIZE);
                 renderedCount += nextBatch.length;
-                sentinel.before(...nextBatch.map(createHistoryCard));
+                sentinel.before(
+                    ...nextBatch.map((item) => {
+                        const frag = document.createDocumentFragment();
+                        if (isNewestSort) {
+                            const group = getDateGroup(item.date);
+                            if (group !== lastRenderedGroup) {
+                                lastRenderedGroup = group;
+                                const groupHeader = document.createElement('div');
+                                groupHeader.className = 'history-date-group-header';
+                                groupHeader.textContent = getGroupLabel(group);
+                                frag.appendChild(groupHeader);
+                            }
+                        }
+                        frag.appendChild(createHistoryCard(item));
+                        return frag;
+                    }),
+                );
                 if (renderedCount >= filtered.length) {
                     activeHistoryObserver?.disconnect();
                     activeHistoryObserver = null;
@@ -458,7 +520,7 @@ function renderHistory(): void {
         activeHistoryObserver.observe(sentinel);
     } else if (filtered.length > BATCH_SIZE) {
         const remainingBatch = filtered.slice(BATCH_SIZE);
-        historyList.append(...remainingBatch.map(createHistoryCard));
+        appendItemsWithGroups(remainingBatch, historyList);
     }
 }
 
@@ -609,11 +671,47 @@ searchInput?.addEventListener('keydown', (event) => {
         renderHistory();
     }
 });
-modeFilter?.addEventListener('change', renderHistory);
+function syncFilterChips(): void {
+    const currentMode = modeFilter?.value || 'all';
+    document.querySelectorAll<HTMLButtonElement>('.history-chip').forEach((chip) => {
+        const filter = chip.dataset.filter;
+        if (favoritesOnly && filter === 'favorites') {
+            chip.classList.add('is-active');
+        } else if (!favoritesOnly && filter === currentMode) {
+            chip.classList.add('is-active');
+        } else {
+            chip.classList.remove('is-active');
+        }
+    });
+}
+
+document.querySelectorAll<HTMLButtonElement>('.history-chip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+        document.querySelectorAll('.history-chip').forEach((c) => c.classList.remove('is-active'));
+        chip.classList.add('is-active');
+        const filter = chip.dataset.filter;
+        if (filter === 'favorites') {
+            favoritesOnly = true;
+            favoriteFilter?.setAttribute('aria-pressed', 'true');
+            if (modeFilter) modeFilter.value = 'all';
+        } else {
+            favoritesOnly = false;
+            favoriteFilter?.setAttribute('aria-pressed', 'false');
+            if (modeFilter && filter) modeFilter.value = filter;
+        }
+        renderHistory();
+    });
+});
+
+modeFilter?.addEventListener('change', () => {
+    syncFilterChips();
+    renderHistory();
+});
 sortFilter?.addEventListener('change', renderHistory);
 favoriteFilter?.addEventListener('click', () => {
     favoritesOnly = !favoritesOnly;
     favoriteFilter.setAttribute('aria-pressed', String(favoritesOnly));
+    syncFilterChips();
     renderHistory();
 });
 resetFilterBtn?.addEventListener('click', () => {
@@ -622,6 +720,7 @@ resetFilterBtn?.addEventListener('click', () => {
     if (sortFilter) sortFilter.value = 'newest';
     favoritesOnly = false;
     favoriteFilter?.setAttribute('aria-pressed', 'false');
+    syncFilterChips();
     renderHistory();
 });
 clearBtn?.addEventListener('click', async () => {

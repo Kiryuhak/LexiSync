@@ -79,7 +79,7 @@ export function buildPromptPayload(msg: PromptRequest, settings: PromptSettings)
 
     if (msg.mode === 'spellcheck') {
         systemPrompt +=
-            ' Исправь только орфографические, грамматические и пунктуационные ошибки. Сохрани исходный стиль и формулировки. Не добавляй лишних символов, рамок или разметки таблиц. Верни цельный исправленный текст без Markdown и отметок изменений.';
+            ' Исправь только орфографические, грамматические и пунктуационные ошибки, сохранив исходный стиль и формулировки.';
         const dictionary = serializeList(settings.personalDictionary, 200);
         if (dictionary) systemPrompt += ` Не исправляй слова из личного словаря пользователя: ${dictionary}.`;
     } else if (msg.mode === 'style') {

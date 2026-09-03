@@ -3541,3 +3541,43 @@ test('Unit 34: processGroqOcr распознаёт текст через мод�
 
     mockFetch.mockRestore();
 });
+
+test('normalizeTextForCache удаляет лишние пробелы и переносы строк для лучшего попадания в кэш', async () => {
+    const { normalizeTextForCache } = await import('../src/ai-cache');
+    const raw = '  Привет,   мир! \r\n  Это   тестовый   текст.  \n';
+    const normalized = normalizeTextForCache(raw);
+    expect(normalized).toBe('Привет, мир! \n Это тестовый текст.');
+});
+
+test('calculateDetailedStats правильно считает символы без пробелов, предложения и читаемость', async () => {
+    const { calculateDetailedStats } = await import('../src/text-stats');
+    const text = 'Это первое предложение. А это второе предложение! И третье короткое?';
+    const stats = calculateDetailedStats(text);
+    expect(stats.words).toBe(10);
+    expect(stats.sentences).toBe(3);
+    expect(stats.chars).toBe(text.length);
+    expect(stats.charsNoSpaces).toBe(text.replace(/\s+/g, '').length);
+    expect(stats.readingMinutes).toBeGreaterThanOrEqual(1);
+    expect(stats.readabilityScore).toBeGreaterThanOrEqual(0);
+    expect(stats.readabilityScore).toBeLessThanOrEqual(100);
+    expect(['easy', 'medium', 'hard']).toContain(stats.readabilityLevel);
+});
+
+test('calculateDetailedStats для пустого текста возвращает нули', async () => {
+    const { calculateDetailedStats } = await import('../src/text-stats');
+    const stats = calculateDetailedStats('   ');
+    expect(stats.words).toBe(0);
+    expect(stats.chars).toBe(0);
+    expect(stats.charsNoSpaces).toBe(0);
+    expect(stats.sentences).toBe(0);
+    expect(stats.readabilityLevel).toBe('easy');
+});
+
+test('settings-transfer корректно нормализует pinnedToolbarActions и glossary', async () => {
+    const { sanitizePortableSetting } = await import('../src/settings-transfer');
+    const pinned = sanitizePortableSetting('pinnedToolbarActions', ['spellcheck', 'invalid_mode', 'translate']);
+    expect(pinned).toEqual(['spellcheck', 'translate']);
+
+    const glossary = sanitizePortableSetting('glossary', ['term1 = translation1', '   ']);
+    expect(glossary).toEqual(['term1 = translation1']);
+});
