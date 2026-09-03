@@ -88,9 +88,9 @@ test('безопасно нормализует поисковик и повре
 });
 
 test('история обновлений содержит все выпуски и поддерживает поиск', () => {
-    expect(RELEASE_NOTES[0].version).toBe('5.5.6');
+    expect(RELEASE_NOTES[0].version).toBe('5.5.7');
     expect(RELEASE_NOTES.at(-1)?.version).toBe('2.5');
-    expect(RELEASE_NOTES).toHaveLength(57);
+    expect(RELEASE_NOTES).toHaveLength(58);
     expect(new Set(RELEASE_NOTES.map((release) => release.version)).size).toBe(RELEASE_NOTES.length);
     expect(filterReleaseNotes(RELEASE_NOTES, 'MagicOS', 'ru').map((release) => release.version)).toEqual([
         '5.3.4',

@@ -3966,12 +3966,29 @@ input[type='range'] {
 .budget-preset-btn:active {
     transform: translateY(0);
 }
+.budget-preset-btn.is-active,
+.budget-preset-btn[aria-pressed='true'] {
+    background: var(--accent, #6366f1);
+    color: #ffffff;
+    border-color: var(--accent, #6366f1);
+    box-shadow: 0 3px 10px rgba(99, 102, 241, 0.25);
+}
+.budget-preset-btn:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--accent, #6366f1) 42%, transparent);
+    outline-offset: 2px;
+}
 .budget-preset-btn.preset-reset-btn {
     background: rgba(239, 68, 68, 0.1);
     color: #ef4444;
     border-color: rgba(239, 68, 68, 0.25);
 }
 .budget-preset-btn.preset-reset-btn:hover {
+    background: #ef4444;
+    color: #ffffff;
+    border-color: #ef4444;
+}
+.budget-preset-btn.preset-reset-btn.is-active,
+.budget-preset-btn.preset-reset-btn[aria-pressed='true'] {
     background: #ef4444;
     color: #ffffff;
     border-color: #ef4444;

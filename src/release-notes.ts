@@ -36,6 +36,23 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.5.7',
+        '2026-09-03',
+        'fixed',
+        'Единое оформление и запоминающиеся профили расхода',
+        'Consistent appearance and persistent usage profiles',
+        [
+            [
+                'Vision Aurora и Silk Obsidian теперь одинаково работают в панели расширения, окне результата и истории.',
+                'Vision Aurora and Silk Obsidian now work consistently in the extension panel, result window, and history.',
+            ],
+            [
+                'Выбранный готовый профиль расхода подсвечивается и восстанавливается после перезагрузки настроек.',
+                'The selected usage profile is highlighted and restored after settings reload.',
+            ],
+        ],
+    ),
+    note(
         '5.5.6',
         '2026-09-03',
         'improved',

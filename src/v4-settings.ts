@@ -1,4 +1,4 @@
-import { DEFAULT_BUDGET_SETTINGS, getLocalDayKey } from './budget';
+import { BUDGET_PRESETS, DEFAULT_BUDGET_SETTINGS, getBudgetProfile, getLocalDayKey } from './budget';
 import { DEFAULT_THEME_CUSTOMIZATION, normalizeThemeCustomization } from './theme-customization';
 import type { ThemeCustomization } from './types';
 import { normalizeSiteEntries } from './privacy';
@@ -50,6 +50,7 @@ export interface StoredV4Settings {
     liveProofreadDisabledSites?: unknown;
     dailyRequestLimit?: unknown;
     monthlyTokenLimit?: unknown;
+    budgetProfile?: unknown;
     warnLargeText?: unknown;
     autoFastMode?: unknown;
     enablePiiMasking?: unknown;
@@ -77,6 +78,7 @@ export async function restoreV4Settings(storedSettings?: StoredV4Settings): Prom
         : '';
     byId<HTMLInputElement>('dailyRequestLimit').value = String(clampInteger(stored.dailyRequestLimit, 0, 50_000));
     byId<HTMLInputElement>('monthlyTokenLimit').value = String(clampInteger(stored.monthlyTokenLimit, 0, 100_000_000));
+    syncBudgetPresetButtons();
     byId<HTMLInputElement>('warnLargeText').checked = stored.warnLargeText !== false;
     byId<HTMLInputElement>('autoFastMode').checked = stored.autoFastMode !== false;
     const piiEl = byId<HTMLInputElement>('enablePiiMasking');
@@ -155,13 +157,15 @@ export function setupV4Settings(): void {
     byId<HTMLInputElement>('dailyRequestLimit').addEventListener('change', (event) => {
         const value = clampInteger((event.target as HTMLInputElement).value, 0, 50_000);
         (event.target as HTMLInputElement).value = String(value);
-        void chrome.storage.local.set({ dailyRequestLimit: value });
+        void chrome.storage.local.set({ dailyRequestLimit: value, budgetProfile: getCurrentBudgetProfile() });
+        syncBudgetPresetButtons();
         void updateBudgetProgressIndicators();
     });
     byId<HTMLInputElement>('monthlyTokenLimit').addEventListener('change', (event) => {
         const value = clampInteger((event.target as HTMLInputElement).value, 0, 100_000_000);
         (event.target as HTMLInputElement).value = String(value);
-        void chrome.storage.local.set({ monthlyTokenLimit: value });
+        void chrome.storage.local.set({ monthlyTokenLimit: value, budgetProfile: getCurrentBudgetProfile() });
+        syncBudgetPresetButtons();
         void updateBudgetProgressIndicators();
     });
     for (const id of ['warnLargeText', 'autoFastMode', 'enablePiiMasking'] as const) {
@@ -173,27 +177,30 @@ export function setupV4Settings(): void {
         }
     }
 
-    const applyBudgetPreset = (daily: number, monthly: number) => {
+    const applyBudgetPreset = (profile: keyof typeof BUDGET_PRESETS) => {
         const dailyInput = document.getElementById('dailyRequestLimit') as HTMLInputElement | null;
         const monthlyInput = document.getElementById('monthlyTokenLimit') as HTMLInputElement | null;
+        const limits = BUDGET_PRESETS[profile];
         if (dailyInput) {
-            dailyInput.value = String(daily);
-            dailyInput.dispatchEvent(new Event('change', { bubbles: true }));
+            dailyInput.value = String(limits.dailyRequestLimit);
         }
         if (monthlyInput) {
-            monthlyInput.value = String(monthly);
-            monthlyInput.dispatchEvent(new Event('change', { bubbles: true }));
+            monthlyInput.value = String(limits.monthlyTokenLimit);
         }
+        syncBudgetPresetButtons();
+        const updates: Record<string, number | string> = { ...limits, budgetProfile: profile };
+        void chrome.storage.local.set(updates);
+        void updateBudgetProgressIndicators();
     };
 
     document.getElementById('presetEconomyBtn')?.addEventListener('click', () => {
-        applyBudgetPreset(100, 100000);
+        applyBudgetPreset('economy');
     });
     document.getElementById('presetBalancedBtn')?.addEventListener('click', () => {
-        applyBudgetPreset(500, 1000000);
+        applyBudgetPreset('balanced');
     });
     document.getElementById('presetUnlimitedBtn')?.addEventListener('click', () => {
-        applyBudgetPreset(0, 0);
+        applyBudgetPreset('unlimited');
     });
 
     for (const id of ['themeAccent', 'themeRadius', 'themeDensity', 'themeTransparency', 'themeFontScale']) {
@@ -207,4 +214,21 @@ export function setupV4Settings(): void {
         fillThemeEditor(DEFAULT_THEME_CUSTOMIZATION);
         void chrome.storage.local.set({ themeCustomization: DEFAULT_THEME_CUSTOMIZATION });
     });
+}
+
+function getCurrentBudgetProfile() {
+    return getBudgetProfile(
+        (document.getElementById('dailyRequestLimit') as HTMLInputElement | null)?.value,
+        (document.getElementById('monthlyTokenLimit') as HTMLInputElement | null)?.value,
+    );
+}
+
+function syncBudgetPresetButtons(): void {
+    const activeProfile = getCurrentBudgetProfile();
+    const buttons = document.querySelectorAll?.<HTMLButtonElement>('.budget-preset-btn[data-budget-profile]') ?? [];
+    for (const button of buttons) {
+        const isActive = button.dataset.budgetProfile === activeProfile;
+        button.classList.toggle('is-active', isActive);
+        button.setAttribute('aria-pressed', String(isActive));
+    }
 }

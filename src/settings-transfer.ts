@@ -1,6 +1,7 @@
 import { normalizeSitePatterns } from './site-profiles';
 import { normalizeDisabledSites } from './privacy';
 import { normalizeAppearanceStyle } from './appearance-style';
+import { normalizeBudgetProfile } from './budget';
 import { logger } from './logger';
 import { normalizeTextSnippets } from './text-snippets';
 import type { RequestMode } from './types';
@@ -34,6 +35,7 @@ const PORTABLE_SETTING_KEYS = [
     'liveProofreadDelay',
     'dailyRequestLimit',
     'monthlyTokenLimit',
+    'budgetProfile',
     'warnLargeText',
     'autoFastMode',
     'liveProofreadDisabledSites',
@@ -63,6 +65,7 @@ const SYNC_SETTING_KEYS = [
     'liveProofreadDelay',
     'dailyRequestLimit',
     'monthlyTokenLimit',
+    'budgetProfile',
     'warnLargeText',
     'autoFastMode',
     'primaryAiProvider',
@@ -155,6 +158,7 @@ export function sanitizePortableSetting(key: (typeof PORTABLE_SETTING_KEYS)[numb
     if (key === 'liveProofreadDelay') return [600, 900, 1500, 2500].includes(Number(value)) ? Number(value) : 900;
     if (key === 'dailyRequestLimit') return Math.min(50_000, Math.max(0, Math.trunc(Number(value) || 0)));
     if (key === 'monthlyTokenLimit') return Math.min(100_000_000, Math.max(0, Math.trunc(Number(value) || 0)));
+    if (key === 'budgetProfile') return normalizeBudgetProfile(value);
     if (
         [
             'disabledSites',

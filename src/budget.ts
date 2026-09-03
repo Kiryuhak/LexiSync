@@ -7,6 +7,36 @@ export const DEFAULT_BUDGET_SETTINGS: BudgetSettings = {
     autoFastMode: true,
 };
 
+/**
+ * Готовые профили не являются отдельными лимитами: это понятные наборы двух
+ * уже существующих ограничений. Храним идентификатор для интерфейса, а числа
+ * остаются источником истины при проверке расхода.
+ */
+export const BUDGET_PRESETS = {
+    economy: { dailyRequestLimit: 100, monthlyTokenLimit: 100_000 },
+    balanced: { dailyRequestLimit: 500, monthlyTokenLimit: 1_000_000 },
+    unlimited: { dailyRequestLimit: 0, monthlyTokenLimit: 0 },
+} as const;
+
+export type BudgetProfile = keyof typeof BUDGET_PRESETS | 'custom';
+
+export function getBudgetProfile(dailyRequestLimit: unknown, monthlyTokenLimit: unknown): BudgetProfile {
+    const daily = Math.max(0, Math.trunc(Number(dailyRequestLimit) || 0));
+    const monthly = Math.max(0, Math.trunc(Number(monthlyTokenLimit) || 0));
+    for (const [profile, limits] of Object.entries(BUDGET_PRESETS)) {
+        if (daily === limits.dailyRequestLimit && monthly === limits.monthlyTokenLimit) {
+            return profile as keyof typeof BUDGET_PRESETS;
+        }
+    }
+    return 'custom';
+}
+
+export function normalizeBudgetProfile(value: unknown): BudgetProfile {
+    return value === 'economy' || value === 'balanced' || value === 'unlimited' || value === 'custom'
+        ? value
+        : 'custom';
+}
+
 export function estimateTokens(text: string): number {
     if (!text) return 0;
     let ascii = 0;

@@ -557,6 +557,74 @@
                 --focus: rgba(101, 223, 200, 0.32);
             }
 
+            [data-ui-style='vision-aurora'] {
+                --canvas: #e8f4fa;
+                --glass: rgba(247, 252, 255, 0.74);
+                --glass-strong: rgba(255, 255, 255, 0.9);
+                --glass-hover: rgba(255, 255, 255, 0.94);
+                --text-main: #10233b;
+                --text-muted: #52667c;
+                --primary: #0f766e;
+                --primary-soft: rgba(13, 148, 136, 0.14);
+                --cyan: #6366f1;
+                --cyan-soft: rgba(99, 102, 241, 0.14);
+                --stroke: rgba(255, 255, 255, 0.92);
+                --stroke-subtle: rgba(50, 91, 121, 0.15);
+                --shadow: 0 20px 48px rgba(28, 68, 99, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+                --focus: rgba(15, 118, 110, 0.35);
+            }
+
+            [data-ui-style='vision-aurora'][data-theme='dark'] {
+                --canvas: #101a29;
+                --glass: rgba(18, 31, 48, 0.8);
+                --glass-strong: rgba(29, 47, 69, 0.9);
+                --glass-hover: rgba(51, 75, 103, 0.8);
+                --text-main: #edf7ff;
+                --text-muted: #b3c3d6;
+                --primary: #5eead4;
+                --primary-soft: rgba(94, 234, 212, 0.16);
+                --cyan: #a5b4fc;
+                --cyan-soft: rgba(165, 180, 252, 0.15);
+                --stroke: rgba(255, 255, 255, 0.18);
+                --stroke-subtle: rgba(255, 255, 255, 0.11);
+                --shadow: 0 22px 52px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.13);
+                --focus: rgba(94, 234, 212, 0.35);
+            }
+
+            [data-ui-style='silk-obsidian'] {
+                --canvas: #f7f8fc;
+                --glass: #ffffff;
+                --glass-strong: #f4f6fb;
+                --glass-hover: #eef1f8;
+                --text-main: #172033;
+                --text-muted: #637087;
+                --primary: #4f46e5;
+                --primary-soft: #eeedff;
+                --cyan: #0284c7;
+                --cyan-soft: #e0f2fe;
+                --stroke: #e0e5ef;
+                --stroke-subtle: #e9ecf3;
+                --shadow: 0 12px 28px rgba(23, 32, 51, 0.13);
+                --focus: rgba(79, 70, 229, 0.3);
+            }
+
+            [data-ui-style='silk-obsidian'][data-theme='dark'] {
+                --canvas: #0c0e14;
+                --glass: #151923;
+                --glass-strong: #1d2330;
+                --glass-hover: #252d3b;
+                --text-main: #f4f7fc;
+                --text-muted: #aeb9c9;
+                --primary: #a5b4fc;
+                --primary-soft: #303462;
+                --cyan: #7dd3fc;
+                --cyan-soft: #18364b;
+                --stroke: rgba(255, 255, 255, 0.13);
+                --stroke-subtle: rgba(255, 255, 255, 0.09);
+                --shadow: 0 16px 34px rgba(0, 0, 0, 0.52);
+                --focus: rgba(165, 180, 252, 0.35);
+            }
+
             [data-ui-style='magicos-11'] body {
                 background:
                     radial-gradient(circle at 12% 4%, rgba(84, 128, 255, 0.72), transparent 40%),
@@ -660,6 +728,50 @@
                 box-shadow:
                     inset 0 1px 0 rgba(255, 255, 255, 0.48),
                     0 7px 16px rgba(23, 108, 98, 0.14);
+            }
+
+            [data-ui-style='vision-aurora'] body {
+                background:
+                    radial-gradient(circle at 8% 8%, rgba(94, 234, 212, 0.48), transparent 38%),
+                    radial-gradient(circle at 94% 88%, rgba(129, 140, 248, 0.4), transparent 44%), var(--canvas);
+            }
+            [data-ui-style='vision-aurora'] .glass-panel {
+                border-radius: 20px;
+                box-shadow: var(--shadow);
+                backdrop-filter: blur(26px) saturate(160%);
+                -webkit-backdrop-filter: blur(26px) saturate(160%);
+            }
+            [data-ui-style='vision-aurora'] .action,
+            [data-ui-style='vision-aurora'] .site-card {
+                border-radius: 14px;
+            }
+            [data-ui-style='vision-aurora'] .brand-icon,
+            [data-ui-style='vision-aurora'] .action-icon,
+            [data-ui-style='vision-aurora'] .site-globe {
+                border-radius: 11px;
+            }
+
+            [data-ui-style='silk-obsidian'] body {
+                background: var(--canvas);
+            }
+            [data-ui-style='silk-obsidian'] body::before,
+            [data-ui-style='silk-obsidian'] body::after {
+                display: none;
+            }
+            [data-ui-style='silk-obsidian'] .glass-panel {
+                border-radius: 14px;
+                box-shadow: var(--shadow);
+                backdrop-filter: none;
+            }
+            [data-ui-style='silk-obsidian'] .action,
+            [data-ui-style='silk-obsidian'] .site-card {
+                border-radius: 9px;
+            }
+            [data-ui-style='silk-obsidian'] .brand-icon,
+            [data-ui-style='silk-obsidian'] .action-icon,
+            [data-ui-style='silk-obsidian'] .site-globe {
+                border-radius: 8px;
+                box-shadow: none;
             }
 
             .popup-server-status-bar {

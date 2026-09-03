@@ -1,9 +1,10 @@
+import { getBudgetProfile } from './budget';
 import { normalizeSitePatterns } from './site-profiles';
 import type { StyleProfile } from './types';
 import { DEFAULT_THEME_CUSTOMIZATION } from './theme-customization';
 import { DEFAULT_TEXT_SNIPPETS } from './text-snippets';
 
-const CURRENT_SETTINGS_SCHEMA = 13;
+const CURRENT_SETTINGS_SCHEMA = 14;
 const MIGRATION_SETTING_KEYS = [
     'settingsSchemaVersion',
     'disabledSites',
@@ -28,6 +29,7 @@ const MIGRATION_SETTING_KEYS = [
     'liveProofreadDelay',
     'dailyRequestLimit',
     'monthlyTokenLimit',
+    'budgetProfile',
     'warnLargeText',
     'autoFastMode',
     'liveProofreadDisabledSites',
@@ -143,6 +145,9 @@ export async function migrateSettings(): Promise<void> {
     if (currentVersion < 13) {
         if (stored.aiMode !== 'fast' && stored.aiMode !== 'balanced') updates.aiMode = 'balanced';
         updates.glossary = [];
+    }
+    if (currentVersion < 14) {
+        updates.budgetProfile = getBudgetProfile(stored.dailyRequestLimit, stored.monthlyTokenLimit);
     }
     updates.settingsSchemaVersion = CURRENT_SETTINGS_SCHEMA;
     const migratedKeys = Object.keys(updates).filter((key) => key !== 'settingsSchemaVersion');

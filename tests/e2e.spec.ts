@@ -38,7 +38,7 @@ const test = base.extend({
                     return settings.settingsSchemaVersion;
                 }),
             )
-            .toBe(13);
+            .toBe(14);
         await use(context);
         await context.close();
     },

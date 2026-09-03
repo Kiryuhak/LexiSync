@@ -1,6 +1,6 @@
 {
     "name": "lexisync-extension",
-    "version": "5.5.6",
+    "version": "5.5.7",
     "description": "LexiSync - Smart Text AI Assistant with Mistral API and Groq",
     "scripts": {
         "dev": "wxt",

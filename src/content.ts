@@ -486,6 +486,16 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             if (Array.isArray(res.pinnedToolbarActions)) {
                 currentPinnedToolbarActions = res.pinnedToolbarActions as RequestMode[];
             }
+            // Панель могла быть открыта до завершения асинхронного чтения. В
+            // таком случае сразу перекрашиваем уже созданное окно, а не ждём
+            // следующего изменения настройки.
+            if (popupUI) {
+                applyThemeToPopup(popupUI);
+                applyAppearanceStyle(popupUI, currentVisualStyle);
+                applyThemeCustomization(popupUI, currentThemeCustomization);
+                popupUI.style.setProperty('zoom', String(currentInterfaceScale / 100));
+                adjustPopupPosition();
+            }
         },
     );
 
