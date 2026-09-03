@@ -1272,5 +1272,32 @@
     },
     "searchInSettings": {
         "message": "Поиск в настройках"
+    },
+    "cacheEfficiencyTitle": {
+        "message": "Эффективность локального кэша"
+    },
+    "cacheSavedTokensLabel": {
+        "message": "Токенов сэкономлено"
+    },
+    "cacheSavedTimeLabel": {
+        "message": "Времени сэкономлено"
+    },
+    "cacheHitRateLabel": {
+        "message": "Попаданий в кэш"
+    },
+    "exportSelectedCsv": {
+        "message": "Экспорт в CSV"
+    },
+    "deleteSelected": {
+        "message": "Удалить выбранные"
+    },
+    "bulkSelectedLabel": {
+        "message": "Выбрано"
+    },
+    "topMistakesTitle": {
+        "message": "Частые исправления"
+    },
+    "selectRecord": {
+        "message": "Выбрать запись"
     }
 }

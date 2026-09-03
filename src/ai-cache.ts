@@ -1,11 +1,56 @@
 import { enqueueStorageMutation } from './storage-queue';
 
 const CACHE_INDEX_KEY = 'ai_cache_index';
+export const CACHE_STATS_KEY = 'ai_cache_stats';
 const CACHE_SCHEMA_VERSION = 2;
-const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const CACHE_MAX_ENTRIES = 100;
 const CACHE_VALUE_MAX_LENGTH = 50_000;
 const CACHE_KEY_PATTERN = /^ai_cache_[0-9a-f]{64}$/;
+
+export interface CacheStats {
+    hits: number;
+    misses: number;
+    savedTokens: number;
+    savedDurationMs: number;
+}
+
+export async function getCacheStats(): Promise<CacheStats> {
+    try {
+        const result = await chrome.storage.local.get([CACHE_STATS_KEY]);
+        const stats = result[CACHE_STATS_KEY] as Partial<CacheStats> | undefined;
+        return {
+            hits: Number(stats?.hits) || 0,
+            misses: Number(stats?.misses) || 0,
+            savedTokens: Number(stats?.savedTokens) || 0,
+            savedDurationMs: Number(stats?.savedDurationMs) || 0,
+        };
+    } catch {
+        return { hits: 0, misses: 0, savedTokens: 0, savedDurationMs: 0 };
+    }
+}
+
+export async function recordCacheHit(valueLength: number): Promise<void> {
+    try {
+        const stats = await getCacheStats();
+        stats.hits += 1;
+        stats.savedTokens += Math.max(20, Math.ceil(valueLength / 3.2));
+        stats.savedDurationMs += 1500;
+        await chrome.storage.local.set({ [CACHE_STATS_KEY]: stats });
+    } catch {
+        // Non-blocking
+    }
+}
+
+export async function recordCacheMiss(): Promise<void> {
+    try {
+        const stats = await getCacheStats();
+        stats.misses += 1;
+        await chrome.storage.local.set({ [CACHE_STATS_KEY]: stats });
+    } catch {
+        // Non-blocking
+    }
+}
 
 interface CacheEntry {
     value: string;
@@ -46,13 +91,21 @@ export async function getCachedText(key: string): Promise<string | null> {
     if (!isCacheKey(key)) return null;
     const result = await chrome.storage.local.get([key]);
     const cached = result[key] as string | CacheEntry | undefined;
-    if (typeof cached === 'string') return cached;
-    if (!cached || typeof cached.value !== 'string') return null;
+    if (typeof cached === 'string') {
+        void recordCacheHit(cached.length);
+        return cached;
+    }
+    if (!cached || typeof cached.value !== 'string') {
+        void recordCacheMiss();
+        return null;
+    }
 
     if (cached.expiresAt <= Date.now()) {
         await chrome.storage.local.remove(key);
+        void recordCacheMiss();
         return null;
     }
+    void recordCacheHit(cached.value.length);
     return cached.value;
 }
 

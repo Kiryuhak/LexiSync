@@ -655,6 +655,101 @@
                 color: var(--accent);
                 font-weight: 500;
             }
+            .history-bulk-bar {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 10px 16px;
+                margin-bottom: 16px;
+                background: color-mix(in srgb, var(--accent) 12%, var(--card));
+                border: 1px solid var(--accent);
+                border-radius: 10px;
+                gap: 12px;
+            }
+            .bulk-bar-left {
+                display: flex;
+                align-items: center;
+            }
+            .bulk-select-all-label {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-weight: 600;
+                font-size: 13.5px;
+                cursor: pointer;
+            }
+            .bulk-bar-actions {
+                display: flex;
+                gap: 8px;
+            }
+            .bulk-btn {
+                padding: 6px 14px;
+                border-radius: 6px;
+                border: 1px solid var(--border);
+                background: var(--card);
+                color: var(--text);
+                cursor: pointer;
+                font-size: 12.5px;
+                font-weight: 600;
+                transition: background 0.15s;
+            }
+            .bulk-btn:hover {
+                background: var(--soft);
+            }
+            .bulk-btn.danger {
+                background: #e53935;
+                color: #fff;
+                border-color: #d32f2f;
+            }
+            .bulk-btn.danger:hover {
+                background: #c62828;
+            }
+            .history-card-select-cb {
+                margin-right: 8px;
+                cursor: pointer;
+                accent-color: var(--accent);
+            }
+            .history-search-match {
+                background: #ffe066;
+                color: #111;
+                border-radius: 3px;
+                padding: 1px 3px;
+                font-weight: 600;
+            }
+            .top-fixes-chips {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                margin-top: 10px;
+            }
+            .top-fix-chip {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                background: var(--card);
+                border: 1px solid var(--border);
+                border-radius: 20px;
+                padding: 5px 12px;
+                font-size: 12.5px;
+            }
+            .top-fix-orig {
+                color: #ef4444;
+                text-decoration: line-through;
+            }
+            .top-fix-arrow {
+                color: var(--muted);
+            }
+            .top-fix-res {
+                color: #10b981;
+                font-weight: 600;
+            }
+            .top-fix-count {
+                background: var(--soft);
+                border-radius: 10px;
+                padding: 1px 6px;
+                font-size: 11px;
+                color: var(--muted);
+            }
         </style>
     </head>
     <body>
@@ -760,6 +855,22 @@
                 </div>
 
                 <p id="historyStatus" class="history-status" role="status" aria-live="polite" aria-atomic="true"></p>
+                <div class="history-bulk-bar" id="historyBulkBar" hidden>
+                    <div class="bulk-bar-left">
+                        <label class="bulk-select-all-label">
+                            <input type="checkbox" id="bulkSelectAll" />
+                            <span id="bulkSelectedCount" data-i18n="bulkSelectedLabel">Выбрано: 0</span>
+                        </label>
+                    </div>
+                    <div class="bulk-bar-actions">
+                        <button type="button" id="bulkExportCsvBtn" class="bulk-btn" data-i18n="exportSelectedCsv">
+                            Экспорт в CSV
+                        </button>
+                        <button type="button" id="bulkDeleteBtn" class="bulk-btn danger" data-i18n="deleteSelected">
+                            Удалить выбранные
+                        </button>
+                    </div>
+                </div>
                 <div id="historyList"></div>
             </div>
 
@@ -773,10 +884,10 @@
             >
                 <div class="analytics-hero-card">
                     <div class="score-circle">
-                        <span id="analyticsScoreVal" class="score-number">100%</span>
-                        <span class="score-label" data-i18n="literacyIndexLabel">Грамотность</span>
+                        <span id="analyticsScoreVal" class="score-circle-num">100%</span>
+                        <span class="score-circle-label">Грамотность</span>
                     </div>
-                    <div class="hero-info">
+                    <div class="analytics-hero-info">
                         <h2 id="analyticsScoreTitle" data-i18n="literacyStatusGreat">Отличная грамотность текстов</h2>
                         <p id="analyticsScoreDesc" data-i18n="literacyScoreDesc">
                             Индекс рассчитан на основе чистоты формулировок и количества исправлений в вашей истории.
@@ -797,6 +908,17 @@
                         <span id="analyticsCleanRequests" class="metric-val">0</span>
                         <span class="metric-desc" data-i18n="statCleanRequests">Текстов без ошибок</span>
                     </div>
+                </div>
+
+                <div id="topWordFixesSection" class="analytics-breakdown-card" style="margin-top: 14px" hidden>
+                    <h3
+                        class="analytics-section-title"
+                        data-i18n="topMistakesTitle"
+                        style="margin-top: 0; margin-bottom: 8px"
+                    >
+                        Частые исправления
+                    </h3>
+                    <div id="topWordFixesList" class="top-fixes-chips"></div>
                 </div>
 
                 <h3 class="analytics-section-title" data-i18n="errorBreakdownTitle">Распределение частых ошибок</h3>

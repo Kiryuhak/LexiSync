@@ -670,6 +670,33 @@
                             Сбалансированно — умный расход
                         </option>
                     </select>
+
+                    <div class="server-status-card" id="cacheEfficiencyCard" style="margin-top: 16px">
+                        <div class="server-status-card-header">
+                            <span class="server-status-dot healthy"></span>
+                            <span class="server-status-name" data-i18n="cacheEfficiencyTitle"
+                                >Эффективность локального кэша</span
+                            >
+                        </div>
+                        <div class="cache-stats-grid">
+                            <div class="cache-stat-item">
+                                <span class="cache-stat-num" id="cacheSavedTokens">0</span>
+                                <span class="cache-stat-label" data-i18n="cacheSavedTokensLabel"
+                                    >Токенов сэкономлено</span
+                                >
+                            </div>
+                            <div class="cache-stat-item">
+                                <span class="cache-stat-num" id="cacheSavedTime">0 сек.</span>
+                                <span class="cache-stat-label" data-i18n="cacheSavedTimeLabel"
+                                    >Времени сэкономлено</span
+                                >
+                            </div>
+                            <div class="cache-stat-item">
+                                <span class="cache-stat-num" id="cacheHitRate">0%</span>
+                                <span class="cache-stat-label" data-i18n="cacheHitRateLabel">Попаданий в кэш</span>
+                            </div>
+                        </div>
+                    </div>
                 </section>
 
                 <section class="settings-section shortcut-tester-section" data-settings-group="guide" hidden>

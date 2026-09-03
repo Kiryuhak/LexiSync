@@ -889,6 +889,30 @@ async function refreshProviderQuotasUI(): Promise<void> {
         codeEl.textContent = `(${codeText})`;
         mistralModelEl.appendChild(codeEl);
     }
+    void refreshCacheEfficiencyUI();
+}
+
+async function refreshCacheEfficiencyUI(): Promise<void> {
+    try {
+        const { getCacheStats } = await import('./ai-cache');
+        const stats = await getCacheStats();
+        const savedTokensEl = document.getElementById('cacheSavedTokens');
+        const savedTimeEl = document.getElementById('cacheSavedTime');
+        const hitRateEl = document.getElementById('cacheHitRate');
+
+        if (savedTokensEl) savedTokensEl.textContent = stats.savedTokens.toLocaleString();
+        if (savedTimeEl) {
+            const sec = Math.round(stats.savedDurationMs / 1000);
+            savedTimeEl.textContent = `${sec} сек.`;
+        }
+        if (hitRateEl) {
+            const total = stats.hits + stats.misses;
+            const rate = total > 0 ? Math.round((stats.hits / total) * 100) : 0;
+            hitRateEl.textContent = `${rate}%`;
+        }
+    } catch {
+        // Non-blocking
+    }
 }
 
 function setupProviderQuotaCards(): void {
@@ -1249,6 +1273,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     if (changes.aiMode) void refreshProviderQuotasUI();
     if (changes.settingsSyncStatus) renderSettingsSyncStatus(changes.settingsSyncStatus.newValue);
     if (changes.appErrorLogs) void refreshErrorLogUI();
+    if (changes.ai_cache_stats) void refreshCacheEfficiencyUI();
     if (changes.themeCustomization)
         applyThemeCustomization(document.documentElement, changes.themeCustomization.newValue);
 });

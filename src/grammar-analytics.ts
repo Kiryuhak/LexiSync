@@ -128,6 +128,12 @@ export interface GrammarCategoryStat {
     percentage: number;
 }
 
+export interface WordFixStat {
+    original: string;
+    corrected: string;
+    count: number;
+}
+
 export interface GrammarAnalyticsReport {
     totalEntries: number;
     totalCorrections: number;
@@ -136,6 +142,7 @@ export interface GrammarAnalyticsReport {
     categories: GrammarCategoryStat[];
     topCategories: GrammarCategoryStat[];
     helpfulRules: GrammarCategoryInfo[];
+    topWordFixes?: WordFixStat[];
 }
 
 const INTRODUCTORY_WORDS = [
@@ -293,6 +300,7 @@ export function generateGrammarAnalytics(items: HistoryItem[]): GrammarAnalytics
 
     let totalCorrections = 0;
     let cleanEntriesCount = 0;
+    const wordFixMap = new Map<string, { original: string; corrected: string; count: number }>();
 
     for (const item of analyzableItems) {
         if (!item.original || !item.result || item.original.trim() === item.result.trim()) {
@@ -309,7 +317,35 @@ export function generateGrammarAnalytics(items: HistoryItem[]): GrammarAnalytics
                 totalCorrections++;
             }
         }
+
+        const origWords = item.original.trim().split(/\s+/);
+        const resWords = item.result.trim().split(/\s+/);
+        if (origWords.length === resWords.length && origWords.length <= 40) {
+            for (let i = 0; i < origWords.length; i++) {
+                const wOrig = origWords[i].replace(/[.,!?:;«»""'()]/g, '');
+                const wRes = resWords[i].replace(/[.,!?:;«»""'()]/g, '');
+                if (
+                    wOrig &&
+                    wRes &&
+                    wOrig.toLowerCase() !== wRes.toLowerCase() &&
+                    wOrig.length >= 3 &&
+                    wOrig.length <= 25
+                ) {
+                    const key = `${wOrig.toLowerCase()}→${wRes.toLowerCase()}`;
+                    const existing = wordFixMap.get(key);
+                    if (existing) {
+                        existing.count++;
+                    } else {
+                        wordFixMap.set(key, { original: wOrig, corrected: wRes, count: 1 });
+                    }
+                }
+            }
+        }
     }
+
+    const topWordFixes = Array.from(wordFixMap.values())
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
 
     const categoriesList: GrammarCategoryStat[] = Object.keys(counts).map((key) => {
         const catId = key as GrammarErrorCategory;
@@ -342,5 +378,6 @@ export function generateGrammarAnalytics(items: HistoryItem[]): GrammarAnalytics
         categories: categoriesList,
         topCategories,
         helpfulRules,
+        topWordFixes,
     };
 }

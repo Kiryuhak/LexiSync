@@ -121,7 +121,40 @@ function createButton(
     return button;
 }
 
-function createTextBlock(labelText: string, value: string, result = false): HTMLElement {
+function appendHighlightedText(container: HTMLElement, text: string, query: string): void {
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) {
+        container.textContent = text;
+        return;
+    }
+    const lowerText = text.toLowerCase();
+    const lowerQuery = trimmedQuery.toLowerCase();
+    let startIndex = 0;
+    let matchIndex = lowerText.indexOf(lowerQuery, startIndex);
+
+    if (matchIndex === -1) {
+        container.textContent = text;
+        return;
+    }
+
+    container.replaceChildren();
+    while (matchIndex !== -1) {
+        if (matchIndex > startIndex) {
+            container.appendChild(document.createTextNode(text.slice(startIndex, matchIndex)));
+        }
+        const mark = document.createElement('mark');
+        mark.className = 'history-search-match';
+        mark.textContent = text.slice(matchIndex, matchIndex + trimmedQuery.length);
+        container.appendChild(mark);
+        startIndex = matchIndex + trimmedQuery.length;
+        matchIndex = lowerText.indexOf(lowerQuery, startIndex);
+    }
+    if (startIndex < text.length) {
+        container.appendChild(document.createTextNode(text.slice(startIndex)));
+    }
+}
+
+function createTextBlock(labelText: string, value: string, result = false, query = ''): HTMLElement {
     const block = document.createElement('div');
     block.className = 'text-block';
     const label = document.createElement('div');
@@ -129,7 +162,7 @@ function createTextBlock(labelText: string, value: string, result = false): HTML
     label.textContent = labelText;
     const content = document.createElement('div');
     content.className = result ? 'content result' : 'content';
-    content.textContent = value;
+    appendHighlightedText(content, value, query);
     block.append(label, content);
     return block;
 }
@@ -175,12 +208,50 @@ function renderExplanationContent(container: HTMLElement, explanation: string, o
     container.append(header, body);
 }
 
+const selectedItemIds = new Set<number>();
+
+function updateBulkBarUI(): void {
+    const bulkBar = document.getElementById('historyBulkBar');
+    const countEl = document.getElementById('bulkSelectedCount');
+    const selectAllCb = document.getElementById('bulkSelectAll') as HTMLInputElement | null;
+    if (!bulkBar) return;
+
+    if (selectedItemIds.size === 0) {
+        bulkBar.hidden = true;
+        if (selectAllCb) selectAllCb.checked = false;
+    } else {
+        bulkBar.hidden = false;
+        if (countEl) countEl.textContent = `${t('bulkSelectedLabel', 'Выбрано')}: ${selectedItemIds.size}`;
+        const filtered = getFilteredHistory();
+        if (selectAllCb) {
+            selectAllCb.checked = filtered.length > 0 && filtered.every((item) => selectedItemIds.has(item.id));
+        }
+    }
+}
+
 function createHistoryCard(item: HistoryItem): HTMLElement {
     const card = document.createElement('article');
     card.className = 'history-card';
     card.classList.toggle('is-favorite', item.favorite === true);
     const header = document.createElement('div');
     header.className = 'history-header';
+
+    const selectCb = document.createElement('input');
+    selectCb.type = 'checkbox';
+    selectCb.className = 'history-card-select-cb';
+    selectCb.dataset.id = String(item.id);
+    selectCb.checked = selectedItemIds.has(item.id);
+    selectCb.setAttribute('aria-label', t('selectRecord', 'Выбрать запись'));
+    selectCb.addEventListener('change', () => {
+        if (selectCb.checked) {
+            selectedItemIds.add(item.id);
+        } else {
+            selectedItemIds.delete(item.id);
+        }
+        updateBulkBarUI();
+    });
+    header.appendChild(selectCb);
+
     const badge = document.createElement('span');
     badge.className = 'mode-badge';
     badge.textContent = item.customName || MODE_NAMES[item.mode] || item.mode;
@@ -388,10 +459,11 @@ function createHistoryCard(item: HistoryItem): HTMLElement {
         ),
     );
 
+    const currentQuery = searchInput?.value.trim() || '';
     card.append(
         header,
-        createTextBlock(t('original', 'Оригинал'), item.original),
-        createTextBlock(t('aiResult', 'Результат AI'), item.result, true),
+        createTextBlock(t('original', 'Оригинал'), item.original, false, currentQuery),
+        createTextBlock(t('aiResult', 'Результат AI'), item.result, true, currentQuery),
         explanationBlock,
         actions,
     );
@@ -448,6 +520,7 @@ function renderHistory(): void {
     const filtered = getFilteredHistory();
     clearBtn?.classList.toggle('hidden', history.length === 0);
     exportBtn?.classList.toggle('hidden', history.length === 0);
+    updateBulkBarUI();
 
     if (filtered.length === 0) {
         const empty = document.createElement('div');
@@ -588,6 +661,35 @@ function renderGrammarAnalytics(): void {
         }
     }
 
+    const topWordFixesSection = document.getElementById('topWordFixesSection');
+    const topWordFixesList = document.getElementById('topWordFixesList');
+    if (topWordFixesSection && topWordFixesList) {
+        if (report.topWordFixes && report.topWordFixes.length > 0) {
+            topWordFixesSection.hidden = false;
+            topWordFixesList.replaceChildren();
+            for (const fix of report.topWordFixes) {
+                const chip = document.createElement('div');
+                chip.className = 'top-fix-chip';
+                const orig = document.createElement('span');
+                orig.className = 'top-fix-orig';
+                orig.textContent = fix.original;
+                const arrow = document.createElement('span');
+                arrow.className = 'top-fix-arrow';
+                arrow.textContent = '→';
+                const res = document.createElement('span');
+                res.className = 'top-fix-res';
+                res.textContent = fix.corrected;
+                const count = document.createElement('span');
+                count.className = 'top-fix-count';
+                count.textContent = `×${fix.count}`;
+                chip.append(orig, arrow, res, count);
+                topWordFixesList.appendChild(chip);
+            }
+        } else {
+            topWordFixesSection.hidden = true;
+        }
+    }
+
     if (analyticsRulesGrid) {
         analyticsRulesGrid.replaceChildren();
         for (const rule of report.helpfulRules) {
@@ -638,6 +740,52 @@ function switchHistoryTab(tab: 'list' | 'analytics'): void {
 tabHistoryList?.addEventListener('click', () => switchHistoryTab('list'));
 tabGrammarAnalytics?.addEventListener('click', () => switchHistoryTab('analytics'));
 
+function setupBulkActions(): void {
+    const selectAllCb = document.getElementById('bulkSelectAll') as HTMLInputElement | null;
+    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+    const bulkExportCsvBtn = document.getElementById('bulkExportCsvBtn');
+
+    selectAllCb?.addEventListener('change', () => {
+        const filtered = getFilteredHistory();
+        if (selectAllCb.checked) {
+            filtered.forEach((item) => selectedItemIds.add(item.id));
+        } else {
+            selectedItemIds.clear();
+        }
+        document.querySelectorAll<HTMLInputElement>('.history-card-select-cb').forEach((cb) => {
+            const id = Number(cb.dataset.id);
+            cb.checked = !isNaN(id) ? selectedItemIds.has(id) : false;
+        });
+        updateBulkBarUI();
+    });
+
+    bulkDeleteBtn?.addEventListener('click', async () => {
+        if (selectedItemIds.size === 0) return;
+        const count = selectedItemIds.size;
+        for (const id of selectedItemIds) {
+            await deleteHistoryItem(id);
+        }
+        history = history.filter((item) => !selectedItemIds.has(item.id));
+        selectedItemIds.clear();
+        updateBulkBarUI();
+        renderHistory();
+        showHistoryStatus(`${t('deleteSelected', 'Удалено записей')}: ${count}`, 'success');
+    });
+
+    bulkExportCsvBtn?.addEventListener('click', () => {
+        const itemsToExport = history.filter((item) => selectedItemIds.has(item.id));
+        if (itemsToExport.length === 0) return;
+        const csvContent = formatHistoryAsCsv(itemsToExport);
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.href = url;
+        link.download = `lexisync-selected-${new Date().toISOString().slice(0, 10)}.csv`;
+        link.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    });
+}
+
 async function initialize(): Promise<void> {
     localizeDocument();
     const theme = await chrome.storage.local.get({ selectedTheme: 'auto', visualStyle: 'liquid-glass' });
@@ -646,6 +794,7 @@ async function initialize(): Promise<void> {
         (theme.selectedTheme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
     document.documentElement.dataset.theme = dark ? 'dark' : 'light';
     applyAppearanceStyle(document.documentElement, theme.visualStyle);
+    setupBulkActions();
     history = await getHistory();
     renderHistory();
     renderGrammarAnalytics();

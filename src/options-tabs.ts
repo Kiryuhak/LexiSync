@@ -107,10 +107,21 @@ export function setupSettingsSearch(): void {
             return;
         }
 
+        let firstMatch: HTMLElement | null = null;
         document.querySelectorAll<HTMLElement>('[data-settings-group]').forEach((element) => {
             const text = element.textContent?.toLowerCase() || '';
-            element.hidden = !text.includes(query);
+            const matches = text.includes(query);
+            element.hidden = !matches;
+            if (matches && !firstMatch) {
+                firstMatch = element;
+            }
         });
+
+        if (firstMatch) {
+            (firstMatch as HTMLElement).classList.remove('highlight-pulse');
+            void (firstMatch as HTMLElement).offsetWidth;
+            (firstMatch as HTMLElement).classList.add('highlight-pulse');
+        }
     });
 }
 

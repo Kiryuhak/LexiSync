@@ -1264,5 +1264,32 @@
     },
     "searchInSettings": {
         "message": "Search in settings"
+    },
+    "cacheEfficiencyTitle": {
+        "message": "Local Cache Efficiency"
+    },
+    "cacheSavedTokensLabel": {
+        "message": "Tokens saved"
+    },
+    "cacheSavedTimeLabel": {
+        "message": "Time saved"
+    },
+    "cacheHitRateLabel": {
+        "message": "Cache hit rate"
+    },
+    "exportSelectedCsv": {
+        "message": "Export CSV"
+    },
+    "deleteSelected": {
+        "message": "Delete selected"
+    },
+    "bulkSelectedLabel": {
+        "message": "Selected"
+    },
+    "topMistakesTitle": {
+        "message": "Frequent Corrections"
+    },
+    "selectRecord": {
+        "message": "Select record"
     }
 }

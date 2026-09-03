@@ -3592,3 +3592,40 @@ test('SETTINGS_TAB_GUIDES содержит описания всех 7 вкла�
         expect(guide.icon).toBeTruthy();
     }
 });
+
+test('generateGrammarAnalytics извлекает частые исправления слов', async () => {
+    const { generateGrammarAnalytics } = await import('../src/grammar-analytics');
+    const mockItems = [
+        {
+            id: 1,
+            date: new Date().toISOString(),
+            mode: 'spellcheck' as const,
+            original: 'Он так же пошел в кино и вообщем опоздал',
+            result: 'Он также пошел в кино и в общем опоздал',
+        },
+        {
+            id: 2,
+            date: new Date().toISOString(),
+            mode: 'spellcheck' as const,
+            original: 'Они так же пришли вовремя',
+            result: 'Они также пришли вовремя',
+        },
+    ];
+
+    const report = generateGrammarAnalytics(mockItems);
+    expect(report.topWordFixes).toBeDefined();
+    expect(report.topWordFixes!.length).toBeGreaterThanOrEqual(1);
+    const takzhe = report.topWordFixes!.find((f) => f.original.toLowerCase() === 'так');
+    if (takzhe) {
+        expect(takzhe.count).toBeGreaterThanOrEqual(1);
+    }
+});
+
+test('ai-cache getCacheStats возвращает начальные метрики', async () => {
+    const { getCacheStats } = await import('../src/ai-cache');
+    const stats = await getCacheStats();
+    expect(typeof stats.hits).toBe('number');
+    expect(typeof stats.misses).toBe('number');
+    expect(typeof stats.savedTokens).toBe('number');
+    expect(typeof stats.savedDurationMs).toBe('number');
+});
