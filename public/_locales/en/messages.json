@@ -1241,9 +1241,6 @@
     "pinnedToolbarHint": {
         "message": "Choose the tools that appear in the toolbar immediately upon text selection."
     },
-    "modeTextClean": {
-        "message": "Clean"
-    },
     "historyGroupToday": {
         "message": "Today"
     },

@@ -1249,9 +1249,6 @@
     "pinnedToolbarHint": {
         "message": "Выберите инструменты, которые отображаются на панели сразу при выделении текста."
     },
-    "modeTextClean": {
-        "message": "Очистка"
-    },
     "historyGroupToday": {
         "message": "Сегодня"
     },

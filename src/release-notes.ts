@@ -36,6 +36,19 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.5.8',
+        '2026-09-03',
+        'fixed',
+        'Надёжная проверка пакета для Firefox',
+        'Reliable Firefox package validation',
+        [
+            [
+                'Удалены повторяющиеся ключи локализации, из-за которых Firefox мог отклонить пакет при публикации.',
+                'Removed duplicate localization keys that could cause Firefox to reject the package during publication.',
+            ],
+        ],
+    ),
+    note(
         '5.5.7',
         '2026-09-03',
         'fixed',
