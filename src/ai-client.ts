@@ -1,6 +1,4 @@
 import { t } from './i18n';
-import { streamText, type MistralRequest, type MistralSettings } from './mistral-client';
-import { streamGroqText } from './groq-client';
 import { recordErrorLog } from './error-log';
 import {
     AiProviderError,
@@ -9,9 +7,17 @@ import {
     type AiProviderType,
     type AiRequestOptions,
     type PrimaryAiProvider,
+    type AIProvider,
 } from './ai-provider-types';
+import { mistralProvider } from './mistral-provider';
+import { gigaChatProvider } from './gigachat-provider';
 
-const DEFAULT_PROVIDER_TIMEOUT_MS = 12_000;
+export const AI_PROVIDERS: Record<AiProviderType, AIProvider> = {
+    mistral: mistralProvider,
+    gigachat: gigaChatProvider,
+};
+
+const DEFAULT_PROVIDER_TIMEOUT_MS = 15_000;
 const DEFAULT_PROVIDER_STALL_TIMEOUT_MS = 15_000;
 const DEFAULT_RATE_LIMIT_COOLDOWN_MS = 60_000;
 const MAX_RATE_LIMIT_COOLDOWN_MS = 10 * 60_000;
@@ -25,7 +31,7 @@ interface ProviderHealth {
 
 const providerHealth: Record<AiProviderType, ProviderHealth> = {
     mistral: { consecutiveFailures: 0, cooldownUntil: 0 },
-    groq: { consecutiveFailures: 0, cooldownUntil: 0 },
+    gigachat: { consecutiveFailures: 0, cooldownUntil: 0 },
 };
 
 export function resetAiProviderHealth(): void {
@@ -198,26 +204,17 @@ export function getFallbackNotification(
     toProvider: AiProviderType,
     code: AiErrorCode,
 ): string {
-    if (fromProvider === 'mistral' && toProvider === 'groq') {
+    if (fromProvider === 'mistral' && toProvider === 'gigachat') {
         if (code === 'RATE_LIMIT' || code === 'QUOTA_EXCEEDED') {
-            return t('fallbackToGroqDueToRateLimit', 'Лимит Mistral достигнут. Запрос выполнен через Groq (Qwen 3.6).');
+            return t('fallbackToGigaChatDueToRateLimit', 'Лимит Mistral достигнут. Запрос выполнен через GigaChat.');
         }
-        if (code === 'AUTH_ERROR') {
-            return t(
-                'fallbackToGroqDueToAuth',
-                'Ошибка ключа Mistral. Запрос выполнен через резервный Groq (Qwen 3.6).',
-            );
-        }
-        return t('fallbackToGroqDueToOutage', 'Сервис Mistral временно недоступен. Использован Groq (Qwen 3.6).');
+        return t('fallbackToGigaChatDueToOutage', 'Сервис Mistral временно недоступен. Использован GigaChat.');
     }
-    if (fromProvider === 'groq' && toProvider === 'mistral') {
+    if (fromProvider === 'gigachat' && toProvider === 'mistral') {
         if (code === 'RATE_LIMIT' || code === 'QUOTA_EXCEEDED') {
-            return t('fallbackToMistralDueToRateLimit', 'Лимит Groq достигнут. Запрос выполнен через Mistral.');
+            return t('fallbackToMistralDueToRateLimit', 'Лимит GigaChat достигнут. Запрос выполнен через Mistral.');
         }
-        if (code === 'AUTH_ERROR') {
-            return t('fallbackToMistralDueToAuth', 'Ошибка ключа Groq. Запрос выполнен через резервный Mistral.');
-        }
-        return t('fallbackToMistralDueToOutage', 'Сервис Groq временно недоступен. Использован Mistral.');
+        return t('fallbackToMistralDueToOutage', 'Сервис GigaChat временно недоступен. Использован Mistral.');
     }
     return '';
 }
@@ -226,35 +223,35 @@ export function resolveExecutionPlan(options: {
     primaryProvider: PrimaryAiProvider;
     autoFallback: boolean;
     mistralApiKey?: string;
-    groqApiKey?: string;
+    gigachatAuthKey?: string;
 }): { primary: AiProviderType; backup?: AiProviderType } {
     const mistralKey = (options.mistralApiKey || '').trim();
-    const groqKey = (options.groqApiKey || '').trim();
+    const gigaChatKey = (options.gigachatAuthKey || '').trim();
 
     let primary: AiProviderType;
     let secondary: AiProviderType;
 
-    if (options.primaryProvider === 'groq') {
-        primary = 'groq';
+    if (options.primaryProvider === 'gigachat') {
+        primary = 'gigachat';
         secondary = 'mistral';
     } else if (options.primaryProvider === 'mistral') {
         primary = 'mistral';
-        secondary = 'groq';
+        secondary = 'gigachat';
     } else {
         // 'auto'
         if (mistralKey) {
             primary = 'mistral';
-            secondary = 'groq';
-        } else if (groqKey) {
-            primary = 'groq';
+            secondary = 'gigachat';
+        } else if (gigaChatKey) {
+            primary = 'gigachat';
             secondary = 'mistral';
         } else {
             primary = 'mistral';
-            secondary = 'groq';
+            secondary = 'gigachat';
         }
     }
 
-    const hasBackupKey = secondary === 'mistral' ? Boolean(mistralKey) : Boolean(groqKey);
+    const hasBackupKey = secondary === 'mistral' ? Boolean(mistralKey) : Boolean(gigaChatKey);
     return {
         primary,
         backup: options.autoFallback && hasBackupKey ? secondary : undefined,
@@ -263,20 +260,18 @@ export function resolveExecutionPlan(options: {
 
 export async function executeAiStreamRequest(options: AiRequestOptions): Promise<AiExecutionResult> {
     const mistralKey = (options.mistralApiKey || '').trim();
-    const groqKey = (options.groqApiKey || '').trim();
+    const gigaChatKey = (options.gigachatAuthKey || '').trim();
     const plan = resolveExecutionPlan({
         primaryProvider: options.primaryProvider,
         autoFallback: options.autoFallback,
         mistralApiKey: mistralKey,
-        groqApiKey: groqKey,
+        gigachatAuthKey: gigaChatKey,
     });
 
-    const getKey = (provider: AiProviderType): string => (provider === 'mistral' ? mistralKey : groqKey);
+    const getKey = (provider: AiProviderType): string => (provider === 'mistral' ? mistralKey : gigaChatKey);
 
     const callProvider = async (
         provider: AiProviderType,
-        msg: MistralRequest,
-        settings: MistralSettings,
         signal: AbortSignal,
         onChunk: (text: string) => void,
     ): Promise<void> => {
@@ -285,7 +280,7 @@ export async function executeAiStreamRequest(options: AiRequestOptions): Promise
             const missingMsg =
                 provider === 'mistral'
                     ? t('apiKeyMissing', 'API-ключ Mistral не настроен.')
-                    : t('groqApiKeyMissing', 'API-ключ Groq не настроен.');
+                    : t('gigachatAuthKeyMissing', 'Authorization Key GigaChat не настроен.');
             throw new AiProviderError(missingMsg, 'AUTH_ERROR', provider, false, 401);
         }
         await runWithProviderTimeout(
@@ -298,8 +293,14 @@ export async function executeAiStreamRequest(options: AiRequestOptions): Promise
                     markActivity();
                     onChunk(text);
                 };
-                if (provider === 'mistral') await streamText(msg, key, settings, providerSignal, onProviderChunk);
-                else await streamGroqText(msg, key, settings, providerSignal, onProviderChunk);
+                const providerInstance = AI_PROVIDERS[provider];
+                await providerInstance.streamChat(
+                    options.request,
+                    key,
+                    options.settings,
+                    providerSignal,
+                    onProviderChunk,
+                );
             },
         );
     };
@@ -315,7 +316,7 @@ export async function executeAiStreamRequest(options: AiRequestOptions): Promise
         const missingMsg =
             effectivePrimary === 'mistral'
                 ? t('apiKeyMissing', 'API-ключ Mistral не настроен.')
-                : t('groqApiKeyMissing', 'API-ключ Groq не настроен.');
+                : t('gigachatAuthKeyMissing', 'Authorization Key GigaChat не настроен.');
         throw new AiProviderError(missingMsg, 'AUTH_ERROR', effectivePrimary, false, 401);
     } else if (
         options.autoFallback &&
@@ -332,7 +333,7 @@ export async function executeAiStreamRequest(options: AiRequestOptions): Promise
     let primaryError: AiProviderError;
     let primaryProducedContent = false;
     try {
-        await callProvider(effectivePrimary, options.request, options.settings, options.signal, (text) => {
+        await callProvider(effectivePrimary, options.signal, (text) => {
             primaryProducedContent = true;
             options.onChunk(text);
         });
@@ -351,21 +352,23 @@ export async function executeAiStreamRequest(options: AiRequestOptions): Promise
         recordProviderFailure(primaryError);
     }
 
+    // КРИТИЧНОЕ ПРАВИЛО: Fallback разрешен ТОЛЬКО при ошибках, подходящих под fallback (isFallbackEligible: 429, 5xx, timeout, network error).
+    // Для AUTH_ERROR (401, 403, некорректный ключ) fallback СТРОГО ЗАПРЕЩЕН, чтобы пользователь четко видел ошибку авторизации.
     const canFallback =
         options.autoFallback &&
         Boolean(fallbackProvider) &&
         Boolean(getKey(fallbackProvider!)) &&
         getAiProviderCooldownRemaining(fallbackProvider!) === 0 &&
-        (primaryError.isFallbackEligible || primaryError.code === 'AUTH_ERROR');
+        primaryError.isFallbackEligible;
 
     if (!canFallback || !fallbackProvider) throw primaryError;
 
     // Частичный поток первого сервиса нельзя смешивать с новым ответом резервного сервиса.
     if (primaryProducedContent) options.onReset?.();
 
-    // Резервный провайдер вызывается ровно один раз; возврата к первому сервису нет.
+    // Резервный провайдер вызывается ровно один раз; возврата к первому сервису нет (no fallback loop).
     try {
-        await callProvider(fallbackProvider, options.request, options.settings, options.signal, options.onChunk);
+        await callProvider(fallbackProvider, options.signal, options.onChunk);
         recordProviderSuccess(fallbackProvider);
         const notification = getFallbackNotification(effectivePrimary, fallbackProvider, primaryError.code);
         return {
@@ -385,7 +388,7 @@ export async function executeAiStreamRequest(options: AiRequestOptions): Promise
             throw new AiProviderError(
                 t(
                     'allProvidersRateLimited',
-                    'Лимиты всех доступных AI-провайдеров (Mistral и Groq) исчерпаны. Попробуйте позже.',
+                    'Лимиты всех доступных AI-провайдеров (Mistral и GigaChat) исчерпаны. Попробуйте позже.',
                 ),
                 'RATE_LIMIT',
                 fallbackProvider,

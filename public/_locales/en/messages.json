@@ -1,6 +1,6 @@
 {
     "extName": { "message": "Grammar and Spell Checker - LexiSync" },
-    "extDesc": { "message": "Smart text assistant powered by Mistral AI and Groq" },
+    "extDesc": { "message": "Smart text assistant powered by Mistral AI and GigaChat" },
     "commandSpellcheck": { "message": "Fix writing errors" },
     "commandStyle": { "message": "Rewrite text" },
     "commandEmoji": { "message": "Add relevant emoji" },
@@ -82,7 +82,7 @@
     "budgetProfilesTitle": { "message": "Ready profiles:" },
     "presetEconomy": { "message": "🌿 Economy" },
     "presetBalanced": { "message": "⚖️ Balanced" },
-    "presetGroqQuota": { "message": "⚡ Groq Free Quota (14,400)" },
+    "presetGigaChatQuota": { "message": "💚 GigaChat Quota" },
     "presetMistralQuota": { "message": "🌪️ Mistral Quota (1,000)" },
     "presetSafeDaily": { "message": "🛡️ Conservative (100)" },
     "presetSyncActiveProvider": { "message": "🔄 Sync with Active Provider" },
@@ -240,10 +240,10 @@
     "getApiKeyStep1": { "message": "Open console.mistral.ai." },
     "getApiKeyStep2": { "message": "Find API Keys in the left menu." },
     "getApiKeyStep3": { "message": "Select Create new key and copy it." },
-    "getGroqApiKeySubTitle": { "message": "⚡ Groq (Qwen 3.6 27B)" },
-    "getGroqApiKeyStep1": { "message": "Open console.groq.com/keys." },
-    "getGroqApiKeyStep2": { "message": "Open the API Keys section." },
-    "getGroqApiKeyStep3": { "message": "Select Create API Key and copy it." },
+    "getGigaChatAuthKeySubTitle": { "message": "💚 GigaChat (Sber)" },
+    "getGigaChatAuthKeyStep1": { "message": "Open developers.sber.ru Salute portal." },
+    "getGigaChatAuthKeyStep2": { "message": "Create a project with GigaChat API access." },
+    "getGigaChatAuthKeyStep3": { "message": "Copy the Authorization Key (Base64) and paste it into settings." },
     "save": { "message": "Save" },
     "saved": { "message": "✓ Saved successfully!" },
     "onboardingIntro": { "message": "The extension corrects, translates, and improves text directly on the page." },
@@ -260,20 +260,20 @@
     "onboardingApiHint": {
         "message": "The key is required for AI commands and stays in the extension's local storage."
     },
-    "onboardingGroqApi": { "message": "Add a Groq API key" },
-    "onboardingGroqApiHint": {
-        "message": "The key is needed for the fast Qwen 3.6 27B model and automatic fallback when limits are reached."
+    "onboardingGigaChatApi": { "message": "Add GigaChat Authorization Key" },
+    "onboardingGigaChatApiHint": {
+        "message": "The key is needed for the GigaChat model and automatic fallback when issues occur."
     },
-    "onboardingGroqPreview": { "message": "Groq · Qwen 3.6 27B · Preview" },
+    "onboardingGigaChatPers": { "message": "GigaChat · GIGACHAT_API_PERS" },
     "restartTutorial": { "message": "Open tutorial" },
     "tutorialBenefitFix": { "message": "Fix errors and improve writing style" },
     "tutorialBenefitTranslate": { "message": "Translate, add emoji, and run custom commands" },
     "tutorialBenefitWorkspace": { "message": "Quick commands and local history" },
     "tutorialOpenMistral": { "message": "Open Mistral Studio ↗" },
     "tutorialMistralSignIn": { "message": "Sign in to Mistral or create an account" },
-    "tutorialGroqSignIn": { "message": "Sign in to your Groq account or create a new one" },
+    "tutorialGigaChatSignIn": { "message": "Sign in with Sber ID to Salute developer portal" },
     "tutorialApiKeyLabel": { "message": "Mistral API key" },
-    "tutorialGroqApiKeyLabel": { "message": "Groq API key" },
+    "tutorialGigaChatAuthKeyLabel": { "message": "Authorization Key GigaChat" },
     "tutorialCheckKey": { "message": "Verify" },
     "tutorialKeyRequired": { "message": "Paste an API key first." },
     "tutorialKeyInvalid": { "message": "The key did not pass verification. Check it and try again." },
@@ -493,7 +493,7 @@
     "releaseNotesEmpty": { "message": "No updates match this search." },
     "tabGuideMainTitle": { "message": "Start with the essentials" },
     "tabGuideMainDescription": {
-        "message": "Connect Mistral or Groq, then choose the primary service and response style."
+        "message": "Connect Mistral or GigaChat, then choose the primary service and response style."
     },
     "tabGuideAiTitle": { "message": "Manage models, quotas, and limits" },
     "tabGuideAiDescription": {
@@ -720,10 +720,10 @@
         "message": "Usage & Limits"
     },
     "providerLimitsIntro": {
-        "message": "Actual quotas depend on your Groq or Mistral plan. LexiSync shows local usage and lets you set a shared safety limit."
+        "message": "Actual quotas depend on your GigaChat or Mistral plan. LexiSync shows local usage and lets you set a shared safety limit."
     },
-    "groqTierFree": {
-        "message": "Free Tier"
+    "gigachatTierPers": {
+        "message": "GIGACHAT_API_PERS"
     },
     "providerModelLabel": {
         "message": "Active model:"
@@ -731,8 +731,8 @@
     "providerAccountQuota": {
         "message": "Account quotas:"
     },
-    "providerAccountQuotaHint": {
-        "message": "Defined by your plan in Groq Console"
+    "providerAccountQuotaHintGigaChat": {
+        "message": "Defined by your balance in Sber Salute portal"
     },
     "mistralAccountQuotaHint": {
         "message": "Defined by your plan in La Plateforme"
@@ -986,8 +986,8 @@
     "providerMistral": {
         "message": "🌪️ Mistral AI (Mistral Small)"
     },
-    "providerGroq": {
-        "message": "⚡ Groq (Qwen 3.6 27B · Preview)"
+    "providerGigaChat": {
+        "message": "💚 GigaChat (Sber)"
     },
     "autoFallbackLabel": {
         "message": "Allow backup provider switching"
@@ -995,74 +995,83 @@
     "autoFallbackHint": {
         "message": "When disabled, text is never sent to another AI provider. When enabled, the backup is used only after a rate limit, timeout, or temporary failure."
     },
-    "groqApiKeyLabel": {
-        "message": "Your Groq API Key (Qwen 3.6 27B):"
+    "gigachatAuthKeyLabel": {
+        "message": "Your GigaChat Authorization Key:"
     },
-    "groqApiKeyPlaceholder": {
-        "message": "Paste Groq key (gsk_...)"
+    "gigachatAuthKeyPlaceholder": {
+        "message": "Paste Authorization Key (MDE5...)"
     },
-    "groqApiKeySimpleHint": {
-        "message": "A separate key for Qwen 3.6 27B. The Groq model is currently in Preview."
+    "gigachatAuthKeySimpleHint": {
+        "message": "Authorization Key (Base64) from Sber Salute/GigaChat. Access tokens refresh automatically."
     },
-    "checkGroqApiKey": {
-        "message": "Test Groq Key"
+    "checkGigaChatAuthKey": {
+        "message": "Test GigaChat Key"
     },
-    "toggleGroqApiKey": {
-        "message": "Show or hide Groq API key"
+    "toggleGigaChatAuthKey": {
+        "message": "Show or hide GigaChat Authorization Key"
     },
-    "groqApiKeyInvalid": {
-        "message": "Groq API key is invalid. Check the key in settings."
+    "gigachatAuthKeyInvalid": {
+        "message": "GigaChat Authorization Key is invalid. Check the key in settings."
     },
-    "groqRateLimit": {
-        "message": "Groq rate limit exceeded. Please try again later."
+    "gigachatRateLimit": {
+        "message": "GigaChat rate limit exceeded. Please try again later."
     },
-    "groqUnavailable": {
-        "message": "Groq service is temporarily unavailable. Please try again."
+    "gigachatUnavailable": {
+        "message": "GigaChat service is temporarily unavailable. Please try again."
     },
-    "groqApiError": {
-        "message": "Groq API Error"
+    "gigachatApiError": {
+        "message": "GigaChat API Error"
     },
-    "groqNetworkFailed": {
-        "message": "Could not connect to Groq. Check your connection and try again."
+    "gigachatNetworkFailed": {
+        "message": "Could not connect to GigaChat. Check your connection and try again."
     },
-    "tutorialGroqKeyRequired": {
-        "message": "Please enter Groq API key first."
+    "gigachatTimeout": {
+        "message": "GigaChat authorization service timed out."
     },
-    "groqApiKeyValid": {
-        "message": "Groq API key is valid and ready to use."
+    "gigachatNetworkError": {
+        "message": "Could not connect to GigaChat authorization server."
     },
-    "groqModelUnavailable": {
-        "message": "The key works, but Qwen 3.6 27B is not currently available to this Groq account."
+    "gigachatAuthFailed": {
+        "message": "Failed to obtain GigaChat access token."
+    },
+    "gigachatInvalidResponse": {
+        "message": "Invalid response from GigaChat authorization server."
+    },
+    "gigachatEmptyToken": {
+        "message": "GigaChat server returned an empty access token."
+    },
+    "tutorialGigaChatKeyRequired": {
+        "message": "Please enter GigaChat Authorization Key first."
+    },
+    "gigachatAuthKeyValid": {
+        "message": "GigaChat Authorization Key is valid and ready to use."
+    },
+    "gigachatModelUnavailable": {
+        "message": "The key works, but access to the GigaChat model is currently restricted for this account."
     },
     "providerTimeout": {
         "message": "The AI service did not respond in time."
     },
-    "groqApiKeyMissing": {
-        "message": "Groq API key is not configured."
+    "gigachatAuthKeyMissing": {
+        "message": "GigaChat Authorization Key is not configured."
     },
-    "groqEmptyStream": {
-        "message": "Groq returned an empty data stream."
+    "gigachatEmptyStream": {
+        "message": "GigaChat returned an empty data stream."
     },
-    "groqIncompleteStream": {
-        "message": "Groq response was interrupted before completion. Please retry."
+    "gigachatIncompleteStream": {
+        "message": "GigaChat response was interrupted before completion. Please retry."
     },
-    "fallbackToGroqDueToRateLimit": {
-        "message": "Mistral limit reached. Request completed via Groq (Qwen 3.6)."
+    "fallbackToGigaChatDueToRateLimit": {
+        "message": "Mistral limit reached. Request completed via GigaChat."
     },
     "fallbackToMistralDueToRateLimit": {
-        "message": "Groq limit reached. Request completed via Mistral."
+        "message": "GigaChat limit reached. Request completed via Mistral."
     },
-    "fallbackToGroqDueToOutage": {
-        "message": "Mistral temporarily unavailable. Used Groq (Qwen 3.6)."
+    "fallbackToGigaChatDueToOutage": {
+        "message": "Mistral temporarily unavailable. Used GigaChat."
     },
     "fallbackToMistralDueToOutage": {
-        "message": "Groq temporarily unavailable. Used Mistral."
-    },
-    "fallbackToGroqDueToAuth": {
-        "message": "Mistral auth issue. Request fulfilled via fallback Groq (Qwen 3.6)."
-    },
-    "fallbackToMistralDueToAuth": {
-        "message": "Groq auth issue. Request fulfilled via fallback Mistral."
+        "message": "GigaChat temporarily unavailable. Used Mistral."
     },
     "screenCaptureRestricted": {
         "message": "Screen capture (Alt+S) is not available on browser internal pages. Open a regular web page."
@@ -1071,25 +1080,25 @@
         "message": "Could not capture this tab. Switch to a regular web page and press Alt+S again."
     },
     "ocrKeyRequired": {
-        "message": "Mistral or Groq API key is required for text recognition (OCR)."
+        "message": "Mistral API key is required for text recognition (OCR)."
     },
-    "mistralRateLimitNeedGroqKey": {
-        "message": "Mistral rate limit reached. Add Groq API Key in settings to enable automatic fallback."
+    "mistralRateLimitNeedGigaChatKey": {
+        "message": "Mistral rate limit reached. Add GigaChat Authorization Key in settings to enable automatic fallback."
     },
-    "groqRateLimitNeedMistralKey": {
-        "message": "Groq rate limit reached. Add Mistral API Key in settings to enable automatic fallback."
+    "gigachatRateLimitNeedMistralKey": {
+        "message": "GigaChat rate limit reached. Add Mistral API Key in settings to enable automatic fallback."
     },
     "allProvidersRateLimited": {
-        "message": "Rate limits for all available AI providers (Mistral and Groq) are exhausted. Please try later."
+        "message": "Rate limits for all available AI providers (Mistral and GigaChat) are exhausted. Please try later."
     },
     "ocrMistralKeyRequired": {
         "message": "Mistral API key is required for OCR text recognition."
     },
-    "getGroqKeyGuide": {
-        "message": "Where to get free Groq API Key? ➔ console.groq.com/keys"
+    "getGigaChatKeyGuide": {
+        "message": "Where to get GigaChat Authorization Key? ➔ developers.sber.ru"
     },
-    "tutorialOpenGroq": {
-        "message": "Open Groq Console ↗"
+    "tutorialOpenGigaChat": {
+        "message": "Open Sber Salute Portal ↗"
     },
     "serverStatusHealthy": {
         "message": "Operational"

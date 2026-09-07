@@ -16,7 +16,7 @@ export type TextMode =
     | 'text_clean';
 export type RequestMode = TextMode | 'ocr' | 'custom';
 export type AiMode = 'fast' | 'balanced' | 'quality';
-export type PrimaryAiProvider = 'auto' | 'mistral' | 'groq';
+export type PrimaryAiProvider = 'auto' | 'mistral' | 'gigachat';
 
 export interface TextSnippet {
     id: string;
@@ -102,6 +102,6 @@ export interface StreamResponse {
     text?: string;
     error?: string;
     retryable?: boolean;
-    provider?: 'mistral' | 'groq';
+    provider?: 'mistral' | 'gigachat';
     fallbackNotification?: string;
 }

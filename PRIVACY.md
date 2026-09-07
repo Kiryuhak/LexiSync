@@ -9,7 +9,7 @@ LexiSync — браузерное расширение для проверки, 
 
 ## Важное уведомление о передаче данных
 
-При запуске AI-команды выбранный пользователем текст или выбранная область изображения передаются напрямую из браузера к выбранному **AI-провайдеру (Mistral AI API или Groq API)** по защищённому HTTPS-соединению с использованием собственного API-ключа пользователя. Это необходимо для исправления, переписывания, перевода, добавления эмодзи и OCR.
+При запуске AI-команды выбранный пользователем текст или выбранная область изображения передаются напрямую из браузера к выбранному **AI-провайдеру (Mistral AI API или GigaChat API)** по защищённому HTTPS-соединению с использованием собственного API-ключа пользователя. Это необходимо для исправления, переписывания, перевода, добавления эмодзи и OCR.
 
 Передача окружающего текста, заголовка и домена страницы **отключена по умолчанию**. Она выполняется только после включения пользователем соответствующей настройки и может быть отдельно запрещена для выбранных сайтов.
 
@@ -21,7 +21,7 @@ LexiSync — браузерное расширение для проверки, 
 
 Разработчик и издатель расширения: **Kiryuhak**.
 
-LexiSync не использует собственный сервер разработчика для обработки пользовательского текста. Запросы к AI направляются из расширения непосредственно к выбранному AI-провайдеру (Mistral AI или Groq) с ключом пользователя.
+LexiSync не использует собственный сервер разработчика для обработки пользовательского текста. Запросы к AI направляются из расширения непосредственно к выбранному AI-провайдеру (Mistral AI или GigaChat) с ключом пользователя.
 
 Связаться с разработчиком по вопросам конфиденциальности можно через [GitHub Issues](https://github.com/Kiryuhak/LexiSync/issues).
 
@@ -52,12 +52,13 @@ LexiSync может обрабатывать следующие категори
 
 Настройка отключена по умолчанию. Пользователь может отключить её глобально или для конкретного сайта.
 
-### 2.4. API-ключи Mistral и Groq
+### 2.4. API-ключи Mistral и ключ авторизации GigaChat
 
-Пользователь может предоставить собственные API-ключи Mistral AI и/или Groq. Ключи:
+Пользователь может предоставить собственный API-ключ Mistral AI и/или Authorization Key GigaChat (Base64). Ключи:
 
 - хранятся локально в отдельной защищённой базе IndexedDB расширения на устройстве пользователя;
-- используются исключительно для авторизации запросов к официальным API (`https://api.mistral.ai/` и `https://api.groq.com/`);
+- используются исключительно для авторизации запросов к официальным API (`https://api.mistral.ai/`, `https://ngw.devices.sberbank.ru:9443/` и `https://api.giga.chat/`);
+- временный access token GigaChat сохраняется только локально в защищённом хранилище расширения и обновляется автоматически;
 - не включаются в экспорт настроек;
 - не передаются через синхронизацию настроек браузера;
 - не отправляются разработчику LexiSync или сторонним аналитическим сервисам.
@@ -67,7 +68,7 @@ LexiSync может обрабатывать следующие категори
 На устройстве могут храниться:
 
 - тема, масштаб и оформление интерфейса;
-- выбранный основной AI-провайдер (Mistral, Groq или Автоматически), режим AI, тон, язык, поисковая система и задержка автоматической проверки;
+- выбранный основной AI-провайдер (Mistral, GigaChat или Автоматически), режим AI, тон, язык, поисковая система и задержка автоматической проверки;
 - пользовательские команды, текстовые макросы, глоссарий, личный словарь и профили стиля;
 - списки разрешённых или исключённых сайтов;
 - локальная история исходного и обработанного текста;
@@ -83,14 +84,14 @@ LexiSync не отправляет разработчику телеметрию
 
 ## 3. Когда данные передаются третьим сторонам
 
-### 3.1. AI-провайдеры (Mistral AI и Groq)
+### 3.1. AI-провайдеры (Mistral AI и GigaChat)
 
-Для AI-функций LexiSync передаёт выбранному AI-провайдеру только данные, необходимые для выбранной операции: текст, изображение OCR (только Mistral) и, если это разрешено пользователем, контекст страницы. Соответствующий API-ключ передаётся в заголовке авторизации напрямую к API провайдера:
+Для AI-функций LexiSync передаёт выбранному AI-провайдеру только данные, необходимые для выбранной операции: текст, изображение OCR (только Mistral) и, если это разрешено пользователем, контекст страницы. Соответствующий ключ передаётся в заголовке авторизации напрямую к API провайдера:
 
 - **Mistral AI:** [Политика конфиденциальности Mistral AI](https://legal.mistral.ai/terms/privacy-policy)
-- **Groq:** [Политика конфиденциальности Groq](https://groq.com/privacy-policy/)
+- **GigaChat:** [Политика конфиденциальности Сбер](https://www.sberbank.ru/ru/legal/privacy) и [Условия использования GigaChat API](https://developers.sber.ru/docs/ru/gigachat/terms)
 
-Срок хранения, модерация, место обработки и возможное использование данных определяются выбранным пользователем тарифом, настройками аккаунта и актуальными условиями провайдера. LexiSync не управляет инфраструктурой Mistral AI или Groq.
+Срок хранения, модерация, место обработки и возможное использование данных определяются выбранным пользователем тарифом, настройками аккаунта и актуальными условиями провайдера. LexiSync не управляет инфраструктурой Mistral AI или GigaChat.
 
 ### 3.2. Поисковая система по выбору пользователя
 
@@ -143,14 +144,15 @@ LexiSync использует минимально необходимые раз
 - `scripting` — запуск упакованного с расширением интерфейса на разрешённой странице;
 - `contextMenus` — команды для выделенного текста и изображений;
 - `https://api.mistral.ai/*` — защищённые запросы к Mistral AI API;
-- `https://api.groq.com/*` — защищённые запросы к Groq API;
+- `https://ngw.devices.sberbank.ru/*` — защищённая авторизация OAuth GigaChat (Сбер);
+- `https://api.giga.chat/*` — защищённые запросы к GigaChat API;
 - необязательный доступ к HTTP/HTTPS-сайтам — постоянная работа только на сайтах, которые пользователь разрешил отдельно.
 
 Расширение не запрашивает доступ к cookies, полной истории браузера, геолокации, контактам, камере или микрофону и не выполняет удалённый JavaScript или WebAssembly.
 
 ## 7. Безопасность
 
-- Все запросы к Mistral AI и Groq выполняются по HTTPS.
+- Все запросы к Mistral AI и GigaChat выполняются по HTTPS.
 - Исполняемый код поставляется внутри пакета расширения в соответствии с Manifest V3.
 - API-ключи отделены от обычных настроек и не включаются в синхронизацию или экспорт.
 - Постоянный доступ к сайтам запрашивается только по инициативе пользователя и может быть отозван.
@@ -167,7 +169,7 @@ LexiSync не предназначен специально для детей и
 
 LexiSync использует разрешения браузера и пользовательские данные только для предоставления и улучшения заявленной пользовательской функции работы с текстом. Данные не используются для персонализированной рекламы, ретаргетинга, профилирования, продажи, определения платёжеспособности или целей, не связанных с работой расширения.
 
-Разработчик LexiSync не получает пользовательский текст на собственные серверы и не предоставляет людям доступ к нему. Передача Mistral AI, Groq и выбранной поисковой системе происходит только для выполнения функции, запрошенной пользователем, и регулируется условиями соответствующего сервиса.
+Разработчик LexiSync не получает пользовательский текст на собственные серверы и не предоставляет людям доступ к нему. Передача Mistral AI, GigaChat и выбранной поисковой системе происходит только для выполнения функции, запрошенной пользователем, и регулируется условиями соответствующего сервиса.
 
 ## 10. Изменения политики
 
@@ -182,9 +184,9 @@ LexiSync использует разрешения браузера и поль�
 
 LexiSync is a browser extension for checking, correcting, rewriting, translating, and recognizing text in images. This Policy explains what data LexiSync processes, why it is needed, where it is stored, and when it is transferred to third parties.
 
-## Important data transfer notice
+### Important data transfer notice
 
-When a user starts an AI command, the selected text or selected image area is sent directly from the browser to the chosen **AI provider API (Mistral AI API or Groq API)** over HTTPS using the user's own API key. This transfer is necessary for correction, rewriting, translation, emoji suggestions, and OCR.
+When a user starts an AI command, the selected text or selected image area is sent directly from the browser to the chosen **AI provider API (Mistral AI API or GigaChat API)** over HTTPS using the user's own API key. This transfer is necessary for correction, rewriting, translation, emoji suggestions, and OCR.
 
 The transfer of surrounding text, page title, and current domain is **disabled by default**. It occurs only after the user enables the setting and can be disabled for individual websites.
 
@@ -196,7 +198,7 @@ Automatic proofreading while typing is also **disabled by default**. If enabled,
 
 Developer and publisher: **Kiryuhak**.
 
-LexiSync does not operate a developer-owned server for processing user text. AI requests are sent directly from the extension to the selected AI provider (Mistral AI or Groq) using the user's key.
+LexiSync does not operate a developer-owned server for processing user text. AI requests are sent directly from the extension to the selected AI provider (Mistral AI or GigaChat) using the user's key.
 
 Privacy questions can be submitted through [GitHub Issues](https://github.com/Kiryuhak/LexiSync/issues).
 
@@ -210,7 +212,7 @@ LexiSync may process:
 - user commands, glossary, personal dictionary, tone, and style settings needed for a request;
 - an image of the user-selected page area when OCR is invoked (Mistral AI);
 - surrounding text, page title, and current domain when optional page context is enabled;
-- the user's Mistral AI and/or Groq API keys;
+- the user's Mistral AI and/or GigaChat authorization keys;
 - local settings, per-site permissions and exclusions;
 - local text history, result cache, adaptive language data, and aggregate usage counters.
 
@@ -218,7 +220,7 @@ Selected text may contain user-generated content or personal communications. Lex
 
 ## 3. Local storage and browser sync
 
-API keys for Mistral AI and Groq are stored locally in a separate extension IndexedDB database. They are used only to validate keys and authorize requests to `https://api.mistral.ai/` and `https://api.groq.com/`. They are not exported, synchronized through browser settings sync, or sent to the LexiSync developer.
+API keys for Mistral AI and authorization keys for GigaChat are stored locally in a separate extension IndexedDB database. They are used only to validate keys and authorize requests to `https://api.mistral.ai/`, `https://ngw.devices.sberbank.ru:9443/`, and `https://api.giga.chat/`. Temporary GigaChat access tokens are cached locally in extension storage and refreshed automatically. They are not exported, synchronized through browser settings sync, or sent to the LexiSync developer.
 
 Local extension storage may contain appearance and feature settings, primary AI provider preference, automatic fallback toggle, commands, text snippets, dictionaries, glossaries, style profiles, site lists, text history, cached results, adaptive suggestion data, and aggregate request statistics. LexiSync does not send telemetry, analytics, activity logs, text history, or advertising identifiers to the developer.
 
@@ -226,14 +228,14 @@ A limited set of non-secret preferences may be synchronized using `chrome.storag
 
 ## 4. Third-party transfers
 
-### AI Providers (Mistral AI and Groq)
+### AI Providers (Mistral AI and GigaChat)
 
-LexiSync sends the selected AI provider only the data needed for the requested AI operation: selected or automatically checked text, an OCR image (Mistral), and optional page context when enabled. The API key is included in the authorization header.
+LexiSync sends the selected AI provider only the data needed for the requested AI operation: selected or automatically checked text, an OCR image (Mistral), and optional page context when enabled. The API key or token is included in the authorization header.
 
 - **Mistral AI:** [Mistral AI Privacy Policy](https://legal.mistral.ai/terms/privacy-policy)
-- **Groq:** [Groq Privacy Policy](https://groq.com/privacy-policy/)
+- **GigaChat:** [Sber Privacy Policy](https://www.sberbank.ru/ru/legal/privacy) and [GigaChat API Terms](https://developers.sber.ru/docs/ru/gigachat/terms)
 
-Provider retention, moderation, processing location, and possible data use are determined by the user's plan, account settings, and current provider terms. LexiSync does not control Mistral AI or Groq infrastructure.
+Provider retention, moderation, processing location, and possible data use are determined by the user's plan, account settings, and current provider terms. LexiSync does not control Mistral AI or GigaChat infrastructure.
 
 ### User-selected search engine
 
@@ -281,14 +283,15 @@ LexiSync uses the minimum permissions required for its user-facing purpose:
 - `scripting` to run packaged UI code on a user-authorized page;
 - `contextMenus` for selected-text and image commands;
 - `https://api.mistral.ai/*` for HTTPS requests to Mistral AI API;
-- `https://api.groq.com/*` for HTTPS requests to Groq API;
+- `https://ngw.devices.sberbank.ru/*` for HTTPS GigaChat OAuth authentication;
+- `https://api.giga.chat/*` for HTTPS requests to GigaChat API;
 - optional HTTP/HTTPS site access only for websites the user authorizes individually.
 
 LexiSync does not request access to cookies, full browser history, geolocation, contacts, camera, or microphone, and does not execute remote JavaScript or WebAssembly.
 
 ## 8. Security
 
-All Mistral AI and Groq requests use HTTPS. Executable code is packaged with the extension under Manifest V3. API keys are separated from ordinary settings and excluded from sync and export. Persistent website access is requested only after a user action and can be revoked. Automatic proofreading is disabled by default and attempts to exclude sensitive fields. Local personal-data masking is enabled by default for text AI commands.
+All Mistral AI and GigaChat requests use HTTPS. Executable code is packaged with the extension under Manifest V3. API keys are separated from ordinary settings and excluded from sync and export. Persistent website access is requested only after a user action and can be revoked. Automatic proofreading is disabled by default and attempts to exclude sensitive fields. Local personal-data masking is enabled by default for text AI commands.
 
 No storage or transmission method is completely secure. Users are responsible for protecting their API keys and choosing which text or images to send to external services.
 
@@ -300,7 +303,7 @@ LexiSync is not specifically directed to children and does not knowingly collect
 
 LexiSync uses browser permissions and user data solely to provide and improve its disclosed, user-facing text-processing purpose. Data is not used for personalized advertising, retargeting, profiling, sale, creditworthiness decisions, or purposes unrelated to the extension.
 
-The LexiSync developer does not receive user text on developer-owned servers or provide human access to it. Transfers to Mistral AI, Groq, and a user-selected search provider occur only to perform a function requested by the user and are governed by the respective service's terms.
+The LexiSync developer does not receive user text on developer-owned servers or provide human access to it. Transfers to Mistral AI, GigaChat, and a user-selected search provider occur only to perform a function requested by the user and are governed by the respective service's terms.
 
 ## 11. Policy changes
 

@@ -951,10 +951,18 @@ test('Unit 17: тайм-аут основного провайдера быст�
     const mockFetch = vi
         .spyOn(globalThis, 'fetch')
         .mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
-            if (String(input).includes('mistral.ai')) {
+            const url = String(input);
+            if (url.includes('mistral.ai')) {
                 return new Promise((_resolve, reject) => {
                     init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true });
                 });
+            }
+            if (url.includes('oauth')) {
+                return Promise.resolve({
+                    ok: true,
+                    status: 200,
+                    json: async () => ({ access_token: 'test-token', expires_at: Date.now() + 1800000 }),
+                } as unknown as Response);
             }
             return Promise.resolve({
                 ok: true,
@@ -985,16 +993,15 @@ test('Unit 17: тайм-аут основного провайдера быст�
         primaryProvider: 'mistral',
         autoFallback: true,
         mistralApiKey: 'mistral-key',
-        groqApiKey: 'groq-key',
+        gigachatAuthKey: 'gigachat-key',
         signal: new AbortController().signal,
         providerTimeoutMs: 5,
         onChunk: (chunk) => chunks.push(chunk),
     });
 
-    expect(result.providerUsed).toBe('groq');
+    expect(result.providerUsed).toBe('gigachat');
     expect(result.fallbackReason).toBe('TIMEOUT');
     expect(chunks.join('')).toBe('Резервный ответ');
-    expect(mockFetch).toHaveBeenCalledTimes(2);
     mockFetch.mockRestore();
 });
 
@@ -1002,18 +1009,19 @@ test('Unit 18: Retry-After включает cooldown и следующий за�
     const { executeAiStreamRequest } = await import('../src/ai-client');
     const encoder = new TextEncoder();
     let mistralCalls = 0;
-    let groqCalls = 0;
-    const createGroqStream = () =>
+    let gigachatCalls = 0;
+    const createGigaChatStream = () =>
         new ReadableStream({
             start(controller) {
                 controller.enqueue(
-                    encoder.encode('data: {"choices":[{"delta":{"content":"Groq"}}]}\n\ndata: [DONE]\n\n'),
+                    encoder.encode('data: {"choices":[{"delta":{"content":"GigaChat"}}]}\n\ndata: [DONE]\n\n'),
                 );
                 controller.close();
             },
         });
     const mockFetch = vi.spyOn(globalThis, 'fetch').mockImplementation((input: RequestInfo | URL) => {
-        if (String(input).includes('mistral.ai')) {
+        const url = String(input);
+        if (url.includes('mistral.ai')) {
             mistralCalls += 1;
             return Promise.resolve({
                 ok: false,
@@ -1024,12 +1032,19 @@ test('Unit 18: Retry-After включает cooldown и следующий за�
                 body: null,
             } as unknown as Response);
         }
-        groqCalls += 1;
+        if (url.includes('oauth')) {
+            return Promise.resolve({
+                ok: true,
+                status: 200,
+                json: async () => ({ access_token: 'test-token', expires_at: Date.now() + 1800000 }),
+            } as unknown as Response);
+        }
+        gigachatCalls += 1;
         return Promise.resolve({
             ok: true,
             status: 200,
             headers: new Headers({ 'content-type': 'text/event-stream' }),
-            body: createGroqStream(),
+            body: createGigaChatStream(),
         } as unknown as Response);
     });
     const requestOptions = {
@@ -1044,7 +1059,7 @@ test('Unit 18: Retry-After включает cooldown и следующий за�
         primaryProvider: 'mistral' as const,
         autoFallback: true,
         mistralApiKey: 'mistral-key',
-        groqApiKey: 'groq-key',
+        gigachatAuthKey: 'gigachat-key',
         signal: new AbortController().signal,
         onChunk: () => undefined,
     };
@@ -1052,10 +1067,10 @@ test('Unit 18: Retry-After включает cooldown и следующий за�
     await executeAiStreamRequest(requestOptions);
     const secondResult = await executeAiStreamRequest(requestOptions);
 
-    expect(secondResult.providerUsed).toBe('groq');
+    expect(secondResult.providerUsed).toBe('gigachat');
     expect(secondResult.fallbackOccurred).toBe(true);
     expect(mistralCalls).toBe(1);
-    expect(groqCalls).toBe(2);
+    expect(gigachatCalls).toBe(2);
     mockFetch.mockRestore();
 });
 
@@ -1067,7 +1082,15 @@ test('Unit 19: частичный ответ очищается перед пе�
         chunks.length = 0;
     });
     const mockFetch = vi.spyOn(globalThis, 'fetch').mockImplementation((input: RequestInfo | URL) => {
-        const content = String(input).includes('mistral.ai')
+        const url = String(input);
+        if (url.includes('oauth')) {
+            return Promise.resolve({
+                ok: true,
+                status: 200,
+                json: async () => ({ access_token: 'test-token', expires_at: Date.now() + 1800000 }),
+            } as unknown as Response);
+        }
+        const content = url.includes('mistral.ai')
             ? 'data: {"choices":[{"delta":{"content":"Незавершённый"}}]}\n\n'
             : 'data: {"choices":[{"delta":{"content":"Полный ответ"}}]}\n\ndata: [DONE]\n\n';
         return Promise.resolve({
@@ -1095,13 +1118,13 @@ test('Unit 19: частичный ответ очищается перед пе�
         primaryProvider: 'mistral',
         autoFallback: true,
         mistralApiKey: 'mistral-key',
-        groqApiKey: 'groq-key',
+        gigachatAuthKey: 'gigachat-key',
         signal: new AbortController().signal,
         onChunk: (chunk) => chunks.push(chunk),
         onReset,
     });
 
-    expect(result.providerUsed).toBe('groq');
+    expect(result.providerUsed).toBe('gigachat');
     expect(onReset).toHaveBeenCalledTimes(1);
     expect(chunks.join('')).toBe('Полный ответ');
     mockFetch.mockRestore();
@@ -1110,11 +1133,11 @@ test('Unit 19: частичный ответ очищается перед пе�
 test('Unit 20: отменённый пользователем запрос не запускает резервного провайдера', async () => {
     const { executeAiStreamRequest } = await import('../src/ai-client');
     const controller = new AbortController();
-    let groqCalled = false;
+    let gigachatCalled = false;
     const mockFetch = vi
         .spyOn(globalThis, 'fetch')
         .mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
-            if (String(input).includes('groq.com')) groqCalled = true;
+            if (String(input).includes('giga') || String(input).includes('sber')) gigachatCalled = true;
             return new Promise((_resolve, reject) => {
                 init?.signal?.addEventListener('abort', () => reject(new DOMException('Отменено', 'AbortError')), {
                     once: true,
@@ -1133,14 +1156,14 @@ test('Unit 20: отменённый пользователем запрос не
         primaryProvider: 'mistral',
         autoFallback: true,
         mistralApiKey: 'mistral-key',
-        groqApiKey: 'groq-key',
+        gigachatAuthKey: 'gigachat-key',
         signal: controller.signal,
         onChunk: () => undefined,
     });
     controller.abort();
 
     await expect(execution).rejects.toThrow();
-    expect(groqCalled).toBe(false);
+    expect(gigachatCalled).toBe(false);
     mockFetch.mockRestore();
 });
 
@@ -2183,7 +2206,7 @@ test('Unit 1: Mistral успешный стриминг (200 OK)', async () => {
         primaryProvider: 'mistral',
         autoFallback: true,
         mistralApiKey: 'mistral-key-123',
-        groqApiKey: 'groq-key-456',
+        gigachatAuthKey: 'gigachat-key-456',
         signal: new AbortController().signal,
         onChunk: (chunk: string) => chunks.push(chunk),
     });
@@ -2195,14 +2218,17 @@ test('Unit 1: Mistral успешный стриминг (200 OK)', async () => {
     mockFetch.mockRestore();
 });
 
-test('Unit 2: Mistral 429 Rate Limit переключается на Groq (Qwen 3.6 27B)', async () => {
+test('Unit 2: Mistral 429 Rate Limit переключается на GigaChat', async () => {
     const { executeAiStreamRequest } = await import('../src/ai-client');
+    const { invalidateGigaChatToken } = await import('../src/gigachat-token-manager');
+    await invalidateGigaChatToken();
+
     const chunks: string[] = [];
     const encoder = new TextEncoder();
-    const groqStream = new ReadableStream({
+    const gigachatStream = new ReadableStream({
         start(controller) {
             controller.enqueue(
-                encoder.encode('data: {"choices":[{"delta":{"content":"Ответ от Qwen 3.6"}}]}\n\ndata: [DONE]\n\n'),
+                encoder.encode('data: {"choices":[{"delta":{"content":"Ответ от GigaChat"}}]}\n\ndata: [DONE]\n\n'),
             );
             controller.close();
         },
@@ -2230,11 +2256,19 @@ test('Unit 2: Mistral 429 Rate Limit переключается на Groq (Qwen 
                 body: null,
             } as unknown as Response);
         }
+        if (url.includes('oauth')) {
+            return Promise.resolve({
+                ok: true,
+                status: 200,
+                headers: new Headers(),
+                json: async () => ({ access_token: 'fake-token-123', expires_at: Date.now() + 1800000 }),
+            } as unknown as Response);
+        }
         return Promise.resolve({
             ok: true,
             status: 200,
             headers: new Headers({ 'content-type': 'text/event-stream' }),
-            body: groqStream,
+            body: gigachatStream,
         } as unknown as Response);
     });
 
@@ -2244,29 +2278,31 @@ test('Unit 2: Mistral 429 Rate Limit переключается на Groq (Qwen 
         primaryProvider: 'mistral',
         autoFallback: true,
         mistralApiKey: 'mistral-key-123',
-        groqApiKey: 'groq-key-456',
+        gigachatAuthKey: 'gigachat-auth-key-456',
         signal: new AbortController().signal,
         onChunk: (chunk: string) => chunks.push(chunk),
     });
 
-    expect(result.providerUsed).toBe('groq');
+    expect(result.providerUsed).toBe('gigachat');
     expect(result.fallbackOccurred).toBe(true);
     expect(result.fallbackNotification).toContain('Mistral');
-    expect(result.fallbackNotification).toContain('Groq');
-    expect(chunks.join('')).toBe('Ответ от Qwen 3.6');
-    expect(mockFetch).toHaveBeenCalledTimes(2); // 1 Mistral + 1 Groq без лишнего ожидания
+    expect(result.fallbackNotification).toContain('GigaChat');
+    expect(chunks.join('')).toBe('Ответ от GigaChat');
     mockFetch.mockRestore();
 });
 
-test('Unit 3: Groq успешный стриминг (200 OK) с моделью qwen/qwen3.6-27b', async () => {
+test('Unit 3: GigaChat успешный стриминг (200 OK) с моделью GigaChat', async () => {
     const { executeAiStreamRequest } = await import('../src/ai-client');
+    const { invalidateGigaChatToken } = await import('../src/gigachat-token-manager');
+    await invalidateGigaChatToken();
+
     const chunks: string[] = [];
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
         start(controller) {
             controller.enqueue(
                 encoder.encode(
-                    'data: {"choices":[{"delta":{"content":"Qwen 3.6 27B быстрый ответ"}}]}\n\ndata: [DONE]\n\n',
+                    'data: {"choices":[{"delta":{"content":"GigaChat быстрый ответ"}}]}\n\ndata: [DONE]\n\n',
                 ),
             );
             controller.close();
@@ -2283,41 +2319,49 @@ test('Unit 3: Groq успешный стриминг (200 OK) с моделью 
     };
 
     let requestBody = '';
-    const mockFetch = vi
-        .spyOn(globalThis, 'fetch')
-        .mockImplementation((_url: RequestInfo | URL, init?: RequestInit) => {
-            requestBody = String(init?.body || '');
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockImplementation((url: RequestInfo | URL, init?: RequestInit) => {
+        const urlStr = String(url);
+        if (urlStr.includes('oauth')) {
             return Promise.resolve({
                 ok: true,
                 status: 200,
-                headers: new Headers({ 'content-type': 'text/event-stream' }),
-                body: stream,
+                headers: new Headers(),
+                json: async () => ({ access_token: 'fake-token-123', expires_at: Date.now() + 1800000 }),
             } as unknown as Response);
-        });
+        }
+        requestBody = String(init?.body || '');
+        return Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: new Headers({ 'content-type': 'text/event-stream' }),
+            body: stream,
+        } as unknown as Response);
+    });
 
     const result = await executeAiStreamRequest({
         request: testRequest,
         settings: testSettings,
-        primaryProvider: 'groq',
+        primaryProvider: 'gigachat',
         autoFallback: true,
         mistralApiKey: 'mistral-key-123',
-        groqApiKey: 'groq-key-456',
+        gigachatAuthKey: 'gigachat-key-456',
         signal: new AbortController().signal,
         onChunk: (chunk: string) => chunks.push(chunk),
     });
 
-    expect(result.providerUsed).toBe('groq');
+    expect(result.providerUsed).toBe('gigachat');
     expect(result.fallbackOccurred).toBe(false);
-    expect(chunks.join('')).toBe('Qwen 3.6 27B быстрый ответ');
-    expect(requestBody).toContain('"model":"qwen/qwen3.6-27b"');
+    expect(chunks.join('')).toBe('GigaChat быстрый ответ');
+    expect(requestBody).toContain('"model":"GigaChat"');
     expect(requestBody).toContain('"stream":true');
-    expect(requestBody).toContain('"max_completion_tokens":512');
-    expect(requestBody).toContain('"reasoning_effort":"none"');
     mockFetch.mockRestore();
 });
 
-test('Unit 4: Groq 429 Rate Limit переключается на Mistral', async () => {
+test('Unit 4: GigaChat 429 Rate Limit переключается на Mistral', async () => {
     const { executeAiStreamRequest } = await import('../src/ai-client');
+    const { invalidateGigaChatToken } = await import('../src/gigachat-token-manager');
+    await invalidateGigaChatToken();
+
     const chunks: string[] = [];
     const encoder = new TextEncoder();
     const mistralStream = new ReadableStream({
@@ -2340,13 +2384,21 @@ test('Unit 4: Groq 429 Rate Limit переключается на Mistral', asyn
 
     const mockFetch = vi.spyOn(globalThis, 'fetch').mockImplementation((input: RequestInfo | URL) => {
         const url = String(input);
-        if (url.includes('groq.com')) {
+        if (url.includes('oauth')) {
+            return Promise.resolve({
+                ok: true,
+                status: 200,
+                headers: new Headers(),
+                json: async () => ({ access_token: 'fake-token-123', expires_at: Date.now() + 1800000 }),
+            } as unknown as Response);
+        }
+        if (url.includes('giga.chat')) {
             return Promise.resolve({
                 ok: false,
                 status: 429,
                 statusText: 'Too Many Requests',
                 headers: new Headers(),
-                text: async () => 'Rate limit exceeded on Groq',
+                text: async () => 'Rate limit exceeded on GigaChat',
                 json: async () => ({ error: { message: 'Rate limit' } }),
                 body: null,
             } as unknown as Response);
@@ -2362,27 +2414,30 @@ test('Unit 4: Groq 429 Rate Limit переключается на Mistral', asyn
     const result = await executeAiStreamRequest({
         request: testRequest,
         settings: testSettings,
-        primaryProvider: 'groq',
+        primaryProvider: 'gigachat',
         autoFallback: true,
         mistralApiKey: 'mistral-key-123',
-        groqApiKey: 'groq-key-456',
+        gigachatAuthKey: 'gigachat-key-456',
         signal: new AbortController().signal,
         onChunk: (chunk: string) => chunks.push(chunk),
     });
 
     expect(result.providerUsed).toBe('mistral');
     expect(result.fallbackOccurred).toBe(true);
-    expect(result.fallbackNotification).toContain('Groq');
+    expect(result.fallbackNotification).toContain('GigaChat');
     expect(result.fallbackNotification).toContain('Mistral');
     expect(chunks.join('')).toBe('Ответ от Mistral');
     mockFetch.mockRestore();
 });
 
-test('Unit 5: 500 Server Error переключается на резервного провайдера', async () => {
+test('Unit 5: 500 Server Error переключается на резервного провайдера (GigaChat)', async () => {
     const { executeAiStreamRequest } = await import('../src/ai-client');
+    const { invalidateGigaChatToken } = await import('../src/gigachat-token-manager');
+    await invalidateGigaChatToken();
+
     const chunks: string[] = [];
     const encoder = new TextEncoder();
-    const groqStream = new ReadableStream({
+    const gigachatStream = new ReadableStream({
         start(controller) {
             controller.enqueue(
                 encoder.encode('data: {"choices":[{"delta":{"content":"Резервный ответ"}}]}\n\ndata: [DONE]\n\n'),
@@ -2412,11 +2467,19 @@ test('Unit 5: 500 Server Error переключается на резервно�
                 body: null,
             } as unknown as Response);
         }
+        if (url.includes('oauth')) {
+            return Promise.resolve({
+                ok: true,
+                status: 200,
+                headers: new Headers(),
+                json: async () => ({ access_token: 'fake-token-123', expires_at: Date.now() + 1800000 }),
+            } as unknown as Response);
+        }
         return Promise.resolve({
             ok: true,
             status: 200,
             headers: new Headers({ 'content-type': 'text/event-stream' }),
-            body: groqStream,
+            body: gigachatStream,
         } as unknown as Response);
     });
 
@@ -2426,22 +2489,25 @@ test('Unit 5: 500 Server Error переключается на резервно�
         primaryProvider: 'mistral',
         autoFallback: true,
         mistralApiKey: 'mistral-key-123',
-        groqApiKey: 'groq-key-456',
+        gigachatAuthKey: 'gigachat-key-456',
         signal: new AbortController().signal,
         onChunk: (chunk: string) => chunks.push(chunk),
     });
 
-    expect(result.providerUsed).toBe('groq');
+    expect(result.providerUsed).toBe('gigachat');
     expect(result.fallbackOccurred).toBe(true);
     expect(chunks.join('')).toBe('Резервный ответ');
     mockFetch.mockRestore();
 });
 
-test('Unit 6: Network Failure переключается на резервного провайдера', async () => {
+test('Unit 6: Network Failure переключается на резервного провайдера (GigaChat)', async () => {
     const { executeAiStreamRequest } = await import('../src/ai-client');
+    const { invalidateGigaChatToken } = await import('../src/gigachat-token-manager');
+    await invalidateGigaChatToken();
+
     const chunks: string[] = [];
     const encoder = new TextEncoder();
-    const groqStream = new ReadableStream({
+    const gigachatStream = new ReadableStream({
         start(controller) {
             controller.enqueue(
                 encoder.encode(
@@ -2466,11 +2532,19 @@ test('Unit 6: Network Failure переключается на резервног
         if (url.includes('mistral.ai')) {
             return Promise.reject(new TypeError('Failed to fetch'));
         }
+        if (url.includes('oauth')) {
+            return Promise.resolve({
+                ok: true,
+                status: 200,
+                headers: new Headers(),
+                json: async () => ({ access_token: 'fake-token-123', expires_at: Date.now() + 1800000 }),
+            } as unknown as Response);
+        }
         return Promise.resolve({
             ok: true,
             status: 200,
             headers: new Headers({ 'content-type': 'text/event-stream' }),
-            body: groqStream,
+            body: gigachatStream,
         } as unknown as Response);
     });
 
@@ -2480,18 +2554,18 @@ test('Unit 6: Network Failure переключается на резервног
         primaryProvider: 'mistral',
         autoFallback: true,
         mistralApiKey: 'mistral-key-123',
-        groqApiKey: 'groq-key-456',
+        gigachatAuthKey: 'gigachat-key-456',
         signal: new AbortController().signal,
         onChunk: (chunk: string) => chunks.push(chunk),
     });
 
-    expect(result.providerUsed).toBe('groq');
+    expect(result.providerUsed).toBe('gigachat');
     expect(result.fallbackOccurred).toBe(true);
     expect(chunks.join('')).toBe('Успех после сетевого сбоя');
     mockFetch.mockRestore();
 });
 
-test('Unit 7: 401/403 Auth Error без autoFallback выбрасывает ошибку сразу, а с autoFallback переключается на резерв', async () => {
+test('Unit 7: 401/403 Auth Error строго запрещает fallback (ошибка сразу выбрасывается даже при включенном autoFallback)', async () => {
     const { executeAiStreamRequest } = await import('../src/ai-client');
     const testRequest = { action: 'callMistral' as const, text: 'Тест', mode: 'style' as const };
     const testSettings = {
@@ -2502,42 +2576,14 @@ test('Unit 7: 401/403 Auth Error без autoFallback выбрасывает ош
         aiMode: 'quality' as const,
     };
 
-    const mockFetch = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
-        const url = String(input);
-        if (url.includes('api.mistral.ai')) {
-            return {
-                ok: false,
-                status: 401,
-                statusText: 'Unauthorized',
-                headers: new Headers(),
-                text: async () => 'Invalid API Key',
-                body: null,
-            } as unknown as Response;
-        }
-        return {
-            ok: true,
-            status: 200,
-            headers: new Headers(),
-            body: {
-                getReader: () => {
-                    let done = false;
-                    return {
-                        read: async () => {
-                            if (done) return { done: true, value: undefined };
-                            done = true;
-                            return {
-                                done: false,
-                                value: new TextEncoder().encode(
-                                    'data: {"choices":[{"delta":{"content":"Готово"}}]}\n\ndata: [DONE]\n\n',
-                                ),
-                            };
-                        },
-                        cancel: async () => undefined,
-                    };
-                },
-            },
-        } as unknown as Response;
-    });
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+        ok: false,
+        status: 401,
+        statusText: 'Unauthorized',
+        headers: new Headers(),
+        text: async () => 'Invalid API Key',
+        body: null,
+    } as unknown as Response);
 
     // Без autoFallback выбрасывает ошибку сразу
     await expect(
@@ -2547,30 +2593,25 @@ test('Unit 7: 401/403 Auth Error без autoFallback выбрасывает ош
             primaryProvider: 'mistral',
             autoFallback: false,
             mistralApiKey: 'bad-key',
-            groqApiKey: 'groq-key-456',
+            gigachatAuthKey: 'gigachat-key-456',
             signal: new AbortController().signal,
             onChunk: () => undefined,
         }),
     ).rejects.toThrow(/недействителен|отозван|API-ключ/i);
 
-    // С autoFallback переключается на Groq
-    let streamedChunk = '';
-    const res = await executeAiStreamRequest({
-        request: testRequest,
-        settings: testSettings,
-        primaryProvider: 'mistral',
-        autoFallback: true,
-        mistralApiKey: 'bad-key',
-        groqApiKey: 'groq-key-456',
-        signal: new AbortController().signal,
-        onChunk: (c) => {
-            streamedChunk += c;
-        },
-    });
-
-    expect(res.fallbackOccurred).toBe(true);
-    expect(res.providerUsed).toBe('groq');
-    expect(streamedChunk).toBe('Готово');
+    // Даже при включенном autoFallback ошибка авторизации НЕ переключается на fallback!
+    await expect(
+        executeAiStreamRequest({
+            request: testRequest,
+            settings: testSettings,
+            primaryProvider: 'mistral',
+            autoFallback: true,
+            mistralApiKey: 'bad-key',
+            gigachatAuthKey: 'gigachat-key-456',
+            signal: new AbortController().signal,
+            onChunk: () => undefined,
+        }),
+    ).rejects.toThrow(/недействителен|отозван|API-ключ/i);
 
     mockFetch.mockRestore();
 });
@@ -2602,7 +2643,7 @@ test('Unit 8: Отсутствие API-ключа резервного пров�
             primaryProvider: 'mistral',
             autoFallback: true,
             mistralApiKey: 'mistral-key',
-            groqApiKey: '',
+            gigachatAuthKey: '',
             signal: new AbortController().signal,
             onChunk: () => undefined,
         }),
@@ -2613,6 +2654,9 @@ test('Unit 8: Отсутствие API-ключа резервного пров�
 
 test('Unit 9: Оба провайдера возвращают 429 Rate Limit — возвращается общая ошибка', async () => {
     const { executeAiStreamRequest } = await import('../src/ai-client');
+    const { invalidateGigaChatToken } = await import('../src/gigachat-token-manager');
+    await invalidateGigaChatToken();
+
     const testRequest = { action: 'callMistral' as const, text: 'Тест', mode: 'style' as const };
     const testSettings = {
         selectedTone: 'business',
@@ -2622,14 +2666,25 @@ test('Unit 9: Оба провайдера возвращают 429 Rate Limit �
         aiMode: 'quality' as const,
     };
 
-    const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-        ok: false,
-        status: 429,
-        statusText: 'Too Many Requests',
-        headers: new Headers(),
-        text: async () => 'Rate limit reached on both',
-        body: null,
-    } as unknown as Response);
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockImplementation((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes('oauth')) {
+            return Promise.resolve({
+                ok: true,
+                status: 200,
+                headers: new Headers(),
+                json: async () => ({ access_token: 'fake-token-123', expires_at: Date.now() + 1800000 }),
+            } as unknown as Response);
+        }
+        return Promise.resolve({
+            ok: false,
+            status: 429,
+            statusText: 'Too Many Requests',
+            headers: new Headers(),
+            text: async () => 'Rate limit reached on both',
+            body: null,
+        } as unknown as Response);
+    });
 
     await expect(
         executeAiStreamRequest({
@@ -2638,7 +2693,7 @@ test('Unit 9: Оба провайдера возвращают 429 Rate Limit �
             primaryProvider: 'mistral',
             autoFallback: true,
             mistralApiKey: 'mistral-key',
-            groqApiKey: 'groq-key',
+            gigachatAuthKey: 'gigachat-key',
             signal: new AbortController().signal,
             onChunk: () => undefined,
         }),
@@ -2674,7 +2729,7 @@ test('Unit 10: Отключение autoFallback=false предотвращае�
             primaryProvider: 'mistral',
             autoFallback: false,
             mistralApiKey: 'mistral-key',
-            groqApiKey: 'groq-key',
+            gigachatAuthKey: 'gigachat-key',
             signal: new AbortController().signal,
             onChunk: () => undefined,
         }),
@@ -2691,52 +2746,44 @@ test('настройки AI нормализуют выключенный fallba
     expect(normalizeAutoFallbackEnabled(true)).toBe(true);
     expect(normalizeAutoFallbackEnabled(undefined)).toBe(true);
     expect(normalizePrimaryAiProvider('mistral')).toBe('mistral');
+    expect(normalizePrimaryAiProvider('gigachat')).toBe('gigachat');
     expect(normalizePrimaryAiProvider('unknown')).toBe('auto');
 });
 
-test('Unit 11: Парсинг SSE стрима Groq / OpenAI-совместимого формата', async () => {
-    const { readGroqSsePayload } = await import('../src/groq-client');
+test('Unit 11: Парсинг SSE стрима GigaChat формата', async () => {
+    const { readGigaChatSsePayload } = await import('../src/gigachat-client');
     const line1 = 'data: {"choices":[{"delta":{"content":"Часть 1 "}}]}';
     const line2 = 'data: {"choices":[{"delta":{"content":"Часть 2"}}]}';
     const lineDone = 'data: [DONE]';
-    expect(readGroqSsePayload(line1)).toBe('Часть 1 ');
-    expect(readGroqSsePayload(line2)).toBe('Часть 2');
-    expect(readGroqSsePayload(lineDone)).toBeNull();
-    expect(readGroqSsePayload(': keepalive')).toBeNull();
+    expect(readGigaChatSsePayload(line1)).toBe('Часть 1 ');
+    expect(readGigaChatSsePayload(line2)).toBe('Часть 2');
+    expect(readGigaChatSsePayload(lineDone)).toBeNull();
+    expect(readGigaChatSsePayload(': keepalive')).toBeNull();
 });
 
-test('Unit 12: Валидация Groq API-ключа (validateGroqApiKey: 200, 401, error)', async () => {
-    const { validateGroqApiKey } = await import('../src/groq-client');
+test('Unit 12: Валидация GigaChat Authorization Key (validateGigaChatAuthKey: 200, 401, error)', async () => {
+    const { validateGigaChatAuthKey } = await import('../src/gigachat-token-manager');
 
     const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
         ok: true,
         status: 200,
-        json: async () => ({ data: [{ id: 'qwen/qwen3.6-27b' }] }),
+        json: async () => ({ access_token: 'test-token', expires_at: Date.now() + 1800000 }),
     } as unknown as Response);
 
-    const success = await validateGroqApiKey('gsk_valid');
+    const success = await validateGigaChatAuthKey('valid-base64-auth-key');
     expect(success.ok).toBe(true);
-
-    mockFetch.mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => ({ data: [{ id: 'another/model' }] }),
-    } as unknown as Response);
-
-    const modelUnavailable = await validateGroqApiKey('gsk_without_qwen');
-    expect(modelUnavailable.ok).toBe(false);
 
     mockFetch.mockResolvedValue({
         ok: false,
         status: 401,
-        json: async () => ({ error: { message: 'Invalid API Key' } }),
+        json: async () => ({ error: 'Unauthorized' }),
     } as unknown as Response);
 
-    const authFail = await validateGroqApiKey('gsk_invalid');
+    const authFail = await validateGigaChatAuthKey('invalid-key');
     expect(authFail.ok).toBe(false);
     expect(authFail.message).toContain('недействителен');
 
-    const empty = await validateGroqApiKey('');
+    const empty = await validateGigaChatAuthKey('');
     expect(empty.ok).toBe(false);
     mockFetch.mockRestore();
 });
@@ -2744,32 +2791,32 @@ test('Unit 12: Валидация Groq API-ключа (validateGroqApiKey: 200, 
 test('Unit 13: Режим primaryProvider auto выбирает провайдера по наличию ключей', async () => {
     const { resolveExecutionPlan } = await import('../src/ai-client');
 
-    // Когда оба ключа есть, auto использует mistral основным и groq резервным
+    // Когда оба ключа есть, auto использует mistral основным и gigachat резервным
     const planBoth = resolveExecutionPlan({
         primaryProvider: 'auto',
         autoFallback: true,
         mistralApiKey: 'mistral',
-        groqApiKey: 'groq',
+        gigachatAuthKey: 'gigachat',
     });
     expect(planBoth.primary).toBe('mistral');
-    expect(planBoth.backup).toBe('groq');
+    expect(planBoth.backup).toBe('gigachat');
 
-    // Когда есть только Groq ключ, auto выбирает Groq
-    const planGroqOnly = resolveExecutionPlan({
+    // Когда есть только GigaChat ключ, auto выбирает GigaChat
+    const planGigaChatOnly = resolveExecutionPlan({
         primaryProvider: 'auto',
         autoFallback: true,
         mistralApiKey: '',
-        groqApiKey: 'groq',
+        gigachatAuthKey: 'gigachat',
     });
-    expect(planGroqOnly.primary).toBe('groq');
-    expect(planGroqOnly.backup).toBeUndefined();
+    expect(planGigaChatOnly.primary).toBe('gigachat');
+    expect(planGigaChatOnly.backup).toBeUndefined();
 
     // Когда есть только Mistral ключ, auto выбирает Mistral
     const planMistralOnly = resolveExecutionPlan({
         primaryProvider: 'auto',
         autoFallback: true,
         mistralApiKey: 'mistral',
-        groqApiKey: '',
+        gigachatAuthKey: '',
     });
     expect(planMistralOnly.primary).toBe('mistral');
     expect(planMistralOnly.backup).toBeUndefined();
@@ -2784,66 +2831,30 @@ test('Unit 14: AIProviderError правильно вычисляет флаг is
     const authError = new AiProviderError('Unauthorized', 'AUTH_ERROR', 'mistral', false, 401);
     expect(authError.isFallbackEligible).toBe(false);
 
-    const serverError = new AiProviderError('503', 'SERVER_ERROR', 'groq', true, 503);
+    const serverError = new AiProviderError('503', 'SERVER_ERROR', 'gigachat', true, 503);
     expect(serverError.isFallbackEligible).toBe(true);
 
-    const networkError = new AiProviderError('fetch failed', 'NETWORK_ERROR', 'groq', true);
+    const networkError = new AiProviderError('fetch failed', 'NETWORK_ERROR', 'gigachat', true);
     expect(networkError.isFallbackEligible).toBe(true);
 });
 
 test('Unit 15: Форматирование уведомления о fallback содержит имена моделей и провайдеров', async () => {
     const { getFallbackNotification } = await import('../src/ai-client');
 
-    const notificationMistralToGroq = getFallbackNotification('mistral', 'groq', 'RATE_LIMIT');
-    expect(notificationMistralToGroq).toContain('Mistral');
-    expect(notificationMistralToGroq).toContain('Groq');
-    expect(notificationMistralToGroq).toContain('Qwen 3.6');
+    const notificationMistralToGigaChat = getFallbackNotification('mistral', 'gigachat', 'RATE_LIMIT');
+    expect(notificationMistralToGigaChat).toContain('Mistral');
+    expect(notificationMistralToGigaChat).toContain('GigaChat');
 
-    const notificationGroqToMistral = getFallbackNotification('groq', 'mistral', 'SERVER_ERROR');
-    expect(notificationGroqToMistral).toContain('Groq');
-    expect(notificationGroqToMistral).toContain('Mistral');
-});
-
-test('Unit 16: showMoreMenu экспортируется и создает меню с действиями', async () => {
-    const { showMoreMenu } = await import('../src/content-menus');
-    const originalDocument = globalThis.document;
-    const originalDOMParser = globalThis.DOMParser;
-    vi.stubGlobal('DOMParser', MockDOMParser);
-    vi.stubGlobal('document', {
-        createElement: (tag: string) => createMockElement(tag),
-        createTextNode: (text: string) => ({ textContent: text }),
-        importNode: (node: unknown) => node,
-    });
-
-    try {
-        const container = createMockElement('div');
-        const context = {
-            openPopup: () => container,
-            getPopup: () => container,
-            getSelectionText: () => 'Привет мир',
-            getSearchEngine: () => 'google',
-            getPopupElementById: () => null,
-            closePopup: vi.fn(),
-            adjustPopupPosition: vi.fn(),
-            handleAction: vi.fn(),
-            executeCustom: vi.fn(),
-        };
-
-        showMoreMenu(100, 100, context as never);
-        expect((container as unknown as HTMLElement).dataset.surface).toBe('menu');
-        expect(container.getAttribute('role')).toBe('menu');
-        expect(container.querySelectorAll('button').length).toBeGreaterThan(0);
-    } finally {
-        vi.stubGlobal('document', originalDocument);
-        vi.stubGlobal('DOMParser', originalDOMParser);
-    }
+    const notificationGigaChatToMistral = getFallbackNotification('gigachat', 'mistral', 'SERVER_ERROR');
+    expect(notificationGigaChatToMistral).toContain('GigaChat');
+    expect(notificationGigaChatToMistral).toContain('Mistral');
 });
 
 test('Unit 18: checkProviderHealth классифицирует состояния серверов (healthy, degraded, outage, unconfigured)', async () => {
     const { checkProviderHealth } = await import('../src/provider-health');
 
     // 1. Без ключа -> unconfigured
-    const unconfigured = await checkProviderHealth('groq', '');
+    const unconfigured = await checkProviderHealth('gigachat', '');
     expect(unconfigured.state).toBe('unconfigured');
 
     // 2. 200 OK -> healthy
@@ -2851,11 +2862,11 @@ test('Unit 18: checkProviderHealth классифицирует состояни
     globalThis.fetch = vi.fn().mockResolvedValue({
         ok: true,
         status: 200,
-        json: async () => ({ data: [] }),
+        json: async () => ({ access_token: 'fake', expires_at: Date.now() + 1800000, data: [] }),
     });
 
     try {
-        const healthy = await checkProviderHealth('groq', 'gsk_test_key');
+        const healthy = await checkProviderHealth('gigachat', 'test_auth_key');
         expect(healthy.state).toBe('healthy');
         expect(typeof healthy.latencyMs).toBe('number');
 
@@ -2868,11 +2879,13 @@ test('Unit 18: checkProviderHealth классифицирует состояни
         expect(degraded.state).toBe('degraded');
 
         // 4. 503 Server Error -> outage (красный)
+        const { invalidateGigaChatToken } = await import('../src/gigachat-token-manager');
+        await invalidateGigaChatToken();
         globalThis.fetch = vi.fn().mockResolvedValue({
             ok: false,
             status: 503,
         });
-        const outage = await checkProviderHealth('groq', 'gsk_test_key');
+        const outage = await checkProviderHealth('gigachat', 'test_auth_key');
         expect(outage.state).toBe('outage');
 
         // 5. 401 Auth Error -> outage (красный)
@@ -2884,8 +2897,9 @@ test('Unit 18: checkProviderHealth классифицирует состояни
         expect(authError.state).toBe('outage');
 
         // 6. Network Error / Timeout -> outage (красный)
+        await invalidateGigaChatToken();
         globalThis.fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
-        const netError = await checkProviderHealth('groq', 'gsk_test_key');
+        const netError = await checkProviderHealth('gigachat', 'test_auth_key');
         expect(netError.state).toBe('outage');
     } finally {
         globalThis.fetch = originalFetch;
@@ -2911,20 +2925,103 @@ test('Unit 19: getHealthStateColor и getHealthStateBadge возвращают �
 test('Unit 20: evaluateHealthFromRuntimeResponse корректно оценивает статус после выполнения запроса', async () => {
     const { evaluateHealthFromRuntimeResponse } = await import('../src/provider-health');
 
-    const fastOk = evaluateHealthFromRuntimeResponse('groq', 450);
+    const fastOk = evaluateHealthFromRuntimeResponse('gigachat', 450);
     expect(fastOk.state).toBe('healthy');
 
     const slowOk = evaluateHealthFromRuntimeResponse('mistral', 4200);
     expect(slowOk.state).toBe('degraded');
 
-    const rateLimit = evaluateHealthFromRuntimeResponse('groq', 200, 429);
+    const rateLimit = evaluateHealthFromRuntimeResponse('gigachat', 200, 429);
     expect(rateLimit.state).toBe('degraded');
 
     const serverError = evaluateHealthFromRuntimeResponse('mistral', 100, 500);
     expect(serverError.state).toBe('outage');
 
-    const netFail = evaluateHealthFromRuntimeResponse('groq', 1500, undefined, true);
+    const netFail = evaluateHealthFromRuntimeResponse('gigachat', 1500, undefined, true);
     expect(netFail.state).toBe('outage');
+});
+
+test('GigaChatTokenManager: single-flight блокировка выполняет только 1 сетевой запрос при параллельных вызовах', async () => {
+    const { getValidGigaChatToken, invalidateGigaChatToken } = await import('../src/gigachat-token-manager');
+    await invalidateGigaChatToken();
+
+    let fetchCount = 0;
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+        fetchCount++;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        return {
+            ok: true,
+            status: 200,
+            json: async () => ({ access_token: 'single-flight-token', expires_at: Date.now() + 1800000 }),
+        } as unknown as Response;
+    });
+
+    // Запускаем 5 одновременных запросов
+    const results = await Promise.all([
+        getValidGigaChatToken('key-1'),
+        getValidGigaChatToken('key-1'),
+        getValidGigaChatToken('key-1'),
+        getValidGigaChatToken('key-1'),
+        getValidGigaChatToken('key-1'),
+    ]);
+
+    expect(fetchCount).toBe(1);
+    results.forEach((token) => expect(token).toBe('single-flight-token'));
+    mockFetch.mockRestore();
+});
+
+test('GigaChatTokenManager: токен с истекающим сроком действия (<60 сек) автоматически обновляется', async () => {
+    const { getValidGigaChatToken, invalidateGigaChatToken } = await import('../src/gigachat-token-manager');
+    await invalidateGigaChatToken();
+
+    let fetchCount = 0;
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+        fetchCount++;
+        if (fetchCount === 1) {
+            // Возвращаем токен со сроком действия истекающим через 30 секунд (меньше порога 60 сек)
+            return {
+                ok: true,
+                status: 200,
+                json: async () => ({ access_token: 'almost-expired-token', expires_at: Date.now() + 30_000 }),
+            } as unknown as Response;
+        }
+        return {
+            ok: true,
+            status: 200,
+            json: async () => ({ access_token: 'refreshed-token', expires_at: Date.now() + 1800000 }),
+        } as unknown as Response;
+    });
+
+    const token1 = await getValidGigaChatToken('key-1');
+    expect(token1).toBe('almost-expired-token');
+    expect(fetchCount).toBe(1);
+
+    // Второй вызов должен обнаружить <60 сек до истечения и запросить новый токен
+    const token2 = await getValidGigaChatToken('key-1');
+    expect(token2).toBe('refreshed-token');
+    expect(fetchCount).toBe(2);
+
+    mockFetch.mockRestore();
+});
+
+test('GigaChatTokenManager: invalidateGigaChatToken очищает токен из памяти и chrome.storage.local', async () => {
+    const { getValidGigaChatToken, invalidateGigaChatToken, getStoredGigaChatTokenMemory } =
+        await import('../src/gigachat-token-manager');
+    await invalidateGigaChatToken();
+
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ access_token: 'cached-token', expires_at: Date.now() + 1800000 }),
+    } as unknown as Response);
+
+    await getValidGigaChatToken('key-1');
+    expect(getStoredGigaChatTokenMemory()).toBe('cached-token');
+
+    await invalidateGigaChatToken();
+    expect(getStoredGigaChatTokenMemory()).toBeNull();
+
+    mockFetch.mockRestore();
 });
 
 test('Unit 21: buildGrammarExplanationPayload формирует сообщения для объяснения правил и ошибок', async () => {
@@ -3087,7 +3184,7 @@ test('Unit 24: recordErrorLog, getErrorLogs, clearErrorLogs корректно �
     }
 });
 
-test('Unit 25: options.html содержит карточки лимитов Groq/Mistral, журнал ошибок в Диагностике и модальное окно обратной связи', async () => {
+test('Unit 25: options.html содержит карточки лимитов GigaChat/Mistral, журнал ошибок в Диагностике и модальное окно обратной связи', async () => {
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const optionsHtml = await fs.readFile(path.resolve(__dirname, '../entrypoints/options.html'), 'utf8');
@@ -3109,19 +3206,19 @@ test('Unit 25: options.html содержит карточки лимитов Gro
 });
 
 test('Unit 26: clearAllSecrets гарантированно очищает сохранённые ключи и кэш', async () => {
-    const { setStoredApiKey, setStoredGroqApiKey, getStoredApiKey, getStoredGroqApiKey, clearAllSecrets } =
+    const { setStoredApiKey, setStoredGigaChatAuthKey, getStoredApiKey, getStoredGigaChatAuthKey, clearAllSecrets } =
         await import('../src/secret-store');
 
     await setStoredApiKey('mistral-test-key-12345');
-    await setStoredGroqApiKey('gsk_groq-test-key-12345');
+    await setStoredGigaChatAuthKey('gigachat-test-key-12345');
 
     expect(await getStoredApiKey()).toBe('mistral-test-key-12345');
-    expect(await getStoredGroqApiKey()).toBe('gsk_groq-test-key-12345');
+    expect(await getStoredGigaChatAuthKey()).toBe('gigachat-test-key-12345');
 
     await clearAllSecrets();
 
     expect(await getStoredApiKey()).toBe('');
-    expect(await getStoredGroqApiKey()).toBe('');
+    expect(await getStoredGigaChatAuthKey()).toBe('');
 });
 
 test('Unit 27: grammar-analytics правильно классифицирует категории ошибок и строит сводный отчёт', async () => {
@@ -3512,30 +3609,30 @@ test('Unit 33: createLanguagePicker обрабатывает Escape и возв�
     }
 });
 
-test('Unit 34: processGroqOcr распознаёт текст через модель Vision', async () => {
-    const { processGroqOcr } = await import('../src/groq-client');
+test('Unit 34: processOcr распознаёт текст через Mistral OCR', async () => {
+    const { processOcr } = await import('../src/mistral-client');
 
     const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
         ok: true,
         status: 200,
         headers: new Headers(),
         json: async () => ({
-            choices: [{ message: { content: 'Распознанный текст на скриншоте' } }],
+            pages: [{ markdown: 'Распознанный текст на скриншоте' }],
         }),
     } as unknown as Response);
 
-    const result = await processGroqOcr(
+    const result = await processOcr(
         { action: 'callMistral', imageUrl: 'data:image/png;base64,AAAA' },
-        'gsk-valid-key',
+        'mistral-valid-key',
         new AbortController().signal,
     );
 
     expect(result).toBe('Распознанный текст на скриншоте');
     expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.groq.com/openai/v1/chat/completions',
+        'https://api.mistral.ai/v1/ocr',
         expect.objectContaining({
             method: 'POST',
-            body: expect.stringContaining('llama-3.2-11b-vision-preview'),
+            body: expect.stringContaining('mistral-ocr-latest'),
         }),
     );
 

@@ -1,5 +1,7 @@
 import { t } from './i18n';
 import type { AiProviderType } from './ai-provider-types';
+import { getGigaChatAccessToken } from './gigachat-token-manager';
+import { AI_CONFIG } from './ai-models-config';
 
 export type HealthState = 'healthy' | 'degraded' | 'outage' | 'unconfigured' | 'checking';
 
@@ -66,9 +68,95 @@ export async function checkProviderHealth(
         };
     }
 
-    const url = provider === 'groq' ? 'https://api.groq.com/openai/v1/models' : 'https://api.mistral.ai/v1/models';
-
     const startTime = performance.now();
+
+    if (provider === 'gigachat') {
+        try {
+            const token = await getGigaChatAccessToken(trimmedKey, AbortSignal.timeout(timeoutMs));
+            const durationMs = performance.now() - startTime;
+            if (!token) {
+                return {
+                    provider,
+                    state: 'outage',
+                    latencyMs: durationMs,
+                    message: t('serverStatusAuthError', 'Недействительный ключ авторизации'),
+                    checkedAt: Date.now(),
+                };
+            }
+            if (durationMs < 2500) {
+                return {
+                    provider,
+                    state: 'healthy',
+                    latencyMs: durationMs,
+                    message: t('serverStatusHealthy', 'Работает отлично'),
+                    checkedAt: Date.now(),
+                };
+            }
+            return {
+                provider,
+                state: 'degraded',
+                latencyMs: durationMs,
+                message: t('serverStatusDegradedLatency', 'Замедление ответа'),
+                checkedAt: Date.now(),
+            };
+        } catch (error) {
+            const durationMs = performance.now() - startTime;
+            const isTimeout =
+                error instanceof Error &&
+                (error.name === 'TimeoutError' ||
+                    error.name === 'AbortError' ||
+                    error.message.includes('timeout') ||
+                    error.message.includes('aborted'));
+
+            if (isTimeout) {
+                return {
+                    provider,
+                    state: 'degraded',
+                    latencyMs: durationMs,
+                    message: t('serverStatusTimeout', 'Тайм-аут соединения'),
+                    checkedAt: Date.now(),
+                };
+            }
+
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            if (
+                errorMsg.includes('401') ||
+                errorMsg.includes('403') ||
+                errorMsg.includes('недействителен') ||
+                errorMsg.includes('AUTH_ERROR')
+            ) {
+                return {
+                    provider,
+                    state: 'outage',
+                    latencyMs: durationMs,
+                    message: t('serverStatusAuthError', 'Недействительный ключ авторизации'),
+                    checkedAt: Date.now(),
+                };
+            }
+
+            if (errorMsg.includes('429') || errorMsg.includes('лимит')) {
+                return {
+                    provider,
+                    state: 'degraded',
+                    latencyMs: durationMs,
+                    message: t('serverStatusRateLimit', 'Лимит запросов (Rate Limit)'),
+                    checkedAt: Date.now(),
+                };
+            }
+
+            return {
+                provider,
+                state: 'outage',
+                latencyMs: durationMs,
+                message: t('serverStatusNetworkError', 'Ошибка сети / недоступен'),
+                checkedAt: Date.now(),
+            };
+        }
+    }
+
+    // Mistral
+    const url = `${AI_CONFIG.mistral.baseUrl}/models`;
+
     try {
         const response = await fetch(url, {
             method: 'GET',
@@ -82,7 +170,6 @@ export async function checkProviderHealth(
         const durationMs = performance.now() - startTime;
 
         if (response.ok) {
-            // Если ответ быстрый (< 2500 мс) — отличная работа
             if (durationMs < 2500) {
                 return {
                     provider,
@@ -92,7 +179,6 @@ export async function checkProviderHealth(
                     checkedAt: Date.now(),
                 };
             }
-            // Если ответ занял >= 2.5 сек — замедление
             return {
                 provider,
                 state: 'degraded',
@@ -102,7 +188,6 @@ export async function checkProviderHealth(
             };
         }
 
-        // Обработка статус-кодов
         if (response.status === 429) {
             return {
                 provider,
@@ -149,13 +234,21 @@ export async function checkProviderHealth(
                 error.message.includes('timeout') ||
                 error.message.includes('aborted'));
 
+        if (isTimeout) {
+            return {
+                provider,
+                state: 'degraded',
+                latencyMs: durationMs,
+                message: t('serverStatusTimeout', 'Тайм-аут соединения'),
+                checkedAt: Date.now(),
+            };
+        }
+
         return {
             provider,
             state: 'outage',
             latencyMs: durationMs,
-            message: isTimeout
-                ? t('serverStatusTimeout', 'Таймаут подключения')
-                : t('serverStatusNetworkError', 'Ошибка сети / недоступен'),
+            message: t('serverStatusNetworkError', 'Ошибка сети / недоступен'),
             checkedAt: Date.now(),
         };
     }
@@ -243,7 +336,7 @@ export async function loadCachedHealthStatus(): Promise<Record<AiProviderType, P
                         ? status
                         : null;
                 return {
-                    groq: fresh(cached.groq),
+                    gigachat: fresh(cached.gigachat),
                     mistral: fresh(cached.mistral),
                 };
             }
@@ -251,7 +344,7 @@ export async function loadCachedHealthStatus(): Promise<Record<AiProviderType, P
     } catch {
         // Fallback
     }
-    return { groq: null, mistral: null };
+    return { gigachat: null, mistral: null };
 }
 
 export async function saveCachedHealthStatus(

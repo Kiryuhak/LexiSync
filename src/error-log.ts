@@ -6,7 +6,7 @@ export interface ErrorLogEntry {
     level: 'error' | 'warn';
     source: string;
     message: string;
-    provider?: 'mistral' | 'groq';
+    provider?: 'mistral' | 'gigachat';
     errorCode?: string;
     status?: number;
     details?: Record<string, unknown>;
@@ -88,7 +88,7 @@ export async function recordErrorLog(entry: {
     level?: 'error' | 'warn';
     source: string;
     message: string;
-    provider?: 'mistral' | 'groq';
+    provider?: 'mistral' | 'gigachat';
     errorCode?: string;
     status?: number;
     details?: Record<string, unknown>;

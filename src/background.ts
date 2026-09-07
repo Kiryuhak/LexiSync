@@ -11,7 +11,6 @@ import { createSettingsFingerprint } from './request-cache';
 import { applySettingsMutation, type SettingsMutation } from './settings-store';
 import { initializeSettingsSync, restoreSyncedSettings } from './settings-transfer';
 import { formatMistralError, isRetryableMistralError, processOcr, type MistralRequest } from './mistral-client';
-import { processGroqOcr } from './groq-client';
 import { executeAiStreamRequest } from './ai-client';
 import { AiProviderError } from './ai-provider-types';
 import { buildGrammarExplanationPayload } from './prompt-builder';
@@ -31,10 +30,10 @@ import { DEFAULT_BUDGET_SETTINGS, estimateTokens } from './budget';
 import { finalizeBudgetReservation, reserveBudgetIfActive } from './budget-reservations';
 import {
     getStoredApiKey,
-    getStoredGroqApiKey,
+    getStoredGigaChatAuthKey,
     migrateApiKeyToSecretStore,
     setStoredApiKey,
-    setStoredGroqApiKey,
+    setStoredGigaChatAuthKey,
 } from './secret-store';
 import { logger } from './logger';
 import {
@@ -310,17 +309,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) }),
             );
         return true;
-    } else if (request.action === 'getGroqApiKey' || request.action === 'setGroqApiKey') {
+    } else if (request.action === 'getGigaChatAuthKey' || request.action === 'setGigaChatAuthKey') {
         const trustedSender = Boolean(sender.url?.startsWith(chrome.runtime.getURL('')));
         if (!trustedSender) {
             sendResponse({ ok: false, error: 'UNTRUSTED_SECRET_REQUEST' });
             return;
         }
         const operation =
-            request.action === 'getGroqApiKey'
-                ? initializationPromise.then(getStoredGroqApiKey).then((value) => ({ value }))
+            request.action === 'getGigaChatAuthKey'
+                ? initializationPromise.then(getStoredGigaChatAuthKey).then((value) => ({ value }))
                 : initializationPromise
-                      .then(() => setStoredGroqApiKey(typeof request.value === 'string' ? request.value : ''))
+                      .then(() => setStoredGigaChatAuthKey(typeof request.value === 'string' ? request.value : ''))
                       .then(() => ({ value: '' }));
         void operation
             .then((data) => sendResponse({ ok: true, ...data }))
@@ -331,7 +330,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     } else if (request.action === 'getRuntimeSettings') {
         void initializationPromise
             .then(async () => {
-                const [settings, apiKey, groqApiKey] = await Promise.all([
+                const [settings, apiKey, gigaChatAuthKey] = await Promise.all([
                     getCachedSettings({
                         sendPageContext: false,
                         contextDisabledSites: [],
@@ -346,11 +345,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         ...AI_PROVIDER_RUNTIME_DEFAULTS,
                     }),
                     getStoredApiKey(),
-                    getStoredGroqApiKey(),
+                    getStoredGigaChatAuthKey(),
                 ]);
-                return { settings, apiKey, groqApiKey };
+                return { settings, apiKey, gigaChatAuthKey };
             })
-            .then(({ settings, apiKey, groqApiKey }) => {
+            .then(({ settings, apiKey, gigaChatAuthKey }) => {
                 const profiles = Array.isArray(settings.styleProfiles)
                     ? (settings.styleProfiles as StyleProfile[])
                     : [];
@@ -361,9 +360,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 );
                 sendResponse({
                     ok: true,
-                    hasApiKey: apiKey.length > 0 || groqApiKey.length > 0,
+                    hasApiKey: apiKey.length > 0 || gigaChatAuthKey.length > 0,
                     hasMistralApiKey: apiKey.length > 0,
-                    hasGroqApiKey: groqApiKey.length > 0,
+                    hasGigaChatAuthKey: gigaChatAuthKey.length > 0,
                     primaryAiProvider: normalizePrimaryAiProvider(settings.primaryAiProvider),
                     autoFallbackEnabled: normalizeAutoFallbackEnabled(settings.autoFallbackEnabled),
                     sendPageContext: settings.sendPageContext === true,
@@ -473,16 +472,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         void (async () => {
             try {
                 await initializationPromise;
-                const [mistralApiKey, groqApiKey, settings] = await Promise.all([
+                const [mistralApiKey, gigachatAuthKey, settings] = await Promise.all([
                     getStoredApiKey(),
-                    getStoredGroqApiKey(),
+                    getStoredGigaChatAuthKey(),
                     getCachedSettings({
                         selectedTone: 'business',
                         ...AI_PROVIDER_RUNTIME_DEFAULTS,
                         aiMode: 'balanced',
                     }),
                 ]);
-                if (!mistralApiKey && !groqApiKey) {
+                if (!mistralApiKey && !gigachatAuthKey) {
                     throw new Error(t('apiKeyMissing', 'API-ключ не настроен'));
                 }
                 const payload = buildGrammarExplanationPayload(original, result, mode);
@@ -506,7 +505,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                             enablePiiMasking: true,
                         },
                         mistralApiKey,
-                        groqApiKey,
+                        gigachatAuthKey,
                         primaryProvider: normalizePrimaryAiProvider(settings.primaryAiProvider),
                         autoFallback: normalizeAutoFallbackEnabled(settings.autoFallbackEnabled),
                         signal: controller.signal,
@@ -653,8 +652,8 @@ chrome.runtime.onConnect.addListener((port) => {
                     }
                 }
             }
-            let [mistralApiKey, groqApiKey] = await Promise.all([getStoredApiKey(), getStoredGroqApiKey()]);
-            if (!mistralApiKey && !groqApiKey) {
+            let [mistralApiKey, gigachatAuthKey] = await Promise.all([getStoredApiKey(), getStoredGigaChatAuthKey()]);
+            if (!mistralApiKey && !gigachatAuthKey) {
                 throw new Error(t('apiKeyMissing', 'API-ключ не настроен'));
             }
 
@@ -705,38 +704,15 @@ chrome.runtime.onConnect.addListener((port) => {
 
             // Ключ мог быть заменён, пока запрос ожидал резервирования бюджета
             // или подготовки контекста. Перечитываем секрет непосредственно перед API-вызовом.
-            [mistralApiKey, groqApiKey] = await Promise.all([getStoredApiKey(), getStoredGroqApiKey()]);
+            [mistralApiKey, gigachatAuthKey] = await Promise.all([getStoredApiKey(), getStoredGigaChatAuthKey()]);
 
             if (msg.mode === 'ocr') {
                 const hasMistral = Boolean(mistralApiKey?.trim());
-                const hasGroq = Boolean(groqApiKey?.trim());
-                if (!hasMistral && !hasGroq) {
-                    throw new Error(
-                        t('ocrKeyRequired', 'Для распознавания текста (OCR) требуется API-ключ Mistral или Groq.'),
-                    );
+                if (!hasMistral) {
+                    throw new Error(t('ocrKeyRequired', 'Для распознавания текста (OCR) требуется API-ключ Mistral.'));
                 }
 
-                let text = '';
-                let usedProvider: 'mistral' | 'groq' = 'mistral';
-
-                if (hasMistral) {
-                    try {
-                        text = await processOcr(msg, mistralApiKey!, requestController.signal);
-                        usedProvider = 'mistral';
-                    } catch (mistralErr) {
-                        if (hasGroq && !requestController.signal.aborted) {
-                            logger.warn('Mistral OCR завершился с ошибкой, переключаемся на Groq Vision:', mistralErr);
-                            text = await processGroqOcr(msg, groqApiKey!, requestController.signal);
-                            usedProvider = 'groq';
-                        } else {
-                            throw mistralErr;
-                        }
-                    }
-                } else {
-                    text = await processGroqOcr(msg, groqApiKey!, requestController.signal);
-                    usedProvider = 'groq';
-                }
-
+                const text = await processOcr(msg, mistralApiKey!, requestController.signal);
                 if (isCurrentRequest()) safePostMessage({ status: 'chunk', text });
                 outputText = text;
                 if (canUseOcrCache) {
@@ -746,7 +722,7 @@ chrome.runtime.onConnect.addListener((port) => {
                         logger.error('Не удалось сохранить OCR-кэш:', error);
                     }
                 }
-                if (isCurrentRequest()) safePostMessage({ status: 'done', provider: usedProvider });
+                if (isCurrentRequest()) safePostMessage({ status: 'done', provider: 'mistral' });
             } else {
                 const aiSettings = {
                     selectedTone: settings.selectedTone as string,
@@ -763,14 +739,14 @@ chrome.runtime.onConnect.addListener((port) => {
                             : 'balanced',
                     enablePiiMasking: settings.enablePiiMasking !== false,
                 } as const;
-                const runAiRequest = (currentMistralKey: string, currentGroqKey: string) =>
+                const runAiRequest = (currentMistralKey: string, currentGigaChatKey: string) =>
                     executeAiStreamRequest({
                         request: msg,
                         settings: aiSettings,
                         primaryProvider: normalizePrimaryAiProvider(settings.primaryAiProvider),
                         autoFallback: normalizeAutoFallbackEnabled(settings.autoFallbackEnabled),
                         mistralApiKey: currentMistralKey,
-                        groqApiKey: currentGroqKey,
+                        gigachatAuthKey: currentGigaChatKey,
                         signal: requestController.signal,
                         onChunk: (text) => {
                             outputText += text;
@@ -784,15 +760,15 @@ chrome.runtime.onConnect.addListener((port) => {
 
                 let execResult;
                 try {
-                    execResult = await runAiRequest(mistralApiKey, groqApiKey);
+                    execResult = await runAiRequest(mistralApiKey, gigachatAuthKey);
                 } catch (error) {
                     if (!(error instanceof AiProviderError) || error.code !== 'AUTH_ERROR') throw error;
-                    const [latestMistralKey, latestGroqKey] = await Promise.all([
+                    const [latestMistralKey, latestGigaChatKey] = await Promise.all([
                         getStoredApiKey(),
-                        getStoredGroqApiKey(),
+                        getStoredGigaChatAuthKey(),
                     ]);
-                    const attemptedKey = error.provider === 'mistral' ? mistralApiKey : groqApiKey;
-                    const latestKey = error.provider === 'mistral' ? latestMistralKey : latestGroqKey;
+                    const attemptedKey = error.provider === 'mistral' ? mistralApiKey : gigachatAuthKey;
+                    const latestKey = error.provider === 'mistral' ? latestMistralKey : latestGigaChatKey;
                     if (!latestKey || latestKey === attemptedKey) throw error;
 
                     // Сохранение ключа завершилось во время запроса. Сбрасываем возможный
@@ -800,8 +776,8 @@ chrome.runtime.onConnect.addListener((port) => {
                     outputText = '';
                     if (isCurrentRequest()) safePostMessage({ status: 'reset' });
                     mistralApiKey = latestMistralKey;
-                    groqApiKey = latestGroqKey;
-                    execResult = await runAiRequest(mistralApiKey, groqApiKey);
+                    gigachatAuthKey = latestGigaChatKey;
+                    execResult = await runAiRequest(mistralApiKey, gigachatAuthKey);
                 }
                 if (isCurrentRequest()) {
                     safePostMessage({

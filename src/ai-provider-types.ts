@@ -1,7 +1,7 @@
 import type { MistralRequest, MistralSettings } from './mistral-client';
 
-export type AiProviderType = 'mistral' | 'groq';
-export type PrimaryAiProvider = 'auto' | 'mistral' | 'groq';
+export type AiProviderType = 'mistral' | 'gigachat';
+export type PrimaryAiProvider = 'auto' | 'mistral' | 'gigachat';
 
 export type AiErrorCode =
     | 'AUTH_ERROR'
@@ -11,6 +11,7 @@ export type AiErrorCode =
     | 'TIMEOUT'
     | 'SERVER_ERROR'
     | 'INVALID_RESPONSE'
+    | 'INVALID_REQUEST'
     | 'UNKNOWN_ERROR';
 
 export class AiProviderError extends Error {
@@ -28,7 +29,7 @@ export class AiProviderError extends Error {
 
     get isFallbackEligible(): boolean {
         // Fallback разрешен только для временных ошибок нагрузки, квоты, сети и сервера.
-        // Запрещен для AUTH_ERROR (401, 403), чтобы не скрывать проблему с некорректным ключом.
+        // Запрещен для AUTH_ERROR (401, 403) и INVALID_REQUEST (400), чтобы не скрывать проблему с некорректным ключом или неверным запросом.
         return (
             this.retryable &&
             ['RATE_LIMIT', 'QUOTA_EXCEEDED', 'SERVER_ERROR', 'NETWORK_ERROR', 'TIMEOUT', 'INVALID_RESPONSE'].includes(
@@ -38,13 +39,51 @@ export class AiProviderError extends Error {
     }
 }
 
+export interface AIMessage {
+    role: 'system' | 'user' | 'assistant';
+    content: string;
+}
+
+export interface AIRequest {
+    messages: AIMessage[];
+    temperature?: number;
+    maxTokens?: number;
+    stream?: boolean;
+    mode?: string;
+}
+
+export interface AIResponse {
+    text: string;
+    provider: AiProviderType;
+    model: string;
+    usage?: {
+        promptTokens?: number;
+        completionTokens?: number;
+        totalTokens?: number;
+    };
+}
+
+export interface AIProvider {
+    readonly id: AiProviderType;
+    readonly name: string;
+    isConfigured(credential?: string): Promise<boolean>;
+    validateCredentials(credential: string): Promise<{ ok: boolean; message: string }>;
+    streamChat(
+        request: MistralRequest,
+        credential: string,
+        settings: MistralSettings,
+        signal: AbortSignal,
+        onChunk: (chunk: string) => void,
+    ): Promise<AIResponse>;
+}
+
 export interface AiRequestOptions {
     request: MistralRequest;
     settings: MistralSettings;
     primaryProvider: PrimaryAiProvider;
     autoFallback: boolean;
     mistralApiKey?: string;
-    groqApiKey?: string;
+    gigachatAuthKey?: string;
     signal: AbortSignal;
     onChunk: (text: string) => void;
     /** Очищает уже показанный незавершённый ответ перед переходом на резервного провайдера. */

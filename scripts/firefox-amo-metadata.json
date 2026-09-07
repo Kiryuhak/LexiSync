@@ -1,7 +1,7 @@
 {
     "summary": {
-        "ru": "Умный помощник для работы с текстом на базе Mistral AI и Groq.",
-        "en-US": "A smart text assistant powered by Mistral AI and Groq."
+        "ru": "Умный помощник для работы с текстом на базе Mistral AI и GigaChat.",
+        "en-US": "A smart text assistant powered by Mistral AI and GigaChat."
     },
     "categories": {
         "firefox": ["language-support"]

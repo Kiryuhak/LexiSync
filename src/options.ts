@@ -22,7 +22,7 @@ import { applyThemeCustomization, DEFAULT_THEME_CUSTOMIZATION } from './theme-cu
 import { DEFAULT_BUDGET_SETTINGS, getLocalDayKey, getMonthUsage } from './budget';
 import { clearAllSecrets } from './secret-store';
 import { validateApiKey } from './mistral-client';
-import { validateGroqApiKey } from './groq-client';
+import { validateGigaChatAuthKey } from './gigachat-token-manager';
 import {
     checkProviderHealth,
     loadCachedHealthStatus,
@@ -50,7 +50,7 @@ import { createDiagnosticReport } from './diagnostics';
 import { copyText } from './clipboard';
 
 let restoredApiKey = '';
-let restoredGroqApiKey = '';
+let restoredGigaChatAuthKey = '';
 let serverHealthRefresh: Promise<void> | null = null;
 let savedOptionsState = '';
 let saveInProgress = false;
@@ -88,15 +88,15 @@ async function writePrivateApiKey(value: string): Promise<void> {
     if (response?.ok !== true) throw new Error(response?.error || 'Не удалось сохранить API-ключ.');
 }
 
-async function readPrivateGroqApiKey(): Promise<string> {
-    const response = await chrome.runtime.sendMessage({ action: 'getGroqApiKey' });
-    if (response?.ok !== true) throw new Error(response?.error || 'Не удалось прочитать Groq API-ключ.');
+async function readPrivateGigaChatAuthKey(): Promise<string> {
+    const response = await chrome.runtime.sendMessage({ action: 'getGigaChatAuthKey' });
+    if (response?.ok !== true) throw new Error(response?.error || 'Не удалось прочитать GigaChat Authorization Key.');
     return typeof response.value === 'string' ? response.value : '';
 }
 
-async function writePrivateGroqApiKey(value: string): Promise<void> {
-    const response = await chrome.runtime.sendMessage({ action: 'setGroqApiKey', value });
-    if (response?.ok !== true) throw new Error(response?.error || 'Не удалось сохранить Groq API-ключ.');
+async function writePrivateGigaChatAuthKey(value: string): Promise<void> {
+    const response = await chrome.runtime.sendMessage({ action: 'setGigaChatAuthKey', value });
+    if (response?.ok !== true) throw new Error(response?.error || 'Не удалось сохранить GigaChat Authorization Key.');
 }
 
 async function verifyMistralApiKey(apiKey: string): Promise<{ ok: boolean; message: string }> {
@@ -105,7 +105,7 @@ async function verifyMistralApiKey(apiKey: string): Promise<{ ok: boolean; messa
 
 const SAVED_OPTION_IDS = [
     'apiKey',
-    'groqApiKey',
+    'gigachatAuthKey',
     'primaryAiProvider',
     'autoFallbackEnabled',
     'toneSelect',
@@ -345,7 +345,7 @@ function renderDisabledSites(): void {
 
 async function saveOptions(): Promise<void> {
     const apiKeyInput = document.getElementById('apiKey') as HTMLInputElement;
-    const groqApiKeyInput = document.getElementById('groqApiKey') as HTMLInputElement;
+    const gigachatAuthKeyInput = document.getElementById('gigachatAuthKey') as HTMLInputElement;
     const primaryAiProviderSelect = document.getElementById('primaryAiProvider') as HTMLSelectElement;
     const autoFallbackEnabledInput = document.getElementById('autoFallbackEnabled') as HTMLInputElement;
     const toneSelect = document.getElementById('toneSelect') as HTMLSelectElement;
@@ -368,7 +368,7 @@ async function saveOptions(): Promise<void> {
     const saveBtn = document.getElementById('saveBtn') as HTMLButtonElement;
 
     const apiKey = apiKeyInput.value.trim();
-    const groqApiKey = groqApiKeyInput.value.trim();
+    const gigachatAuthKey = gigachatAuthKeyInput.value.trim();
     const normalizedDisabledSites = normalizeSiteEntries(disabledSitesInput.value);
     const originalBtnText = saveBtn.textContent;
     saveInProgress = true;
@@ -440,31 +440,34 @@ async function saveOptions(): Promise<void> {
             restoredApiKey = '';
         }
 
-        let groqKeyStatus = '';
-        if (groqApiKey !== restoredGroqApiKey && groqApiKey) {
+        let gigachatKeyStatus = '';
+        if (gigachatAuthKey !== restoredGigaChatAuthKey && gigachatAuthKey) {
             saveBtn.textContent = t('checkingKey', 'Проверка ключа…');
             try {
-                const validation = await validateGroqApiKey(groqApiKey);
+                const validation = await validateGigaChatAuthKey(gigachatAuthKey);
                 if (validation.ok) {
-                    await writePrivateGroqApiKey(groqApiKey);
-                    restoredGroqApiKey = groqApiKey;
+                    await writePrivateGigaChatAuthKey(gigachatAuthKey);
+                    restoredGigaChatAuthKey = gigachatAuthKey;
                 } else {
-                    groqKeyStatus = validation.message;
-                    groqApiKeyInput.value = restoredGroqApiKey;
+                    gigachatKeyStatus = validation.message;
+                    gigachatAuthKeyInput.value = restoredGigaChatAuthKey;
                 }
             } catch (error) {
-                logger.error('Ошибка сети при проверке ключа Groq', error);
-                groqKeyStatus = t('keyCheckUnavailable', 'Настройки сохранены. Проверить API-ключ сейчас не удалось.');
-                groqApiKeyInput.value = restoredGroqApiKey;
+                logger.error('Ошибка сети при проверке ключа GigaChat', error);
+                gigachatKeyStatus = t(
+                    'keyCheckUnavailable',
+                    'Настройки сохранены. Проверить API-ключ сейчас не удалось.',
+                );
+                gigachatAuthKeyInput.value = restoredGigaChatAuthKey;
             }
-        } else if (!groqApiKey && restoredGroqApiKey) {
-            await writePrivateGroqApiKey('');
-            restoredGroqApiKey = '';
+        } else if (!gigachatAuthKey && restoredGigaChatAuthKey) {
+            await writePrivateGigaChatAuthKey('');
+            restoredGigaChatAuthKey = '';
         }
 
         savedOptionsState = captureOptionsState();
-        const combinedStatus = apiKeyStatus || groqKeyStatus || t('saveSuccess', '✓ Настройки успешно сохранены!');
-        showOptionsStatus(combinedStatus, apiKeyStatus || groqKeyStatus ? 'warning' : 'success');
+        const combinedStatus = apiKeyStatus || gigachatKeyStatus || t('saveSuccess', '✓ Настройки успешно сохранены!');
+        showOptionsStatus(combinedStatus, apiKeyStatus || gigachatKeyStatus ? 'warning' : 'success');
         void refreshServerHealthStatus(false);
         window.setTimeout(() => {
             const status = document.getElementById('status');
@@ -483,7 +486,7 @@ async function saveOptions(): Promise<void> {
 
 async function restoreOptions(): Promise<void> {
     const apiKeyInput = document.getElementById('apiKey') as HTMLInputElement;
-    const groqApiKeyInput = document.getElementById('groqApiKey') as HTMLInputElement;
+    const gigachatAuthKeyInput = document.getElementById('gigachatAuthKey') as HTMLInputElement;
     const primaryAiProviderSelect = document.getElementById('primaryAiProvider') as HTMLSelectElement;
     const autoFallbackEnabledInput = document.getElementById('autoFallbackEnabled') as HTMLInputElement;
     const toneSelect = document.getElementById('toneSelect') as HTMLSelectElement;
@@ -504,7 +507,7 @@ async function restoreOptions(): Promise<void> {
     const personalDictionaryInput = document.getElementById('personalDictionary') as HTMLTextAreaElement;
     const aiModeSelect = document.getElementById('aiMode') as HTMLSelectElement;
 
-    const [items, privateApiKey, privateGroqApiKey] = await Promise.all([
+    const [items, privateApiKey, privateGigaChatAuthKey] = await Promise.all([
         chrome.storage.local.get({
             primaryAiProvider: 'auto',
             autoFallbackEnabled: true,
@@ -540,13 +543,13 @@ async function restoreOptions(): Promise<void> {
             settingsSyncStatus: { state: 'synced', updatedAt: 0 },
         }),
         readPrivateApiKey(),
-        readPrivateGroqApiKey(),
+        readPrivateGigaChatAuthKey(),
     ]);
 
     apiKeyInput.value = privateApiKey;
     restoredApiKey = apiKeyInput.value;
-    groqApiKeyInput.value = privateGroqApiKey;
-    restoredGroqApiKey = groqApiKeyInput.value;
+    gigachatAuthKeyInput.value = privateGigaChatAuthKey;
+    restoredGigaChatAuthKey = gigachatAuthKeyInput.value;
     primaryAiProviderSelect.value = normalizePrimaryAiProvider(items.primaryAiProvider);
     autoFallbackEnabledInput.checked = normalizeAutoFallbackEnabled(items.autoFallbackEnabled);
     toneSelect.value = items.selectedTone as string;
@@ -610,7 +613,7 @@ async function restoreOptions(): Promise<void> {
     void initializeServerHealth();
 }
 
-function renderServerHealthCard(provider: 'groq' | 'mistral', status: ProviderHealthStatus): void {
+function renderServerHealthCard(provider: 'gigachat' | 'mistral', status: ProviderHealthStatus): void {
     const card = document.getElementById(`${provider}StatusCard`);
     const dot = document.getElementById(`${provider}StatusDot`);
     const text = document.getElementById(`${provider}StatusText`);
@@ -628,12 +631,13 @@ async function refreshServerHealthStatus(showChecking = true): Promise<void> {
     if (serverHealthRefresh) return serverHealthRefresh;
 
     const refreshButton = document.getElementById('checkServerStatusBtn') as HTMLButtonElement | null;
-    const groqKey = (document.getElementById('groqApiKey') as HTMLInputElement)?.value || restoredGroqApiKey;
+    const gigachatAuthKey =
+        (document.getElementById('gigachatAuthKey') as HTMLInputElement)?.value || restoredGigaChatAuthKey;
     const mistralKey = (document.getElementById('apiKey') as HTMLInputElement)?.value || restoredApiKey;
 
     if (showChecking) {
-        renderServerHealthCard('groq', {
-            provider: 'groq',
+        renderServerHealthCard('gigachat', {
+            provider: 'gigachat',
             state: 'checking',
             message: t('serverStatusChecking', 'Проверка связи...'),
             checkedAt: Date.now(),
@@ -649,14 +653,14 @@ async function refreshServerHealthStatus(showChecking = true): Promise<void> {
     refreshButton?.setAttribute('aria-busy', 'true');
     if (refreshButton) refreshButton.disabled = true;
     serverHealthRefresh = (async () => {
-        const [groqStatus, mistralStatus] = await Promise.all([
-            checkProviderHealth('groq', groqKey),
+        const [gigachatStatus, mistralStatus] = await Promise.all([
+            checkProviderHealth('gigachat', gigachatAuthKey),
             checkProviderHealth('mistral', mistralKey),
         ]);
 
-        renderServerHealthCard('groq', groqStatus);
+        renderServerHealthCard('gigachat', gigachatStatus);
         renderServerHealthCard('mistral', mistralStatus);
-        await saveCachedHealthStatus({ groq: groqStatus, mistral: mistralStatus });
+        await saveCachedHealthStatus({ gigachat: gigachatStatus, mistral: mistralStatus });
     })().finally(() => {
         refreshButton?.removeAttribute('aria-busy');
         if (refreshButton) refreshButton.disabled = false;
@@ -667,7 +671,7 @@ async function refreshServerHealthStatus(showChecking = true): Promise<void> {
 
 async function initializeServerHealth(): Promise<void> {
     const cached = await loadCachedHealthStatus();
-    if (cached.groq) renderServerHealthCard('groq', cached.groq);
+    if (cached.gigachat) renderServerHealthCard('gigachat', cached.gigachat);
     if (cached.mistral) renderServerHealthCard('mistral', cached.mistral);
     await refreshServerHealthStatus(false);
 }
@@ -1046,7 +1050,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setupV4Settings();
             return setupOnboarding({
                 getApiKey: () => restoredApiKey,
-                getGroqApiKey: () => restoredGroqApiKey,
+                getGigaChatAuthKey: () => restoredGigaChatAuthKey,
                 onApiKeySaved: async (apiKey) => {
                     await writePrivateApiKey(apiKey);
                     restoredApiKey = apiKey;
@@ -1055,11 +1059,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     savedOptionsState = captureOptionsState();
                     updateSaveButtonState();
                 },
-                onGroqApiKeySaved: async (apiKey) => {
-                    await writePrivateGroqApiKey(apiKey);
-                    restoredGroqApiKey = apiKey;
-                    const settingsKeyInput = document.getElementById('groqApiKey') as HTMLInputElement | null;
-                    if (settingsKeyInput) settingsKeyInput.value = apiKey;
+                onGigaChatAuthKeySaved: async (authKey) => {
+                    await writePrivateGigaChatAuthKey(authKey);
+                    restoredGigaChatAuthKey = authKey;
+                    const settingsKeyInput = document.getElementById('gigachatAuthKey') as HTMLInputElement | null;
+                    if (settingsKeyInput) settingsKeyInput.value = authKey;
                     savedOptionsState = captureOptionsState();
                     updateSaveButtonState();
                 },
@@ -1229,26 +1233,26 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    const toggleGroqBtn = document.getElementById('toggleGroqApiKey');
-    const eyeOpenGroq = document.getElementById('eyeOpenGroq');
-    const eyeClosedGroq = document.getElementById('eyeClosedGroq');
-    const groqKeyInput = document.getElementById('groqApiKey') as HTMLInputElement | null;
+    const toggleGigaChatBtn = document.getElementById('toggleGigaChatAuthKey');
+    const eyeOpenGigaChat = document.getElementById('eyeOpenGigaChat');
+    const eyeClosedGigaChat = document.getElementById('eyeClosedGigaChat');
+    const gigachatKeyInput = document.getElementById('gigachatAuthKey') as HTMLInputElement | null;
 
-    if (toggleGroqBtn && eyeOpenGroq && eyeClosedGroq && groqKeyInput) {
-        toggleGroqBtn.addEventListener('click', () => {
-            const isPassword = groqKeyInput.getAttribute('type') === 'password';
-            groqKeyInput.setAttribute('type', isPassword ? 'text' : 'password');
-            toggleGroqBtn.setAttribute('aria-pressed', String(isPassword));
+    if (toggleGigaChatBtn && eyeOpenGigaChat && eyeClosedGigaChat && gigachatKeyInput) {
+        toggleGigaChatBtn.addEventListener('click', () => {
+            const isPassword = gigachatKeyInput.getAttribute('type') === 'password';
+            gigachatKeyInput.setAttribute('type', isPassword ? 'text' : 'password');
+            toggleGigaChatBtn.setAttribute('aria-pressed', String(isPassword));
             const newLabel = isPassword ? t('hideApiKey', 'Скрыть API-ключ') : t('showApiKey', 'Показать API-ключ');
-            toggleGroqBtn.setAttribute('aria-label', newLabel);
-            toggleGroqBtn.title = newLabel;
+            toggleGigaChatBtn.setAttribute('aria-label', newLabel);
+            toggleGigaChatBtn.title = newLabel;
 
             if (isPassword) {
-                eyeOpenGroq.style.display = 'none';
-                eyeClosedGroq.style.display = 'block';
+                eyeOpenGigaChat.style.display = 'none';
+                eyeClosedGigaChat.style.display = 'block';
             } else {
-                eyeOpenGroq.style.display = 'block';
-                eyeClosedGroq.style.display = 'none';
+                eyeOpenGigaChat.style.display = 'block';
+                eyeClosedGigaChat.style.display = 'none';
             }
         });
     }

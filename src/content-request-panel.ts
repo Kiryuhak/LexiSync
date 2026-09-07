@@ -243,18 +243,18 @@ export function executeRequest(
         }
     });
 
-    let activeProvider: 'mistral' | 'groq' | null = mode === 'ocr' ? 'mistral' : null;
+    let activeProvider: 'mistral' | 'gigachat' | null = mode === 'ocr' ? 'mistral' : null;
 
-    function createProviderBadge(provider: 'mistral' | 'groq', isFallback = false): HTMLElement {
+    function createProviderBadge(provider: 'mistral' | 'gigachat', isFallback = false): HTMLElement {
         const badge = document.createElement('span');
         badge.className = `lexisync-provider-badge lexisync-provider-${provider}`;
         const dot = document.createElement('span');
         dot.className = `lexisync-provider-dot ${isFallback ? 'dot-degraded' : 'dot-healthy'}`;
         badge.appendChild(dot);
         const text = document.createElement('span');
-        if (provider === 'groq') {
-            text.textContent = '⚡ Groq';
-            badge.title = isFallback ? 'Groq (резервный) • Qwen 3.6 27B' : 'Groq • Qwen 3.6 27B';
+        if (provider === 'gigachat') {
+            text.textContent = '⚡ GigaChat';
+            badge.title = isFallback ? 'GigaChat (резервный) • Сбер' : 'GigaChat • Сбер';
         } else {
             text.textContent = '✦ Mistral';
             badge.title = isFallback ? 'Mistral (резервный) • Mistral AI' : 'Mistral AI';

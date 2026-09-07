@@ -330,14 +330,14 @@ async function initializeSiteControls(): Promise<void> {
     contextInput.addEventListener('change', () => void savePreference(contextInput, 'context'));
 }
 
-function renderPopupHealthDot(provider: 'groq' | 'mistral', status: ProviderHealthStatus | null): void {
-    const dot = document.getElementById(`popup${provider === 'groq' ? 'Groq' : 'Mistral'}Dot`);
-    const item = document.getElementById(`popup${provider === 'groq' ? 'Groq' : 'Mistral'}Status`);
+function renderPopupHealthDot(provider: 'gigachat' | 'mistral', status: ProviderHealthStatus | null): void {
+    const dot = document.getElementById(`popup${provider === 'gigachat' ? 'GigaChat' : 'Mistral'}Dot`);
+    const item = document.getElementById(`popup${provider === 'gigachat' ? 'GigaChat' : 'Mistral'}Status`);
     if (!dot || !item) return;
 
     if (!status) {
         dot.className = 'popup-status-dot';
-        item.title = `${provider === 'groq' ? 'Groq' : 'Mistral'}: ${t('serverStatusUnconfigured', 'Ключ не настроен')}`;
+        item.title = `${provider === 'gigachat' ? 'GigaChat' : 'Mistral'}: ${t('serverStatusUnconfigured', 'Ключ не настроен')}`;
         return;
     }
 
@@ -346,12 +346,12 @@ function renderPopupHealthDot(provider: 'groq' | 'mistral', status: ProviderHeal
         typeof status.latencyMs === 'number'
             ? ` (${Math.round(status.latencyMs)} ${t('millisecondsShort', 'мс')})`
             : '';
-    item.title = `${provider === 'groq' ? 'Groq' : 'Mistral'}: ${status.message}${latencyStr}`;
+    item.title = `${provider === 'gigachat' ? 'GigaChat' : 'Mistral'}: ${status.message}${latencyStr}`;
 }
 
 async function initializePopupServerStatus(): Promise<void> {
     const cached = await loadCachedHealthStatus();
-    renderPopupHealthDot('groq', cached.groq);
+    renderPopupHealthDot('gigachat', cached.gigachat);
     renderPopupHealthDot('mistral', cached.mistral);
 }
 

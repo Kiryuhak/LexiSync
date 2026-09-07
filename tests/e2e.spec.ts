@@ -2179,11 +2179,11 @@ test('обучение проводит нового пользователя ч
     await page.route('https://api.mistral.ai/v1/models', async (route) => {
         await route.fulfill({ status: 200, contentType: 'application/json', body: '{"data":[]}' });
     });
-    await page.route('https://api.groq.com/openai/v1/models', async (route) => {
+    await page.route('https://ngw.devices.sberbank.ru:9443/api/v2/oauth', async (route) => {
         await route.fulfill({
             status: 200,
             contentType: 'application/json',
-            body: '{"data":[{"id":"qwen/qwen3.6-27b"}]}',
+            body: JSON.stringify({ access_token: 'test-gigachat-token', expires_at: Date.now() + 1800000 }),
         });
     });
     await page.goto(`chrome-extension://${extensionId}/options.html?tutorial=1`);
@@ -2212,28 +2212,30 @@ test('обучение проводит нового пользователя ч
     const savedKey = await page.evaluate(() => chrome.runtime.sendMessage({ action: 'getApiKey' }));
     expect(savedKey).toMatchObject({ ok: true, value: 'tutorial-test-key' });
 
-    // Шаг 3 (Groq API Key)
+    // Шаг 3 (GigaChat Authorization Key)
     await page.locator('#onboardingNext').click();
-    const onboardingGroqApiKey = page.locator('#onboardingGroqApiKey');
-    const onboardingSaveGroqKey = page.locator('#onboardingSaveGroqKey');
-    await expect(onboarding).toHaveAttribute('data-provider', 'groq');
-    await expect(page.locator('.onboarding-provider-chip')).toContainText(/Groq.*Qwen 3\.6.*Preview/);
-    await expect(onboardingGroqApiKey).toBeVisible();
-    await expect(page.locator('.onboarding-external-link[href="https://console.groq.com/keys"]')).toBeVisible();
-    const [groqKeyBox, groqCheckButtonBox] = await Promise.all([
-        onboardingGroqApiKey.boundingBox(),
-        onboardingSaveGroqKey.boundingBox(),
+    const onboardingGigaChatApiKey = page.locator('#onboardingGigaChatApiKey');
+    const onboardingSaveGigaChatKey = page.locator('#onboardingSaveGigaChatKey');
+    await expect(onboarding).toHaveAttribute('data-provider', 'gigachat');
+    await expect(page.locator('.onboarding-provider-chip')).toContainText(/GigaChat.*GIGACHAT_API_PERS/);
+    await expect(onboardingGigaChatApiKey).toBeVisible();
+    await expect(
+        page.locator('.onboarding-external-link[href="https://developers.sber.ru/portal/products/gigachat-api"]'),
+    ).toBeVisible();
+    const [gigachatKeyBox, gigachatCheckButtonBox] = await Promise.all([
+        onboardingGigaChatApiKey.boundingBox(),
+        onboardingSaveGigaChatKey.boundingBox(),
     ]);
-    expect(groqKeyBox).not.toBeNull();
-    expect(groqCheckButtonBox).not.toBeNull();
-    expect(Math.abs((groqKeyBox?.height ?? 0) - (groqCheckButtonBox?.height ?? 0))).toBeLessThanOrEqual(1);
-    expect(groqCheckButtonBox?.width ?? Number.POSITIVE_INFINITY).toBeLessThan(groqKeyBox?.width ?? 0);
-    await onboardingGroqApiKey.fill('gsk_tutorial_test_key_123');
-    await onboardingSaveGroqKey.click();
-    await expect(page.locator('#onboardingGroqKeyStatus')).toHaveAttribute('data-kind', 'success');
+    expect(gigachatKeyBox).not.toBeNull();
+    expect(gigachatCheckButtonBox).not.toBeNull();
+    expect(Math.abs((gigachatKeyBox?.height ?? 0) - (gigachatCheckButtonBox?.height ?? 0))).toBeLessThanOrEqual(1);
+    expect(gigachatCheckButtonBox?.width ?? Number.POSITIVE_INFINITY).toBeLessThan(gigachatKeyBox?.width ?? 0);
+    await onboardingGigaChatApiKey.fill('MDE5_tutorial_auth_key_123');
+    await onboardingSaveGigaChatKey.click();
+    await expect(page.locator('#onboardingGigaChatKeyStatus')).toHaveAttribute('data-kind', 'success');
 
-    const savedGroqKey = await page.evaluate(() => chrome.runtime.sendMessage({ action: 'getGroqApiKey' }));
-    expect(savedGroqKey).toMatchObject({ ok: true, value: 'gsk_tutorial_test_key_123' });
+    const savedGigaChatKey = await page.evaluate(() => chrome.runtime.sendMessage({ action: 'getGigaChatAuthKey' }));
+    expect(savedGigaChatKey).toMatchObject({ ok: true, value: 'MDE5_tutorial_auth_key_123' });
 
     for (let step = 3; step <= 5; step++) {
         await page.locator('#onboardingNext').click();
@@ -2362,10 +2364,10 @@ test('результат AI-запроса отображает бейдж ис�
     await expect(result.locator('.lexisync-close-button')).toBeVisible();
     const providerBadge = result.locator('.lexisync-provider-badge');
     await expect(providerBadge).toBeVisible();
-    await expect(providerBadge).toHaveText(/Mistral|Groq/);
+    await expect(providerBadge).toHaveText(/Mistral|GigaChat/);
 });
 
-test('выключенный fallback не отправляет текст в Groq при ошибке Mistral', async ({ context }) => {
+test('выключенный fallback не отправляет текст в GigaChat при ошибке Mistral', async ({ context }) => {
     await setFakeApiKey(context);
     let [background] = context.serviceWorkers();
     if (!background) background = await context.waitForEvent('serviceworker');
@@ -2373,7 +2375,7 @@ test('выключенный fallback не отправляет текст в Gr
     const extensionPage = await context.newPage();
     await extensionPage.goto(`chrome-extension://${extensionId}/options.html`);
     await extensionPage.evaluate(() =>
-        chrome.runtime.sendMessage({ action: 'setGroqApiKey', value: 'gsk_mock-test-key-123' }),
+        chrome.runtime.sendMessage({ action: 'setGigaChatAuthKey', value: 'MDE5_mock-auth-key-123' }),
     );
     await background.evaluate(() =>
         chrome.storage.local.set({ primaryAiProvider: 'mistral', autoFallbackEnabled: false }),
@@ -2382,13 +2384,20 @@ test('выключенный fallback не отправляет текст в Gr
         .poll(() => extensionPage.evaluate(() => chrome.runtime.sendMessage({ action: 'getRuntimeSettings' })))
         .toMatchObject({ ok: true, primaryAiProvider: 'mistral', autoFallbackEnabled: false });
 
-    let groqRequests = 0;
+    let gigachatRequests = 0;
     await context.route('https://api.mistral.ai/v1/chat/completions', (route) =>
         route.fulfill({ status: 429, contentType: 'application/json', body: '{"message":"rate limit"}' }),
     );
-    await context.route('https://api.groq.com/openai/v1/chat/completions', (route) => {
-        groqRequests += 1;
-        return route.fulfill({ status: 500, body: 'Groq не должен вызываться' });
+    await context.route('https://ngw.devices.sberbank.ru:9443/api/v2/oauth', (route) =>
+        route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({ access_token: 'token', expires_at: Date.now() + 60000 }),
+        }),
+    );
+    await context.route('https://api.giga.chat/v1/chat/completions', (route) => {
+        gigachatRequests += 1;
+        return route.fulfill({ status: 500, body: 'GigaChat не должен вызываться' });
     });
 
     const response = await extensionPage.evaluate(
@@ -2407,17 +2416,17 @@ test('выключенный fallback не отправляет текст в Gr
 
     expect(response.status).toBe('error');
     expect(response.error).toMatch(/лимит|rate limit/i);
-    expect(groqRequests).toBe(0);
+    expect(gigachatRequests).toBe(0);
     await extensionPage.close();
 });
 
 test('виджет статуса серверов отображается в настройках и обновляется по кнопке', async ({ page, context }) => {
     await setFakeApiKey(context);
-    await context.route('https://api.groq.com/openai/v1/models', async (route) => {
+    await context.route('https://ngw.devices.sberbank.ru:9443/api/v2/oauth', async (route) => {
         await route.fulfill({
             status: 200,
             contentType: 'application/json',
-            body: JSON.stringify({ data: [{ id: 'qwen/qwen3.6-27b' }] }),
+            body: JSON.stringify({ access_token: 'test-token', expires_at: Date.now() + 1800000 }),
         });
     });
     await context.route('https://api.mistral.ai/v1/models', async (route) => {
@@ -2433,16 +2442,16 @@ test('виджет статуса серверов отображается в �
     const extensionId = new URL(background.url()).host;
     await page.goto(`chrome-extension://${extensionId}/options.html`);
 
-    const groqCard = page.locator('#groqStatusCard');
+    const gigachatCard = page.locator('#gigachatStatusCard');
     const mistralCard = page.locator('#mistralStatusCard');
     const refreshBtn = page.locator('#checkServerStatusBtn');
 
-    await expect(groqCard).toBeVisible();
+    await expect(gigachatCard).toBeVisible();
     await expect(mistralCard).toBeVisible();
     await expect(refreshBtn).toBeVisible();
 
     await refreshBtn.click();
-    await expect(groqCard.locator('.server-status-dot')).toBeVisible();
+    await expect(gigachatCard.locator('.server-status-dot')).toBeVisible();
     await expect(mistralCard.locator('.server-status-dot')).toBeVisible();
 });
 
@@ -2453,11 +2462,11 @@ test('popup отображает компактный статус-бар сер
 
     const statusBar = page.locator('#popup-server-status-bar');
     await expect(statusBar).toBeVisible();
-    await expect(page.locator('#popupGroqStatus')).toBeVisible();
+    await expect(page.locator('#popupGigaChatStatus')).toBeVisible();
     await expect(page.locator('#popupMistralStatus')).toBeVisible();
 });
 
-test('блок инструкций в настройках содержит инструкции для Mistral и Groq', async ({ page, context }) => {
+test('блок инструкций в настройках содержит инструкции для Mistral и GigaChat', async ({ page, context }) => {
     const [background] = context.serviceWorkers();
     await background.evaluate(() => chrome.storage.local.set({ onboardingCompleted: true }));
     const extensionId = new URL(background.url()).host;
@@ -2466,9 +2475,9 @@ test('блок инструкций в настройках содержит и�
     const instructionBox = page.locator('.instruction-box');
     await expect(instructionBox).toBeVisible();
     await expect(instructionBox).toContainText(/Mistral/);
-    await expect(instructionBox).toContainText(/Groq/);
+    await expect(instructionBox).toContainText(/GigaChat/);
     await expect(instructionBox).toContainText(/console\.mistral\.ai/);
-    await expect(instructionBox).toContainText(/console\.groq\.com/);
+    await expect(instructionBox).toContainText(/developers\.sber\.ru/);
 });
 
 test('кнопка Почему так в истории запросов загружает и отображает разбор правил', async ({ page, context }) => {

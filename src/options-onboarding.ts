@@ -1,13 +1,13 @@
 import { t } from './i18n';
 import { validateApiKey } from './mistral-client';
-import { validateGroqApiKey } from './groq-client';
+import { validateGigaChatAuthKey } from './gigachat-client';
 import { logger } from './logger';
 
 export interface OnboardingOptions {
     getApiKey: () => string;
-    getGroqApiKey?: () => string;
+    getGigaChatAuthKey?: () => string;
     onApiKeySaved: (key: string) => Promise<void>;
-    onGroqApiKeySaved?: (key: string) => Promise<void>;
+    onGigaChatAuthKeySaved?: (key: string) => Promise<void>;
 }
 
 export async function setupOnboarding(options: OnboardingOptions): Promise<void> {
@@ -18,9 +18,9 @@ export async function setupOnboarding(options: OnboardingOptions): Promise<void>
     const keyInput = document.getElementById('onboardingApiKey') as HTMLInputElement | null;
     const saveKeyButton = document.getElementById('onboardingSaveKey') as HTMLButtonElement | null;
     const keyStatus = document.getElementById('onboardingKeyStatus');
-    const groqKeyInput = document.getElementById('onboardingGroqApiKey') as HTMLInputElement | null;
-    const saveGroqKeyButton = document.getElementById('onboardingSaveGroqKey') as HTMLButtonElement | null;
-    const groqKeyStatus = document.getElementById('onboardingGroqKeyStatus');
+    const gigaChatKeyInput = document.getElementById('onboardingGigaChatApiKey') as HTMLInputElement | null;
+    const saveGigaChatKeyButton = document.getElementById('onboardingSaveGigaChatKey') as HTMLButtonElement | null;
+    const gigaChatKeyStatus = document.getElementById('onboardingGigaChatKeyStatus');
     const progress = document.getElementById('onboardingProgress');
     const progressBar = document.getElementById('onboardingProgressBar') as HTMLElement | null;
     const steps = [...document.querySelectorAll<HTMLElement>('[data-onboarding-step]')];
@@ -31,7 +31,7 @@ export async function setupOnboarding(options: OnboardingOptions): Promise<void>
     let previousFocus: HTMLElement | null = null;
     const render = () => {
         steps.forEach((step, index) => step.classList.toggle('is-active', index === activeStep));
-        onboarding.dataset.provider = activeStep === 1 ? 'mistral' : activeStep === 2 ? 'groq' : 'neutral';
+        onboarding.dataset.provider = activeStep === 1 ? 'mistral' : activeStep === 2 ? 'gigachat' : 'neutral';
         progress.textContent = `${activeStep + 1} ${t('of', 'из')} ${steps.length}`;
         if (progressBar) progressBar.style.width = `${((activeStep + 1) / steps.length) * 100}%`;
         nextButton.textContent = activeStep === steps.length - 1 ? t('start', 'Начать работу') : t('next', 'Далее');
@@ -40,14 +40,14 @@ export async function setupOnboarding(options: OnboardingOptions): Promise<void>
         previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         activeStep = 0;
         if (keyInput) keyInput.value = options.getApiKey() || '';
-        if (groqKeyInput) groqKeyInput.value = options.getGroqApiKey?.() || '';
+        if (gigaChatKeyInput) gigaChatKeyInput.value = options.getGigaChatAuthKey?.() || '';
         if (keyStatus) {
             keyStatus.textContent = '';
             delete keyStatus.dataset.kind;
         }
-        if (groqKeyStatus) {
-            groqKeyStatus.textContent = '';
-            delete groqKeyStatus.dataset.kind;
+        if (gigaChatKeyStatus) {
+            gigaChatKeyStatus.textContent = '';
+            delete gigaChatKeyStatus.dataset.kind;
         }
         onboarding.hidden = false;
         render();
@@ -100,42 +100,45 @@ export async function setupOnboarding(options: OnboardingOptions): Promise<void>
             saveKeyButton.textContent = originalText;
         }
     });
-    saveGroqKeyButton?.addEventListener('click', async () => {
-        if (!groqKeyInput || !groqKeyStatus) return;
-        const apiKey = groqKeyInput.value.trim();
-        if (!apiKey) {
-            groqKeyStatus.textContent = t('tutorialGroqKeyRequired', 'Сначала вставьте API-ключ Groq.');
-            groqKeyStatus.dataset.kind = 'error';
-            groqKeyInput.focus();
+    saveGigaChatKeyButton?.addEventListener('click', async () => {
+        if (!gigaChatKeyInput || !gigaChatKeyStatus) return;
+        const authKey = gigaChatKeyInput.value.trim();
+        if (!authKey) {
+            gigaChatKeyStatus.textContent = t(
+                'tutorialGigaChatKeyRequired',
+                'Сначала вставьте Authorization Key GigaChat.',
+            );
+            gigaChatKeyStatus.dataset.kind = 'error';
+            gigaChatKeyInput.focus();
             return;
         }
-        const originalText = saveGroqKeyButton.textContent;
-        saveGroqKeyButton.disabled = true;
-        saveGroqKeyButton.textContent = t('checkingKey', 'Проверка…');
-        groqKeyStatus.textContent = '';
-        delete groqKeyStatus.dataset.kind;
+        const originalText = saveGigaChatKeyButton.textContent;
+        saveGigaChatKeyButton.disabled = true;
+        saveGigaChatKeyButton.textContent = t('checkingKey', 'Проверка…');
+        gigaChatKeyStatus.textContent = '';
+        delete gigaChatKeyStatus.dataset.kind;
         try {
-            const validation = await validateGroqApiKey(apiKey);
+            const validation = await validateGigaChatAuthKey(authKey);
             if (validation.ok) {
-                if (options.onGroqApiKeySaved) {
-                    await options.onGroqApiKeySaved(apiKey);
+                if (options.onGigaChatAuthKeySaved) {
+                    await options.onGigaChatAuthKeySaved(authKey);
                 }
-                groqKeyStatus.textContent = validation.message;
-                groqKeyStatus.dataset.kind = 'success';
+                gigaChatKeyStatus.textContent = validation.message;
+                gigaChatKeyStatus.dataset.kind = 'success';
                 return;
             }
-            groqKeyStatus.textContent = validation.message;
-            groqKeyStatus.dataset.kind = 'error';
+            gigaChatKeyStatus.textContent = validation.message;
+            gigaChatKeyStatus.dataset.kind = 'error';
         } catch (error) {
-            logger.error('Ошибка проверки API-ключа Groq в обучении', error);
-            groqKeyStatus.textContent = t(
+            logger.error('Ошибка проверки ключа GigaChat в обучении', error);
+            gigaChatKeyStatus.textContent = t(
                 'keyCheckUnavailable',
                 'Сейчас не удалось проверить ключ. Попробуйте ещё раз.',
             );
-            groqKeyStatus.dataset.kind = 'error';
+            gigaChatKeyStatus.dataset.kind = 'error';
         } finally {
-            saveGroqKeyButton.disabled = false;
-            saveGroqKeyButton.textContent = originalText;
+            saveGigaChatKeyButton.disabled = false;
+            saveGigaChatKeyButton.textContent = originalText;
         }
     });
     onboarding.addEventListener('keydown', (event) => {

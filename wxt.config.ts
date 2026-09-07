@@ -20,7 +20,8 @@ export default defineConfig({
         permissions: ['storage', 'activeTab', 'scripting', 'contextMenus'],
         host_permissions: [
             'https://api.mistral.ai/*',
-            'https://api.groq.com/*',
+            'https://ngw.devices.sberbank.ru/*',
+            'https://api.giga.chat/*',
             ...(includeE2eHostAccess ? WEB_ORIGINS : []),
         ],
         optional_host_permissions: includeE2eHostAccess ? [] : WEB_ORIGINS,

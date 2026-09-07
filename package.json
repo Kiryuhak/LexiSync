@@ -1,7 +1,7 @@
 {
     "name": "lexisync-extension",
     "version": "5.5.8",
-    "description": "LexiSync - Smart Text AI Assistant with Mistral API and Groq",
+    "description": "LexiSync - Smart Text AI Assistant with Mistral API and GigaChat",
     "scripts": {
         "dev": "wxt",
         "dev:firefox": "wxt -b firefox",

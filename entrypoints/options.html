@@ -134,7 +134,7 @@
                     <div>
                         <h2 id="settingsSectionGuideTitle">Начните с основных параметров</h2>
                         <p id="settingsSectionGuideDescription">
-                            Подключите Mistral или Groq, выберите основной сервис и стиль ответа.
+                            Подключите Mistral или GigaChat, выберите основной сервис и стиль ответа.
                         </p>
                     </div>
                 </section>
@@ -145,7 +145,7 @@
                 <select id="primaryAiProvider" data-settings-group="main">
                     <option value="auto" data-i18n="providerAuto">⚡ Автоматически (рекомендуется)</option>
                     <option value="mistral" data-i18n="providerMistral">🌪️ Mistral AI (Mistral Small)</option>
-                    <option value="groq" data-i18n="providerGroq">⚡ Groq (Qwen 3.6 27B · Preview)</option>
+                    <option value="gigachat" data-i18n="providerGigaChat">💚 GigaChat (Сбер)</option>
                 </select>
 
                 <div class="privacy-option" data-settings-group="main" style="margin-top: 10px; margin-bottom: 12px">
@@ -158,7 +158,7 @@
                     <input type="checkbox" id="autoFallbackEnabled" aria-describedby="autoFallbackHint" checked />
                 </div>
 
-                <!-- Виджет статуса серверов Groq и Mistral -->
+                <!-- Виджет статуса серверов GigaChat и Mistral -->
                 <div class="server-status-container" data-settings-group="main">
                     <div class="server-status-header">
                         <span class="server-status-title" data-i18n="serverStatusTitle">Состояние AI-подключений</span>
@@ -173,19 +173,19 @@
                         </button>
                     </div>
                     <div class="server-status-grid">
-                        <div class="server-status-card" id="groqStatusCard" data-status="unconfigured">
+                        <div class="server-status-card" id="gigachatStatusCard" data-status="unconfigured">
                             <div class="server-status-card-header">
-                                <span class="server-status-dot" id="groqStatusDot"></span>
-                                <span class="server-status-name">⚡ Groq (Qwen 3.6 27B)</span>
+                                <span class="server-status-dot" id="gigachatStatusDot"></span>
+                                <span class="server-status-name">💚 GigaChat (Сбер)</span>
                             </div>
                             <div class="server-status-card-body">
                                 <span
                                     class="server-status-text"
-                                    id="groqStatusText"
+                                    id="gigachatStatusText"
                                     data-i18n="serverStatusUnconfigured"
                                     >Ключ не настроен</span
                                 >
-                                <span class="server-status-latency" id="groqStatusLatency"></span>
+                                <span class="server-status-latency" id="gigachatStatusLatency"></span>
                             </div>
                         </div>
                         <div class="server-status-card" id="mistralStatusCard" data-status="unconfigured">
@@ -263,28 +263,28 @@
                     Нужен для команд Mistral. Ключ хранится локально и недоступен сайтам.
                 </p>
 
-                <label for="groqApiKey" data-settings-group="main" data-i18n="groqApiKeyLabel"
-                    >Ваш Groq API Key (Qwen 3.6 27B):</label
+                <label for="gigachatAuthKey" data-settings-group="main" data-i18n="gigachatAuthKeyLabel"
+                    >Ваш GigaChat Authorization Key:</label
                 >
                 <div class="password-wrapper" data-settings-group="main">
                     <input
                         type="password"
-                        id="groqApiKey"
-                        placeholder="gsk_..."
-                        data-i18n-placeholder="groqApiKeyPlaceholder"
+                        id="gigachatAuthKey"
+                        placeholder="MDE5..."
+                        data-i18n-placeholder="gigachatAuthKeyPlaceholder"
                     />
                     <button
                         type="button"
-                        id="toggleGroqApiKey"
+                        id="toggleGigaChatAuthKey"
                         class="toggle-password"
                         title="Показать/скрыть"
-                        aria-label="Показать или скрыть API-ключ Groq"
+                        aria-label="Показать или скрыть ключ авторизации GigaChat"
                         aria-pressed="false"
-                        data-i18n-title="toggleGroqApiKey"
-                        data-i18n-aria-label="toggleGroqApiKey"
+                        data-i18n-title="toggleGigaChatAuthKey"
+                        data-i18n-aria-label="toggleGigaChatAuthKey"
                     >
                         <svg
-                            id="eyeOpenGroq"
+                            id="eyeOpenGigaChat"
                             width="20"
                             height="20"
                             viewBox="0 0 24 24"
@@ -298,7 +298,7 @@
                             <circle cx="12" cy="12" r="3"></circle>
                         </svg>
                         <svg
-                            id="eyeClosedGroq"
+                            id="eyeClosedGigaChat"
                             width="20"
                             height="20"
                             viewBox="0 0 24 24"
@@ -316,8 +316,9 @@
                         </svg>
                     </button>
                 </div>
-                <p class="field-hint" data-settings-group="main" data-i18n="groqApiKeySimpleHint">
-                    Отдельный ключ для Qwen 3.6 27B. Модель Groq сейчас имеет статус Preview.
+                <p class="field-hint" data-settings-group="main" data-i18n="gigachatAuthKeySimpleHint">
+                    Ключ авторизации (Base64) из личного кабинета Сбер Салют/GigaChat. Токены доступа обновляются
+                    автоматически.
                 </p>
 
                 <label for="toneSelect" data-settings-group="main" data-i18n="toneLabel"
@@ -630,7 +631,7 @@
                                 <span class="ai-mode-card-icon" aria-hidden="true">⚡</span>
                             </div>
                             <div class="ai-mode-card-title" data-i18n="aiModeFastTitle">Быстрый отклик</div>
-                            <div class="ai-mode-card-model">Mistral Small · Groq</div>
+                            <div class="ai-mode-card-model">Mistral Small · GigaChat</div>
                             <p class="ai-mode-card-desc" data-i18n="aiModeFastDesc">
                                 Мгновенный ответ и минимальный расход токенов. Идеально для быстрой проверки ошибок.
                             </p>
@@ -1159,20 +1160,20 @@
                 <section class="settings-section v4-settings" data-settings-group="ai" hidden>
                     <h2 data-i18n="providerLimitsTitle">Расход и лимиты</h2>
                     <p data-i18n="providerLimitsIntro">
-                        Фактические квоты задаются вашим тарифом Groq или Mistral. LexiSync показывает локальный расход
-                        и позволяет установить общий безопасный предел.
+                        Фактические квоты задаются вашим тарифом GigaChat или Mistral. LexiSync показывает локальный
+                        расход и позволяет установить общий безопасный предел.
                     </p>
 
                     <div class="provider-quota-cards-grid">
-                        <!-- Карточка Groq -->
-                        <div class="provider-quota-card groq-quota-card">
+                        <!-- Карточка GigaChat -->
+                        <div class="provider-quota-card gigachat-quota-card">
                             <div class="provider-quota-header">
                                 <div class="provider-quota-title-wrap">
-                                    <span class="provider-quota-logo">⚡</span>
+                                    <span class="provider-quota-logo">💚</span>
                                     <div>
-                                        <h4>Groq Cloud</h4>
-                                        <span class="provider-quota-badge free-badge" data-i18n="groqTierFree"
-                                            >Бесплатный (Free Tier)</span
+                                        <h4>GigaChat</h4>
+                                        <span class="provider-quota-badge free-badge" data-i18n="gigachatTierPers"
+                                            >GIGACHAT_API_PERS</span
                                         >
                                     </div>
                                 </div>
@@ -1183,16 +1184,14 @@
                                     <span class="quota-stat-label" data-i18n="providerModelLabel"
                                         >Активная модель:</span
                                     >
-                                    <strong class="quota-stat-val"
-                                        >Qwen 3.6 27B · Preview (<code>qwen/qwen3.6-27b</code>)</strong
-                                    >
+                                    <strong class="quota-stat-val">GigaChat (<code>GigaChat</code>)</strong>
                                 </div>
                                 <div class="quota-stat-row">
                                     <span class="quota-stat-label" data-i18n="providerAccountQuota"
                                         >Квоты аккаунта:</span
                                     >
-                                    <span class="quota-stat-val" data-i18n="providerAccountQuotaHint"
-                                        >Определяются вашим тарифом в Groq Console</span
+                                    <span class="quota-stat-val" data-i18n="providerAccountQuotaHintGigaChat"
+                                        >Определяются балансом в кабинете Сбер Салют</span
                                     >
                                 </div>
                             </div>
@@ -1421,13 +1420,17 @@
                     </div>
 
                     <div class="instruction-provider-section">
-                        <h3 class="instruction-provider-title" data-i18n="getGroqApiKeySubTitle">
-                            ⚡ Groq (Qwen 3.6 27B)
+                        <h3 class="instruction-provider-title" data-i18n="getGigaChatAuthKeySubTitle">
+                            💚 GigaChat (Сбер)
                         </h3>
                         <ol>
-                            <li data-i18n="getGroqApiKeyStep1">Перейдите на console.groq.com/keys.</li>
-                            <li data-i18n="getGroqApiKeyStep2">В меню слева найдите раздел API Keys.</li>
-                            <li data-i18n="getGroqApiKeyStep3">Нажмите Create API Key и скопируйте его.</li>
+                            <li data-i18n="getGigaChatAuthKeyStep1">
+                                Перейдите на developers.sber.ru в кабинет Салют.
+                            </li>
+                            <li data-i18n="getGigaChatAuthKeyStep2">Создайте проект с доступом к GigaChat API.</li>
+                            <li data-i18n="getGigaChatAuthKeyStep3">
+                                Скопируйте Authorization Key (Base64) и вставьте в настройки.
+                            </li>
                         </ol>
                     </div>
 
@@ -1675,41 +1678,44 @@
                     <p id="onboardingKeyStatus" class="onboarding-key-status" role="status" aria-live="polite"></p>
                 </section>
                 <section class="onboarding-step" data-onboarding-step="2">
-                    <div class="onboarding-provider-chip" aria-label="Groq, Qwen 3.6 27B, Preview">
-                        <span aria-hidden="true">⚡</span>
-                        <span data-i18n="onboardingGroqPreview">Groq · Qwen 3.6 27B · Preview</span>
+                    <div class="onboarding-provider-chip" aria-label="GigaChat, GIGACHAT_API_PERS">
+                        <span aria-hidden="true">💚</span>
+                        <span data-i18n="onboardingGigaChatPers">GigaChat · GIGACHAT_API_PERS</span>
                     </div>
-                    <h3 data-i18n="onboardingGroqApi">Добавьте API-ключ Groq</h3>
-                    <p data-i18n="onboardingGroqApiHint">
-                        Ключ нужен для быстрой модели Qwen 3.6 27B и автоматического переключения при лимитах.
+                    <h3 data-i18n="onboardingGigaChatApi">Добавьте Authorization Key GigaChat</h3>
+                    <p data-i18n="onboardingGigaChatApiHint">
+                        Ключ нужен для работы модели GigaChat и автоматического резервирования при сбоях.
                     </p>
                     <a
                         class="onboarding-external-link"
-                        href="https://console.groq.com/keys"
+                        href="https://developers.sber.ru/portal/products/gigachat-api"
                         target="_blank"
                         rel="noreferrer"
-                        data-i18n="tutorialOpenGroq"
-                        >Открыть Groq Console ↗</a
+                        data-i18n="tutorialOpenGigaChat"
+                        >Открыть кабинет Сбер Салют ↗</a
                     >
                     <ol class="onboarding-list onboarding-api-steps">
-                        <li data-i18n="tutorialGroqSignIn">Войдите в аккаунт Groq или создайте новый</li>
-                        <li data-i18n="getGroqApiKeyStep2">В меню слева найдите раздел API Keys</li>
-                        <li data-i18n="getGroqApiKeyStep3">Нажмите Create API Key и скопируйте его</li>
+                        <li data-i18n="tutorialGigaChatSignIn">Войдите по Сбер ID в кабинет разработчика Салют</li>
+                        <li data-i18n="getGigaChatAuthKeyStep2">Создайте проект с доступом к GigaChat API</li>
+                        <li data-i18n="getGigaChatAuthKeyStep3">Скопируйте Authorization Key (Base64)</li>
                     </ol>
-                    <label class="onboarding-key-label" for="onboardingGroqApiKey" data-i18n="tutorialGroqApiKeyLabel"
-                        >API-ключ Groq</label
+                    <label
+                        class="onboarding-key-label"
+                        for="onboardingGigaChatApiKey"
+                        data-i18n="tutorialGigaChatAuthKeyLabel"
+                        >Authorization Key GigaChat</label
                     >
                     <div class="onboarding-key-row">
                         <input
-                            id="onboardingGroqApiKey"
+                            id="onboardingGigaChatApiKey"
                             type="password"
                             autocomplete="off"
                             spellcheck="false"
-                            data-i18n-placeholder="groqApiKeyPlaceholder"
-                            placeholder="gsk_..."
+                            data-i18n-placeholder="gigachatAuthKeyPlaceholder"
+                            placeholder="MDE5..."
                         />
                         <button
-                            id="onboardingSaveGroqKey"
+                            id="onboardingSaveGigaChatKey"
                             class="onboarding-button primary"
                             type="button"
                             data-i18n="tutorialCheckKey"
@@ -1717,7 +1723,12 @@
                             Проверить
                         </button>
                     </div>
-                    <p id="onboardingGroqKeyStatus" class="onboarding-key-status" role="status" aria-live="polite"></p>
+                    <p
+                        id="onboardingGigaChatKeyStatus"
+                        class="onboarding-key-status"
+                        role="status"
+                        aria-live="polite"
+                    ></p>
                 </section>
                 <section class="onboarding-step" data-onboarding-step="3">
                     <h3 data-i18n="tutorialFirstAction">Выполните первую команду</h3>
