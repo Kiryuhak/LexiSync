@@ -1,7 +1,7 @@
 # Политика конфиденциальности LexiSync
 
 **Дата вступления в силу:** 24 августа 2026 г.
-**Последнее обновление:** 27 августа 2026 г.
+**Последнее обновление:** 7 сентября 2026 г.
 
 [English version](#lexisync-privacy-policy)
 
@@ -58,7 +58,7 @@ LexiSync может обрабатывать следующие категори
 
 - хранятся локально в отдельной защищённой базе IndexedDB расширения на устройстве пользователя;
 - используются исключительно для авторизации запросов к официальным API (`https://api.mistral.ai/`, `https://ngw.devices.sberbank.ru:9443/` и `https://api.giga.chat/`);
-- временный access token GigaChat сохраняется только локально в защищённом хранилище расширения и обновляется автоматически;
+- временный access token GigaChat сохраняется в приватной IndexedDB расширения, недоступной content scripts, и обновляется автоматически; старый кэш в общем storage.local удаляется при обновлении;
 - не включаются в экспорт настроек;
 - не передаются через синхронизацию настроек браузера;
 - не отправляются разработчику LexiSync или сторонним аналитическим сервисам.
@@ -180,7 +180,7 @@ LexiSync использует разрешения браузера и поль�
 # LexiSync Privacy Policy
 
 **Effective:** August 24, 2026
-**Last updated:** August 27, 2026
+**Last updated:** September 7, 2026
 
 LexiSync is a browser extension for checking, correcting, rewriting, translating, and recognizing text in images. This Policy explains what data LexiSync processes, why it is needed, where it is stored, and when it is transferred to third parties.
 

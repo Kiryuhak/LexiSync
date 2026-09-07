@@ -1,6 +1,5 @@
 import { t } from './i18n';
-import { validateApiKey } from './mistral-client';
-import { validateGigaChatAuthKey } from './gigachat-client';
+import { validateApiKey, validateGigaChatAuthKey } from './ai-settings-client';
 import { logger } from './logger';
 
 export interface OnboardingOptions {

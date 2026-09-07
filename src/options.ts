@@ -21,14 +21,9 @@ import { restoreV4Settings, setupV4Settings } from './v4-settings';
 import { applyThemeCustomization, DEFAULT_THEME_CUSTOMIZATION } from './theme-customization';
 import { DEFAULT_BUDGET_SETTINGS, getLocalDayKey, getMonthUsage } from './budget';
 import { clearAllSecrets } from './secret-store';
-import { validateApiKey } from './mistral-client';
-import { validateGigaChatAuthKey } from './gigachat-token-manager';
-import {
-    checkProviderHealth,
-    loadCachedHealthStatus,
-    saveCachedHealthStatus,
-    type ProviderHealthStatus,
-} from './provider-health';
+import { validateApiKey, validateGigaChatAuthKey, checkProviderHealth } from './ai-settings-client';
+import { AI_CONFIG } from './ai-models-config';
+import { loadCachedHealthStatus, saveCachedHealthStatus, type ProviderHealthStatus } from './provider-health';
 import { logger } from './logger';
 import { normalizeAutoFallbackEnabled, normalizePrimaryAiProvider } from './runtime-settings-cache';
 import { setupSettingsTabs } from './options-tabs';
@@ -865,10 +860,8 @@ function setupAiModeSelector(): void {
 async function refreshProviderQuotasUI(): Promise<void> {
     const stored = await chrome.storage.local.get({
         usageStats: EMPTY_USAGE_STATS,
-        aiMode: 'balanced',
     });
     const stats = stored.usageStats as UsageStats;
-    const aiMode = normalizeUiAiMode(stored.aiMode);
 
     const localUsageTodayEl = document.getElementById('localUsageToday');
     const localUsageMonthEl = document.getElementById('localUsageMonth');
@@ -884,13 +877,9 @@ async function refreshProviderQuotasUI(): Promise<void> {
     if (localUsageResetEl) localUsageResetEl.textContent = formatCountdownToLocalReset();
 
     if (mistralModelEl) {
-        const [label, codeText] =
-            aiMode === 'fast'
-                ? ['Mistral Small ', 'mistral-small-latest']
-                : ['Qwen 3.6 / Mistral Small ', 'qwen3.6-27b / mistral-small'];
-        mistralModelEl.textContent = label;
+        mistralModelEl.textContent = 'Mistral Small ';
         const codeEl = document.createElement('code');
-        codeEl.textContent = `(${codeText})`;
+        codeEl.textContent = `(${AI_CONFIG.mistral.defaultModel})`;
         mistralModelEl.appendChild(codeEl);
     }
     void refreshCacheEfficiencyUI();

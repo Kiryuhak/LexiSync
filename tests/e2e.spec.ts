@@ -2176,10 +2176,10 @@ test('обучение проводит нового пользователя ч
     await background.evaluate(() => chrome.storage.local.set({ onboardingCompleted: false }));
     const extensionId = new URL(background.url()).host;
 
-    await page.route('https://api.mistral.ai/v1/models', async (route) => {
+    await context.route('https://api.mistral.ai/v1/models', async (route) => {
         await route.fulfill({ status: 200, contentType: 'application/json', body: '{"data":[]}' });
     });
-    await page.route('https://ngw.devices.sberbank.ru:9443/api/v2/oauth', async (route) => {
+    await context.route('https://ngw.devices.sberbank.ru:9443/api/v2/oauth', async (route) => {
         await route.fulfill({
             status: 200,
             contentType: 'application/json',

@@ -31,12 +31,16 @@ export function sanitizeLogMessage(input: string, knownKeys: string[] = []): str
 
     // Регулярные выражения для типичных токенов и ключей
     sanitized = sanitized
-        // Groq API ключи вида gsk_...
-        .replace(/gsk_[a-zA-Z0-9_-]{20,}/gi, 'gsk_[REDACTED_GROQ_KEY]')
+        // Маскируем также старые ключи, попавшие в импортированные журналы.
+        .replace(/gsk_[a-zA-Z0-9_-]{20,}/gi, 'gsk_[REDACTED_API_KEY]')
         // 32-64 символьные шестнадцатеричные хеши/ключи (Mistral и др.)
         .replace(/\b[a-fA-F0-9]{32,64}\b/g, '[REDACTED_HEX_KEY]')
         // Bearer токены
-        .replace(/Bearer\s+[a-zA-Z0-9._~+/-]+=*/gi, 'Bearer [REDACTED_TOKEN]')
+        .replace(/(Bearer|Basic)\s+[a-zA-Z0-9._~+/-]+=*/gi, '$1 [REDACTED_TOKEN]')
+        .replace(
+            /((?:access_token|authorization|api[_-]?key|authKey|password)["']?\s*[:=]\s*["']?)[^"'\s,}]+/gi,
+            '$1[REDACTED_SECRET]',
+        )
         // Авторизационные параметры в URL
         .replace(/([?&](?:api[_-]?key|key|token|auth|secret)=)[^&\s]+/gi, '[REDACTED_PARAM]')
         // Email адреса

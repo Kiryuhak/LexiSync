@@ -1,15 +1,18 @@
 import { t } from './i18n';
 import { AiProviderError } from './ai-provider-types';
 import { recordErrorLog } from './error-log';
+import { AI_CONFIG } from './ai-models-config';
+import { deletePrivateRecord, readPrivateRecord, writePrivateRecord } from './extension-db';
 
-export const GIGACHAT_OAUTH_URL = 'https://ngw.devices.sberbank.ru:9443/api/v2/oauth';
-export const GIGACHAT_SCOPE = 'GIGACHAT_API_PERS';
+export const GIGACHAT_OAUTH_URL = AI_CONFIG.gigachat.oauthUrl;
+export const GIGACHAT_SCOPE = AI_CONFIG.gigachat.scope;
 const STORAGE_KEY_TOKEN = '_gigachat_token_cache';
 const PREEMPTIVE_REFRESH_WINDOW_MS = 60_000; // Обновлять за 60 секунд до истечения срока действия
 
 export interface GigaChatCachedToken {
     accessToken: string;
     expiresAt: number; // Unix timestamp в миллисекундах
+    credentialId?: string;
 }
 
 interface OAuthResponsePayload {
@@ -18,7 +21,30 @@ interface OAuthResponsePayload {
 }
 
 let inMemoryToken: GigaChatCachedToken | null = null;
-let refreshPromise: Promise<string> | null = null;
+const refreshes = new Map<string, Promise<string>>();
+let generation = 0;
+let pendingWrite: Promise<void> = Promise.resolve();
+
+function queueWrite(operation: () => Promise<void>): Promise<void> {
+    const result = pendingWrite.then(operation, operation);
+    pendingWrite = result.catch(() => undefined);
+    return result;
+}
+
+async function credentialId(key: string): Promise<string> {
+    const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(key));
+    return Array.from(new Uint8Array(hash), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function waitForToken(task: Promise<string>, signal?: AbortSignal): Promise<string> {
+    if (!signal) return task;
+    if (signal.aborted) return Promise.reject(signal.reason);
+    return new Promise((resolve, reject) => {
+        const abort = () => reject(signal.reason);
+        signal.addEventListener('abort', abort, { once: true });
+        void task.then(resolve, reject).finally(() => signal.removeEventListener('abort', abort));
+    });
+}
 
 function generateRqUid(): string {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -32,51 +58,37 @@ function generateRqUid(): string {
 }
 
 /**
- * Читает кэшированный токен из памяти или chrome.storage.local (для восстановления после выгрузки Service Worker).
+ * Читает токен из памяти или приватной IndexedDB после выгрузки Service Worker.
  */
 async function loadStoredToken(): Promise<GigaChatCachedToken | null> {
+    await pendingWrite;
     if (inMemoryToken) return inMemoryToken;
-    try {
-        if (typeof chrome !== 'undefined' && chrome.storage?.local) {
-            const data = await chrome.storage.local.get(STORAGE_KEY_TOKEN);
-            const cached = data[STORAGE_KEY_TOKEN] as GigaChatCachedToken | undefined;
-            if (cached && typeof cached.accessToken === 'string' && typeof cached.expiresAt === 'number') {
-                inMemoryToken = cached;
-                return inMemoryToken;
-            }
-        }
-    } catch {
-        // Ошибка доступа к storage не блокирует получение нового токена
-    }
-    return null;
+    const cached = await readPrivateRecord<GigaChatCachedToken>('secrets', STORAGE_KEY_TOKEN);
+    return cached && isTokenValid(cached) ? cached : null;
 }
 
 /**
- * Сохраняет токен в памяти и в chrome.storage.local.
+ * Сохраняет токен в памяти и приватной IndexedDB, недоступной content scripts.
  */
 async function persistToken(token: GigaChatCachedToken): Promise<void> {
+    await writePrivateRecord('secrets', STORAGE_KEY_TOKEN, token);
     inMemoryToken = token;
-    try {
-        if (typeof chrome !== 'undefined' && chrome.storage?.local) {
-            await chrome.storage.local.set({ [STORAGE_KEY_TOKEN]: token });
-        }
-    } catch {
-        // Допустимо, если storage временно недоступен
-    }
 }
 
 /**
  * Сбрасывает сохранённый токен при получении 401 или смене ключа авторизации.
  */
-export async function invalidateGigaChatToken(): Promise<void> {
-    inMemoryToken = null;
-    try {
-        if (typeof chrome !== 'undefined' && chrome.storage?.local) {
-            await chrome.storage.local.remove(STORAGE_KEY_TOKEN);
-        }
-    } catch {
-        // Игнорируем ошибки удаления
+export async function invalidateGigaChatToken(rejectedToken?: string): Promise<void> {
+    if (!rejectedToken) {
+        generation++;
+        refreshes.clear();
     }
+    await queueWrite(async () => {
+        const token = inMemoryToken ?? (await readPrivateRecord<GigaChatCachedToken>('secrets', STORAGE_KEY_TOKEN));
+        if (rejectedToken && token?.accessToken !== rejectedToken) return;
+        inMemoryToken = null;
+        await deletePrivateRecord('secrets', STORAGE_KEY_TOKEN);
+    });
 }
 
 /**
@@ -84,7 +96,7 @@ export async function invalidateGigaChatToken(): Promise<void> {
  */
 export function isTokenValid(token: GigaChatCachedToken | null, now = Date.now()): boolean {
     if (!token || !token.accessToken) return false;
-    return token.expiresAt - now > PREEMPTIVE_REFRESH_WINDOW_MS;
+    return Number.isFinite(token.expiresAt) && token.expiresAt - now > PREEMPTIVE_REFRESH_WINDOW_MS;
 }
 
 /**
@@ -136,13 +148,7 @@ async function fetchOAuthToken(authKey: string, signal?: AbortSignal): Promise<G
     }
 
     if (!response.ok) {
-        let errorDetail = '';
-        try {
-            const errorJson = (await response.json()) as Record<string, unknown>;
-            if (typeof errorJson.message === 'string') errorDetail = errorJson.message;
-        } catch {
-            // Игнорируем ошибку разбора тела ответа
-        }
+        // Не сохраняем тело ошибки: сервер может вернуть заголовки или секреты.
 
         if (response.status === 401 || response.status === 403) {
             void recordErrorLog({
@@ -150,7 +156,7 @@ async function fetchOAuthToken(authKey: string, signal?: AbortSignal): Promise<G
                 source: 'gigachat-token-manager',
                 provider: 'gigachat',
                 status: response.status,
-                message: `Ошибка авторизации GigaChat (401/403): ${errorDetail || 'Неверный Authorization Key'}`,
+                message: `Ошибка авторизации GigaChat: HTTP ${response.status}`,
                 knownKeys: [trimmedKey],
             });
             throw new AiProviderError(
@@ -197,7 +203,16 @@ async function fetchOAuthToken(authKey: string, signal?: AbortSignal): Promise<G
     let payload: OAuthResponsePayload;
     try {
         payload = (await response.json()) as OAuthResponsePayload;
-    } catch {
+    } catch (error) {
+        if (combinedSignal.aborted) {
+            if (signal?.aborted) throw error;
+            throw new AiProviderError(
+                t('gigachatTimeout', 'Сервис авторизации GigaChat не ответил вовремя.'),
+                'TIMEOUT',
+                'gigachat',
+                true,
+            );
+        }
         throw new AiProviderError(
             t('gigachatInvalidResponse', 'Некорректный ответ от сервера авторизации GigaChat.'),
             'INVALID_RESPONSE',
@@ -206,7 +221,12 @@ async function fetchOAuthToken(authKey: string, signal?: AbortSignal): Promise<G
         );
     }
 
-    if (!payload.access_token || typeof payload.access_token !== 'string') {
+    if (
+        !payload ||
+        !payload.access_token ||
+        typeof payload.access_token !== 'string' ||
+        !Number.isFinite(payload.expires_at)
+    ) {
         throw new AiProviderError(
             t('gigachatEmptyToken', 'Сервер GigaChat вернул пустой access token.'),
             'INVALID_RESPONSE',
@@ -217,7 +237,7 @@ async function fetchOAuthToken(authKey: string, signal?: AbortSignal): Promise<G
 
     // expires_at в ответе GigaChat приходит в миллисекундах (или секундах в зависимости от формата;
     // если значение меньше 10^11, это секунды, иначе миллисекунды)
-    let expiresAt = typeof payload.expires_at === 'number' ? payload.expires_at : Date.now() + 30 * 60_000;
+    let expiresAt = payload.expires_at!;
     if (expiresAt < 10_000_000_000) {
         expiresAt *= 1000;
     }
@@ -227,7 +247,6 @@ async function fetchOAuthToken(authKey: string, signal?: AbortSignal): Promise<G
         expiresAt,
     };
 
-    await persistToken(cachedToken);
     return cachedToken;
 }
 
@@ -235,26 +254,35 @@ async function fetchOAuthToken(authKey: string, signal?: AbortSignal): Promise<G
  * Получает действующий access_token GigaChat с защитой single-flight от параллельных запросов.
  */
 export async function getGigaChatAccessToken(authKey: string, signal?: AbortSignal): Promise<string> {
-    const existing = await loadStoredToken();
-    if (isTokenValid(existing)) {
-        return existing!.accessToken;
-    }
-
-    // Single-flight refresh: если запрос уже выполняется, ждем его завершения
-    if (refreshPromise) {
-        return await refreshPromise;
-    }
-
-    refreshPromise = (async () => {
-        try {
-            const token = await fetchOAuthToken(authKey, signal);
+    if (signal?.aborted) throw signal.reason;
+    const key = authKey.trim();
+    const epoch = generation;
+    if (!key)
+        throw new AiProviderError('Authorization Key GigaChat не настроен.', 'AUTH_ERROR', 'gigachat', false, 401);
+    const id = await credentialId(key);
+    if (epoch !== generation) throw new DOMException('Ключ авторизации изменён.', 'AbortError');
+    let task = refreshes.get(id);
+    if (!task) {
+        task = (async () => {
+            const existing = await loadStoredToken();
+            if (existing?.credentialId === id && isTokenValid(existing)) return existing.accessToken;
+            // Отмена одного клиента не прерывает общий OAuth-запрос остальных.
+            const token = await fetchOAuthToken(key);
+            await queueWrite(async () => {
+                if (epoch !== generation) throw new DOMException('Ключ авторизации изменён.', 'AbortError');
+                await persistToken({ ...token, credentialId: id });
+            });
             return token.accessToken;
-        } finally {
-            refreshPromise = null;
-        }
-    })();
-
-    return await refreshPromise;
+        })();
+        refreshes.set(id, task);
+        const current = task;
+        void task
+            .finally(() => {
+                if (refreshes.get(id) === current) refreshes.delete(id);
+            })
+            .catch(() => undefined);
+    }
+    return waitForToken(task, signal);
 }
 
 /**
@@ -266,7 +294,6 @@ export async function validateGigaChatAuthKey(authKey: string): Promise<{ ok: bo
         return { ok: false, message: t('tutorialGigaChatKeyRequired', 'Сначала вставьте Authorization Key GigaChat.') };
     }
     try {
-        await invalidateGigaChatToken();
         await fetchOAuthToken(trimmed);
         return {
             ok: true,
@@ -278,7 +305,7 @@ export async function validateGigaChatAuthKey(authKey: string): Promise<{ ok: bo
         }
         return {
             ok: false,
-            message: err instanceof Error ? err.message : t('gigachatAuthFailed', 'Сбой проверки ключа GigaChat.'),
+            message: t('gigachatAuthFailed', 'Сбой проверки ключа GigaChat.'),
         };
     }
 }

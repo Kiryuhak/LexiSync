@@ -27,6 +27,7 @@ const CIRCUIT_BREAKER_COOLDOWN_MS = 20_000;
 interface ProviderHealth {
     consecutiveFailures: number;
     cooldownUntil: number;
+    lastErrorCode?: AiErrorCode;
 }
 
 const providerHealth: Record<AiProviderType, ProviderHealth> = {
@@ -38,6 +39,7 @@ export function resetAiProviderHealth(): void {
     for (const state of Object.values(providerHealth)) {
         state.consecutiveFailures = 0;
         state.cooldownUntil = 0;
+        state.lastErrorCode = undefined;
     }
 }
 
@@ -48,6 +50,7 @@ export function getAiProviderCooldownRemaining(provider: AiProviderType, now = D
 function recordProviderSuccess(provider: AiProviderType): void {
     providerHealth[provider].consecutiveFailures = 0;
     providerHealth[provider].cooldownUntil = 0;
+    providerHealth[provider].lastErrorCode = undefined;
 }
 
 function recordProviderFailure(error: AiProviderError, now = Date.now()): void {
@@ -61,6 +64,7 @@ function recordProviderFailure(error: AiProviderError, now = Date.now()): void {
     });
     if (!error.isFallbackEligible) return;
     const state = providerHealth[error.provider];
+    state.lastErrorCode = error.code;
     state.consecutiveFailures += 1;
     if (error.code === 'RATE_LIMIT' || error.code === 'QUOTA_EXCEEDED') {
         const cooldownMs = Math.min(
@@ -151,6 +155,9 @@ export function normalizeAiError(error: unknown, provider: AiProviderType): AiPr
     }
     if (sourceStatus && sourceStatus >= 500 && sourceStatus <= 599) {
         return new AiProviderError(message, 'SERVER_ERROR', provider, sourceRetryable ?? true, sourceStatus);
+    }
+    if (sourceStatus && sourceStatus >= 400 && sourceStatus < 500) {
+        return new AiProviderError(message, 'INVALID_REQUEST', provider, false, sourceStatus);
     }
 
     const isNetwork =
@@ -309,10 +316,8 @@ export async function executeAiStreamRequest(options: AiRequestOptions): Promise
     let effectivePrimary = plan.primary;
     let fallbackProvider = plan.backup;
     let preemptiveFallback = false;
-    if (!getKey(effectivePrimary) && options.autoFallback && fallbackProvider && getKey(fallbackProvider)) {
-        effectivePrimary = fallbackProvider;
-        fallbackProvider = undefined;
-    } else if (!getKey(effectivePrimary)) {
+    const cooldownReason = providerHealth[plan.primary].lastErrorCode ?? 'RATE_LIMIT';
+    if (!getKey(effectivePrimary)) {
         const missingMsg =
             effectivePrimary === 'mistral'
                 ? t('apiKeyMissing', 'API-ключ Mistral не настроен.')
@@ -341,9 +346,9 @@ export async function executeAiStreamRequest(options: AiRequestOptions): Promise
         return {
             providerUsed: effectivePrimary,
             fallbackOccurred: preemptiveFallback,
-            fallbackReason: preemptiveFallback ? 'RATE_LIMIT' : undefined,
+            fallbackReason: preemptiveFallback ? cooldownReason : undefined,
             fallbackNotification: preemptiveFallback
-                ? getFallbackNotification(plan.primary, effectivePrimary, 'RATE_LIMIT')
+                ? getFallbackNotification(plan.primary, effectivePrimary, cooldownReason)
                 : undefined,
         };
     } catch (err) {

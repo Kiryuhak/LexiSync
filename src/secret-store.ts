@@ -51,6 +51,8 @@ export async function setStoredGigaChatAuthKey(value: string): Promise<void> {
 }
 
 export async function migrateApiKeyToSecretStore(): Promise<void> {
+    // Старый OAuth-кэш был доступен content scripts; не переносим его в приватную БД.
+    await chrome.storage.local.remove('_gigachat_token_cache');
     const stored = await chrome.storage.local.get({
         mistralApiKey: '',
         gigachatAuthKey: '',

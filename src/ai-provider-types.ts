@@ -28,14 +28,9 @@ export class AiProviderError extends Error {
     }
 
     get isFallbackEligible(): boolean {
-        // Fallback разрешен только для временных ошибок нагрузки, квоты, сети и сервера.
+        // Fallback разрешён только для 429, тайм-аута, ошибки сети и 5xx.
         // Запрещен для AUTH_ERROR (401, 403) и INVALID_REQUEST (400), чтобы не скрывать проблему с некорректным ключом или неверным запросом.
-        return (
-            this.retryable &&
-            ['RATE_LIMIT', 'QUOTA_EXCEEDED', 'SERVER_ERROR', 'NETWORK_ERROR', 'TIMEOUT', 'INVALID_RESPONSE'].includes(
-                this.code,
-            )
-        );
+        return this.retryable && ['RATE_LIMIT', 'SERVER_ERROR', 'NETWORK_ERROR', 'TIMEOUT'].includes(this.code);
     }
 }
 

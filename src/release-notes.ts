@@ -36,6 +36,27 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.6.0',
+        '2026-09-07',
+        'improved',
+        'Mistral и GigaChat: надёжная авторизация',
+        'Mistral and GigaChat: reliable authentication',
+        [
+            [
+                'Токены GigaChat хранятся приватно и обновляются без конфликтов параллельных запросов.',
+                'GigaChat tokens are stored privately and refreshed without parallel request conflicts.',
+            ],
+            [
+                'Резервный провайдер используется только при временных сбоях, если переключение включено.',
+                'Fallback is used only for temporary failures when enabled.',
+            ],
+            [
+                'Исправлены статусы подключения, названия моделей и обработка незавершённых ответов.',
+                'Connection status, model labels and incomplete response handling are corrected.',
+            ],
+        ],
+    ),
+    note(
         '5.5.8',
         '2026-09-03',
         'fixed',

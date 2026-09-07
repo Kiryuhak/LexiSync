@@ -1,5 +1,5 @@
 import { t } from './i18n';
-import type { AiProviderType } from './ai-provider-types';
+import { AiProviderError, type AiProviderType } from './ai-provider-types';
 import { getGigaChatAccessToken } from './gigachat-token-manager';
 import { AI_CONFIG } from './ai-models-config';
 
@@ -70,101 +70,18 @@ export async function checkProviderHealth(
 
     const startTime = performance.now();
 
-    if (provider === 'gigachat') {
-        try {
-            const token = await getGigaChatAccessToken(trimmedKey, AbortSignal.timeout(timeoutMs));
-            const durationMs = performance.now() - startTime;
-            if (!token) {
-                return {
-                    provider,
-                    state: 'outage',
-                    latencyMs: durationMs,
-                    message: t('serverStatusAuthError', 'Недействительный ключ авторизации'),
-                    checkedAt: Date.now(),
-                };
-            }
-            if (durationMs < 2500) {
-                return {
-                    provider,
-                    state: 'healthy',
-                    latencyMs: durationMs,
-                    message: t('serverStatusHealthy', 'Работает отлично'),
-                    checkedAt: Date.now(),
-                };
-            }
-            return {
-                provider,
-                state: 'degraded',
-                latencyMs: durationMs,
-                message: t('serverStatusDegradedLatency', 'Замедление ответа'),
-                checkedAt: Date.now(),
-            };
-        } catch (error) {
-            const durationMs = performance.now() - startTime;
-            const isTimeout =
-                error instanceof Error &&
-                (error.name === 'TimeoutError' ||
-                    error.name === 'AbortError' ||
-                    error.message.includes('timeout') ||
-                    error.message.includes('aborted'));
-
-            if (isTimeout) {
-                return {
-                    provider,
-                    state: 'degraded',
-                    latencyMs: durationMs,
-                    message: t('serverStatusTimeout', 'Тайм-аут соединения'),
-                    checkedAt: Date.now(),
-                };
-            }
-
-            const errorMsg = error instanceof Error ? error.message : String(error);
-            if (
-                errorMsg.includes('401') ||
-                errorMsg.includes('403') ||
-                errorMsg.includes('недействителен') ||
-                errorMsg.includes('AUTH_ERROR')
-            ) {
-                return {
-                    provider,
-                    state: 'outage',
-                    latencyMs: durationMs,
-                    message: t('serverStatusAuthError', 'Недействительный ключ авторизации'),
-                    checkedAt: Date.now(),
-                };
-            }
-
-            if (errorMsg.includes('429') || errorMsg.includes('лимит')) {
-                return {
-                    provider,
-                    state: 'degraded',
-                    latencyMs: durationMs,
-                    message: t('serverStatusRateLimit', 'Лимит запросов (Rate Limit)'),
-                    checkedAt: Date.now(),
-                };
-            }
-
-            return {
-                provider,
-                state: 'outage',
-                latencyMs: durationMs,
-                message: t('serverStatusNetworkError', 'Ошибка сети / недоступен'),
-                checkedAt: Date.now(),
-            };
-        }
-    }
-
-    // Mistral
-    const url = `${AI_CONFIG.mistral.baseUrl}/models`;
+    const url = `${AI_CONFIG[provider].baseUrl}/models`;
+    const signal = AbortSignal.timeout(timeoutMs);
 
     try {
+        const credential = provider === 'gigachat' ? await getGigaChatAccessToken(trimmedKey, signal) : trimmedKey;
         const response = await fetch(url, {
             method: 'GET',
             headers: {
-                Authorization: `Bearer ${trimmedKey}`,
+                Authorization: `Bearer ${credential}`,
             },
             cache: 'no-store',
-            signal: AbortSignal.timeout(timeoutMs),
+            signal,
         });
 
         const durationMs = performance.now() - startTime;
@@ -227,6 +144,9 @@ export async function checkProviderHealth(
         };
     } catch (error) {
         const durationMs = performance.now() - startTime;
+        if (error instanceof AiProviderError && error.status) {
+            return evaluateHealthFromRuntimeResponse(provider, durationMs, error.status);
+        }
         const isTimeout =
             error instanceof Error &&
             (error.name === 'TimeoutError' ||
@@ -290,6 +210,15 @@ export function evaluateHealthFromRuntimeResponse(
         };
     }
 
+    if (errorStatus && errorStatus >= 400) {
+        return {
+            provider,
+            state: 'outage',
+            latencyMs: durationMs,
+            message: t('serverStatusHttpError', `Ошибка HTTP ${errorStatus}`),
+            checkedAt: Date.now(),
+        };
+    }
     if (isNetworkError) {
         return {
             provider,

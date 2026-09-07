@@ -13,6 +13,9 @@ import { initializeSettingsSync, restoreSyncedSettings } from './settings-transf
 import { formatMistralError, isRetryableMistralError, processOcr, type MistralRequest } from './mistral-client';
 import { executeAiStreamRequest } from './ai-client';
 import { AiProviderError } from './ai-provider-types';
+import { validateApiKey } from './mistral-client';
+import { validateGigaChatAuthKey } from './gigachat-token-manager';
+import { checkProviderHealth } from './provider-health';
 import { buildGrammarExplanationPayload } from './prompt-builder';
 import { cleanMarkdownArtifacts } from './markdown';
 import { validateMistralRequest } from './request-validation';
@@ -326,6 +329,30 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             .catch((error) =>
                 sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) }),
             );
+        return true;
+    } else if (request.action === 'checkAiCredential') {
+        if (!sender.url?.startsWith(chrome.runtime.getURL(''))) {
+            sendResponse({ ok: false, error: 'UNTRUSTED_SECRET_REQUEST' });
+            return;
+        }
+        if (
+            !['mistral', 'gigachat'].includes(request.provider) ||
+            typeof request.credential !== 'string' ||
+            request.credential.length > 1024
+        ) {
+            sendResponse({ ok: false, error: 'INVALID_AI_CHECK' });
+            return;
+        }
+        void initializationPromise
+            .then(async () =>
+                request.health === true
+                    ? checkProviderHealth(request.provider, request.credential)
+                    : request.provider === 'gigachat'
+                      ? validateGigaChatAuthKey(request.credential)
+                      : validateApiKey(request.credential),
+            )
+            .then((data) => sendResponse({ ok: true, data }))
+            .catch(() => sendResponse({ ok: false, error: 'AI_CHECK_FAILED' }));
         return true;
     } else if (request.action === 'getRuntimeSettings') {
         void initializationPromise

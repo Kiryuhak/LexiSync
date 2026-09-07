@@ -120,7 +120,7 @@ export async function streamGigaChatText(
         // Если получен 401 и это не повторный запрос: сбрасываем токен и пробуем ещё ровно один раз
         if (response.status === 401 && !isRetryAfter401 && !signal.aborted) {
             await response.body?.cancel();
-            await invalidateGigaChatToken();
+            await invalidateGigaChatToken(accessToken);
             await wait(200, signal);
             return await executeAttempt(true);
         }
@@ -250,12 +250,12 @@ export async function streamGigaChatText(
             );
         }
 
-        emitCompletedContent();
-        return {
-            text: fullCollectedText,
-            provider: 'gigachat',
-            model: GIGACHAT_DEFAULT_MODEL,
-        };
+        throw new AiProviderError(
+            t('incompleteStream', 'Ответ GigaChat прервался до завершения. Повторите запрос.'),
+            'INVALID_RESPONSE',
+            'gigachat',
+            false,
+        );
     } catch (err) {
         if (signal.aborted) throw err;
         if (err instanceof AiProviderError) throw err;
@@ -265,6 +265,9 @@ export async function streamGigaChatText(
             'gigachat',
             true,
         );
+    } finally {
+        await reader.cancel().catch(() => undefined);
+        reader.releaseLock();
     }
 }
 

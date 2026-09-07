@@ -3,6 +3,7 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
     test: {
         include: [
+            'tests/ai-security.spec.ts',
             'tests/unit.spec.ts',
             'tests/chrome-store-publisher.spec.ts',
             'tests/storage.spec.ts',
@@ -13,6 +14,11 @@ export default defineConfig({
             provider: 'v8',
             reporter: ['text', 'json-summary'],
             include: [
+                'src/gigachat-token-manager.ts',
+                'src/gigachat-client.ts',
+                'src/ai-client.ts',
+                'src/ai-provider-types.ts',
+                'src/provider-health.ts',
                 'src/keyboard-layout.ts',
                 'src/prompt-builder.ts',
                 'src/markdown.ts',

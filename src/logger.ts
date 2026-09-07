@@ -1,4 +1,4 @@
-import { recordErrorLog } from './error-log';
+import { recordErrorLog, sanitizeLogMessage } from './error-log';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -32,7 +32,7 @@ class Logger {
     }
 
     warn(message: string, ...args: unknown[]): void {
-        console.warn(`${this.prefix} ${message}`, ...args);
+        console.warn(`${this.prefix} ${sanitizeLogMessage(appendLogArguments(message, args))}`);
         void recordErrorLog({
             level: 'warn',
             source: 'logger',
@@ -41,7 +41,7 @@ class Logger {
     }
 
     error(message: string, ...args: unknown[]): void {
-        console.error(`${this.prefix} ${message}`, ...args);
+        console.error(`${this.prefix} ${sanitizeLogMessage(appendLogArguments(message, args))}`);
         void recordErrorLog({
             level: 'error',
             source: 'logger',

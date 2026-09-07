@@ -4,6 +4,7 @@ import { buildPromptPayload } from './prompt-builder';
 import { recordErrorLog } from './error-log';
 import type { AiMode, RequestMode, StyleProfile } from './types';
 import { getAiOutputTokenLimit } from './ai-output-budget';
+import { AI_CONFIG } from './ai-models-config';
 
 export interface MistralRequest {
     action: 'callMistral' | 'cancelMistral';
@@ -30,7 +31,7 @@ export interface MistralSettings {
     enablePiiMasking?: boolean;
 }
 
-const API_BASE_URL = 'https://api.mistral.ai/v1';
+const API_BASE_URL = AI_CONFIG.mistral.baseUrl;
 const RETRYABLE_SERVER_STATUSES = new Set([500, 502, 503, 504]);
 
 export class MistralRequestError extends Error {
@@ -236,7 +237,7 @@ export async function processOcr(msg: MistralRequest, apiKey: string, signal: Ab
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
             body: JSON.stringify({
-                model: 'mistral-ocr-latest',
+                model: AI_CONFIG.mistral.ocrModel,
                 document: { type: 'image_url', image_url: msg.imageUrl },
                 include_image_base64: false,
             }),
@@ -267,7 +268,7 @@ export async function streamText(
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey.trim()}` },
         body: JSON.stringify({
-            model: 'mistral-small-latest',
+            model: AI_CONFIG.mistral.defaultModel,
             messages: prompt.messages,
             stream: true,
             max_tokens: getAiOutputTokenLimit(msg.mode, settings.aiMode, msg.text, msg.rawMessages),
@@ -310,32 +311,38 @@ export async function streamText(
         }
         return false;
     };
-    while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split(/\r?\n/);
-        buffer = lines.pop() || '';
-        for (const line of lines) {
-            if (!processLine(line)) continue;
+    try {
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split(/\r?\n/);
+            buffer = lines.pop() || '';
+            for (const line of lines) {
+                if (!processLine(line)) continue;
+                if (!receivedContent)
+                    throw new MistralRequestError(t('emptyStream', 'Mistral вернул пустой поток данных.'), true);
+                emitCompletedContent();
+                await reader.cancel();
+                return;
+            }
+        }
+        buffer += decoder.decode();
+        if (buffer && processLine(buffer)) {
             if (!receivedContent)
                 throw new MistralRequestError(t('emptyStream', 'Mistral вернул пустой поток данных.'), true);
             emitCompletedContent();
             await reader.cancel();
             return;
         }
-    }
-    buffer += decoder.decode();
-    if (buffer && processLine(buffer)) {
         if (!receivedContent)
             throw new MistralRequestError(t('emptyStream', 'Mistral вернул пустой поток данных.'), true);
-        emitCompletedContent();
-        await reader.cancel();
-        return;
+        throw new MistralRequestError(
+            t('incompleteStream', 'Ответ Mistral прервался до завершения. Повторите запрос.'),
+            true,
+        );
+    } finally {
+        await reader.cancel().catch(() => undefined);
+        reader.releaseLock();
     }
-    if (!receivedContent) throw new MistralRequestError(t('emptyStream', 'Mistral вернул пустой поток данных.'), true);
-    throw new MistralRequestError(
-        t('incompleteStream', 'Ответ Mistral прервался до завершения. Повторите запрос.'),
-        true,
-    );
 }

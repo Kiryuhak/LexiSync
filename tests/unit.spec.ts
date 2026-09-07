@@ -88,9 +88,9 @@ test('безопасно нормализует поисковик и повре
 });
 
 test('история обновлений содержит все выпуски и поддерживает поиск', () => {
-    expect(RELEASE_NOTES[0].version).toBe('5.5.8');
+    expect(RELEASE_NOTES[0].version).toBe('5.6.0');
     expect(RELEASE_NOTES.at(-1)?.version).toBe('2.5');
-    expect(RELEASE_NOTES).toHaveLength(59);
+    expect(RELEASE_NOTES).toHaveLength(60);
     expect(new Set(RELEASE_NOTES.map((release) => release.version)).size).toBe(RELEASE_NOTES.length);
     expect(filterReleaseNotes(RELEASE_NOTES, 'MagicOS', 'ru').map((release) => release.version)).toEqual([
         '5.3.4',
@@ -995,7 +995,7 @@ test('Unit 17: тайм-аут основного провайдера быст�
         mistralApiKey: 'mistral-key',
         gigachatAuthKey: 'gigachat-key',
         signal: new AbortController().signal,
-        providerTimeoutMs: 5,
+        providerTimeoutMs: 100,
         onChunk: (chunk) => chunks.push(chunk),
     });
 
@@ -1074,7 +1074,7 @@ test('Unit 18: Retry-After включает cooldown и следующий за�
     mockFetch.mockRestore();
 });
 
-test('Unit 19: частичный ответ очищается перед переключением провайдера', async () => {
+test('Unit 19: неполный ответ не запускает резервного провайдера', async () => {
     const { executeAiStreamRequest } = await import('../src/ai-client');
     const encoder = new TextEncoder();
     const chunks: string[] = [];
@@ -1106,7 +1106,7 @@ test('Unit 19: частичный ответ очищается перед пе�
         } as unknown as Response);
     });
 
-    const result = await executeAiStreamRequest({
+    const result = executeAiStreamRequest({
         request: { action: 'callMistral', text: 'Тест', mode: 'style' },
         settings: {
             selectedTone: 'business',
@@ -1124,9 +1124,10 @@ test('Unit 19: частичный ответ очищается перед пе�
         onReset,
     });
 
-    expect(result.providerUsed).toBe('gigachat');
-    expect(onReset).toHaveBeenCalledTimes(1);
-    expect(chunks.join('')).toBe('Полный ответ');
+    await expect(result).rejects.toMatchObject({ code: 'INVALID_RESPONSE' });
+    expect(onReset).not.toHaveBeenCalled();
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(chunks.join('')).toBe('Незавершённый');
     mockFetch.mockRestore();
 });
 
@@ -3088,7 +3089,7 @@ test('Unit 23: sanitizeLogMessage строго маскирует API-ключи
     const rawGroq = 'Error with key gsk_1234567890abcdef1234567890abcdef and token Bearer eyJhbGciOiJIUzI1NiJ9';
     const cleanGroq = sanitizeLogMessage(rawGroq);
     expect(cleanGroq).not.toContain('gsk_1234567890abcdef1234567890abcdef');
-    expect(cleanGroq).toContain('gsk_[REDACTED_GROQ_KEY]');
+    expect(cleanGroq).toContain('gsk_[REDACTED_API_KEY]');
     expect(cleanGroq).toContain('Bearer [REDACTED_TOKEN]');
 
     const rawMistral = 'Failed auth with 0123456789abcdef0123456789abcdef';
