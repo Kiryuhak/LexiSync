@@ -243,18 +243,18 @@ export function executeRequest(
         }
     });
 
-    let activeProvider: 'mistral' | 'gigachat' | null = mode === 'ocr' ? 'mistral' : null;
+    let activeProvider: 'mistral' | 'cloudflare' | null = mode === 'ocr' ? 'mistral' : null;
 
-    function createProviderBadge(provider: 'mistral' | 'gigachat', isFallback = false): HTMLElement {
+    function createProviderBadge(provider: 'mistral' | 'cloudflare', isFallback = false): HTMLElement {
         const badge = document.createElement('span');
         badge.className = `lexisync-provider-badge lexisync-provider-${provider}`;
         const dot = document.createElement('span');
         dot.className = `lexisync-provider-dot ${isFallback ? 'dot-degraded' : 'dot-healthy'}`;
         badge.appendChild(dot);
         const text = document.createElement('span');
-        if (provider === 'gigachat') {
-            text.textContent = '⚡ GigaChat';
-            badge.title = isFallback ? 'GigaChat (резервный) • Сбер' : 'GigaChat • Сбер';
+        if (provider === 'cloudflare') {
+            text.textContent = '☁️ Cloudflare';
+            badge.title = isFallback ? 'Cloudflare Workers AI (резервный)' : 'Cloudflare Workers AI';
         } else {
             text.textContent = '✦ Mistral';
             badge.title = isFallback ? 'Mistral (резервный) • Mistral AI' : 'Mistral AI';

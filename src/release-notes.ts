@@ -36,6 +36,31 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.6.1',
+        '2026-09-08',
+        'new',
+        'Интеграция Cloudflare Workers AI и улучшение интерфейса',
+        'Cloudflare Workers AI integration and UI/UX improvements',
+        [
+            [
+                'Полная замена GigaChat на Cloudflare Workers AI (Llama 3.2 3B Instruct) с прямым REST API.',
+                'Full replacement of GigaChat with Cloudflare Workers AI (Llama 3.2 3B Instruct) via direct REST API.',
+            ],
+            [
+                'Безопасное раздельное хранение Account ID и API Token в защищённом хранилище расширения.',
+                'Secure isolated storage for Account ID and API Token in extension local storage.',
+            ],
+            [
+                'Улучшен UI/UX настроек: скрыты числовые стрелки, улучшена типографика и отзывчивость полей квот.',
+                'Improved Settings UI/UX: hidden spin buttons, refined typography, and responsive quota inputs.',
+            ],
+            [
+                'Автоматический fallback с Mistral AI на Cloudflare при исчерпании лимитов или сбоях сети.',
+                'Automatic fallback from Mistral AI to Cloudflare on rate limits or network issues.',
+            ],
+        ],
+    ),
+    note(
         '5.6.0',
         '2026-09-07',
         'improved',

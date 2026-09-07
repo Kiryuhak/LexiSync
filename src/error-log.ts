@@ -6,7 +6,7 @@ export interface ErrorLogEntry {
     level: 'error' | 'warn';
     source: string;
     message: string;
-    provider?: 'mistral' | 'gigachat';
+    provider?: 'mistral' | 'cloudflare';
     errorCode?: string;
     status?: number;
     details?: Record<string, unknown>;
@@ -38,7 +38,7 @@ export function sanitizeLogMessage(input: string, knownKeys: string[] = []): str
         // Bearer токены
         .replace(/(Bearer|Basic)\s+[a-zA-Z0-9._~+/-]+=*/gi, '$1 [REDACTED_TOKEN]')
         .replace(
-            /((?:access_token|authorization|api[_-]?key|authKey|password)["']?\s*[:=]\s*["']?)[^"'\s,}]+/gi,
+            /((?:access_token|authorization|api[_-]?(?:key|token)|authKey|password|token|accountId)["']?\s*[:=]\s*["']?)[^"'\s,}]+/gi,
             '$1[REDACTED_SECRET]',
         )
         // Авторизационные параметры в URL
@@ -92,7 +92,7 @@ export async function recordErrorLog(entry: {
     level?: 'error' | 'warn';
     source: string;
     message: string;
-    provider?: 'mistral' | 'gigachat';
+    provider?: 'mistral' | 'cloudflare';
     errorCode?: string;
     status?: number;
     details?: Record<string, unknown>;

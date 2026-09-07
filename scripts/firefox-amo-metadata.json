@@ -1,7 +1,7 @@
 {
     "summary": {
-        "ru": "Умный помощник для работы с текстом на базе Mistral AI и GigaChat.",
-        "en-US": "A smart text assistant powered by Mistral AI and GigaChat."
+        "ru": "Умный помощник для работы с текстом на базе Mistral AI и Cloudflare Workers AI.",
+        "en-US": "A smart text assistant powered by Mistral AI and Cloudflare Workers AI."
     },
     "categories": {
         "firefox": ["language-support"]

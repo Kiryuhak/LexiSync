@@ -14,8 +14,8 @@ export default defineConfig({
             provider: 'v8',
             reporter: ['text', 'json-summary'],
             include: [
-                'src/gigachat-token-manager.ts',
-                'src/gigachat-client.ts',
+                'src/cloudflare-client.ts',
+                'src/cloudflare-provider.ts',
                 'src/ai-client.ts',
                 'src/ai-provider-types.ts',
                 'src/provider-health.ts',

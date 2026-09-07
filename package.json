@@ -1,7 +1,7 @@
 {
     "name": "lexisync-extension",
-    "version": "5.6.0",
-    "description": "LexiSync - Smart Text AI Assistant with Mistral API and GigaChat",
+    "version": "5.6.1",
+    "description": "LexiSync - Smart Text AI Assistant with Mistral API and Cloudflare Workers AI",
     "scripts": {
         "dev": "wxt",
         "dev:firefox": "wxt -b firefox",

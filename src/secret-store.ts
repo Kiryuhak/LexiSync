@@ -1,12 +1,15 @@
 import { deletePrivateRecord, readPrivateRecord, writePrivateRecord } from './extension-db';
-import { invalidateGigaChatToken } from './gigachat-token-manager';
+import type { CloudflareCredentials } from './ai-provider-types';
 
 const API_KEY_RECORD = 'mistralApiKey';
-const GIGACHAT_AUTH_KEY_RECORD = 'gigachatAuthKey';
+const CLOUDFLARE_API_TOKEN_RECORD = 'cloudflareApiToken';
+const CLOUDFLARE_ACCOUNT_ID_RECORD = 'cloudflareAccountId';
+const LEGACY_GIGACHAT_RECORD = 'gigachatAuthKey';
 const LEGACY_GROQ_RECORD = 'groqApiKey';
 
 let mistralApiKeyCache: string | undefined;
-let gigaChatAuthKeyCache: string | undefined;
+let cloudflareApiTokenCache: string | undefined;
+let cloudflareAccountIdCache: string | undefined;
 let pendingSecretWrite: Promise<void> = Promise.resolve();
 
 function queueSecretWrite(operation: () => Promise<void>): Promise<void> {
@@ -32,53 +35,94 @@ export async function setStoredApiKey(value: string): Promise<void> {
     });
 }
 
-export async function getStoredGigaChatAuthKey(): Promise<string> {
+export async function getStoredCloudflareApiToken(): Promise<string> {
     await pendingSecretWrite;
-    if (gigaChatAuthKeyCache !== undefined) return gigaChatAuthKeyCache;
-    gigaChatAuthKeyCache = (await readPrivateRecord<string>('secrets', GIGACHAT_AUTH_KEY_RECORD)) || '';
-    return gigaChatAuthKeyCache;
+    if (cloudflareApiTokenCache !== undefined) return cloudflareApiTokenCache;
+    cloudflareApiTokenCache = (await readPrivateRecord<string>('secrets', CLOUDFLARE_API_TOKEN_RECORD)) || '';
+    return cloudflareApiTokenCache;
 }
 
-export async function setStoredGigaChatAuthKey(value: string): Promise<void> {
+export async function setStoredCloudflareApiToken(value: string): Promise<void> {
     const normalized = value.trim();
     if (normalized.length > 1024) throw new Error('API_KEY_TOO_LONG');
     await queueSecretWrite(async () => {
-        if (normalized) await writePrivateRecord('secrets', GIGACHAT_AUTH_KEY_RECORD, normalized);
-        else await deletePrivateRecord('secrets', GIGACHAT_AUTH_KEY_RECORD);
-        gigaChatAuthKeyCache = normalized;
-        await invalidateGigaChatToken();
+        if (normalized) await writePrivateRecord('secrets', CLOUDFLARE_API_TOKEN_RECORD, normalized);
+        else await deletePrivateRecord('secrets', CLOUDFLARE_API_TOKEN_RECORD);
+        cloudflareApiTokenCache = normalized;
     });
 }
 
+export async function getStoredCloudflareAccountId(): Promise<string> {
+    await pendingSecretWrite;
+    if (cloudflareAccountIdCache !== undefined) return cloudflareAccountIdCache;
+    cloudflareAccountIdCache = (await readPrivateRecord<string>('secrets', CLOUDFLARE_ACCOUNT_ID_RECORD)) || '';
+    return cloudflareAccountIdCache;
+}
+
+export async function setStoredCloudflareAccountId(value: string): Promise<void> {
+    const normalized = value.trim();
+    if (normalized.length > 512) throw new Error('ACCOUNT_ID_TOO_LONG');
+    await queueSecretWrite(async () => {
+        if (normalized) await writePrivateRecord('secrets', CLOUDFLARE_ACCOUNT_ID_RECORD, normalized);
+        else await deletePrivateRecord('secrets', CLOUDFLARE_ACCOUNT_ID_RECORD);
+        cloudflareAccountIdCache = normalized;
+    });
+}
+
+export async function getStoredCloudflareCredentials(): Promise<CloudflareCredentials> {
+    const [accountId, apiToken] = await Promise.all([getStoredCloudflareAccountId(), getStoredCloudflareApiToken()]);
+    return { accountId, apiToken };
+}
+
+export async function setStoredCloudflareCredentials(credentials: CloudflareCredentials): Promise<void> {
+    await Promise.all([
+        setStoredCloudflareAccountId(credentials.accountId || ''),
+        setStoredCloudflareApiToken(credentials.apiToken || ''),
+    ]);
+}
+
 export async function migrateApiKeyToSecretStore(): Promise<void> {
-    // Старый OAuth-кэш был доступен content scripts; не переносим его в приватную БД.
-    await chrome.storage.local.remove('_gigachat_token_cache');
+    // Очистка старого кэша GigaChat и Groq из storage.local
+    await chrome.storage.local.remove([
+        '_gigachat_token_cache',
+        'gigachatAuthKey',
+        'gigachatAccessToken',
+        'gigachatExpiresAt',
+        'groqApiKey',
+    ]);
+
     const stored = await chrome.storage.local.get({
         mistralApiKey: '',
-        gigachatAuthKey: '',
-        groqApiKey: '',
+        cloudflareApiToken: '',
+        cloudflareAccountId: '',
     });
 
     const legacyMistralKey = typeof stored.mistralApiKey === 'string' ? stored.mistralApiKey.trim() : '';
     if (legacyMistralKey && !(await getStoredApiKey())) await setStoredApiKey(legacyMistralKey);
     if ('mistralApiKey' in stored) await chrome.storage.local.remove('mistralApiKey');
 
-    const legacyGigaChatKey = typeof stored.gigachatAuthKey === 'string' ? stored.gigachatAuthKey.trim() : '';
-    if (legacyGigaChatKey && !(await getStoredGigaChatAuthKey())) await setStoredGigaChatAuthKey(legacyGigaChatKey);
-    if ('gigachatAuthKey' in stored) await chrome.storage.local.remove('gigachatAuthKey');
+    const legacyCfToken = typeof stored.cloudflareApiToken === 'string' ? stored.cloudflareApiToken.trim() : '';
+    if (legacyCfToken && !(await getStoredCloudflareApiToken())) await setStoredCloudflareApiToken(legacyCfToken);
+    if ('cloudflareApiToken' in stored) await chrome.storage.local.remove('cloudflareApiToken');
 
-    // Очистка устаревших ключей Groq из storage и IndexedDB
-    if ('groqApiKey' in stored) await chrome.storage.local.remove('groqApiKey');
+    const legacyCfAccount = typeof stored.cloudflareAccountId === 'string' ? stored.cloudflareAccountId.trim() : '';
+    if (legacyCfAccount && !(await getStoredCloudflareAccountId())) await setStoredCloudflareAccountId(legacyCfAccount);
+    if ('cloudflareAccountId' in stored) await chrome.storage.local.remove('cloudflareAccountId');
+
+    // Очистка устаревших ключей из приватной IndexedDB
+    await deletePrivateRecord('secrets', LEGACY_GIGACHAT_RECORD);
     await deletePrivateRecord('secrets', LEGACY_GROQ_RECORD);
 }
 
 export async function clearAllSecrets(): Promise<void> {
     await queueSecretWrite(async () => {
         await deletePrivateRecord('secrets', API_KEY_RECORD);
-        await deletePrivateRecord('secrets', GIGACHAT_AUTH_KEY_RECORD);
+        await deletePrivateRecord('secrets', CLOUDFLARE_API_TOKEN_RECORD);
+        await deletePrivateRecord('secrets', CLOUDFLARE_ACCOUNT_ID_RECORD);
+        await deletePrivateRecord('secrets', LEGACY_GIGACHAT_RECORD);
         await deletePrivateRecord('secrets', LEGACY_GROQ_RECORD);
         mistralApiKeyCache = '';
-        gigaChatAuthKeyCache = '';
-        await invalidateGigaChatToken();
+        cloudflareApiTokenCache = '';
+        cloudflareAccountIdCache = '';
     });
 }

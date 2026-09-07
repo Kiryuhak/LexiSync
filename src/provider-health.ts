@@ -1,6 +1,6 @@
 import { t } from './i18n';
-import { AiProviderError, type AiProviderType } from './ai-provider-types';
-import { getGigaChatAccessToken } from './gigachat-token-manager';
+import { AiProviderError, type AiProviderType, type CloudflareCredentials } from './ai-provider-types';
+import { validateCloudflareCredentials } from './cloudflare-client';
 import { AI_CONFIG } from './ai-models-config';
 
 export type HealthState = 'healthy' | 'degraded' | 'outage' | 'unconfigured' | 'checking';
@@ -11,6 +11,7 @@ export interface ProviderHealthStatus {
     latencyMs?: number;
     message: string;
     checkedAt: number;
+    model?: string;
 }
 
 const HEALTH_CACHE_KEY = 'lexisync_provider_health_cache';
@@ -55,13 +56,67 @@ export function formatHealthMessage(status: ProviderHealthStatus): string {
 
 export async function checkProviderHealth(
     provider: AiProviderType,
-    apiKey: string,
+    apiKey: string | CloudflareCredentials,
     timeoutMs = 7000,
 ): Promise<ProviderHealthStatus> {
-    const trimmedKey = (apiKey || '').trim();
+    if (provider === 'cloudflare') {
+        let creds: CloudflareCredentials;
+        if (typeof apiKey === 'object' && apiKey !== null) {
+            creds = apiKey;
+        } else {
+            try {
+                creds = JSON.parse(apiKey) as CloudflareCredentials;
+            } catch {
+                creds = { accountId: '', apiToken: '' };
+            }
+        }
+        if (!creds.accountId?.trim() || !creds.apiToken?.trim()) {
+            return {
+                provider: 'cloudflare',
+                state: 'unconfigured',
+                message: t('serverStatusUnconfigured', 'Ключ не настроен'),
+                checkedAt: Date.now(),
+                model: AI_CONFIG.cloudflare.defaultModelShortName,
+            };
+        }
+
+        const signal = AbortSignal.timeout(timeoutMs);
+        const result = await validateCloudflareCredentials(creds, AI_CONFIG.cloudflare.defaultModel, signal);
+
+        if (result.ok) {
+            const isDegraded = (result.latencyMs ?? 0) >= 2500;
+            return {
+                provider: 'cloudflare',
+                state: isDegraded ? 'degraded' : 'healthy',
+                latencyMs: result.latencyMs,
+                message: isDegraded
+                    ? t('serverStatusDegradedLatency', 'Замедление ответа')
+                    : t('serverStatusHealthy', 'Работает отлично'),
+                checkedAt: Date.now(),
+                model: AI_CONFIG.cloudflare.defaultModelShortName,
+            };
+        }
+
+        const isDegraded =
+            result.message.includes('квота') ||
+            result.message.includes('лимит') ||
+            result.message.includes('вовремя') ||
+            result.message.includes('timeout');
+
+        return {
+            provider: 'cloudflare',
+            state: isDegraded ? 'degraded' : 'outage',
+            latencyMs: result.latencyMs,
+            message: result.message,
+            checkedAt: Date.now(),
+            model: AI_CONFIG.cloudflare.defaultModelShortName,
+        };
+    }
+
+    const trimmedKey = (typeof apiKey === 'string' ? apiKey : '').trim();
     if (!trimmedKey) {
         return {
-            provider,
+            provider: 'mistral',
             state: 'unconfigured',
             message: t('serverStatusUnconfigured', 'Ключ не настроен'),
             checkedAt: Date.now(),
@@ -69,16 +124,14 @@ export async function checkProviderHealth(
     }
 
     const startTime = performance.now();
-
-    const url = `${AI_CONFIG[provider].baseUrl}/models`;
+    const url = `${AI_CONFIG.mistral.baseUrl}/models`;
     const signal = AbortSignal.timeout(timeoutMs);
 
     try {
-        const credential = provider === 'gigachat' ? await getGigaChatAccessToken(trimmedKey, signal) : trimmedKey;
         const response = await fetch(url, {
             method: 'GET',
             headers: {
-                Authorization: `Bearer ${credential}`,
+                Authorization: `Bearer ${trimmedKey}`,
             },
             cache: 'no-store',
             signal,
@@ -89,7 +142,7 @@ export async function checkProviderHealth(
         if (response.ok) {
             if (durationMs < 2500) {
                 return {
-                    provider,
+                    provider: 'mistral',
                     state: 'healthy',
                     latencyMs: durationMs,
                     message: t('serverStatusHealthy', 'Работает отлично'),
@@ -97,7 +150,7 @@ export async function checkProviderHealth(
                 };
             }
             return {
-                provider,
+                provider: 'mistral',
                 state: 'degraded',
                 latencyMs: durationMs,
                 message: t('serverStatusDegradedLatency', 'Замедление ответа'),
@@ -107,7 +160,7 @@ export async function checkProviderHealth(
 
         if (response.status === 429) {
             return {
-                provider,
+                provider: 'mistral',
                 state: 'degraded',
                 latencyMs: durationMs,
                 message: t('serverStatusRateLimit', 'Лимит запросов (Rate Limit)'),
@@ -117,7 +170,7 @@ export async function checkProviderHealth(
 
         if (response.status === 401 || response.status === 403) {
             return {
-                provider,
+                provider: 'mistral',
                 state: 'outage',
                 latencyMs: durationMs,
                 message: t('serverStatusAuthError', 'Недействительный API-ключ'),
@@ -127,7 +180,7 @@ export async function checkProviderHealth(
 
         if (response.status >= 500) {
             return {
-                provider,
+                provider: 'mistral',
                 state: 'outage',
                 latencyMs: durationMs,
                 message: t('serverStatusServerError', `Сбой сервера (${response.status})`),
@@ -136,7 +189,7 @@ export async function checkProviderHealth(
         }
 
         return {
-            provider,
+            provider: 'mistral',
             state: 'outage',
             latencyMs: durationMs,
             message: t('serverStatusHttpError', `Ошибка HTTP ${response.status}`),
@@ -145,7 +198,7 @@ export async function checkProviderHealth(
     } catch (error) {
         const durationMs = performance.now() - startTime;
         if (error instanceof AiProviderError && error.status) {
-            return evaluateHealthFromRuntimeResponse(provider, durationMs, error.status);
+            return evaluateHealthFromRuntimeResponse('mistral', durationMs, error.status);
         }
         const isTimeout =
             error instanceof Error &&
@@ -156,7 +209,7 @@ export async function checkProviderHealth(
 
         if (isTimeout) {
             return {
-                provider,
+                provider: 'mistral',
                 state: 'degraded',
                 latencyMs: durationMs,
                 message: t('serverStatusTimeout', 'Тайм-аут соединения'),
@@ -165,7 +218,7 @@ export async function checkProviderHealth(
         }
 
         return {
-            provider,
+            provider: 'mistral',
             state: 'outage',
             latencyMs: durationMs,
             message: t('serverStatusNetworkError', 'Ошибка сети / недоступен'),
@@ -185,7 +238,10 @@ export function evaluateHealthFromRuntimeResponse(
             provider,
             state: 'degraded',
             latencyMs: durationMs,
-            message: t('serverStatusRateLimit', 'Лимит запросов (Rate Limit)'),
+            message:
+                provider === 'cloudflare'
+                    ? t('cloudflareRateLimit', 'Дневная квота Cloudflare Workers AI исчерпана. Попробуйте позже.')
+                    : t('serverStatusRateLimit', 'Лимит запросов (Rate Limit)'),
             checkedAt: Date.now(),
         };
     }
@@ -195,7 +251,10 @@ export function evaluateHealthFromRuntimeResponse(
             provider,
             state: 'outage',
             latencyMs: durationMs,
-            message: t('serverStatusServerError', `Сбой сервера (${errorStatus})`),
+            message:
+                provider === 'cloudflare'
+                    ? t('cloudflareServerError', 'Ошибка сервера Cloudflare Workers AI.')
+                    : t('serverStatusServerError', `Сбой сервера (${errorStatus})`),
             checkedAt: Date.now(),
         };
     }
@@ -205,7 +264,20 @@ export function evaluateHealthFromRuntimeResponse(
             provider,
             state: 'outage',
             latencyMs: durationMs,
-            message: t('serverStatusAuthError', 'Недействительный API-ключ'),
+            message:
+                provider === 'cloudflare'
+                    ? t('cloudflareAuthError', 'Проверьте Cloudflare API Token.')
+                    : t('serverStatusAuthError', 'Недействительный API-ключ'),
+            checkedAt: Date.now(),
+        };
+    }
+
+    if (errorStatus === 404 && provider === 'cloudflare') {
+        return {
+            provider,
+            state: 'outage',
+            latencyMs: durationMs,
+            message: t('cloudflareAccountError', 'Проверьте Cloudflare Account ID.'),
             checkedAt: Date.now(),
         };
     }
@@ -224,7 +296,10 @@ export function evaluateHealthFromRuntimeResponse(
             provider,
             state: 'outage',
             latencyMs: durationMs,
-            message: t('serverStatusNetworkError', 'Ошибка сети / недоступен'),
+            message:
+                provider === 'cloudflare'
+                    ? t('cloudflareNetworkError', 'Не удалось подключиться к Cloudflare Workers AI.')
+                    : t('serverStatusNetworkError', 'Ошибка сети / недоступен'),
             checkedAt: Date.now(),
         };
     }
@@ -265,7 +340,7 @@ export async function loadCachedHealthStatus(): Promise<Record<AiProviderType, P
                         ? status
                         : null;
                 return {
-                    gigachat: fresh(cached.gigachat),
+                    cloudflare: fresh(cached.cloudflare),
                     mistral: fresh(cached.mistral),
                 };
             }
@@ -273,7 +348,7 @@ export async function loadCachedHealthStatus(): Promise<Record<AiProviderType, P
     } catch {
         // Fallback
     }
-    return { gigachat: null, mistral: null };
+    return { cloudflare: null, mistral: null };
 }
 
 export async function saveCachedHealthStatus(

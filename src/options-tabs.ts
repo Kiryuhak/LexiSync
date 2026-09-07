@@ -6,7 +6,7 @@ export const SETTINGS_TAB_GUIDES = {
         titleKey: 'tabGuideMainTitle',
         title: 'Начните с основных параметров',
         descriptionKey: 'tabGuideMainDescription',
-        description: 'Подключите Mistral или GigaChat, выберите основной сервис и стиль ответа.',
+        description: 'Подключите Mistral или Cloudflare Workers AI, выберите основной сервис и стиль ответа.',
     },
     ai: {
         icon: '◆',

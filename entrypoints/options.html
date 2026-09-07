@@ -134,7 +134,7 @@
                     <div>
                         <h2 id="settingsSectionGuideTitle">Начните с основных параметров</h2>
                         <p id="settingsSectionGuideDescription">
-                            Подключите Mistral или GigaChat, выберите основной сервис и стиль ответа.
+                            Подключите Mistral или Cloudflare Workers AI, выберите основной сервис и стиль ответа.
                         </p>
                     </div>
                 </section>
@@ -145,7 +145,9 @@
                 <select id="primaryAiProvider" data-settings-group="main">
                     <option value="auto" data-i18n="providerAuto">⚡ Автоматически (рекомендуется)</option>
                     <option value="mistral" data-i18n="providerMistral">🌪️ Mistral AI (Mistral Small)</option>
-                    <option value="gigachat" data-i18n="providerGigaChat">💚 GigaChat (Сбер)</option>
+                    <option value="cloudflare" data-i18n="providerCloudflare">
+                        ☁️ Cloudflare Workers AI (Llama 3.2 3B)
+                    </option>
                 </select>
 
                 <div class="privacy-option" data-settings-group="main" style="margin-top: 10px; margin-bottom: 12px">
@@ -158,7 +160,7 @@
                     <input type="checkbox" id="autoFallbackEnabled" aria-describedby="autoFallbackHint" checked />
                 </div>
 
-                <!-- Виджет статуса серверов GigaChat и Mistral -->
+                <!-- Виджет статуса серверов Mistral и Cloudflare -->
                 <div class="server-status-container" data-settings-group="main">
                     <div class="server-status-header">
                         <span class="server-status-title" data-i18n="serverStatusTitle">Состояние AI-подключений</span>
@@ -173,19 +175,19 @@
                         </button>
                     </div>
                     <div class="server-status-grid">
-                        <div class="server-status-card" id="gigachatStatusCard" data-status="unconfigured">
+                        <div class="server-status-card" id="cloudflareStatusCard" data-status="unconfigured">
                             <div class="server-status-card-header">
-                                <span class="server-status-dot" id="gigachatStatusDot"></span>
-                                <span class="server-status-name">💚 GigaChat (Сбер)</span>
+                                <span class="server-status-dot" id="cloudflareStatusDot"></span>
+                                <span class="server-status-name">☁️ Cloudflare Workers AI</span>
                             </div>
                             <div class="server-status-card-body">
                                 <span
                                     class="server-status-text"
-                                    id="gigachatStatusText"
+                                    id="cloudflareStatusText"
                                     data-i18n="serverStatusUnconfigured"
                                     >Ключ не настроен</span
                                 >
-                                <span class="server-status-latency" id="gigachatStatusLatency"></span>
+                                <span class="server-status-latency" id="cloudflareStatusLatency"></span>
                             </div>
                         </div>
                         <div class="server-status-card" id="mistralStatusCard" data-status="unconfigured">
@@ -263,28 +265,47 @@
                     Нужен для команд Mistral. Ключ хранится локально и недоступен сайтам.
                 </p>
 
-                <label for="gigachatAuthKey" data-settings-group="main" data-i18n="gigachatAuthKeyLabel"
-                    >Ваш GigaChat Authorization Key:</label
+                <label for="cloudflareAccountId" data-settings-group="main" data-i18n="cloudflareAccountIdLabel"
+                    >Cloudflare Account ID:</label
+                >
+                <div class="password-wrapper" data-settings-group="main">
+                    <input
+                        type="text"
+                        id="cloudflareAccountId"
+                        placeholder="Например: 1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d"
+                        data-i18n-placeholder="cloudflareAccountIdPlaceholder"
+                        spellcheck="false"
+                        autocomplete="off"
+                    />
+                </div>
+                <p class="field-hint" data-settings-group="main" data-i18n="cloudflareAccountIdHint">
+                    32-значный идентификатор аккаунта Cloudflare (скопируйте из Cloudflare Dashboard или URL).
+                </p>
+
+                <label for="cloudflareApiToken" data-settings-group="main" data-i18n="cloudflareApiTokenLabel"
+                    >Cloudflare Workers AI API Token:</label
                 >
                 <div class="password-wrapper" data-settings-group="main">
                     <input
                         type="password"
-                        id="gigachatAuthKey"
-                        placeholder="MDE5..."
-                        data-i18n-placeholder="gigachatAuthKeyPlaceholder"
+                        id="cloudflareApiToken"
+                        placeholder="Вставьте токен..."
+                        data-i18n-placeholder="cloudflareApiTokenPlaceholder"
+                        spellcheck="false"
+                        autocomplete="off"
                     />
                     <button
                         type="button"
-                        id="toggleGigaChatAuthKey"
+                        id="toggleCloudflareApiToken"
                         class="toggle-password"
                         title="Показать/скрыть"
-                        aria-label="Показать или скрыть ключ авторизации GigaChat"
+                        aria-label="Показать или скрыть API-токен Cloudflare"
                         aria-pressed="false"
-                        data-i18n-title="toggleGigaChatAuthKey"
-                        data-i18n-aria-label="toggleGigaChatAuthKey"
+                        data-i18n-title="toggleCloudflareApiToken"
+                        data-i18n-aria-label="toggleCloudflareApiToken"
                     >
                         <svg
-                            id="eyeOpenGigaChat"
+                            id="eyeOpenCloudflare"
                             width="20"
                             height="20"
                             viewBox="0 0 24 24"
@@ -298,7 +319,7 @@
                             <circle cx="12" cy="12" r="3"></circle>
                         </svg>
                         <svg
-                            id="eyeClosedGigaChat"
+                            id="eyeClosedCloudflare"
                             width="20"
                             height="20"
                             viewBox="0 0 24 24"
@@ -316,9 +337,9 @@
                         </svg>
                     </button>
                 </div>
-                <p class="field-hint" data-settings-group="main" data-i18n="gigachatAuthKeySimpleHint">
-                    Ключ авторизации (Base64) из личного кабинета Сбер Салют/GigaChat. Токены доступа обновляются
-                    автоматически.
+                <p class="field-hint" data-settings-group="main" data-i18n="cloudflareApiTokenHint">
+                    API-токен Cloudflare с правами Workers AI Read/Edit. Хранится локально и никогда не передаётся
+                    сайтам.
                 </p>
 
                 <label for="toneSelect" data-settings-group="main" data-i18n="toneLabel"
@@ -576,43 +597,6 @@
                             >
                         </label>
                     </div>
-
-                    <div class="settings-toolbar-customizer" style="margin-top: 20px">
-                        <h3 data-i18n="pinnedToolbarTitle">Закреплённые действия на панели</h3>
-                        <p class="toolbar-customizer-hint" data-i18n="pinnedToolbarHint">
-                            Выберите инструменты, которые отображаются на панели сразу при выделении текста.
-                        </p>
-                        <div class="pinned-toolbar-chips-grid" id="pinnedToolbarChipsGroup">
-                            <label class="pinned-chip-label">
-                                <input type="checkbox" class="pinned-action-cb" value="spellcheck" />
-                                <span data-i18n="modeSpellcheck">Ошибки</span>
-                            </label>
-                            <label class="pinned-chip-label">
-                                <input type="checkbox" class="pinned-action-cb" value="style" />
-                                <span data-i18n="modeStyle">Стиль</span>
-                            </label>
-                            <label class="pinned-chip-label">
-                                <input type="checkbox" class="pinned-action-cb" value="translate" />
-                                <span data-i18n="modeTranslate">Перевод</span>
-                            </label>
-                            <label class="pinned-chip-label">
-                                <input type="checkbox" class="pinned-action-cb" value="summary" />
-                                <span data-i18n="summaryShort">Выжимка</span>
-                            </label>
-                            <label class="pinned-chip-label">
-                                <input type="checkbox" class="pinned-action-cb" value="emoji" />
-                                <span data-i18n="modeEmoji">Эмодзи</span>
-                            </label>
-                            <label class="pinned-chip-label">
-                                <input type="checkbox" class="pinned-action-cb" value="layout" />
-                                <span data-i18n="modeLayout">Раскладка</span>
-                            </label>
-                            <label class="pinned-chip-label">
-                                <input type="checkbox" class="pinned-action-cb" value="text_clean" />
-                                <span data-i18n="modeTextClean">Очистка</span>
-                            </label>
-                        </div>
-                    </div>
                 </div>
 
                 <section class="settings-section ai-mode-section" data-settings-group="ai" hidden>
@@ -631,7 +615,7 @@
                                 <span class="ai-mode-card-icon" aria-hidden="true">⚡</span>
                             </div>
                             <div class="ai-mode-card-title" data-i18n="aiModeFastTitle">Быстрый отклик</div>
-                            <div class="ai-mode-card-model">Mistral Small · GigaChat</div>
+                            <div class="ai-mode-card-model">Mistral Small · Cloudflare Llama 3.2 3B</div>
                             <p class="ai-mode-card-desc" data-i18n="aiModeFastDesc">
                                 Мгновенный ответ и минимальный расход токенов. Идеально для быстрой проверки ошибок.
                             </p>
@@ -654,7 +638,7 @@
                                 <span class="ai-mode-card-icon" aria-hidden="true">⚖️</span>
                             </div>
                             <div class="ai-mode-card-title" data-i18n="aiModeBalancedTitle">Сбалансированный</div>
-                            <div class="ai-mode-card-model">Qwen 3.6 27B · Mistral Small</div>
+                            <div class="ai-mode-card-model">Mistral Small · Cloudflare Llama 3.2 3B</div>
                             <p class="ai-mode-card-desc" data-i18n="aiModeBalancedDesc">
                                 Оптимальный баланс богатого словарного запаса, естественного стиля и высокой скорости.
                             </p>
@@ -1160,20 +1144,20 @@
                 <section class="settings-section v4-settings" data-settings-group="ai" hidden>
                     <h2 data-i18n="providerLimitsTitle">Расход и лимиты</h2>
                     <p data-i18n="providerLimitsIntro">
-                        Фактические квоты задаются вашим тарифом GigaChat или Mistral. LexiSync показывает локальный
+                        Фактические квоты задаются вашим аккаунтом Cloudflare или Mistral. LexiSync показывает локальный
                         расход и позволяет установить общий безопасный предел.
                     </p>
 
                     <div class="provider-quota-cards-grid">
-                        <!-- Карточка GigaChat -->
-                        <div class="provider-quota-card gigachat-quota-card">
+                        <!-- Карточка Cloudflare Workers AI -->
+                        <div class="provider-quota-card cloudflare-quota-card">
                             <div class="provider-quota-header">
                                 <div class="provider-quota-title-wrap">
-                                    <span class="provider-quota-logo">💚</span>
+                                    <span class="provider-quota-logo">☁️</span>
                                     <div>
-                                        <h4>GigaChat</h4>
-                                        <span class="provider-quota-badge free-badge" data-i18n="gigachatTierPers"
-                                            >GIGACHAT_API_PERS</span
+                                        <h4>Cloudflare Workers AI</h4>
+                                        <span class="provider-quota-badge free-badge" data-i18n="cloudflareTierFree"
+                                            >10 000 Neurons / день</span
                                         >
                                     </div>
                                 </div>
@@ -1184,14 +1168,16 @@
                                     <span class="quota-stat-label" data-i18n="providerModelLabel"
                                         >Активная модель:</span
                                     >
-                                    <strong class="quota-stat-val">GigaChat (<code>GigaChat</code>)</strong>
+                                    <strong class="quota-stat-val"
+                                        >Llama 3.2 3B (<code>@cf/meta/llama-3.2-3b-instruct</code>)</strong
+                                    >
                                 </div>
                                 <div class="quota-stat-row">
                                     <span class="quota-stat-label" data-i18n="providerAccountQuota"
-                                        >Квоты аккаунта:</span
+                                        >Бесплатный лимит:</span
                                     >
-                                    <span class="quota-stat-val" data-i18n="providerAccountQuotaHintGigaChat"
-                                        >Определяются балансом в кабинете Сбер Салют</span
+                                    <span class="quota-stat-val" data-i18n="providerAccountQuotaHintCloudflare"
+                                        >10 000 нейронов в сутки (сброс в 00:00 UTC)</span
                                     >
                                 </div>
                             </div>
@@ -1420,16 +1406,24 @@
                     </div>
 
                     <div class="instruction-provider-section">
-                        <h3 class="instruction-provider-title" data-i18n="getGigaChatAuthKeySubTitle">
-                            💚 GigaChat (Сбер)
+                        <h3 class="instruction-provider-title" data-i18n="getCloudflareApiKeySubTitle">
+                            ☁️ Cloudflare Workers AI
                         </h3>
                         <ol>
-                            <li data-i18n="getGigaChatAuthKeyStep1">
-                                Перейдите на developers.sber.ru в кабинет Салют.
+                            <li data-i18n="getCloudflareStep1">
+                                Перейдите в Cloudflare Dashboard (<a
+                                    href="https://dash.cloudflare.com/"
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    >dash.cloudflare.com</a
+                                >) и скопируйте Account ID на главной странице справа.
                             </li>
-                            <li data-i18n="getGigaChatAuthKeyStep2">Создайте проект с доступом к GigaChat API.</li>
-                            <li data-i18n="getGigaChatAuthKeyStep3">
-                                Скопируйте Authorization Key (Base64) и вставьте в настройки.
+                            <li data-i18n="getCloudflareStep2">
+                                Перейдите в My Profile → API Tokens → Create Token → выберите шаблон «Workers AI»
+                                (доступ Workers AI Read/Edit).
+                            </li>
+                            <li data-i18n="getCloudflareStep3">
+                                Скопируйте сгенерированный токен и вставьте в настройки LexiSync.
                             </li>
                         </ol>
                     </div>
@@ -1678,44 +1672,66 @@
                     <p id="onboardingKeyStatus" class="onboarding-key-status" role="status" aria-live="polite"></p>
                 </section>
                 <section class="onboarding-step" data-onboarding-step="2">
-                    <div class="onboarding-provider-chip" aria-label="GigaChat, GIGACHAT_API_PERS">
-                        <span aria-hidden="true">💚</span>
-                        <span data-i18n="onboardingGigaChatPers">GigaChat · GIGACHAT_API_PERS</span>
+                    <div class="onboarding-provider-chip" aria-label="Cloudflare Workers AI">
+                        <span aria-hidden="true">☁️</span>
+                        <span data-i18n="onboardingCloudflareTitle">Cloudflare Workers AI · 10 000 Neurons/день</span>
                     </div>
-                    <h3 data-i18n="onboardingGigaChatApi">Добавьте Authorization Key GigaChat</h3>
-                    <p data-i18n="onboardingGigaChatApiHint">
-                        Ключ нужен для работы модели GigaChat и автоматического резервирования при сбоях.
+                    <h3 data-i18n="onboardingCloudflareApi">Подключите Cloudflare Workers AI</h3>
+                    <p data-i18n="onboardingCloudflareApiHint">
+                        Cloudflare предоставляет бесплатный доступ к модели Llama 3.2 3B (10 000 Neurons ежедневно) и
+                        работает как надёжный резервный канал без VPN.
                     </p>
                     <a
                         class="onboarding-external-link"
-                        href="https://developers.sber.ru/portal/products/gigachat-api"
+                        href="https://dash.cloudflare.com/"
                         target="_blank"
                         rel="noreferrer"
-                        data-i18n="tutorialOpenGigaChat"
-                        >Открыть кабинет Сбер Салют ↗</a
+                        data-i18n="tutorialOpenCloudflare"
+                        >Открыть Cloudflare Dashboard ↗</a
                     >
                     <ol class="onboarding-list onboarding-api-steps">
-                        <li data-i18n="tutorialGigaChatSignIn">Войдите по Сбер ID в кабинет разработчика Салют</li>
-                        <li data-i18n="getGigaChatAuthKeyStep2">Создайте проект с доступом к GigaChat API</li>
-                        <li data-i18n="getGigaChatAuthKeyStep3">Скопируйте Authorization Key (Base64)</li>
+                        <li data-i18n="tutorialCloudflareSignIn">
+                            Войдите в Cloudflare Dashboard и скопируйте Account ID
+                        </li>
+                        <li data-i18n="tutorialCloudflareCreateToken">
+                            В My Profile → API Tokens создайте токен Workers AI
+                        </li>
+                        <li data-i18n="tutorialCloudflarePaste">Вставьте Account ID и API Token в поля ниже</li>
                     </ol>
                     <label
                         class="onboarding-key-label"
-                        for="onboardingGigaChatApiKey"
-                        data-i18n="tutorialGigaChatAuthKeyLabel"
-                        >Authorization Key GigaChat</label
+                        for="onboardingCloudflareAccountId"
+                        data-i18n="tutorialCloudflareAccountIdLabel"
+                        >Cloudflare Account ID</label
                     >
                     <div class="onboarding-key-row">
                         <input
-                            id="onboardingGigaChatApiKey"
+                            id="onboardingCloudflareAccountId"
+                            type="text"
+                            autocomplete="off"
+                            spellcheck="false"
+                            data-i18n-placeholder="cloudflareAccountIdPlaceholder"
+                            placeholder="32-значный ID аккаунта…"
+                        />
+                    </div>
+                    <label
+                        class="onboarding-key-label"
+                        for="onboardingCloudflareApiToken"
+                        data-i18n="tutorialCloudflareApiTokenLabel"
+                        style="margin-top: 8px"
+                        >Cloudflare API Token</label
+                    >
+                    <div class="onboarding-key-row">
+                        <input
+                            id="onboardingCloudflareApiToken"
                             type="password"
                             autocomplete="off"
                             spellcheck="false"
-                            data-i18n-placeholder="gigachatAuthKeyPlaceholder"
-                            placeholder="MDE5..."
+                            data-i18n-placeholder="cloudflareApiTokenPlaceholder"
+                            placeholder="Вставьте токен…"
                         />
                         <button
-                            id="onboardingSaveGigaChatKey"
+                            id="onboardingSaveCloudflareKey"
                             class="onboarding-button primary"
                             type="button"
                             data-i18n="tutorialCheckKey"
@@ -1724,7 +1740,7 @@
                         </button>
                     </div>
                     <p
-                        id="onboardingGigaChatKeyStatus"
+                        id="onboardingCloudflareKeyStatus"
                         class="onboarding-key-status"
                         role="status"
                         aria-live="polite"

@@ -20,6 +20,7 @@ export const RUNTIME_SETTING_KEYS = [
     'enablePiiMasking',
     'primaryAiProvider',
     'autoFallbackEnabled',
+    'cloudflareModel',
 ] as const;
 
 export type RuntimeSettingKey = (typeof RUNTIME_SETTING_KEYS)[number];
@@ -29,8 +30,8 @@ export const AI_PROVIDER_RUNTIME_DEFAULTS = {
     autoFallbackEnabled: true,
 } as const;
 
-export function normalizePrimaryAiProvider(value: unknown): 'auto' | 'mistral' | 'gigachat' {
-    return value === 'mistral' || value === 'gigachat' ? value : 'auto';
+export function normalizePrimaryAiProvider(value: unknown): 'auto' | 'mistral' | 'cloudflare' {
+    return value === 'mistral' || value === 'cloudflare' ? value : 'auto';
 }
 
 /**

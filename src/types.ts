@@ -16,7 +16,7 @@ export type TextMode =
     | 'text_clean';
 export type RequestMode = TextMode | 'ocr' | 'custom';
 export type AiMode = 'fast' | 'balanced' | 'quality';
-export type PrimaryAiProvider = 'auto' | 'mistral' | 'gigachat';
+export type PrimaryAiProvider = 'auto' | 'mistral' | 'cloudflare';
 
 export interface TextSnippet {
     id: string;
@@ -58,7 +58,21 @@ export interface UsageStats {
     byMode: Partial<Record<RequestMode, number>>;
     estimatedInputTokens?: number;
     estimatedOutputTokens?: number;
-    daily?: Record<string, { requests: number; tokens: number }>;
+    mistralTokens?: number;
+    cloudflareTokens?: number;
+    cloudflareNeurons?: number;
+    fallbackCount?: number;
+    daily?: Record<
+        string,
+        {
+            requests: number;
+            tokens: number;
+            mistralTokens?: number;
+            cloudflareTokens?: number;
+            cloudflareNeurons?: number;
+            fallbackCount?: number;
+        }
+    >;
 }
 
 export interface BudgetSettings {
@@ -102,6 +116,6 @@ export interface StreamResponse {
     text?: string;
     error?: string;
     retryable?: boolean;
-    provider?: 'mistral' | 'gigachat';
+    provider?: 'mistral' | 'cloudflare';
     fallbackNotification?: string;
 }

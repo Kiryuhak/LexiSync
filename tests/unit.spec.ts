@@ -88,9 +88,9 @@ test('безопасно нормализует поисковик и повре
 });
 
 test('история обновлений содержит все выпуски и поддерживает поиск', () => {
-    expect(RELEASE_NOTES[0].version).toBe('5.6.0');
+    expect(RELEASE_NOTES[0].version).toBe('5.6.1');
     expect(RELEASE_NOTES.at(-1)?.version).toBe('2.5');
-    expect(RELEASE_NOTES).toHaveLength(60);
+    expect(RELEASE_NOTES).toHaveLength(61);
     expect(new Set(RELEASE_NOTES.map((release) => release.version)).size).toBe(RELEASE_NOTES.length);
     expect(filterReleaseNotes(RELEASE_NOTES, 'MagicOS', 'ru').map((release) => release.version)).toEqual([
         '5.3.4',
@@ -957,24 +957,13 @@ test('Unit 17: тайм-аут основного провайдера быст�
                     init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true });
                 });
             }
-            if (url.includes('oauth')) {
-                return Promise.resolve({
-                    ok: true,
-                    status: 200,
-                    json: async () => ({ access_token: 'test-token', expires_at: Date.now() + 1800000 }),
-                } as unknown as Response);
-            }
             return Promise.resolve({
                 ok: true,
                 status: 200,
                 headers: new Headers({ 'content-type': 'text/event-stream' }),
                 body: new ReadableStream({
                     start(controller) {
-                        controller.enqueue(
-                            encoder.encode(
-                                'data: {"choices":[{"delta":{"content":"Резервный ответ"}}]}\n\ndata: [DONE]\n\n',
-                            ),
-                        );
+                        controller.enqueue(encoder.encode('data: {"response":"Резервный ответ"}\n\ndata: [DONE]\n\n'));
                         controller.close();
                     },
                 }),
@@ -993,13 +982,14 @@ test('Unit 17: тайм-аут основного провайдера быст�
         primaryProvider: 'mistral',
         autoFallback: true,
         mistralApiKey: 'mistral-key',
-        gigachatAuthKey: 'gigachat-key',
+        cloudflareAccountId: 'cf-acc',
+        cloudflareApiToken: 'cf-tok',
         signal: new AbortController().signal,
         providerTimeoutMs: 100,
         onChunk: (chunk) => chunks.push(chunk),
     });
 
-    expect(result.providerUsed).toBe('gigachat');
+    expect(result.providerUsed).toBe('cloudflare');
     expect(result.fallbackReason).toBe('TIMEOUT');
     expect(chunks.join('')).toBe('Резервный ответ');
     mockFetch.mockRestore();
@@ -1009,13 +999,11 @@ test('Unit 18: Retry-After включает cooldown и следующий за�
     const { executeAiStreamRequest } = await import('../src/ai-client');
     const encoder = new TextEncoder();
     let mistralCalls = 0;
-    let gigachatCalls = 0;
-    const createGigaChatStream = () =>
+    let cloudflareCalls = 0;
+    const createCloudflareStream = () =>
         new ReadableStream({
             start(controller) {
-                controller.enqueue(
-                    encoder.encode('data: {"choices":[{"delta":{"content":"GigaChat"}}]}\n\ndata: [DONE]\n\n'),
-                );
+                controller.enqueue(encoder.encode('data: {"response":"Cloudflare"}\n\ndata: [DONE]\n\n'));
                 controller.close();
             },
         });
@@ -1032,19 +1020,12 @@ test('Unit 18: Retry-After включает cooldown и следующий за�
                 body: null,
             } as unknown as Response);
         }
-        if (url.includes('oauth')) {
-            return Promise.resolve({
-                ok: true,
-                status: 200,
-                json: async () => ({ access_token: 'test-token', expires_at: Date.now() + 1800000 }),
-            } as unknown as Response);
-        }
-        gigachatCalls += 1;
+        cloudflareCalls += 1;
         return Promise.resolve({
             ok: true,
             status: 200,
             headers: new Headers({ 'content-type': 'text/event-stream' }),
-            body: createGigaChatStream(),
+            body: createCloudflareStream(),
         } as unknown as Response);
     });
     const requestOptions = {
@@ -1059,7 +1040,8 @@ test('Unit 18: Retry-After включает cooldown и следующий за�
         primaryProvider: 'mistral' as const,
         autoFallback: true,
         mistralApiKey: 'mistral-key',
-        gigachatAuthKey: 'gigachat-key',
+        cloudflareAccountId: 'cf-acc',
+        cloudflareApiToken: 'cf-token',
         signal: new AbortController().signal,
         onChunk: () => undefined,
     };
@@ -1067,10 +1049,10 @@ test('Unit 18: Retry-After включает cooldown и следующий за�
     await executeAiStreamRequest(requestOptions);
     const secondResult = await executeAiStreamRequest(requestOptions);
 
-    expect(secondResult.providerUsed).toBe('gigachat');
+    expect(secondResult.providerUsed).toBe('cloudflare');
     expect(secondResult.fallbackOccurred).toBe(true);
     expect(mistralCalls).toBe(1);
-    expect(gigachatCalls).toBe(2);
+    expect(cloudflareCalls).toBe(2);
     mockFetch.mockRestore();
 });
 
@@ -1118,7 +1100,8 @@ test('Unit 19: неполный ответ не запускает резерв�
         primaryProvider: 'mistral',
         autoFallback: true,
         mistralApiKey: 'mistral-key',
-        gigachatAuthKey: 'gigachat-key',
+        cloudflareAccountId: 'cf-acc',
+        cloudflareApiToken: 'cf-token',
         signal: new AbortController().signal,
         onChunk: (chunk) => chunks.push(chunk),
         onReset,
@@ -1134,11 +1117,11 @@ test('Unit 19: неполный ответ не запускает резерв�
 test('Unit 20: отменённый пользователем запрос не запускает резервного провайдера', async () => {
     const { executeAiStreamRequest } = await import('../src/ai-client');
     const controller = new AbortController();
-    let gigachatCalled = false;
+    let cloudflareCalled = false;
     const mockFetch = vi
         .spyOn(globalThis, 'fetch')
         .mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
-            if (String(input).includes('giga') || String(input).includes('sber')) gigachatCalled = true;
+            if (String(input).includes('cloudflare')) cloudflareCalled = true;
             return new Promise((_resolve, reject) => {
                 init?.signal?.addEventListener('abort', () => reject(new DOMException('Отменено', 'AbortError')), {
                     once: true,
@@ -1157,14 +1140,15 @@ test('Unit 20: отменённый пользователем запрос не
         primaryProvider: 'mistral',
         autoFallback: true,
         mistralApiKey: 'mistral-key',
-        gigachatAuthKey: 'gigachat-key',
+        cloudflareAccountId: 'cf-acc',
+        cloudflareApiToken: 'cf-token',
         signal: controller.signal,
         onChunk: () => undefined,
     });
     controller.abort();
 
     await expect(execution).rejects.toThrow();
-    expect(gigachatCalled).toBe(false);
+    expect(cloudflareCalled).toBe(false);
     mockFetch.mockRestore();
 });
 
@@ -2207,7 +2191,8 @@ test('Unit 1: Mistral успешный стриминг (200 OK)', async () => {
         primaryProvider: 'mistral',
         autoFallback: true,
         mistralApiKey: 'mistral-key-123',
-        gigachatAuthKey: 'gigachat-key-456',
+        cloudflareAccountId: 'cf-acc-456',
+        cloudflareApiToken: 'cf-token-456',
         signal: new AbortController().signal,
         onChunk: (chunk: string) => chunks.push(chunk),
     });
@@ -2219,18 +2204,14 @@ test('Unit 1: Mistral успешный стриминг (200 OK)', async () => {
     mockFetch.mockRestore();
 });
 
-test('Unit 2: Mistral 429 Rate Limit переключается на GigaChat', async () => {
+test('Unit 2: Mistral 429 Rate Limit переключается на Cloudflare', async () => {
     const { executeAiStreamRequest } = await import('../src/ai-client');
-    const { invalidateGigaChatToken } = await import('../src/gigachat-token-manager');
-    await invalidateGigaChatToken();
 
     const chunks: string[] = [];
     const encoder = new TextEncoder();
-    const gigachatStream = new ReadableStream({
+    const cloudflareStream = new ReadableStream({
         start(controller) {
-            controller.enqueue(
-                encoder.encode('data: {"choices":[{"delta":{"content":"Ответ от GigaChat"}}]}\n\ndata: [DONE]\n\n'),
-            );
+            controller.enqueue(encoder.encode('data: {"response":"Ответ от Cloudflare"}\n\ndata: [DONE]\n\n'));
             controller.close();
         },
     });
@@ -2257,19 +2238,11 @@ test('Unit 2: Mistral 429 Rate Limit переключается на GigaChat', 
                 body: null,
             } as unknown as Response);
         }
-        if (url.includes('oauth')) {
-            return Promise.resolve({
-                ok: true,
-                status: 200,
-                headers: new Headers(),
-                json: async () => ({ access_token: 'fake-token-123', expires_at: Date.now() + 1800000 }),
-            } as unknown as Response);
-        }
         return Promise.resolve({
             ok: true,
             status: 200,
             headers: new Headers({ 'content-type': 'text/event-stream' }),
-            body: gigachatStream,
+            body: cloudflareStream,
         } as unknown as Response);
     });
 
@@ -2279,33 +2252,28 @@ test('Unit 2: Mistral 429 Rate Limit переключается на GigaChat', 
         primaryProvider: 'mistral',
         autoFallback: true,
         mistralApiKey: 'mistral-key-123',
-        gigachatAuthKey: 'gigachat-auth-key-456',
+        cloudflareAccountId: 'cf-account-456',
+        cloudflareApiToken: 'cf-token-456',
         signal: new AbortController().signal,
         onChunk: (chunk: string) => chunks.push(chunk),
     });
 
-    expect(result.providerUsed).toBe('gigachat');
+    expect(result.providerUsed).toBe('cloudflare');
     expect(result.fallbackOccurred).toBe(true);
     expect(result.fallbackNotification).toContain('Mistral');
-    expect(result.fallbackNotification).toContain('GigaChat');
-    expect(chunks.join('')).toBe('Ответ от GigaChat');
+    expect(result.fallbackNotification).toContain('Cloudflare');
+    expect(chunks.join('')).toBe('Ответ от Cloudflare');
     mockFetch.mockRestore();
 });
 
-test('Unit 3: GigaChat успешный стриминг (200 OK) с моделью GigaChat', async () => {
+test('Unit 3: Cloudflare успешный стриминг (200 OK) с моделью Llama 3.2 3B', async () => {
     const { executeAiStreamRequest } = await import('../src/ai-client');
-    const { invalidateGigaChatToken } = await import('../src/gigachat-token-manager');
-    await invalidateGigaChatToken();
 
     const chunks: string[] = [];
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
         start(controller) {
-            controller.enqueue(
-                encoder.encode(
-                    'data: {"choices":[{"delta":{"content":"GigaChat быстрый ответ"}}]}\n\ndata: [DONE]\n\n',
-                ),
-            );
+            controller.enqueue(encoder.encode('data: {"response":"Cloudflare быстрый ответ"}\n\ndata: [DONE]\n\n'));
             controller.close();
         },
     });
@@ -2319,18 +2287,11 @@ test('Unit 3: GigaChat успешный стриминг (200 OK) с модел�
         aiMode: 'quality' as const,
     };
 
-    let requestBody = '';
+    let requestUrl = '';
+    let authHeader = '';
     const mockFetch = vi.spyOn(globalThis, 'fetch').mockImplementation((url: RequestInfo | URL, init?: RequestInit) => {
-        const urlStr = String(url);
-        if (urlStr.includes('oauth')) {
-            return Promise.resolve({
-                ok: true,
-                status: 200,
-                headers: new Headers(),
-                json: async () => ({ access_token: 'fake-token-123', expires_at: Date.now() + 1800000 }),
-            } as unknown as Response);
-        }
-        requestBody = String(init?.body || '');
+        requestUrl = String(url);
+        authHeader = String(new Headers(init?.headers).get('Authorization') || '');
         return Promise.resolve({
             ok: true,
             status: 200,
@@ -2342,26 +2303,26 @@ test('Unit 3: GigaChat успешный стриминг (200 OK) с модел�
     const result = await executeAiStreamRequest({
         request: testRequest,
         settings: testSettings,
-        primaryProvider: 'gigachat',
+        primaryProvider: 'cloudflare',
         autoFallback: true,
         mistralApiKey: 'mistral-key-123',
-        gigachatAuthKey: 'gigachat-key-456',
+        cloudflareAccountId: 'cf-account-456',
+        cloudflareApiToken: 'cf-token-456',
         signal: new AbortController().signal,
         onChunk: (chunk: string) => chunks.push(chunk),
     });
 
-    expect(result.providerUsed).toBe('gigachat');
+    expect(result.providerUsed).toBe('cloudflare');
     expect(result.fallbackOccurred).toBe(false);
-    expect(chunks.join('')).toBe('GigaChat быстрый ответ');
-    expect(requestBody).toContain('"model":"GigaChat"');
-    expect(requestBody).toContain('"stream":true');
+    expect(chunks.join('')).toBe('Cloudflare быстрый ответ');
+    expect(requestUrl).toContain('llama-3.2-3b-instruct');
+    expect(requestUrl).toContain('cf-account-456');
+    expect(authHeader).toBe('Bearer cf-token-456');
     mockFetch.mockRestore();
 });
 
-test('Unit 4: GigaChat 429 Rate Limit переключается на Mistral', async () => {
+test('Unit 4: Cloudflare 429 Rate Limit переключается на Mistral', async () => {
     const { executeAiStreamRequest } = await import('../src/ai-client');
-    const { invalidateGigaChatToken } = await import('../src/gigachat-token-manager');
-    await invalidateGigaChatToken();
 
     const chunks: string[] = [];
     const encoder = new TextEncoder();
@@ -2385,22 +2346,14 @@ test('Unit 4: GigaChat 429 Rate Limit переключается на Mistral', 
 
     const mockFetch = vi.spyOn(globalThis, 'fetch').mockImplementation((input: RequestInfo | URL) => {
         const url = String(input);
-        if (url.includes('oauth')) {
-            return Promise.resolve({
-                ok: true,
-                status: 200,
-                headers: new Headers(),
-                json: async () => ({ access_token: 'fake-token-123', expires_at: Date.now() + 1800000 }),
-            } as unknown as Response);
-        }
-        if (url.includes('giga.chat')) {
+        if (url.includes('cloudflare.com')) {
             return Promise.resolve({
                 ok: false,
                 status: 429,
                 statusText: 'Too Many Requests',
                 headers: new Headers(),
-                text: async () => 'Rate limit exceeded on GigaChat',
-                json: async () => ({ error: { message: 'Rate limit' } }),
+                text: async () => 'Rate limit exceeded on Cloudflare',
+                json: async () => ({ errors: [{ message: 'Rate limit' }] }),
                 body: null,
             } as unknown as Response);
         }
@@ -2415,34 +2368,31 @@ test('Unit 4: GigaChat 429 Rate Limit переключается на Mistral', 
     const result = await executeAiStreamRequest({
         request: testRequest,
         settings: testSettings,
-        primaryProvider: 'gigachat',
+        primaryProvider: 'cloudflare',
         autoFallback: true,
         mistralApiKey: 'mistral-key-123',
-        gigachatAuthKey: 'gigachat-key-456',
+        cloudflareAccountId: 'cf-account-456',
+        cloudflareApiToken: 'cf-token-456',
         signal: new AbortController().signal,
         onChunk: (chunk: string) => chunks.push(chunk),
     });
 
     expect(result.providerUsed).toBe('mistral');
     expect(result.fallbackOccurred).toBe(true);
-    expect(result.fallbackNotification).toContain('GigaChat');
+    expect(result.fallbackNotification).toContain('Cloudflare');
     expect(result.fallbackNotification).toContain('Mistral');
     expect(chunks.join('')).toBe('Ответ от Mistral');
     mockFetch.mockRestore();
 });
 
-test('Unit 5: 500 Server Error переключается на резервного провайдера (GigaChat)', async () => {
+test('Unit 5: 500 Server Error переключается на резервного провайдера (Cloudflare)', async () => {
     const { executeAiStreamRequest } = await import('../src/ai-client');
-    const { invalidateGigaChatToken } = await import('../src/gigachat-token-manager');
-    await invalidateGigaChatToken();
 
     const chunks: string[] = [];
     const encoder = new TextEncoder();
-    const gigachatStream = new ReadableStream({
+    const cloudflareStream = new ReadableStream({
         start(controller) {
-            controller.enqueue(
-                encoder.encode('data: {"choices":[{"delta":{"content":"Резервный ответ"}}]}\n\ndata: [DONE]\n\n'),
-            );
+            controller.enqueue(encoder.encode('data: {"response":"Резервный ответ"}\n\ndata: [DONE]\n\n'));
             controller.close();
         },
     });
@@ -2468,19 +2418,11 @@ test('Unit 5: 500 Server Error переключается на резервно�
                 body: null,
             } as unknown as Response);
         }
-        if (url.includes('oauth')) {
-            return Promise.resolve({
-                ok: true,
-                status: 200,
-                headers: new Headers(),
-                json: async () => ({ access_token: 'fake-token-123', expires_at: Date.now() + 1800000 }),
-            } as unknown as Response);
-        }
         return Promise.resolve({
             ok: true,
             status: 200,
             headers: new Headers({ 'content-type': 'text/event-stream' }),
-            body: gigachatStream,
+            body: cloudflareStream,
         } as unknown as Response);
     });
 
@@ -2490,31 +2432,26 @@ test('Unit 5: 500 Server Error переключается на резервно�
         primaryProvider: 'mistral',
         autoFallback: true,
         mistralApiKey: 'mistral-key-123',
-        gigachatAuthKey: 'gigachat-key-456',
+        cloudflareAccountId: 'cf-account-456',
+        cloudflareApiToken: 'cf-token-456',
         signal: new AbortController().signal,
         onChunk: (chunk: string) => chunks.push(chunk),
     });
 
-    expect(result.providerUsed).toBe('gigachat');
+    expect(result.providerUsed).toBe('cloudflare');
     expect(result.fallbackOccurred).toBe(true);
     expect(chunks.join('')).toBe('Резервный ответ');
     mockFetch.mockRestore();
 });
 
-test('Unit 6: Network Failure переключается на резервного провайдера (GigaChat)', async () => {
+test('Unit 6: Network Failure переключается на резервного провайдера (Cloudflare)', async () => {
     const { executeAiStreamRequest } = await import('../src/ai-client');
-    const { invalidateGigaChatToken } = await import('../src/gigachat-token-manager');
-    await invalidateGigaChatToken();
 
     const chunks: string[] = [];
     const encoder = new TextEncoder();
-    const gigachatStream = new ReadableStream({
+    const cloudflareStream = new ReadableStream({
         start(controller) {
-            controller.enqueue(
-                encoder.encode(
-                    'data: {"choices":[{"delta":{"content":"Успех после сетевого сбоя"}}]}\n\ndata: [DONE]\n\n',
-                ),
-            );
+            controller.enqueue(encoder.encode('data: {"response":"Успех после сетевого сбоя"}\n\ndata: [DONE]\n\n'));
             controller.close();
         },
     });
@@ -2533,19 +2470,11 @@ test('Unit 6: Network Failure переключается на резервног
         if (url.includes('mistral.ai')) {
             return Promise.reject(new TypeError('Failed to fetch'));
         }
-        if (url.includes('oauth')) {
-            return Promise.resolve({
-                ok: true,
-                status: 200,
-                headers: new Headers(),
-                json: async () => ({ access_token: 'fake-token-123', expires_at: Date.now() + 1800000 }),
-            } as unknown as Response);
-        }
         return Promise.resolve({
             ok: true,
             status: 200,
             headers: new Headers({ 'content-type': 'text/event-stream' }),
-            body: gigachatStream,
+            body: cloudflareStream,
         } as unknown as Response);
     });
 
@@ -2555,12 +2484,13 @@ test('Unit 6: Network Failure переключается на резервног
         primaryProvider: 'mistral',
         autoFallback: true,
         mistralApiKey: 'mistral-key-123',
-        gigachatAuthKey: 'gigachat-key-456',
+        cloudflareAccountId: 'cf-account-456',
+        cloudflareApiToken: 'cf-token-456',
         signal: new AbortController().signal,
         onChunk: (chunk: string) => chunks.push(chunk),
     });
 
-    expect(result.providerUsed).toBe('gigachat');
+    expect(result.providerUsed).toBe('cloudflare');
     expect(result.fallbackOccurred).toBe(true);
     expect(chunks.join('')).toBe('Успех после сетевого сбоя');
     mockFetch.mockRestore();
@@ -2594,7 +2524,8 @@ test('Unit 7: 401/403 Auth Error строго запрещает fallback (ош�
             primaryProvider: 'mistral',
             autoFallback: false,
             mistralApiKey: 'bad-key',
-            gigachatAuthKey: 'gigachat-key-456',
+            cloudflareAccountId: 'cf-account-456',
+            cloudflareApiToken: 'cf-token-456',
             signal: new AbortController().signal,
             onChunk: () => undefined,
         }),
@@ -2608,7 +2539,8 @@ test('Unit 7: 401/403 Auth Error строго запрещает fallback (ош�
             primaryProvider: 'mistral',
             autoFallback: true,
             mistralApiKey: 'bad-key',
-            gigachatAuthKey: 'gigachat-key-456',
+            cloudflareAccountId: 'cf-account-456',
+            cloudflareApiToken: 'cf-token-456',
             signal: new AbortController().signal,
             onChunk: () => undefined,
         }),
@@ -2644,7 +2576,8 @@ test('Unit 8: Отсутствие API-ключа резервного пров�
             primaryProvider: 'mistral',
             autoFallback: true,
             mistralApiKey: 'mistral-key',
-            gigachatAuthKey: '',
+            cloudflareAccountId: '',
+            cloudflareApiToken: '',
             signal: new AbortController().signal,
             onChunk: () => undefined,
         }),
@@ -2655,8 +2588,6 @@ test('Unit 8: Отсутствие API-ключа резервного пров�
 
 test('Unit 9: Оба провайдера возвращают 429 Rate Limit — возвращается общая ошибка', async () => {
     const { executeAiStreamRequest } = await import('../src/ai-client');
-    const { invalidateGigaChatToken } = await import('../src/gigachat-token-manager');
-    await invalidateGigaChatToken();
 
     const testRequest = { action: 'callMistral' as const, text: 'Тест', mode: 'style' as const };
     const testSettings = {
@@ -2667,25 +2598,14 @@ test('Unit 9: Оба провайдера возвращают 429 Rate Limit �
         aiMode: 'quality' as const,
     };
 
-    const mockFetch = vi.spyOn(globalThis, 'fetch').mockImplementation((input: RequestInfo | URL) => {
-        const url = String(input);
-        if (url.includes('oauth')) {
-            return Promise.resolve({
-                ok: true,
-                status: 200,
-                headers: new Headers(),
-                json: async () => ({ access_token: 'fake-token-123', expires_at: Date.now() + 1800000 }),
-            } as unknown as Response);
-        }
-        return Promise.resolve({
-            ok: false,
-            status: 429,
-            statusText: 'Too Many Requests',
-            headers: new Headers(),
-            text: async () => 'Rate limit reached on both',
-            body: null,
-        } as unknown as Response);
-    });
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+        ok: false,
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: new Headers(),
+        text: async () => 'Rate limit reached on both',
+        body: null,
+    } as unknown as Response);
 
     await expect(
         executeAiStreamRequest({
@@ -2694,7 +2614,8 @@ test('Unit 9: Оба провайдера возвращают 429 Rate Limit �
             primaryProvider: 'mistral',
             autoFallback: true,
             mistralApiKey: 'mistral-key',
-            gigachatAuthKey: 'gigachat-key',
+            cloudflareAccountId: 'cf-account',
+            cloudflareApiToken: 'cf-token',
             signal: new AbortController().signal,
             onChunk: () => undefined,
         }),
@@ -2730,7 +2651,8 @@ test('Unit 10: Отключение autoFallback=false предотвращае�
             primaryProvider: 'mistral',
             autoFallback: false,
             mistralApiKey: 'mistral-key',
-            gigachatAuthKey: 'gigachat-key',
+            cloudflareAccountId: 'cf-acc',
+            cloudflareApiToken: 'cf-tok',
             signal: new AbortController().signal,
             onChunk: () => undefined,
         }),
@@ -2747,44 +2669,43 @@ test('настройки AI нормализуют выключенный fallba
     expect(normalizeAutoFallbackEnabled(true)).toBe(true);
     expect(normalizeAutoFallbackEnabled(undefined)).toBe(true);
     expect(normalizePrimaryAiProvider('mistral')).toBe('mistral');
-    expect(normalizePrimaryAiProvider('gigachat')).toBe('gigachat');
+    expect(normalizePrimaryAiProvider('cloudflare')).toBe('cloudflare');
     expect(normalizePrimaryAiProvider('unknown')).toBe('auto');
 });
 
-test('Unit 11: Парсинг SSE стрима GigaChat формата', async () => {
-    const { readGigaChatSsePayload } = await import('../src/gigachat-client');
-    const line1 = 'data: {"choices":[{"delta":{"content":"Часть 1 "}}]}';
-    const line2 = 'data: {"choices":[{"delta":{"content":"Часть 2"}}]}';
+test('Unit 11: Парсинг SSE стрима Cloudflare формата', async () => {
+    const { readCloudflareSsePayload } = await import('../src/cloudflare-client');
+    const line1 = 'data: {"response":"Часть 1 "}';
+    const line2 = 'data: {"response":"Часть 2"}';
     const lineDone = 'data: [DONE]';
-    expect(readGigaChatSsePayload(line1)).toBe('Часть 1 ');
-    expect(readGigaChatSsePayload(line2)).toBe('Часть 2');
-    expect(readGigaChatSsePayload(lineDone)).toBeNull();
-    expect(readGigaChatSsePayload(': keepalive')).toBeNull();
+    expect(readCloudflareSsePayload(line1).content).toBe('Часть 1 ');
+    expect(readCloudflareSsePayload(line2).content).toBe('Часть 2');
+    expect(readCloudflareSsePayload(lineDone).done).toBe(true);
+    expect(readCloudflareSsePayload(': keepalive').content).toBe('');
 });
 
-test('Unit 12: Валидация GigaChat Authorization Key (validateGigaChatAuthKey: 200, 401, error)', async () => {
-    const { validateGigaChatAuthKey } = await import('../src/gigachat-token-manager');
+test('Unit 12: Валидация Cloudflare Credentials (testCloudflareConnection: 200, 401, error)', async () => {
+    const { testCloudflareConnection } = await import('../src/cloudflare-client');
 
     const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
         ok: true,
         status: 200,
-        json: async () => ({ access_token: 'test-token', expires_at: Date.now() + 1800000 }),
+        json: async () => ({ success: true, result: { response: 'pong' } }),
     } as unknown as Response);
 
-    const success = await validateGigaChatAuthKey('valid-base64-auth-key');
+    const success = await testCloudflareConnection({ accountId: 'valid-acc', apiToken: 'valid-token' });
     expect(success.ok).toBe(true);
 
     mockFetch.mockResolvedValue({
         ok: false,
         status: 401,
-        json: async () => ({ error: 'Unauthorized' }),
+        json: async () => ({ success: false, errors: [{ message: 'Unauthorized' }] }),
     } as unknown as Response);
 
-    const authFail = await validateGigaChatAuthKey('invalid-key');
+    const authFail = await testCloudflareConnection({ accountId: 'valid-acc', apiToken: 'invalid-token' });
     expect(authFail.ok).toBe(false);
-    expect(authFail.message).toContain('недействителен');
 
-    const empty = await validateGigaChatAuthKey('');
+    const empty = await testCloudflareConnection({ accountId: '', apiToken: '' });
     expect(empty.ok).toBe(false);
     mockFetch.mockRestore();
 });
@@ -2792,32 +2713,35 @@ test('Unit 12: Валидация GigaChat Authorization Key (validateGigaChatAu
 test('Unit 13: Режим primaryProvider auto выбирает провайдера по наличию ключей', async () => {
     const { resolveExecutionPlan } = await import('../src/ai-client');
 
-    // Когда оба ключа есть, auto использует mistral основным и gigachat резервным
+    // Когда оба ключа есть, auto использует mistral основным и cloudflare резервным
     const planBoth = resolveExecutionPlan({
         primaryProvider: 'auto',
         autoFallback: true,
         mistralApiKey: 'mistral',
-        gigachatAuthKey: 'gigachat',
+        cloudflareAccountId: 'cf-acc',
+        cloudflareApiToken: 'cf-tok',
     });
     expect(planBoth.primary).toBe('mistral');
-    expect(planBoth.backup).toBe('gigachat');
+    expect(planBoth.backup).toBe('cloudflare');
 
-    // Когда есть только GigaChat ключ, auto выбирает GigaChat
-    const planGigaChatOnly = resolveExecutionPlan({
+    // Когда есть только Cloudflare ключ, auto выбирает Cloudflare
+    const planCloudflareOnly = resolveExecutionPlan({
         primaryProvider: 'auto',
         autoFallback: true,
         mistralApiKey: '',
-        gigachatAuthKey: 'gigachat',
+        cloudflareAccountId: 'cf-acc',
+        cloudflareApiToken: 'cf-tok',
     });
-    expect(planGigaChatOnly.primary).toBe('gigachat');
-    expect(planGigaChatOnly.backup).toBeUndefined();
+    expect(planCloudflareOnly.primary).toBe('cloudflare');
+    expect(planCloudflareOnly.backup).toBeUndefined();
 
     // Когда есть только Mistral ключ, auto выбирает Mistral
     const planMistralOnly = resolveExecutionPlan({
         primaryProvider: 'auto',
         autoFallback: true,
         mistralApiKey: 'mistral',
-        gigachatAuthKey: '',
+        cloudflareAccountId: '',
+        cloudflareApiToken: '',
     });
     expect(planMistralOnly.primary).toBe('mistral');
     expect(planMistralOnly.backup).toBeUndefined();
@@ -2832,30 +2756,30 @@ test('Unit 14: AIProviderError правильно вычисляет флаг is
     const authError = new AiProviderError('Unauthorized', 'AUTH_ERROR', 'mistral', false, 401);
     expect(authError.isFallbackEligible).toBe(false);
 
-    const serverError = new AiProviderError('503', 'SERVER_ERROR', 'gigachat', true, 503);
+    const serverError = new AiProviderError('503', 'SERVER_ERROR', 'cloudflare', true, 503);
     expect(serverError.isFallbackEligible).toBe(true);
 
-    const networkError = new AiProviderError('fetch failed', 'NETWORK_ERROR', 'gigachat', true);
+    const networkError = new AiProviderError('fetch failed', 'NETWORK_ERROR', 'cloudflare', true);
     expect(networkError.isFallbackEligible).toBe(true);
 });
 
 test('Unit 15: Форматирование уведомления о fallback содержит имена моделей и провайдеров', async () => {
     const { getFallbackNotification } = await import('../src/ai-client');
 
-    const notificationMistralToGigaChat = getFallbackNotification('mistral', 'gigachat', 'RATE_LIMIT');
-    expect(notificationMistralToGigaChat).toContain('Mistral');
-    expect(notificationMistralToGigaChat).toContain('GigaChat');
+    const notificationMistralToCloudflare = getFallbackNotification('mistral', 'cloudflare', 'RATE_LIMIT');
+    expect(notificationMistralToCloudflare).toContain('Mistral');
+    expect(notificationMistralToCloudflare).toContain('Cloudflare');
 
-    const notificationGigaChatToMistral = getFallbackNotification('gigachat', 'mistral', 'SERVER_ERROR');
-    expect(notificationGigaChatToMistral).toContain('GigaChat');
-    expect(notificationGigaChatToMistral).toContain('Mistral');
+    const notificationCloudflareToMistral = getFallbackNotification('cloudflare', 'mistral', 'SERVER_ERROR');
+    expect(notificationCloudflareToMistral).toContain('Cloudflare');
+    expect(notificationCloudflareToMistral).toContain('Mistral');
 });
 
 test('Unit 18: checkProviderHealth классифицирует состояния серверов (healthy, degraded, outage, unconfigured)', async () => {
     const { checkProviderHealth } = await import('../src/provider-health');
 
     // 1. Без ключа -> unconfigured
-    const unconfigured = await checkProviderHealth('gigachat', '');
+    const unconfigured = await checkProviderHealth('cloudflare', { accountId: '', apiToken: '' });
     expect(unconfigured.state).toBe('unconfigured');
 
     // 2. 200 OK -> healthy
@@ -2863,11 +2787,11 @@ test('Unit 18: checkProviderHealth классифицирует состояни
     globalThis.fetch = vi.fn().mockResolvedValue({
         ok: true,
         status: 200,
-        json: async () => ({ access_token: 'fake', expires_at: Date.now() + 1800000, data: [] }),
+        json: async () => ({ success: true, result: { response: 'pong' } }),
     });
 
     try {
-        const healthy = await checkProviderHealth('gigachat', 'test_auth_key');
+        const healthy = await checkProviderHealth('cloudflare', { accountId: 'test_acc', apiToken: 'test_tok' });
         expect(healthy.state).toBe('healthy');
         expect(typeof healthy.latencyMs).toBe('number');
 
@@ -2880,13 +2804,11 @@ test('Unit 18: checkProviderHealth классифицирует состояни
         expect(degraded.state).toBe('degraded');
 
         // 4. 503 Server Error -> outage (красный)
-        const { invalidateGigaChatToken } = await import('../src/gigachat-token-manager');
-        await invalidateGigaChatToken();
         globalThis.fetch = vi.fn().mockResolvedValue({
             ok: false,
             status: 503,
         });
-        const outage = await checkProviderHealth('gigachat', 'test_auth_key');
+        const outage = await checkProviderHealth('cloudflare', { accountId: 'test_acc', apiToken: 'test_tok' });
         expect(outage.state).toBe('outage');
 
         // 5. 401 Auth Error -> outage (красный)
@@ -2898,9 +2820,8 @@ test('Unit 18: checkProviderHealth классифицирует состояни
         expect(authError.state).toBe('outage');
 
         // 6. Network Error / Timeout -> outage (красный)
-        await invalidateGigaChatToken();
         globalThis.fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
-        const netError = await checkProviderHealth('gigachat', 'test_auth_key');
+        const netError = await checkProviderHealth('cloudflare', { accountId: 'test_acc', apiToken: 'test_tok' });
         expect(netError.state).toBe('outage');
     } finally {
         globalThis.fetch = originalFetch;
@@ -2926,103 +2847,152 @@ test('Unit 19: getHealthStateColor и getHealthStateBadge возвращают �
 test('Unit 20: evaluateHealthFromRuntimeResponse корректно оценивает статус после выполнения запроса', async () => {
     const { evaluateHealthFromRuntimeResponse } = await import('../src/provider-health');
 
-    const fastOk = evaluateHealthFromRuntimeResponse('gigachat', 450);
+    const fastOk = evaluateHealthFromRuntimeResponse('cloudflare', 450);
     expect(fastOk.state).toBe('healthy');
 
     const slowOk = evaluateHealthFromRuntimeResponse('mistral', 4200);
     expect(slowOk.state).toBe('degraded');
 
-    const rateLimit = evaluateHealthFromRuntimeResponse('gigachat', 200, 429);
+    const rateLimit = evaluateHealthFromRuntimeResponse('cloudflare', 200, 429);
     expect(rateLimit.state).toBe('degraded');
 
     const serverError = evaluateHealthFromRuntimeResponse('mistral', 100, 500);
     expect(serverError.state).toBe('outage');
 
-    const netFail = evaluateHealthFromRuntimeResponse('gigachat', 1500, undefined, true);
+    const netFail = evaluateHealthFromRuntimeResponse('cloudflare', 1500, undefined, true);
     expect(netFail.state).toBe('outage');
 });
 
-test('GigaChatTokenManager: single-flight блокировка выполняет только 1 сетевой запрос при параллельных вызовах', async () => {
-    const { getValidGigaChatToken, invalidateGigaChatToken } = await import('../src/gigachat-token-manager');
-    await invalidateGigaChatToken();
-
-    let fetchCount = 0;
-    const mockFetch = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
-        fetchCount++;
-        await new Promise((resolve) => setTimeout(resolve, 50));
-        return {
-            ok: true,
-            status: 200,
-            json: async () => ({ access_token: 'single-flight-token', expires_at: Date.now() + 1800000 }),
-        } as unknown as Response;
+test('CloudflareClient: streamCloudflareText передает prompt, системные инструкции и парсит стрим', async () => {
+    const { streamCloudflareText } = await import('../src/cloudflare-client');
+    const encoder = new TextEncoder();
+    const chunks: string[] = [];
+    const stream = new ReadableStream({
+        start(controller) {
+            controller.enqueue(encoder.encode('data: {"response":"Ответ 1 "}\n\n'));
+            controller.enqueue(encoder.encode('data: {"response":"Ответ 2"}\n\n'));
+            controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+            controller.close();
+        },
     });
-
-    // Запускаем 5 одновременных запросов
-    const results = await Promise.all([
-        getValidGigaChatToken('key-1'),
-        getValidGigaChatToken('key-1'),
-        getValidGigaChatToken('key-1'),
-        getValidGigaChatToken('key-1'),
-        getValidGigaChatToken('key-1'),
-    ]);
-
-    expect(fetchCount).toBe(1);
-    results.forEach((token) => expect(token).toBe('single-flight-token'));
-    mockFetch.mockRestore();
-});
-
-test('GigaChatTokenManager: токен с истекающим сроком действия (<60 сек) автоматически обновляется', async () => {
-    const { getValidGigaChatToken, invalidateGigaChatToken } = await import('../src/gigachat-token-manager');
-    await invalidateGigaChatToken();
-
-    let fetchCount = 0;
-    const mockFetch = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
-        fetchCount++;
-        if (fetchCount === 1) {
-            // Возвращаем токен со сроком действия истекающим через 30 секунд (меньше порога 60 сек)
-            return {
-                ok: true,
-                status: 200,
-                json: async () => ({ access_token: 'almost-expired-token', expires_at: Date.now() + 30_000 }),
-            } as unknown as Response;
-        }
-        return {
-            ok: true,
-            status: 200,
-            json: async () => ({ access_token: 'refreshed-token', expires_at: Date.now() + 1800000 }),
-        } as unknown as Response;
-    });
-
-    const token1 = await getValidGigaChatToken('key-1');
-    expect(token1).toBe('almost-expired-token');
-    expect(fetchCount).toBe(1);
-
-    // Второй вызов должен обнаружить <60 сек до истечения и запросить новый токен
-    const token2 = await getValidGigaChatToken('key-1');
-    expect(token2).toBe('refreshed-token');
-    expect(fetchCount).toBe(2);
-
-    mockFetch.mockRestore();
-});
-
-test('GigaChatTokenManager: invalidateGigaChatToken очищает токен из памяти и chrome.storage.local', async () => {
-    const { getValidGigaChatToken, invalidateGigaChatToken, getStoredGigaChatTokenMemory } =
-        await import('../src/gigachat-token-manager');
-    await invalidateGigaChatToken();
 
     const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
         ok: true,
         status: 200,
-        json: async () => ({ access_token: 'cached-token', expires_at: Date.now() + 1800000 }),
+        headers: new Headers({ 'content-type': 'text/event-stream' }),
+        body: stream,
     } as unknown as Response);
 
-    await getValidGigaChatToken('key-1');
-    expect(getStoredGigaChatTokenMemory()).toBe('cached-token');
+    const response = await streamCloudflareText(
+        { action: 'callMistral', text: 'Тест' },
+        { accountId: 'test-acc', apiToken: 'test-token' },
+        {
+            selectedTone: 'business',
+            sendPageContext: false,
+            personalDictionary: [],
+            glossary: [],
+            aiMode: 'balanced',
+        },
+        new AbortController().signal,
+        (chunk) => chunks.push(chunk),
+    );
 
-    await invalidateGigaChatToken();
-    expect(getStoredGigaChatTokenMemory()).toBeNull();
-
+    expect(response.text).toBe('Ответ 1 Ответ 2');
+    expect(chunks.join('')).toBe('Ответ 1 Ответ 2');
+    expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/accounts/test-acc/ai/run/@cf/meta/llama-3.2-3b-instruct'),
+        expect.objectContaining({
+            method: 'POST',
+            headers: expect.objectContaining({
+                Authorization: 'Bearer test-token',
+            }),
+        }),
+    );
     mockFetch.mockRestore();
+});
+
+test('CloudflareClient: обрыв SSE потока без DONE вызывает ошибку INVALID_RESPONSE', async () => {
+    const { streamCloudflareText } = await import('../src/cloudflare-client');
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+        start(controller) {
+            controller.enqueue(encoder.encode('data: {"response":"Неполный"}\n\n'));
+            controller.close();
+        },
+    });
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: new Headers({ 'content-type': 'text/event-stream' }),
+        body: stream,
+    } as unknown as Response);
+
+    await expect(
+        streamCloudflareText(
+            { action: 'callMistral', text: 'Тест' },
+            { accountId: 'test-acc', apiToken: 'test-token' },
+            {
+                selectedTone: 'business',
+                sendPageContext: false,
+                personalDictionary: [],
+                glossary: [],
+                aiMode: 'balanced',
+            },
+            new AbortController().signal,
+            () => undefined,
+        ),
+    ).rejects.toMatchObject({ code: 'INVALID_RESPONSE' });
+});
+
+test('CloudflareClient: HTTP 400 и 404 генерируют соответствующие ошибки', async () => {
+    const { streamCloudflareText } = await import('../src/cloudflare-client');
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        text: async () => 'Bad Request',
+        headers: new Headers(),
+    } as unknown as Response);
+
+    await expect(
+        streamCloudflareText(
+            { action: 'callMistral', text: 'Тест' },
+            { accountId: 'test-acc', apiToken: 'test-token' },
+            {
+                selectedTone: 'business',
+                sendPageContext: false,
+                personalDictionary: [],
+                glossary: [],
+                aiMode: 'balanced',
+            },
+            new AbortController().signal,
+            () => undefined,
+        ),
+    ).rejects.toMatchObject({ code: 'INVALID_REQUEST' });
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        text: async () => 'Account Not Found',
+        headers: new Headers(),
+    } as unknown as Response);
+
+    await expect(
+        streamCloudflareText(
+            { action: 'callMistral', text: 'Тест' },
+            { accountId: 'test-acc', apiToken: 'test-token' },
+            {
+                selectedTone: 'business',
+                sendPageContext: false,
+                personalDictionary: [],
+                glossary: [],
+                aiMode: 'balanced',
+            },
+            new AbortController().signal,
+            () => undefined,
+        ),
+    ).rejects.toMatchObject({ code: 'ACCOUNT_ERROR' });
 });
 
 test('Unit 21: buildGrammarExplanationPayload формирует сообщения для объяснения правил и ошибок', async () => {
@@ -3185,7 +3155,7 @@ test('Unit 24: recordErrorLog, getErrorLogs, clearErrorLogs корректно �
     }
 });
 
-test('Unit 25: options.html содержит карточки лимитов GigaChat/Mistral, журнал ошибок в Диагностике и модальное окно обратной связи', async () => {
+test('Unit 25: options.html содержит карточки лимитов Cloudflare/Mistral, журнал ошибок в Диагностике и модальное окно обратной связи', async () => {
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const optionsHtml = await fs.readFile(path.resolve(__dirname, '../entrypoints/options.html'), 'utf8');
@@ -3207,19 +3177,24 @@ test('Unit 25: options.html содержит карточки лимитов Gig
 });
 
 test('Unit 26: clearAllSecrets гарантированно очищает сохранённые ключи и кэш', async () => {
-    const { setStoredApiKey, setStoredGigaChatAuthKey, getStoredApiKey, getStoredGigaChatAuthKey, clearAllSecrets } =
-        await import('../src/secret-store');
+    const {
+        setStoredApiKey,
+        setStoredCloudflareCredentials,
+        getStoredApiKey,
+        getStoredCloudflareCredentials,
+        clearAllSecrets,
+    } = await import('../src/secret-store');
 
     await setStoredApiKey('mistral-test-key-12345');
-    await setStoredGigaChatAuthKey('gigachat-test-key-12345');
+    await setStoredCloudflareCredentials({ accountId: 'cf-acc-12345', apiToken: 'cf-tok-12345' });
 
     expect(await getStoredApiKey()).toBe('mistral-test-key-12345');
-    expect(await getStoredGigaChatAuthKey()).toBe('gigachat-test-key-12345');
+    expect(await getStoredCloudflareCredentials()).toEqual({ accountId: 'cf-acc-12345', apiToken: 'cf-tok-12345' });
 
     await clearAllSecrets();
 
     expect(await getStoredApiKey()).toBe('');
-    expect(await getStoredGigaChatAuthKey()).toBe('');
+    expect(await getStoredCloudflareCredentials()).toEqual({ accountId: '', apiToken: '' });
 });
 
 test('Unit 27: grammar-analytics правильно классифицирует категории ошибок и строит сводный отчёт', async () => {

@@ -14,7 +14,7 @@ import { formatMistralError, isRetryableMistralError, processOcr, type MistralRe
 import { executeAiStreamRequest } from './ai-client';
 import { AiProviderError } from './ai-provider-types';
 import { validateApiKey } from './mistral-client';
-import { validateGigaChatAuthKey } from './gigachat-token-manager';
+import { validateCloudflareCredentials } from './cloudflare-client';
 import { checkProviderHealth } from './provider-health';
 import { buildGrammarExplanationPayload } from './prompt-builder';
 import { cleanMarkdownArtifacts } from './markdown';
@@ -33,10 +33,14 @@ import { DEFAULT_BUDGET_SETTINGS, estimateTokens } from './budget';
 import { finalizeBudgetReservation, reserveBudgetIfActive } from './budget-reservations';
 import {
     getStoredApiKey,
-    getStoredGigaChatAuthKey,
+    getStoredCloudflareAccountId,
+    getStoredCloudflareApiToken,
+    getStoredCloudflareCredentials,
     migrateApiKeyToSecretStore,
     setStoredApiKey,
-    setStoredGigaChatAuthKey,
+    setStoredCloudflareAccountId,
+    setStoredCloudflareApiToken,
+    setStoredCloudflareCredentials,
 } from './secret-store';
 import { logger } from './logger';
 import {
@@ -312,17 +316,58 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) }),
             );
         return true;
-    } else if (request.action === 'getGigaChatAuthKey' || request.action === 'setGigaChatAuthKey') {
+    } else if (request.action === 'getCloudflareCredentials' || request.action === 'setCloudflareCredentials') {
         const trustedSender = Boolean(sender.url?.startsWith(chrome.runtime.getURL('')));
         if (!trustedSender) {
             sendResponse({ ok: false, error: 'UNTRUSTED_SECRET_REQUEST' });
             return;
         }
         const operation =
-            request.action === 'getGigaChatAuthKey'
-                ? initializationPromise.then(getStoredGigaChatAuthKey).then((value) => ({ value }))
+            request.action === 'getCloudflareCredentials'
+                ? initializationPromise.then(getStoredCloudflareCredentials)
                 : initializationPromise
-                      .then(() => setStoredGigaChatAuthKey(typeof request.value === 'string' ? request.value : ''))
+                      .then(() =>
+                          setStoredCloudflareCredentials({
+                              accountId: typeof request.accountId === 'string' ? request.accountId : '',
+                              apiToken: typeof request.apiToken === 'string' ? request.apiToken : '',
+                          }),
+                      )
+                      .then(() => ({ accountId: '', apiToken: '' }));
+        void operation
+            .then((data) => sendResponse({ ok: true, ...data }))
+            .catch((error) =>
+                sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) }),
+            );
+        return true;
+    } else if (request.action === 'getCloudflareAccountId' || request.action === 'setCloudflareAccountId') {
+        const trustedSender = Boolean(sender.url?.startsWith(chrome.runtime.getURL('')));
+        if (!trustedSender) {
+            sendResponse({ ok: false, error: 'UNTRUSTED_SECRET_REQUEST' });
+            return;
+        }
+        const operation =
+            request.action === 'getCloudflareAccountId'
+                ? initializationPromise.then(getStoredCloudflareAccountId).then((value) => ({ value }))
+                : initializationPromise
+                      .then(() => setStoredCloudflareAccountId(typeof request.value === 'string' ? request.value : ''))
+                      .then(() => ({ value: '' }));
+        void operation
+            .then((data) => sendResponse({ ok: true, ...data }))
+            .catch((error) =>
+                sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) }),
+            );
+        return true;
+    } else if (request.action === 'getCloudflareApiToken' || request.action === 'setCloudflareApiToken') {
+        const trustedSender = Boolean(sender.url?.startsWith(chrome.runtime.getURL('')));
+        if (!trustedSender) {
+            sendResponse({ ok: false, error: 'UNTRUSTED_SECRET_REQUEST' });
+            return;
+        }
+        const operation =
+            request.action === 'getCloudflareApiToken'
+                ? initializationPromise.then(getStoredCloudflareApiToken).then((value) => ({ value }))
+                : initializationPromise
+                      .then(() => setStoredCloudflareApiToken(typeof request.value === 'string' ? request.value : ''))
                       .then(() => ({ value: '' }));
         void operation
             .then((data) => sendResponse({ ok: true, ...data }))
@@ -335,11 +380,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             sendResponse({ ok: false, error: 'UNTRUSTED_SECRET_REQUEST' });
             return;
         }
-        if (
-            !['mistral', 'gigachat'].includes(request.provider) ||
-            typeof request.credential !== 'string' ||
-            request.credential.length > 1024
-        ) {
+        if (!['mistral', 'cloudflare'].includes(request.provider)) {
             sendResponse({ ok: false, error: 'INVALID_AI_CHECK' });
             return;
         }
@@ -347,8 +388,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             .then(async () =>
                 request.health === true
                     ? checkProviderHealth(request.provider, request.credential)
-                    : request.provider === 'gigachat'
-                      ? validateGigaChatAuthKey(request.credential)
+                    : request.provider === 'cloudflare'
+                      ? validateCloudflareCredentials(request.credential)
                       : validateApiKey(request.credential),
             )
             .then((data) => sendResponse({ ok: true, data }))
@@ -357,7 +398,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     } else if (request.action === 'getRuntimeSettings') {
         void initializationPromise
             .then(async () => {
-                const [settings, apiKey, gigaChatAuthKey] = await Promise.all([
+                const [settings, apiKey, cloudflareCredentials] = await Promise.all([
                     getCachedSettings({
                         sendPageContext: false,
                         contextDisabledSites: [],
@@ -372,11 +413,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         ...AI_PROVIDER_RUNTIME_DEFAULTS,
                     }),
                     getStoredApiKey(),
-                    getStoredGigaChatAuthKey(),
+                    getStoredCloudflareCredentials(),
                 ]);
-                return { settings, apiKey, gigaChatAuthKey };
+                return { settings, apiKey, cloudflareCredentials };
             })
-            .then(({ settings, apiKey, gigaChatAuthKey }) => {
+            .then(({ settings, apiKey, cloudflareCredentials }) => {
                 const profiles = Array.isArray(settings.styleProfiles)
                     ? (settings.styleProfiles as StyleProfile[])
                     : [];
@@ -387,9 +428,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 );
                 sendResponse({
                     ok: true,
-                    hasApiKey: apiKey.length > 0 || gigaChatAuthKey.length > 0,
+                    hasApiKey:
+                        apiKey.length > 0 ||
+                        (cloudflareCredentials.accountId.length > 0 && cloudflareCredentials.apiToken.length > 0),
                     hasMistralApiKey: apiKey.length > 0,
-                    hasGigaChatAuthKey: gigaChatAuthKey.length > 0,
+                    hasCloudflareCredentials:
+                        cloudflareCredentials.accountId.length > 0 && cloudflareCredentials.apiToken.length > 0,
                     primaryAiProvider: normalizePrimaryAiProvider(settings.primaryAiProvider),
                     autoFallbackEnabled: normalizeAutoFallbackEnabled(settings.autoFallbackEnabled),
                     sendPageContext: settings.sendPageContext === true,
@@ -499,16 +543,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         void (async () => {
             try {
                 await initializationPromise;
-                const [mistralApiKey, gigachatAuthKey, settings] = await Promise.all([
+                const [mistralApiKey, cloudflareCreds, settings] = await Promise.all([
                     getStoredApiKey(),
-                    getStoredGigaChatAuthKey(),
+                    getStoredCloudflareCredentials(),
                     getCachedSettings({
                         selectedTone: 'business',
                         ...AI_PROVIDER_RUNTIME_DEFAULTS,
                         aiMode: 'balanced',
                     }),
                 ]);
-                if (!mistralApiKey && !gigachatAuthKey) {
+                const hasMistral = Boolean(mistralApiKey?.trim());
+                const hasCloudflare = Boolean(cloudflareCreds.accountId?.trim() && cloudflareCreds.apiToken?.trim());
+                if (!hasMistral && !hasCloudflare) {
                     throw new Error(t('apiKeyMissing', 'API-ключ не настроен'));
                 }
                 const payload = buildGrammarExplanationPayload(original, result, mode);
@@ -532,7 +578,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                             enablePiiMasking: true,
                         },
                         mistralApiKey,
-                        gigachatAuthKey,
+                        cloudflareAccountId: cloudflareCreds.accountId,
+                        cloudflareApiToken: cloudflareCreds.apiToken,
                         primaryProvider: normalizePrimaryAiProvider(settings.primaryAiProvider),
                         autoFallback: normalizeAutoFallbackEnabled(settings.autoFallbackEnabled),
                         signal: controller.signal,
@@ -629,6 +676,13 @@ chrome.runtime.onConnect.addListener((port) => {
         let budgetReservationId = '';
         const inputTokens = estimateTokens(msg.text || msg.imageUrl || '');
         let outputText = '';
+        let execResult:
+            | {
+                  providerUsed?: 'mistral' | 'cloudflare';
+                  fallbackOccurred?: boolean;
+                  fallbackNotification?: string;
+              }
+            | undefined;
 
         try {
             await initializationPromise;
@@ -679,8 +733,11 @@ chrome.runtime.onConnect.addListener((port) => {
                     }
                 }
             }
-            let [mistralApiKey, gigachatAuthKey] = await Promise.all([getStoredApiKey(), getStoredGigaChatAuthKey()]);
-            if (!mistralApiKey && !gigachatAuthKey) {
+            let [mistralApiKey, cloudflareCreds] = await Promise.all([
+                getStoredApiKey(),
+                getStoredCloudflareCredentials(),
+            ]);
+            if (!mistralApiKey && (!cloudflareCreds.accountId || !cloudflareCreds.apiToken)) {
                 throw new Error(t('apiKeyMissing', 'API-ключ не настроен'));
             }
 
@@ -731,7 +788,7 @@ chrome.runtime.onConnect.addListener((port) => {
 
             // Ключ мог быть заменён, пока запрос ожидал резервирования бюджета
             // или подготовки контекста. Перечитываем секрет непосредственно перед API-вызовом.
-            [mistralApiKey, gigachatAuthKey] = await Promise.all([getStoredApiKey(), getStoredGigaChatAuthKey()]);
+            [mistralApiKey, cloudflareCreds] = await Promise.all([getStoredApiKey(), getStoredCloudflareCredentials()]);
 
             if (msg.mode === 'ocr') {
                 const hasMistral = Boolean(mistralApiKey?.trim());
@@ -749,6 +806,7 @@ chrome.runtime.onConnect.addListener((port) => {
                         logger.error('Не удалось сохранить OCR-кэш:', error);
                     }
                 }
+                execResult = { providerUsed: 'mistral' };
                 if (isCurrentRequest()) safePostMessage({ status: 'done', provider: 'mistral' });
             } else {
                 const aiSettings = {
@@ -766,14 +824,20 @@ chrome.runtime.onConnect.addListener((port) => {
                             : 'balanced',
                     enablePiiMasking: settings.enablePiiMasking !== false,
                 } as const;
-                const runAiRequest = (currentMistralKey: string, currentGigaChatKey: string) =>
+                const runAiRequest = (
+                    currentMistralKey: string,
+                    currentCfCreds: { accountId: string; apiToken: string },
+                ) =>
                     executeAiStreamRequest({
                         request: msg,
                         settings: aiSettings,
                         primaryProvider: normalizePrimaryAiProvider(settings.primaryAiProvider),
                         autoFallback: normalizeAutoFallbackEnabled(settings.autoFallbackEnabled),
                         mistralApiKey: currentMistralKey,
-                        gigachatAuthKey: currentGigaChatKey,
+                        cloudflareAccountId: currentCfCreds.accountId,
+                        cloudflareApiToken: currentCfCreds.apiToken,
+                        cloudflareModel:
+                            typeof settings.cloudflareModel === 'string' ? settings.cloudflareModel : undefined,
                         signal: requestController.signal,
                         onChunk: (text) => {
                             outputText += text;
@@ -785,26 +849,34 @@ chrome.runtime.onConnect.addListener((port) => {
                         },
                     });
 
-                let execResult;
                 try {
-                    execResult = await runAiRequest(mistralApiKey, gigachatAuthKey);
+                    execResult = await runAiRequest(mistralApiKey, cloudflareCreds);
                 } catch (error) {
-                    if (!(error instanceof AiProviderError) || error.code !== 'AUTH_ERROR') throw error;
-                    const [latestMistralKey, latestGigaChatKey] = await Promise.all([
+                    if (
+                        !(error instanceof AiProviderError) ||
+                        (error.code !== 'AUTH_ERROR' && error.code !== 'ACCOUNT_ERROR')
+                    ) {
+                        throw error;
+                    }
+                    const [latestMistralKey, latestCfCreds] = await Promise.all([
                         getStoredApiKey(),
-                        getStoredGigaChatAuthKey(),
+                        getStoredCloudflareCredentials(),
                     ]);
-                    const attemptedKey = error.provider === 'mistral' ? mistralApiKey : gigachatAuthKey;
-                    const latestKey = error.provider === 'mistral' ? latestMistralKey : latestGigaChatKey;
-                    if (!latestKey || latestKey === attemptedKey) throw error;
+                    const keyChanged =
+                        error.provider === 'mistral'
+                            ? latestMistralKey !== mistralApiKey && Boolean(latestMistralKey)
+                            : (latestCfCreds.accountId !== cloudflareCreds.accountId ||
+                                  latestCfCreds.apiToken !== cloudflareCreds.apiToken) &&
+                              Boolean(latestCfCreds.accountId && latestCfCreds.apiToken);
+                    if (!keyChanged) throw error;
 
                     // Сохранение ключа завершилось во время запроса. Сбрасываем возможный
                     // незавершённый вывод и один раз повторяем команду с новым секретом.
                     outputText = '';
                     if (isCurrentRequest()) safePostMessage({ status: 'reset' });
                     mistralApiKey = latestMistralKey;
-                    gigachatAuthKey = latestGigaChatKey;
-                    execResult = await runAiRequest(mistralApiKey, gigachatAuthKey);
+                    cloudflareCreds = latestCfCreds;
+                    execResult = await runAiRequest(mistralApiKey, cloudflareCreds);
                 }
                 if (isCurrentRequest()) {
                     safePostMessage({
@@ -849,6 +921,8 @@ chrome.runtime.onConnect.addListener((port) => {
                     success: completedSuccessfully,
                     inputTokens,
                     outputTokens: estimateTokens(outputText),
+                    provider: execResult?.providerUsed,
+                    fallbackOccurred: execResult?.fallbackOccurred,
                 };
                 if (budgetReservationId) void finalizeBudgetReservation(budgetReservationId, usage);
                 else void applyUsageMutation('request', usage);

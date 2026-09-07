@@ -2179,11 +2179,11 @@ test('обучение проводит нового пользователя ч
     await context.route('https://api.mistral.ai/v1/models', async (route) => {
         await route.fulfill({ status: 200, contentType: 'application/json', body: '{"data":[]}' });
     });
-    await context.route('https://ngw.devices.sberbank.ru:9443/api/v2/oauth', async (route) => {
+    await context.route('https://api.cloudflare.com/**', async (route) => {
         await route.fulfill({
             status: 200,
             contentType: 'application/json',
-            body: JSON.stringify({ access_token: 'test-gigachat-token', expires_at: Date.now() + 1800000 }),
+            body: JSON.stringify({ success: true, result: { response: 'pong' } }),
         });
     });
     await page.goto(`chrome-extension://${extensionId}/options.html?tutorial=1`);
@@ -2212,30 +2212,28 @@ test('обучение проводит нового пользователя ч
     const savedKey = await page.evaluate(() => chrome.runtime.sendMessage({ action: 'getApiKey' }));
     expect(savedKey).toMatchObject({ ok: true, value: 'tutorial-test-key' });
 
-    // Шаг 3 (GigaChat Authorization Key)
+    // Шаг 3 (Cloudflare Workers AI)
     await page.locator('#onboardingNext').click();
-    const onboardingGigaChatApiKey = page.locator('#onboardingGigaChatApiKey');
-    const onboardingSaveGigaChatKey = page.locator('#onboardingSaveGigaChatKey');
-    await expect(onboarding).toHaveAttribute('data-provider', 'gigachat');
-    await expect(page.locator('.onboarding-provider-chip')).toContainText(/GigaChat.*GIGACHAT_API_PERS/);
-    await expect(onboardingGigaChatApiKey).toBeVisible();
-    await expect(
-        page.locator('.onboarding-external-link[href="https://developers.sber.ru/portal/products/gigachat-api"]'),
-    ).toBeVisible();
-    const [gigachatKeyBox, gigachatCheckButtonBox] = await Promise.all([
-        onboardingGigaChatApiKey.boundingBox(),
-        onboardingSaveGigaChatKey.boundingBox(),
-    ]);
-    expect(gigachatKeyBox).not.toBeNull();
-    expect(gigachatCheckButtonBox).not.toBeNull();
-    expect(Math.abs((gigachatKeyBox?.height ?? 0) - (gigachatCheckButtonBox?.height ?? 0))).toBeLessThanOrEqual(1);
-    expect(gigachatCheckButtonBox?.width ?? Number.POSITIVE_INFINITY).toBeLessThan(gigachatKeyBox?.width ?? 0);
-    await onboardingGigaChatApiKey.fill('MDE5_tutorial_auth_key_123');
-    await onboardingSaveGigaChatKey.click();
-    await expect(page.locator('#onboardingGigaChatKeyStatus')).toHaveAttribute('data-kind', 'success');
+    const onboardingCloudflareAccountId = page.locator('#onboardingCloudflareAccountId');
+    const onboardingCloudflareApiToken = page.locator('#onboardingCloudflareApiToken');
+    const onboardingSaveCloudflareKey = page.locator('#onboardingSaveCloudflareKey');
+    await expect(onboarding).toHaveAttribute('data-provider', 'cloudflare');
+    await expect(page.locator('.onboarding-provider-chip')).toContainText(/Cloudflare/);
+    await expect(onboardingCloudflareAccountId).toBeVisible();
+    await expect(onboardingCloudflareApiToken).toBeVisible();
+    await expect(page.locator('.onboarding-external-link[href="https://dash.cloudflare.com/"]')).toBeVisible();
+    await onboardingCloudflareAccountId.fill('12345678901234567890123456789012');
+    await onboardingCloudflareApiToken.fill('tutorial-cf-api-token');
+    await onboardingSaveCloudflareKey.click();
+    await expect(page.locator('#onboardingCloudflareKeyStatus')).toHaveAttribute('data-kind', 'success');
 
-    const savedGigaChatKey = await page.evaluate(() => chrome.runtime.sendMessage({ action: 'getGigaChatAuthKey' }));
-    expect(savedGigaChatKey).toMatchObject({ ok: true, value: 'MDE5_tutorial_auth_key_123' });
+    const savedCloudflareCreds = await page.evaluate(() =>
+        chrome.runtime.sendMessage({ action: 'getCloudflareCredentials' }),
+    );
+    expect(savedCloudflareCreds).toMatchObject({
+        ok: true,
+        value: { accountId: '12345678901234567890123456789012', apiToken: 'tutorial-cf-api-token' },
+    });
 
     for (let step = 3; step <= 5; step++) {
         await page.locator('#onboardingNext').click();
@@ -2364,10 +2362,10 @@ test('результат AI-запроса отображает бейдж ис�
     await expect(result.locator('.lexisync-close-button')).toBeVisible();
     const providerBadge = result.locator('.lexisync-provider-badge');
     await expect(providerBadge).toBeVisible();
-    await expect(providerBadge).toHaveText(/Mistral|GigaChat/);
+    await expect(providerBadge).toHaveText(/Mistral|Cloudflare/);
 });
 
-test('выключенный fallback не отправляет текст в GigaChat при ошибке Mistral', async ({ context }) => {
+test('выключенный fallback не отправляет текст в Cloudflare при ошибке Mistral', async ({ context }) => {
     await setFakeApiKey(context);
     let [background] = context.serviceWorkers();
     if (!background) background = await context.waitForEvent('serviceworker');
@@ -2375,7 +2373,11 @@ test('выключенный fallback не отправляет текст в Gi
     const extensionPage = await context.newPage();
     await extensionPage.goto(`chrome-extension://${extensionId}/options.html`);
     await extensionPage.evaluate(() =>
-        chrome.runtime.sendMessage({ action: 'setGigaChatAuthKey', value: 'MDE5_mock-auth-key-123' }),
+        chrome.runtime.sendMessage({
+            action: 'setCloudflareCredentials',
+            accountId: 'test-cf-account-12345',
+            apiToken: 'test-cf-token-67890',
+        }),
     );
     await background.evaluate(() =>
         chrome.storage.local.set({ primaryAiProvider: 'mistral', autoFallbackEnabled: false }),
@@ -2384,20 +2386,13 @@ test('выключенный fallback не отправляет текст в Gi
         .poll(() => extensionPage.evaluate(() => chrome.runtime.sendMessage({ action: 'getRuntimeSettings' })))
         .toMatchObject({ ok: true, primaryAiProvider: 'mistral', autoFallbackEnabled: false });
 
-    let gigachatRequests = 0;
+    let cloudflareRequests = 0;
     await context.route('https://api.mistral.ai/v1/chat/completions', (route) =>
         route.fulfill({ status: 429, contentType: 'application/json', body: '{"message":"rate limit"}' }),
     );
-    await context.route('https://ngw.devices.sberbank.ru:9443/api/v2/oauth', (route) =>
-        route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({ access_token: 'token', expires_at: Date.now() + 60000 }),
-        }),
-    );
-    await context.route('https://api.giga.chat/v1/chat/completions', (route) => {
-        gigachatRequests += 1;
-        return route.fulfill({ status: 500, body: 'GigaChat не должен вызываться' });
+    await context.route('https://api.cloudflare.com/**', (route) => {
+        cloudflareRequests += 1;
+        return route.fulfill({ status: 500, body: 'Cloudflare не должен вызываться' });
     });
 
     const response = await extensionPage.evaluate(
@@ -2416,17 +2411,17 @@ test('выключенный fallback не отправляет текст в Gi
 
     expect(response.status).toBe('error');
     expect(response.error).toMatch(/лимит|rate limit/i);
-    expect(gigachatRequests).toBe(0);
+    expect(cloudflareRequests).toBe(0);
     await extensionPage.close();
 });
 
 test('виджет статуса серверов отображается в настройках и обновляется по кнопке', async ({ page, context }) => {
     await setFakeApiKey(context);
-    await context.route('https://ngw.devices.sberbank.ru:9443/api/v2/oauth', async (route) => {
+    await context.route('https://api.cloudflare.com/**', async (route) => {
         await route.fulfill({
             status: 200,
             contentType: 'application/json',
-            body: JSON.stringify({ access_token: 'test-token', expires_at: Date.now() + 1800000 }),
+            body: JSON.stringify({ success: true, result: { response: 'pong' } }),
         });
     });
     await context.route('https://api.mistral.ai/v1/models', async (route) => {
@@ -2442,16 +2437,16 @@ test('виджет статуса серверов отображается в �
     const extensionId = new URL(background.url()).host;
     await page.goto(`chrome-extension://${extensionId}/options.html`);
 
-    const gigachatCard = page.locator('#gigachatStatusCard');
+    const cloudflareCard = page.locator('#cloudflareStatusCard');
     const mistralCard = page.locator('#mistralStatusCard');
     const refreshBtn = page.locator('#checkServerStatusBtn');
 
-    await expect(gigachatCard).toBeVisible();
+    await expect(cloudflareCard).toBeVisible();
     await expect(mistralCard).toBeVisible();
     await expect(refreshBtn).toBeVisible();
 
     await refreshBtn.click();
-    await expect(gigachatCard.locator('.server-status-dot')).toBeVisible();
+    await expect(cloudflareCard.locator('.server-status-dot')).toBeVisible();
     await expect(mistralCard.locator('.server-status-dot')).toBeVisible();
 });
 
@@ -2462,11 +2457,11 @@ test('popup отображает компактный статус-бар сер
 
     const statusBar = page.locator('#popup-server-status-bar');
     await expect(statusBar).toBeVisible();
-    await expect(page.locator('#popupGigaChatStatus')).toBeVisible();
+    await expect(page.locator('#popupCloudflareStatus')).toBeVisible();
     await expect(page.locator('#popupMistralStatus')).toBeVisible();
 });
 
-test('блок инструкций в настройках содержит инструкции для Mistral и GigaChat', async ({ page, context }) => {
+test('блок инструкций в настройках содержит инструкции для Mistral и Cloudflare', async ({ page, context }) => {
     const [background] = context.serviceWorkers();
     await background.evaluate(() => chrome.storage.local.set({ onboardingCompleted: true }));
     const extensionId = new URL(background.url()).host;
@@ -2475,9 +2470,9 @@ test('блок инструкций в настройках содержит и�
     const instructionBox = page.locator('.instruction-box');
     await expect(instructionBox).toBeVisible();
     await expect(instructionBox).toContainText(/Mistral/);
-    await expect(instructionBox).toContainText(/GigaChat/);
+    await expect(instructionBox).toContainText(/Cloudflare/);
     await expect(instructionBox).toContainText(/console\.mistral\.ai/);
-    await expect(instructionBox).toContainText(/developers\.sber\.ru/);
+    await expect(instructionBox).toContainText(/dash\.cloudflare\.com/);
 });
 
 test('кнопка Почему так в истории запросов загружает и отображает разбор правил', async ({ page, context }) => {

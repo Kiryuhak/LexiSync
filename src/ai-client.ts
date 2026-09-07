@@ -8,13 +8,14 @@ import {
     type AiRequestOptions,
     type PrimaryAiProvider,
     type AIProvider,
+    type CloudflareCredentials,
 } from './ai-provider-types';
 import { mistralProvider } from './mistral-provider';
-import { gigaChatProvider } from './gigachat-provider';
+import { cloudflareWorkersAIProvider } from './cloudflare-provider';
 
 export const AI_PROVIDERS: Record<AiProviderType, AIProvider> = {
     mistral: mistralProvider,
-    gigachat: gigaChatProvider,
+    cloudflare: cloudflareWorkersAIProvider,
 };
 
 const DEFAULT_PROVIDER_TIMEOUT_MS = 15_000;
@@ -32,7 +33,7 @@ interface ProviderHealth {
 
 const providerHealth: Record<AiProviderType, ProviderHealth> = {
     mistral: { consecutiveFailures: 0, cooldownUntil: 0 },
-    gigachat: { consecutiveFailures: 0, cooldownUntil: 0 },
+    cloudflare: { consecutiveFailures: 0, cooldownUntil: 0 },
 };
 
 export function resetAiProviderHealth(): void {
@@ -150,6 +151,9 @@ export function normalizeAiError(error: unknown, provider: AiProviderType): AiPr
     if (sourceStatus === 401 || sourceStatus === 403) {
         return new AiProviderError(message, 'AUTH_ERROR', provider, false, sourceStatus);
     }
+    if (sourceStatus === 404) {
+        return new AiProviderError(message, 'ACCOUNT_ERROR', provider, false, sourceStatus);
+    }
     if (sourceStatus === 429) {
         return new AiProviderError(message, 'RATE_LIMIT', provider, sourceRetryable ?? true, 429, retryAfterMs);
     }
@@ -211,17 +215,23 @@ export function getFallbackNotification(
     toProvider: AiProviderType,
     code: AiErrorCode,
 ): string {
-    if (fromProvider === 'mistral' && toProvider === 'gigachat') {
+    if (fromProvider === 'mistral' && toProvider === 'cloudflare') {
         if (code === 'RATE_LIMIT' || code === 'QUOTA_EXCEEDED') {
-            return t('fallbackToGigaChatDueToRateLimit', 'Лимит Mistral достигнут. Запрос выполнен через GigaChat.');
+            return t(
+                'fallbackToCloudflareDueToRateLimit',
+                'Лимит Mistral достигнут. Запрос выполнен через Cloudflare Workers AI.',
+            );
         }
-        return t('fallbackToGigaChatDueToOutage', 'Сервис Mistral временно недоступен. Использован GigaChat.');
+        return t(
+            'fallbackToCloudflareDueToOutage',
+            'Сервис Mistral временно недоступен. Использован Cloudflare Workers AI.',
+        );
     }
-    if (fromProvider === 'gigachat' && toProvider === 'mistral') {
+    if (fromProvider === 'cloudflare' && toProvider === 'mistral') {
         if (code === 'RATE_LIMIT' || code === 'QUOTA_EXCEEDED') {
-            return t('fallbackToMistralDueToRateLimit', 'Лимит GigaChat достигнут. Запрос выполнен через Mistral.');
+            return t('fallbackToMistralDueToRateLimit', 'Лимит Cloudflare достигнут. Запрос выполнен через Mistral.');
         }
-        return t('fallbackToMistralDueToOutage', 'Сервис GigaChat временно недоступен. Использован Mistral.');
+        return t('fallbackToMistralDueToOutage', 'Сервис Cloudflare временно недоступен. Использован Mistral.');
     }
     return '';
 }
@@ -230,35 +240,39 @@ export function resolveExecutionPlan(options: {
     primaryProvider: PrimaryAiProvider;
     autoFallback: boolean;
     mistralApiKey?: string;
-    gigachatAuthKey?: string;
+    cloudflareAccountId?: string;
+    cloudflareApiToken?: string;
 }): { primary: AiProviderType; backup?: AiProviderType } {
     const mistralKey = (options.mistralApiKey || '').trim();
-    const gigaChatKey = (options.gigachatAuthKey || '').trim();
+    const cfAccount = (options.cloudflareAccountId || '').trim();
+    const cfToken = (options.cloudflareApiToken || '').trim();
+    const hasCloudflare = Boolean(cfAccount && cfToken);
+    const hasMistral = Boolean(mistralKey);
 
     let primary: AiProviderType;
     let secondary: AiProviderType;
 
-    if (options.primaryProvider === 'gigachat') {
-        primary = 'gigachat';
+    if (options.primaryProvider === 'cloudflare') {
+        primary = 'cloudflare';
         secondary = 'mistral';
     } else if (options.primaryProvider === 'mistral') {
         primary = 'mistral';
-        secondary = 'gigachat';
+        secondary = 'cloudflare';
     } else {
         // 'auto'
-        if (mistralKey) {
+        if (hasMistral) {
             primary = 'mistral';
-            secondary = 'gigachat';
-        } else if (gigaChatKey) {
-            primary = 'gigachat';
+            secondary = 'cloudflare';
+        } else if (hasCloudflare) {
+            primary = 'cloudflare';
             secondary = 'mistral';
         } else {
             primary = 'mistral';
-            secondary = 'gigachat';
+            secondary = 'cloudflare';
         }
     }
 
-    const hasBackupKey = secondary === 'mistral' ? Boolean(mistralKey) : Boolean(gigaChatKey);
+    const hasBackupKey = secondary === 'mistral' ? hasMistral : hasCloudflare;
     return {
         primary,
         backup: options.autoFallback && hasBackupKey ? secondary : undefined,
@@ -267,29 +281,42 @@ export function resolveExecutionPlan(options: {
 
 export async function executeAiStreamRequest(options: AiRequestOptions): Promise<AiExecutionResult> {
     const mistralKey = (options.mistralApiKey || '').trim();
-    const gigaChatKey = (options.gigachatAuthKey || '').trim();
+    const cfAccount = (options.cloudflareAccountId || '').trim();
+    const cfToken = (options.cloudflareApiToken || '').trim();
+
     const plan = resolveExecutionPlan({
         primaryProvider: options.primaryProvider,
         autoFallback: options.autoFallback,
         mistralApiKey: mistralKey,
-        gigachatAuthKey: gigaChatKey,
+        cloudflareAccountId: cfAccount,
+        cloudflareApiToken: cfToken,
     });
 
-    const getKey = (provider: AiProviderType): string => (provider === 'mistral' ? mistralKey : gigaChatKey);
+    const isConfigured = (provider: AiProviderType): boolean => {
+        if (provider === 'mistral') return Boolean(mistralKey);
+        return Boolean(cfAccount && cfToken);
+    };
 
     const callProvider = async (
         provider: AiProviderType,
         signal: AbortSignal,
         onChunk: (text: string) => void,
     ): Promise<void> => {
-        const key = getKey(provider);
-        if (!key) {
+        if (!isConfigured(provider)) {
             const missingMsg =
                 provider === 'mistral'
                     ? t('apiKeyMissing', 'API-ключ Mistral не настроен.')
-                    : t('gigachatAuthKeyMissing', 'Authorization Key GigaChat не настроен.');
+                    : t(
+                          'cloudflareCredentialsMissing',
+                          'Данные Cloudflare Workers AI (Account ID и API Token) не настроены.',
+                      );
             throw new AiProviderError(missingMsg, 'AUTH_ERROR', provider, false, 401);
         }
+        const credential =
+            provider === 'mistral'
+                ? mistralKey
+                : ({ accountId: cfAccount, apiToken: cfToken } as CloudflareCredentials);
+
         await runWithProviderTimeout(
             provider,
             signal,
@@ -303,7 +330,7 @@ export async function executeAiStreamRequest(options: AiRequestOptions): Promise
                 const providerInstance = AI_PROVIDERS[provider];
                 await providerInstance.streamChat(
                     options.request,
-                    key,
+                    credential,
                     options.settings,
                     providerSignal,
                     onProviderChunk,
@@ -317,11 +344,12 @@ export async function executeAiStreamRequest(options: AiRequestOptions): Promise
     let fallbackProvider = plan.backup;
     let preemptiveFallback = false;
     const cooldownReason = providerHealth[plan.primary].lastErrorCode ?? 'RATE_LIMIT';
-    if (!getKey(effectivePrimary)) {
+
+    if (!isConfigured(effectivePrimary)) {
         const missingMsg =
             effectivePrimary === 'mistral'
                 ? t('apiKeyMissing', 'API-ключ Mistral не настроен.')
-                : t('gigachatAuthKeyMissing', 'Authorization Key GigaChat не настроен.');
+                : t('cloudflareCredentialsMissing', 'Данные Cloudflare Workers AI не настроены.');
         throw new AiProviderError(missingMsg, 'AUTH_ERROR', effectivePrimary, false, 401);
     } else if (
         options.autoFallback &&
@@ -358,11 +386,11 @@ export async function executeAiStreamRequest(options: AiRequestOptions): Promise
     }
 
     // КРИТИЧНОЕ ПРАВИЛО: Fallback разрешен ТОЛЬКО при ошибках, подходящих под fallback (isFallbackEligible: 429, 5xx, timeout, network error).
-    // Для AUTH_ERROR (401, 403, некорректный ключ) fallback СТРОГО ЗАПРЕЩЕН, чтобы пользователь четко видел ошибку авторизации.
+    // Для AUTH_ERROR (401, 403, некорректный ключ) и ACCOUNT_ERROR (404) fallback СТРОГО ЗАПРЕЩЕН, чтобы пользователь четко видел ошибку конфигурации.
     const canFallback =
         options.autoFallback &&
         Boolean(fallbackProvider) &&
-        Boolean(getKey(fallbackProvider!)) &&
+        isConfigured(fallbackProvider!) &&
         getAiProviderCooldownRemaining(fallbackProvider!) === 0 &&
         primaryError.isFallbackEligible;
 
@@ -393,7 +421,7 @@ export async function executeAiStreamRequest(options: AiRequestOptions): Promise
             throw new AiProviderError(
                 t(
                     'allProvidersRateLimited',
-                    'Лимиты всех доступных AI-провайдеров (Mistral и GigaChat) исчерпаны. Попробуйте позже.',
+                    'Лимиты всех доступных AI-провайдеров (Mistral и Cloudflare) исчерпаны. Попробуйте позже.',
                 ),
                 'RATE_LIMIT',
                 fallbackProvider,

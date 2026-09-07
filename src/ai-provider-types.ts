@@ -1,10 +1,17 @@
 import type { MistralRequest, MistralSettings } from './mistral-client';
 
-export type AiProviderType = 'mistral' | 'gigachat';
-export type PrimaryAiProvider = 'auto' | 'mistral' | 'gigachat';
+export type AiProviderType = 'mistral' | 'cloudflare';
+export type AIProviderId = AiProviderType;
+export type PrimaryAiProvider = 'auto' | 'mistral' | 'cloudflare';
+
+export interface CloudflareCredentials {
+    accountId: string;
+    apiToken: string;
+}
 
 export type AiErrorCode =
     | 'AUTH_ERROR'
+    | 'ACCOUNT_ERROR'
     | 'RATE_LIMIT'
     | 'QUOTA_EXCEEDED'
     | 'NETWORK_ERROR'
@@ -12,6 +19,7 @@ export type AiErrorCode =
     | 'SERVER_ERROR'
     | 'INVALID_RESPONSE'
     | 'INVALID_REQUEST'
+    | 'INVALID_CONFIG'
     | 'UNKNOWN_ERROR';
 
 export class AiProviderError extends Error {
@@ -29,10 +37,15 @@ export class AiProviderError extends Error {
 
     get isFallbackEligible(): boolean {
         // Fallback разрешён только для 429, тайм-аута, ошибки сети и 5xx.
-        // Запрещен для AUTH_ERROR (401, 403) и INVALID_REQUEST (400), чтобы не скрывать проблему с некорректным ключом или неверным запросом.
-        return this.retryable && ['RATE_LIMIT', 'SERVER_ERROR', 'NETWORK_ERROR', 'TIMEOUT'].includes(this.code);
+        // Запрещен для AUTH_ERROR (401, 403), ACCOUNT_ERROR (404), INVALID_REQUEST (400) и INVALID_CONFIG.
+        return (
+            this.retryable &&
+            ['RATE_LIMIT', 'QUOTA_EXCEEDED', 'SERVER_ERROR', 'NETWORK_ERROR', 'TIMEOUT'].includes(this.code)
+        );
     }
 }
+
+export type AIError = AiProviderError;
 
 export interface AIMessage {
     role: 'system' | 'user' | 'assistant';
@@ -55,17 +68,18 @@ export interface AIResponse {
         promptTokens?: number;
         completionTokens?: number;
         totalTokens?: number;
+        neurons?: number;
     };
 }
 
 export interface AIProvider {
     readonly id: AiProviderType;
     readonly name: string;
-    isConfigured(credential?: string): Promise<boolean>;
-    validateCredentials(credential: string): Promise<{ ok: boolean; message: string }>;
+    isConfigured(credential?: string | CloudflareCredentials): Promise<boolean>;
+    validateCredentials(credential: string | CloudflareCredentials): Promise<{ ok: boolean; message: string }>;
     streamChat(
         request: MistralRequest,
-        credential: string,
+        credential: string | CloudflareCredentials,
         settings: MistralSettings,
         signal: AbortSignal,
         onChunk: (chunk: string) => void,
@@ -78,7 +92,9 @@ export interface AiRequestOptions {
     primaryProvider: PrimaryAiProvider;
     autoFallback: boolean;
     mistralApiKey?: string;
-    gigachatAuthKey?: string;
+    cloudflareAccountId?: string;
+    cloudflareApiToken?: string;
+    cloudflareModel?: string;
     signal: AbortSignal;
     onChunk: (text: string) => void;
     /** Очищает уже показанный незавершённый ответ перед переходом на резервного провайдера. */

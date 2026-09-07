@@ -1,401 +1,1045 @@
 {
-    "extName": { "message": "Корректор грамматики и орфографии - LexiSync" },
-    "extDesc": { "message": "Умный помощник для работы с текстом на базе Mistral AI и GigaChat" },
-    "commandSpellcheck": { "message": "Исправить ошибки" },
-    "commandStyle": { "message": "Переписать текст" },
-    "commandEmoji": { "message": "Подобрать эмодзи" },
-    "commandOcr": { "message": "Распознать текст на экране" },
-    "ready": { "message": "AI-помощник готов к работе" },
-    "history": { "message": "История" },
-    "historyNote": { "message": "Недавние запросы и результаты" },
-    "settings": { "message": "Настройки" },
-    "settingsNote": { "message": "Тема, стиль текста и приватность" },
-    "thisSite": { "message": "Этот сайт" },
-    "personalSuggestions": { "message": "Персональные подсказки" },
-    "saveHistory": { "message": "Сохранять историю" },
-    "sendContext": { "message": "Передавать контекст" },
-    "commands": { "message": "Команды" },
-    "optionsTitle": { "message": "Настройки нейросети" },
-    "optionsIntro": { "message": "Настройте подключение к AI, расход токенов и поведение расширения." },
-    "tabMain": { "message": "Основные" },
-    "tabAppearance": { "message": "Оформление" },
-    "tabSuggestions": { "message": "Подсказки" },
-    "tabPrivacy": { "message": "Приватность" },
-    "tabCommands": { "message": "Команды" },
-    "themeLabel": { "message": "Тема оформления:" },
-    "visualStyleLabel": { "message": "Стиль интерфейса" },
-    "visualStyleHint": { "message": "Меняет оформление модального окна, меню, popup и подсказок." },
-    "visualStyleLiquid": { "message": "Liquid Glass" },
-    "visualStyleMagicOs": { "message": "MagicOS" },
-    "visualStyleMaterial": { "message": "Material Design 3" },
-    "visualStyleFlutter": { "message": "Flutter Clean" },
-    "visualStyleAurora": { "message": "Aurora Glass" },
-    "interfaceSize": { "message": "Размер интерфейса расширения" },
-    "compact": { "message": "Компактный" },
-    "large": { "message": "Крупный" },
-    "customCommandsTitle": { "message": "Пользовательские AI-команды" },
+    "extName": {
+        "message": "Корректор грамматики и орфографии - LexiSync"
+    },
+    "extDesc": {
+        "message": "Умный помощник для работы с текстом на базе Mistral AI и Cloudflare Workers AI"
+    },
+    "commandSpellcheck": {
+        "message": "Исправить ошибки"
+    },
+    "commandStyle": {
+        "message": "Переписать текст"
+    },
+    "commandEmoji": {
+        "message": "Подобрать эмодзи"
+    },
+    "commandOcr": {
+        "message": "Распознать текст на экране"
+    },
+    "ready": {
+        "message": "AI-помощник готов к работе"
+    },
+    "history": {
+        "message": "История"
+    },
+    "historyNote": {
+        "message": "Недавние запросы и результаты"
+    },
+    "settings": {
+        "message": "Настройки"
+    },
+    "settingsNote": {
+        "message": "Тема, стиль текста и приватность"
+    },
+    "thisSite": {
+        "message": "Этот сайт"
+    },
+    "personalSuggestions": {
+        "message": "Персональные подсказки"
+    },
+    "saveHistory": {
+        "message": "Сохранять историю"
+    },
+    "sendContext": {
+        "message": "Передавать контекст"
+    },
+    "commands": {
+        "message": "Команды"
+    },
+    "optionsTitle": {
+        "message": "Настройки нейросети"
+    },
+    "optionsIntro": {
+        "message": "Настройте подключение к AI, расход токенов и поведение расширения."
+    },
+    "tabMain": {
+        "message": "Основные"
+    },
+    "tabAppearance": {
+        "message": "Оформление"
+    },
+    "tabSuggestions": {
+        "message": "Подсказки"
+    },
+    "tabPrivacy": {
+        "message": "Приватность"
+    },
+    "tabCommands": {
+        "message": "Команды"
+    },
+    "themeLabel": {
+        "message": "Тема оформления:"
+    },
+    "visualStyleLabel": {
+        "message": "Стиль интерфейса"
+    },
+    "visualStyleHint": {
+        "message": "Меняет оформление модального окна, меню, popup и подсказок."
+    },
+    "visualStyleLiquid": {
+        "message": "Liquid Glass"
+    },
+    "visualStyleMagicOs": {
+        "message": "MagicOS"
+    },
+    "visualStyleMaterial": {
+        "message": "Material Design 3"
+    },
+    "visualStyleFlutter": {
+        "message": "Flutter Clean"
+    },
+    "visualStyleAurora": {
+        "message": "Aurora Glass"
+    },
+    "interfaceSize": {
+        "message": "Размер интерфейса расширения"
+    },
+    "compact": {
+        "message": "Компактный"
+    },
+    "large": {
+        "message": "Крупный"
+    },
+    "customCommandsTitle": {
+        "message": "Пользовательские AI-команды"
+    },
     "customCommandsIntro": {
         "message": "Создайте собственные действия. Они появятся в меню LexiSync при выделении текста."
     },
-    "commandName": { "message": "Название команды" },
-    "commandPrompt": { "message": "Инструкция для AI" },
-    "saveCommand": { "message": "Сохранить команду" },
-    "cancel": { "message": "Отмена" },
-    "quickTemplates": { "message": "Быстрые шаблоны" },
-    "aiTools": { "message": "AI-инструменты" },
-    "myCommands": { "message": "Мои команды" },
-    "fixErrors": { "message": "Исправить ошибки" },
-    "rewriteText": { "message": "Переписать текст" },
-    "addEmoji": { "message": "Подобрать эмодзи" },
-    "translate": { "message": "Перевести" },
-    "fixLayout": { "message": "Исправить раскладку" },
-    "replaceText": { "message": "Заменить текст" },
-    "copy": { "message": "Копировать" },
-    "beforeAfter": { "message": "До / После" },
-    "repeat": { "message": "Повторить" },
-    "shorter": { "message": "Короче" },
-    "longer": { "message": "Подробнее" },
-    "moreFormal": { "message": "Формальнее" },
-    "onboardingWelcome": { "message": "Добро пожаловать в LexiSync" },
-    "next": { "message": "Далее" },
-    "skip": { "message": "Пропустить" },
-    "start": { "message": "Начать работу" },
-    "tabAi": { "message": "AI и расход" },
-    "aiModeTitle": { "message": "Режим обработки" },
-    "aiModeLabel": { "message": "Баланс скорости и качества" },
-    "aiModeFast": { "message": "Быстро — Mistral Small" },
-    "aiModeBalanced": { "message": "Сбалансированно — умный расход" },
-    "aiModeQuality": { "message": "Качественно — Mistral Large" },
+    "commandName": {
+        "message": "Название команды"
+    },
+    "commandPrompt": {
+        "message": "Инструкция для AI"
+    },
+    "saveCommand": {
+        "message": "Сохранить команду"
+    },
+    "cancel": {
+        "message": "Отмена"
+    },
+    "quickTemplates": {
+        "message": "Быстрые шаблоны"
+    },
+    "aiTools": {
+        "message": "AI-инструменты"
+    },
+    "myCommands": {
+        "message": "Мои команды"
+    },
+    "fixErrors": {
+        "message": "Исправить ошибки"
+    },
+    "rewriteText": {
+        "message": "Переписать текст"
+    },
+    "addEmoji": {
+        "message": "Подобрать эмодзи"
+    },
+    "translate": {
+        "message": "Перевести"
+    },
+    "fixLayout": {
+        "message": "Исправить раскладку"
+    },
+    "replaceText": {
+        "message": "Заменить текст"
+    },
+    "copy": {
+        "message": "Копировать"
+    },
+    "beforeAfter": {
+        "message": "До / После"
+    },
+    "repeat": {
+        "message": "Повторить"
+    },
+    "shorter": {
+        "message": "Короче"
+    },
+    "longer": {
+        "message": "Подробнее"
+    },
+    "moreFormal": {
+        "message": "Формальнее"
+    },
+    "onboardingWelcome": {
+        "message": "Добро пожаловать в LexiSync"
+    },
+    "next": {
+        "message": "Далее"
+    },
+    "skip": {
+        "message": "Пропустить"
+    },
+    "start": {
+        "message": "Начать работу"
+    },
+    "tabAi": {
+        "message": "AI и расход"
+    },
+    "aiModeTitle": {
+        "message": "Режим обработки"
+    },
+    "aiModeLabel": {
+        "message": "Баланс скорости и качества"
+    },
+    "aiModeFast": {
+        "message": "Быстро — Mistral Small"
+    },
+    "aiModeBalanced": {
+        "message": "Сбалансированно — умный расход"
+    },
+    "aiModeQuality": {
+        "message": "Качественно — Mistral Large"
+    },
     "aiModeIntro": {
         "message": "Два понятных режима управляют длиной ответа и расходом токенов без обрезания исходного текста."
     },
-    "aiModeFastTitle": { "message": "Быстрый отклик" },
+    "aiModeFastTitle": {
+        "message": "Быстрый отклик"
+    },
     "aiModeFastDesc": {
         "message": "Мгновенный ответ и минимальный расход токенов. Идеально для частой проверки ошибок."
     },
-    "aiModeBalancedTitle": { "message": "Сбалансированный" },
+    "aiModeBalancedTitle": {
+        "message": "Сбалансированный"
+    },
     "aiModeBalancedDesc": {
         "message": "Подбирает разумный объём ответа под задачу и сохраняет баланс качества, скорости и расхода."
     },
-    "aiModeEconomyTokenCap": { "message": "до 1 536 токенов ответа" },
-    "aiModeBalancedTokenCap": { "message": "до 3 072 токенов ответа" },
-    "aiModeSmartBudget": { "message": "умный бюджет" },
-    "aiModeQualityTitle": { "message": "Высшее качество" },
+    "aiModeEconomyTokenCap": {
+        "message": "до 1 536 токенов ответа"
+    },
+    "aiModeBalancedTokenCap": {
+        "message": "до 3 072 токенов ответа"
+    },
+    "aiModeSmartBudget": {
+        "message": "умный бюджет"
+    },
+    "aiModeQualityTitle": {
+        "message": "Высшее качество"
+    },
     "aiModeQualityDesc": {
         "message": "Глубокий анализ сложных текстов, академический и деловой стиль, тонкие нюансы перевода."
     },
     "userBudgetLimitsHint": {
         "message": "Эти пределы действуют суммарно для обоих провайдеров и защищают от случайного перерасхода."
     },
-    "budgetProfilesTitle": { "message": "Готовые профили:" },
-    "presetEconomy": { "message": "🌿 Экономный" },
-    "presetBalanced": { "message": "⚖️ Сбалансированный" },
-    "presetGigaChatQuota": { "message": "💚 Квота GigaChat" },
-    "presetMistralQuota": { "message": "🌪️ Квота Mistral (1 000)" },
-    "presetSafeDaily": { "message": "🛡️ Экономный (100)" },
-    "presetSyncActiveProvider": { "message": "🔄 По активному провайдеру" },
-    "presetUnlimited": { "message": "♾️ Без лимита" },
-    "glossaryLabel": { "message": "Глоссарий перевода" },
-    "glossaryHint": { "message": "Одна пара «исходный термин = перевод» на строку. Глоссарий хранится локально." },
-    "styleProfilesTitle": { "message": "Профили стиля" },
-    "styleProfilesIntro": { "message": "Создайте инструкции для рабочей почты, чатов или публикаций." },
-    "profileName": { "message": "Название профиля" },
-    "profileInstruction": { "message": "Инструкция по стилю" },
-    "profileSites": { "message": "Сайты для автоматического включения" },
-    "profileSitesPlaceholder": { "message": "mail.example.com\ndocs.example.org" },
+    "budgetProfilesTitle": {
+        "message": "Готовые профили:"
+    },
+    "presetEconomy": {
+        "message": "🌿 Экономный"
+    },
+    "presetBalanced": {
+        "message": "⚖️ Сбалансированный"
+    },
+    "presetMistralQuota": {
+        "message": "🌪️ Квота Mistral (1 000)"
+    },
+    "presetSafeDaily": {
+        "message": "🛡️ Экономный (100)"
+    },
+    "presetSyncActiveProvider": {
+        "message": "🔄 По активному провайдеру"
+    },
+    "presetUnlimited": {
+        "message": "♾️ Без лимита"
+    },
+    "glossaryLabel": {
+        "message": "Глоссарий перевода"
+    },
+    "glossaryHint": {
+        "message": "Одна пара «исходный термин = перевод» на строку. Глоссарий хранится локально."
+    },
+    "styleProfilesTitle": {
+        "message": "Профили стиля"
+    },
+    "styleProfilesIntro": {
+        "message": "Создайте инструкции для рабочей почты, чатов или публикаций."
+    },
+    "profileName": {
+        "message": "Название профиля"
+    },
+    "profileInstruction": {
+        "message": "Инструкция по стилю"
+    },
+    "profileSites": {
+        "message": "Сайты для автоматического включения"
+    },
+    "profileSitesPlaceholder": {
+        "message": "mail.example.com\ndocs.example.org"
+    },
     "profileSitesHint": {
         "message": "По одному домену на строку. Профиль будет выбран автоматически на домене и его поддоменах."
     },
-    "profileSitesShort": { "message": "Автоматически:" },
-    "saveProfile": { "message": "Сохранить профиль" },
-    "noStyleProfiles": { "message": "Пока нет профилей стиля." },
-    "activateProfile": { "message": "Использовать профиль" },
-    "edit": { "message": "Изменить" },
-    "delete": { "message": "Удалить" },
-    "portableSettingsTitle": { "message": "Перенос настроек" },
+    "profileSitesShort": {
+        "message": "Автоматически:"
+    },
+    "saveProfile": {
+        "message": "Сохранить профиль"
+    },
+    "noStyleProfiles": {
+        "message": "Пока нет профилей стиля."
+    },
+    "activateProfile": {
+        "message": "Использовать профиль"
+    },
+    "edit": {
+        "message": "Изменить"
+    },
+    "delete": {
+        "message": "Удалить"
+    },
+    "portableSettingsTitle": {
+        "message": "Перенос настроек"
+    },
     "portableSettingsHint": {
         "message": "API-ключ, история, статистика и локальная языковая модель не попадают в файл."
     },
-    "exportSettings": { "message": "Экспортировать" },
-    "importSettings": { "message": "Импортировать" },
-    "settingsImported": { "message": "Настройки импортированы." },
-    "settingsLoadFailed": { "message": "Не удалось загрузить настройки. Обновите страницу." },
-    "importFailed": { "message": "Не удалось импортировать настройки." },
-    "usageTitle": { "message": "Локальная статистика" },
-    "usageRequests": { "message": "запросов" },
-    "usageCacheHits": { "message": "из кэша" },
-    "usageLatency": { "message": "средний ответ" },
-    "usageSuccessRate": { "message": "успешных запросов" },
-    "usageMostUsedMode": { "message": "частая команда" },
-    "clearStats": { "message": "Очистить статистику" },
-    "historyTitle": { "message": "История запросов" },
-    "historySearch": { "message": "Поиск по истории…" },
-    "allOperations": { "message": "Все операции" },
-    "modeSpellcheck": { "message": "Ошибки" },
-    "modeStyle": { "message": "Стиль" },
-    "modeEmoji": { "message": "Эмодзи" },
-    "modeLayout": { "message": "Раскладка" },
-    "modeTranslate": { "message": "Перевод" },
-    "modeCustom": { "message": "Команда" },
-    "exportJson": { "message": "Экспорт JSON" },
-    "clear": { "message": "Очистить" },
-    "favoritesOnly": { "message": "Только избранное" },
-    "copyResult": { "message": "Копировать результат" },
-    "runAgain": { "message": "Повторить на странице" },
-    "saveAsCommand": { "message": "Сохранить как команду" },
-    "addFavorite": { "message": "Добавить в избранное" },
-    "removeFavorite": { "message": "Убрать из избранного" },
-    "original": { "message": "Оригинал" },
-    "aiResult": { "message": "Результат AI" },
-    "historyEmpty": { "message": "История пуста. Успешные результаты появятся здесь." },
-    "historyNoMatches": { "message": "По вашему запросу ничего не найдено." },
-    "confirmClearHistory": { "message": "Удалить всю историю запросов? Это действие нельзя отменить." },
-    "historyFavoriteAdded": { "message": "Добавлено в избранное." },
-    "historyFavoriteRemoved": { "message": "Удалено из избранного." },
-    "historyResultCopied": { "message": "Результат скопирован." },
-    "historyReplayStarted": { "message": "Команда отправлена на открытую страницу." },
-    "historyCommandSaved": { "message": "Команда сохранена в настройках." },
-    "historyItemDeleted": { "message": "Запись удалена." },
-    "historyCleared": { "message": "История очищена." },
-    "historyExported": { "message": "Файл истории подготовлен." },
-    "historyActionFailed": { "message": "Не удалось выполнить действие с историей. Попробуйте ещё раз." },
-    "historyLoadFailed": { "message": "Не удалось загрузить историю. Перезагрузите страницу." },
-    "whySo": { "message": "💡 Почему так?" },
-    "hideExplanation": { "message": "Свернуть разбор" },
-    "explanationLoading": { "message": "Анализируем ошибки и правила..." },
-    "explanationTitle": { "message": "Разбор правил и ошибок" },
-    "explanationCopy": { "message": "Копировать разбор" },
-    "explanationCopied": { "message": "Разбор скопирован!" },
-    "explanationFailed": { "message": "Не удалось получить разбор правил." },
-    "searchGoogle": { "message": "Искать в Google" },
-    "searchYandex": { "message": "Искать в Яндексе" },
-    "searchDuckDuckGo": { "message": "Искать в DuckDuckGo" },
-    "editText": { "message": "Редактировать" },
-    "textFunctions": { "message": "Функции текста" },
-    "moreOptions": { "message": "Ещё опции" },
-    "moreToolsTitle": { "message": "Дополнительные инструменты" },
-    "closePanel": { "message": "Закрыть панель" },
-    "close": { "message": "Закрыть" },
-    "layoutFixed": { "message": "Раскладка исправлена" },
-    "translation": { "message": "Перевод" },
-    "ocrResult": { "message": "Распознанный текст" },
-    "apiKeyMissing": { "message": "API-ключ не настроен" },
-    "openSettingsNow": { "message": "Открыть сейчас" },
-    "requestCancelled": { "message": "Запрос отменён." },
-    "siteAccessDisabled": { "message": "LexiSync отключён для этого сайта." },
-    "requestConnectionLost": { "message": "Соединение с обработчиком запроса прервано. Повторите попытку." },
-    "undoReplacement": { "message": "Отменить замену" },
-    "replaced": { "message": "Заменено!" },
-    "copied": { "message": "Текст скопирован!" },
-    "showResult": { "message": "Показать результат" },
-    "enableOnSite": { "message": "LexiSync включён" },
-    "enableAllSites": { "message": "На всех сайтах и фреймах" },
-    "allSitesAccessEnable": { "message": "Разрешить работу на всех сайтах и во встроенных фреймах" },
+    "exportSettings": {
+        "message": "Экспортировать"
+    },
+    "importSettings": {
+        "message": "Импортировать"
+    },
+    "settingsImported": {
+        "message": "Настройки импортированы."
+    },
+    "settingsLoadFailed": {
+        "message": "Не удалось загрузить настройки. Обновите страницу."
+    },
+    "importFailed": {
+        "message": "Не удалось импортировать настройки."
+    },
+    "usageTitle": {
+        "message": "Локальная статистика"
+    },
+    "usageRequests": {
+        "message": "запросов"
+    },
+    "usageCacheHits": {
+        "message": "из кэша"
+    },
+    "usageLatency": {
+        "message": "средний ответ"
+    },
+    "usageSuccessRate": {
+        "message": "успешных запросов"
+    },
+    "usageMostUsedMode": {
+        "message": "частая команда"
+    },
+    "clearStats": {
+        "message": "Очистить статистику"
+    },
+    "historyTitle": {
+        "message": "История запросов"
+    },
+    "historySearch": {
+        "message": "Поиск по истории…"
+    },
+    "allOperations": {
+        "message": "Все операции"
+    },
+    "modeSpellcheck": {
+        "message": "Ошибки"
+    },
+    "modeStyle": {
+        "message": "Стиль"
+    },
+    "modeEmoji": {
+        "message": "Эмодзи"
+    },
+    "modeLayout": {
+        "message": "Раскладка"
+    },
+    "modeTranslate": {
+        "message": "Перевод"
+    },
+    "modeCustom": {
+        "message": "Команда"
+    },
+    "exportJson": {
+        "message": "Экспорт JSON"
+    },
+    "clear": {
+        "message": "Очистить"
+    },
+    "favoritesOnly": {
+        "message": "Только избранное"
+    },
+    "copyResult": {
+        "message": "Копировать результат"
+    },
+    "runAgain": {
+        "message": "Повторить на странице"
+    },
+    "saveAsCommand": {
+        "message": "Сохранить как команду"
+    },
+    "addFavorite": {
+        "message": "Добавить в избранное"
+    },
+    "removeFavorite": {
+        "message": "Убрать из избранного"
+    },
+    "original": {
+        "message": "Оригинал"
+    },
+    "aiResult": {
+        "message": "Результат AI"
+    },
+    "historyEmpty": {
+        "message": "История пуста. Успешные результаты появятся здесь."
+    },
+    "historyNoMatches": {
+        "message": "По вашему запросу ничего не найдено."
+    },
+    "confirmClearHistory": {
+        "message": "Удалить всю историю запросов? Это действие нельзя отменить."
+    },
+    "historyFavoriteAdded": {
+        "message": "Добавлено в избранное."
+    },
+    "historyFavoriteRemoved": {
+        "message": "Удалено из избранного."
+    },
+    "historyResultCopied": {
+        "message": "Результат скопирован."
+    },
+    "historyReplayStarted": {
+        "message": "Команда отправлена на открытую страницу."
+    },
+    "historyCommandSaved": {
+        "message": "Команда сохранена в настройках."
+    },
+    "historyItemDeleted": {
+        "message": "Запись удалена."
+    },
+    "historyCleared": {
+        "message": "История очищена."
+    },
+    "historyExported": {
+        "message": "Файл истории подготовлен."
+    },
+    "historyActionFailed": {
+        "message": "Не удалось выполнить действие с историей. Попробуйте ещё раз."
+    },
+    "historyLoadFailed": {
+        "message": "Не удалось загрузить историю. Перезагрузите страницу."
+    },
+    "whySo": {
+        "message": "💡 Почему так?"
+    },
+    "hideExplanation": {
+        "message": "Свернуть разбор"
+    },
+    "explanationLoading": {
+        "message": "Анализируем ошибки и правила..."
+    },
+    "explanationTitle": {
+        "message": "Разбор правил и ошибок"
+    },
+    "explanationCopy": {
+        "message": "Копировать разбор"
+    },
+    "explanationCopied": {
+        "message": "Разбор скопирован!"
+    },
+    "explanationFailed": {
+        "message": "Не удалось получить разбор правил."
+    },
+    "searchGoogle": {
+        "message": "Искать в Google"
+    },
+    "searchYandex": {
+        "message": "Искать в Яндексе"
+    },
+    "searchDuckDuckGo": {
+        "message": "Искать в DuckDuckGo"
+    },
+    "editText": {
+        "message": "Редактировать"
+    },
+    "textFunctions": {
+        "message": "Функции текста"
+    },
+    "moreOptions": {
+        "message": "Ещё опции"
+    },
+    "moreToolsTitle": {
+        "message": "Дополнительные инструменты"
+    },
+    "closePanel": {
+        "message": "Закрыть панель"
+    },
+    "close": {
+        "message": "Закрыть"
+    },
+    "layoutFixed": {
+        "message": "Раскладка исправлена"
+    },
+    "translation": {
+        "message": "Перевод"
+    },
+    "ocrResult": {
+        "message": "Распознанный текст"
+    },
+    "apiKeyMissing": {
+        "message": "API-ключ не настроен"
+    },
+    "openSettingsNow": {
+        "message": "Открыть сейчас"
+    },
+    "requestCancelled": {
+        "message": "Запрос отменён."
+    },
+    "siteAccessDisabled": {
+        "message": "LexiSync отключён для этого сайта."
+    },
+    "requestConnectionLost": {
+        "message": "Соединение с обработчиком запроса прервано. Повторите попытку."
+    },
+    "undoReplacement": {
+        "message": "Отменить замену"
+    },
+    "replaced": {
+        "message": "Заменено!"
+    },
+    "copied": {
+        "message": "Текст скопирован!"
+    },
+    "showResult": {
+        "message": "Показать результат"
+    },
+    "enableOnSite": {
+        "message": "LexiSync включён"
+    },
+    "enableAllSites": {
+        "message": "На всех сайтах и фреймах"
+    },
+    "allSitesAccessEnable": {
+        "message": "Разрешить работу на всех сайтах и во встроенных фреймах"
+    },
     "allSitesAccessHint": {
         "message": "LexiSync будет автоматически доступен во всех онлайн-редакторах, учебных тренажёрах (Stepik, Coursera) и документах без необходимости отдельного включения каждого домена."
     },
-    "commandNotFound": { "message": "Исходная пользовательская команда не найдена." },
-    "apiKeyLabel": { "message": "Ваш Mistral API Key:" },
-    "apiKeyPlaceholder": { "message": "Вставьте ключ…" },
-    "toggleApiKey": { "message": "Показать или скрыть API-ключ" },
-    "showApiKey": { "message": "Показать API-ключ" },
-    "hideApiKey": { "message": "Скрыть API-ключ" },
-    "toneLabel": { "message": "Стиль текста (Tone of Voice):" },
-    "toneBusiness": { "message": "💼 Деловой (строгий, вежливый)" },
-    "toneFriendly": { "message": "👋 Дружелюбный (открытый, разговорный)" },
-    "tonePersuasive": { "message": "🔥 Убедительный (сильный, продающий)" },
-    "toneCreative": { "message": "✨ Креативный (живой, с метафорами)" },
-    "themeAuto": { "message": "🖥️ Авто (как в системе)" },
-    "themeLight": { "message": "☀️ Светлая" },
-    "themeDark": { "message": "🌙 Тёмная" },
-    "appearanceHint": { "message": "Масштаб применяется к панели выделения, AI-меню и окну результата." },
-    "compactResultMode": { "message": "Компактный результат" },
-    "compactResultModeHint": { "message": "Показывать только готовый текст и кнопки замены и копирования." },
-    "compactResultPreviewTitle": { "message": "Предпросмотр компактного результата" },
-    "compactResultPreviewAria": { "message": "Пример компактного результата" },
-    "compactResultPreviewBefore": { "message": "Готовый текст без " },
-    "compactResultPreviewCorrection": { "message": "ошибок" },
-    "compactResultPreviewAfter": { "message": "." },
-    "searchEngineLabel": { "message": "Поисковая система:" },
-    "sendContextLong": { "message": "Передавать контекст выбранному AI-провайдеру" },
+    "commandNotFound": {
+        "message": "Исходная пользовательская команда не найдена."
+    },
+    "apiKeyLabel": {
+        "message": "Ваш Mistral API Key:"
+    },
+    "apiKeyPlaceholder": {
+        "message": "Вставьте ключ…"
+    },
+    "toggleApiKey": {
+        "message": "Показать или скрыть API-ключ"
+    },
+    "showApiKey": {
+        "message": "Показать API-ключ"
+    },
+    "hideApiKey": {
+        "message": "Скрыть API-ключ"
+    },
+    "toneLabel": {
+        "message": "Стиль текста (Tone of Voice):"
+    },
+    "toneBusiness": {
+        "message": "💼 Деловой (строгий, вежливый)"
+    },
+    "toneFriendly": {
+        "message": "👋 Дружелюбный (открытый, разговорный)"
+    },
+    "tonePersuasive": {
+        "message": "🔥 Убедительный (сильный, продающий)"
+    },
+    "toneCreative": {
+        "message": "✨ Креативный (живой, с метафорами)"
+    },
+    "themeAuto": {
+        "message": "🖥️ Авто (как в системе)"
+    },
+    "themeLight": {
+        "message": "☀️ Светлая"
+    },
+    "themeDark": {
+        "message": "🌙 Тёмная"
+    },
+    "appearanceHint": {
+        "message": "Масштаб применяется к панели выделения, AI-меню и окну результата."
+    },
+    "compactResultMode": {
+        "message": "Компактный результат"
+    },
+    "compactResultModeHint": {
+        "message": "Показывать только готовый текст и кнопки замены и копирования."
+    },
+    "compactResultPreviewTitle": {
+        "message": "Предпросмотр компактного результата"
+    },
+    "compactResultPreviewAria": {
+        "message": "Пример компактного результата"
+    },
+    "compactResultPreviewBefore": {
+        "message": "Готовый текст без "
+    },
+    "compactResultPreviewCorrection": {
+        "message": "ошибок"
+    },
+    "compactResultPreviewAfter": {
+        "message": "."
+    },
+    "searchEngineLabel": {
+        "message": "Поисковая система:"
+    },
+    "sendContextLong": {
+        "message": "Передавать контекст выбранному AI-провайдеру"
+    },
     "sendContextHint": {
         "message": "Если включено, вместе с выделенным текстом отправляются до 2000 символов окружения, заголовок страницы и домен. По умолчанию выключено."
     },
-    "suggestionsTitle": { "message": "Персональные подсказки" },
-    "suggestionsEnable": { "message": "Предлагать продолжение текста" },
+    "suggestionsTitle": {
+        "message": "Персональные подсказки"
+    },
+    "suggestionsEnable": {
+        "message": "Предлагать продолжение текста"
+    },
     "suggestionsHint": {
         "message": "LexiSync показывает до трёх вариантов возле поля ввода. Выбирайте вариант стрелками, принимайте клавишей Tab или Enter, закрывайте меню клавишей Esc."
     },
-    "learningEnable": { "message": "Изучать мой стиль письма" },
+    "learningEnable": {
+        "message": "Изучать мой стиль письма"
+    },
     "learningHint": {
         "message": "Слова и словосочетания сохраняются только локально. Пароли, платёжные поля, приватные окна и исключённые сайты не обрабатываются."
     },
-    "languageProfile": { "message": "Локальный языковой профиль" },
-    "historyPrivacyTitle": { "message": "История и приватность" },
-    "historyEnable": { "message": "Сохранять историю и кэш" },
-    "historyPrivateHint": { "message": "В приватных окнах история и кэш всегда отключены." },
-    "retentionLabel": { "message": "Срок хранения истории:" },
-    "day1": { "message": "1 день" },
-    "days7": { "message": "7 дней" },
-    "days30": { "message": "30 дней" },
-    "disabledSitesLabel": { "message": "Не сохранять данные на сайтах:" },
-    "dictionaryTitle": { "message": "Личный словарь" },
-    "dictionaryLabel": { "message": "Слова, которые не нужно исправлять:" },
-    "getApiKeyTitle": { "message": "Где взять API-ключи?" },
-    "getMistralApiKeySubTitle": { "message": "✦ Mistral AI" },
-    "getApiKeyStep1": { "message": "Перейдите на console.mistral.ai." },
-    "getApiKeyStep2": { "message": "В меню слева найдите раздел API Keys." },
-    "getApiKeyStep3": { "message": "Нажмите Create new key и скопируйте его." },
-    "getGigaChatAuthKeySubTitle": { "message": "💚 GigaChat (Сбер)" },
-    "getGigaChatAuthKeyStep1": { "message": "Перейдите на developers.sber.ru в кабинет Салют." },
-    "getGigaChatAuthKeyStep2": { "message": "Создайте проект с доступом к GigaChat API." },
-    "getGigaChatAuthKeyStep3": { "message": "Скопируйте Authorization Key (Base64) и вставьте в настройки." },
-    "save": { "message": "Сохранить" },
-    "saved": { "message": "✓ Сохранено успешно!" },
-    "onboardingIntro": { "message": "Расширение помогает исправлять, переводить и улучшать текст прямо на странице." },
-    "onboardingSelect": { "message": "Выделите текст на любом сайте" },
-    "onboardingOpen": { "message": "Нажмите кнопку LexiSync рядом с выделением" },
-    "onboardingChoose": { "message": "Выберите нужное действие" },
-    "onboardingShortcuts": { "message": "Быстрые команды" },
-    "onboardingShortcutsHint": { "message": "Основные действия доступны без открытия меню." },
-    "onboardingPrivacy": { "message": "Приватность под вашим контролем" },
+    "languageProfile": {
+        "message": "Локальный языковой профиль"
+    },
+    "historyPrivacyTitle": {
+        "message": "История и приватность"
+    },
+    "historyEnable": {
+        "message": "Сохранять историю и кэш"
+    },
+    "historyPrivateHint": {
+        "message": "В приватных окнах история и кэш всегда отключены."
+    },
+    "retentionLabel": {
+        "message": "Срок хранения истории:"
+    },
+    "day1": {
+        "message": "1 день"
+    },
+    "days7": {
+        "message": "7 дней"
+    },
+    "days30": {
+        "message": "30 дней"
+    },
+    "disabledSitesLabel": {
+        "message": "Не сохранять данные на сайтах:"
+    },
+    "dictionaryTitle": {
+        "message": "Личный словарь"
+    },
+    "dictionaryLabel": {
+        "message": "Слова, которые не нужно исправлять:"
+    },
+    "getApiKeyTitle": {
+        "message": "Где взять API-ключи?"
+    },
+    "getMistralApiKeySubTitle": {
+        "message": "✦ Mistral AI"
+    },
+    "getApiKeyStep1": {
+        "message": "Перейдите на console.mistral.ai."
+    },
+    "getApiKeyStep2": {
+        "message": "В меню слева найдите раздел API Keys."
+    },
+    "getApiKeyStep3": {
+        "message": "Нажмите Create new key и скопируйте его."
+    },
+    "save": {
+        "message": "Сохранить"
+    },
+    "saved": {
+        "message": "✓ Сохранено успешно!"
+    },
+    "onboardingIntro": {
+        "message": "Расширение помогает исправлять, переводить и улучшать текст прямо на странице."
+    },
+    "onboardingSelect": {
+        "message": "Выделите текст на любом сайте"
+    },
+    "onboardingOpen": {
+        "message": "Нажмите кнопку LexiSync рядом с выделением"
+    },
+    "onboardingChoose": {
+        "message": "Выберите нужное действие"
+    },
+    "onboardingShortcuts": {
+        "message": "Быстрые команды"
+    },
+    "onboardingShortcutsHint": {
+        "message": "Основные действия доступны без открытия меню."
+    },
+    "onboardingPrivacy": {
+        "message": "Приватность под вашим контролем"
+    },
     "onboardingPrivacyHint": {
         "message": "Текст отправляется выбранному AI-провайдеру только для выполнения команды. При автоматическом переключении резервный сервис получает текст лишь после временной ошибки основного."
     },
-    "onboardingApi": { "message": "Добавьте API-ключ Mistral" },
+    "onboardingApi": {
+        "message": "Добавьте API-ключ Mistral"
+    },
     "onboardingApiHint": {
         "message": "Ключ нужен для AI-команд и хранится только в локальном хранилище расширения."
     },
-    "onboardingGigaChatApi": { "message": "Добавьте Authorization Key GigaChat" },
-    "onboardingGigaChatApiHint": {
-        "message": "Ключ нужен для работы модели GigaChat и автоматического резервирования при сбоях."
+    "restartTutorial": {
+        "message": "Открыть обучение"
     },
-    "onboardingGigaChatPers": { "message": "GigaChat · GIGACHAT_API_PERS" },
-    "restartTutorial": { "message": "Открыть обучение" },
-    "tutorialBenefitFix": { "message": "Исправление ошибок и улучшение стиля" },
-    "tutorialBenefitTranslate": { "message": "Перевод, эмодзи и пользовательские команды" },
-    "tutorialBenefitWorkspace": { "message": "Быстрые команды и локальная история" },
-    "tutorialOpenMistral": { "message": "Открыть Mistral Studio ↗" },
-    "tutorialMistralSignIn": { "message": "Войдите в аккаунт Mistral или создайте новый" },
-    "tutorialGigaChatSignIn": { "message": "Войдите по Сбер ID в кабинет разработчика Салют" },
-    "tutorialApiKeyLabel": { "message": "API-ключ Mistral" },
-    "tutorialGigaChatAuthKeyLabel": { "message": "Authorization Key GigaChat" },
-    "tutorialCheckKey": { "message": "Проверить" },
-    "tutorialKeyRequired": { "message": "Сначала вставьте API-ключ." },
-    "tutorialKeyInvalid": { "message": "Ключ не прошёл проверку. Проверьте его и повторите." },
-    "tutorialKeySaved": { "message": "Ключ проверен и сохранён." },
-    "tutorialFirstAction": { "message": "Выполните первую команду" },
-    "tutorialFirstActionHint": { "message": "LexiSync работает прямо с текстом на открытой странице." },
+    "tutorialBenefitFix": {
+        "message": "Исправление ошибок и улучшение стиля"
+    },
+    "tutorialBenefitTranslate": {
+        "message": "Перевод, эмодзи и пользовательские команды"
+    },
+    "tutorialBenefitWorkspace": {
+        "message": "Быстрые команды и локальная история"
+    },
+    "tutorialOpenMistral": {
+        "message": "Открыть Mistral Studio ↗"
+    },
+    "tutorialMistralSignIn": {
+        "message": "Войдите в аккаунт Mistral или создайте новый"
+    },
+    "tutorialApiKeyLabel": {
+        "message": "API-ключ Mistral"
+    },
+    "tutorialCheckKey": {
+        "message": "Проверить"
+    },
+    "tutorialKeyRequired": {
+        "message": "Сначала вставьте API-ключ."
+    },
+    "tutorialKeyInvalid": {
+        "message": "Ключ не прошёл проверку. Проверьте его и повторите."
+    },
+    "tutorialKeySaved": {
+        "message": "Ключ проверен и сохранён."
+    },
+    "tutorialFirstAction": {
+        "message": "Выполните первую команду"
+    },
+    "tutorialFirstActionHint": {
+        "message": "LexiSync работает прямо с текстом на открытой странице."
+    },
     "tutorialChooseAndApply": {
         "message": "Выберите команду, затем замените или скопируйте результат"
     },
-    "tutorialWorkspace": { "message": "Быстрые команды" },
+    "tutorialWorkspace": {
+        "message": "Быстрые команды"
+    },
     "tutorialWorkspaceHint": {
         "message": "Выделите текст на странице или используйте горячие клавиши."
     },
-    "tutorialPrivacyContext": { "message": "Контекст страницы по умолчанию отключён" },
-    "tutorialPrivacyLocal": { "message": "API-ключ и история хранятся локально" },
-    "tutorialPrivacyControls": { "message": "Историю и данные можно очистить в настройках" },
-    "profileNamePlaceholder": { "message": "Рабочая почта" },
-    "profileInstructionPlaceholder": { "message": "Пиши кратко, профессионально и без канцеляризмов." },
-    "commandNamePlaceholder": { "message": "Например: Сделать короче" },
-    "commandPromptPlaceholder": { "message": "Сократи текст, сохранив ключевые факты и исходный смысл." },
-    "shortcutSpellcheck": { "message": "Alt+R — исправить ошибки" },
-    "shortcutStyle": { "message": "Alt+Y — переписать текст" },
-    "shortcutEmoji": { "message": "Alt+T — добавить эмодзи" },
-    "shortcutOcr": { "message": "Alt+S — распознать текст на экране" },
-    "privacyOptIn": { "message": "Функция включается только вами" },
-    "privacySensitive": { "message": "Пароли и платёжные поля игнорируются" },
-    "privacyClear": { "message": "Языковой профиль можно очистить в любой момент" },
-    "apiStepGet": { "message": "Получите ключ в console.mistral.ai" },
-    "apiStepPaste": { "message": "Вставьте его во вкладке «Основные»" },
-    "apiStepIndependent": { "message": "Остальные настройки сохраняются независимо от ключа" },
-    "presetShortName": { "message": "Сделать короче" },
-    "presetShortPrompt": { "message": "Сократи текст, сохранив ключевые факты и исходный смысл." },
-    "presetSimpleName": { "message": "Объяснить проще" },
-    "presetSimplePrompt": { "message": "Объясни текст простыми и понятными словами без профессионального жаргона." },
-    "presetListName": { "message": "Преобразовать в список" },
-    "presetListPrompt": { "message": "Преобразуй текст в краткий структурированный маркированный список." },
-    "presetClientName": { "message": "Ответ клиенту" },
+    "tutorialPrivacyContext": {
+        "message": "Контекст страницы по умолчанию отключён"
+    },
+    "tutorialPrivacyLocal": {
+        "message": "API-ключ и история хранятся локально"
+    },
+    "tutorialPrivacyControls": {
+        "message": "Историю и данные можно очистить в настройках"
+    },
+    "profileNamePlaceholder": {
+        "message": "Рабочая почта"
+    },
+    "profileInstructionPlaceholder": {
+        "message": "Пиши кратко, профессионально и без канцеляризмов."
+    },
+    "commandNamePlaceholder": {
+        "message": "Например: Сделать короче"
+    },
+    "commandPromptPlaceholder": {
+        "message": "Сократи текст, сохранив ключевые факты и исходный смысл."
+    },
+    "shortcutSpellcheck": {
+        "message": "Alt+R — исправить ошибки"
+    },
+    "shortcutStyle": {
+        "message": "Alt+Y — переписать текст"
+    },
+    "shortcutEmoji": {
+        "message": "Alt+T — добавить эмодзи"
+    },
+    "shortcutOcr": {
+        "message": "Alt+S — распознать текст на экране"
+    },
+    "privacyOptIn": {
+        "message": "Функция включается только вами"
+    },
+    "privacySensitive": {
+        "message": "Пароли и платёжные поля игнорируются"
+    },
+    "privacyClear": {
+        "message": "Языковой профиль можно очистить в любой момент"
+    },
+    "apiStepGet": {
+        "message": "Получите ключ в console.mistral.ai"
+    },
+    "apiStepPaste": {
+        "message": "Вставьте его во вкладке «Основные»"
+    },
+    "apiStepIndependent": {
+        "message": "Остальные настройки сохраняются независимо от ключа"
+    },
+    "presetShortName": {
+        "message": "Сделать короче"
+    },
+    "presetShortPrompt": {
+        "message": "Сократи текст, сохранив ключевые факты и исходный смысл."
+    },
+    "presetSimpleName": {
+        "message": "Объяснить проще"
+    },
+    "presetSimplePrompt": {
+        "message": "Объясни текст простыми и понятными словами без профессионального жаргона."
+    },
+    "presetListName": {
+        "message": "Преобразовать в список"
+    },
+    "presetListPrompt": {
+        "message": "Преобразуй текст в краткий структурированный маркированный список."
+    },
+    "presetClientName": {
+        "message": "Ответ клиенту"
+    },
     "presetClientPrompt": {
         "message": "Составь вежливый, профессиональный и конкретный ответ клиенту на основе текста."
     },
-    "presetShortLabel": { "message": "Короче" },
-    "presetSimpleLabel": { "message": "Проще" },
-    "presetListLabel": { "message": "В список" },
-    "presetClientLabel": { "message": "Ответ клиенту" },
-    "learnedWords": { "message": "Изучено" },
-    "words": { "message": "слов" },
-    "phrases": { "message": "словосочетаний" },
-    "noCommands": { "message": "Пока нет пользовательских команд." },
-    "commandLimit": { "message": "Можно создать не более 8 команд." },
-    "saving": { "message": "Сохранение…" },
-    "checkingKey": { "message": "Проверка ключа…" },
-    "invalidKey": { "message": "Настройки сохранены, но новый API-ключ не прошёл проверку." },
-    "keyCheckUnavailable": { "message": "Настройки сохранены. Проверить API-ключ сейчас не удалось." },
-    "saveSuccess": { "message": "✓ Настройки успешно сохранены!" },
-    "clearAdaptiveConfirm": { "message": "Удалить все локально изученные слова и словосочетания?" },
-    "adaptiveDataCleared": { "message": "Адаптивные данные очищены." },
-    "adaptiveClearFailed": { "message": "Не удалось очистить адаптивные данные." },
-    "of": { "message": "из" },
-    "secondsShort": { "message": "с" },
+    "presetShortLabel": {
+        "message": "Короче"
+    },
+    "presetSimpleLabel": {
+        "message": "Проще"
+    },
+    "presetListLabel": {
+        "message": "В список"
+    },
+    "presetClientLabel": {
+        "message": "Ответ клиенту"
+    },
+    "learnedWords": {
+        "message": "Изучено"
+    },
+    "words": {
+        "message": "слов"
+    },
+    "phrases": {
+        "message": "словосочетаний"
+    },
+    "noCommands": {
+        "message": "Пока нет пользовательских команд."
+    },
+    "commandLimit": {
+        "message": "Можно создать не более 8 команд."
+    },
+    "saving": {
+        "message": "Сохранение…"
+    },
+    "checkingKey": {
+        "message": "Проверка ключа…"
+    },
+    "invalidKey": {
+        "message": "Настройки сохранены, но новый API-ключ не прошёл проверку."
+    },
+    "keyCheckUnavailable": {
+        "message": "Настройки сохранены. Проверить API-ключ сейчас не удалось."
+    },
+    "saveSuccess": {
+        "message": "✓ Настройки успешно сохранены!"
+    },
+    "clearAdaptiveConfirm": {
+        "message": "Удалить все локально изученные слова и словосочетания?"
+    },
+    "adaptiveDataCleared": {
+        "message": "Адаптивные данные очищены."
+    },
+    "adaptiveClearFailed": {
+        "message": "Не удалось очистить адаптивные данные."
+    },
+    "of": {
+        "message": "из"
+    },
+    "secondsShort": {
+        "message": "с"
+    },
     "historyPromptSpellcheck": {
         "message": "Исправь орфографические, грамматические и пунктуационные ошибки, сохранив формулировки."
     },
-    "historyPromptStyle": { "message": "Перепиши текст в стиле этого примера результата:" },
-    "historyPromptEmoji": { "message": "Добавь подходящие по смыслу эмодзи, не перегружая текст." },
-    "historyPromptLayout": { "message": "Исправь текст, набранный в неправильной раскладке." },
-    "historyPromptTranslate": { "message": "Переведи текст, сохранив смысл, терминологию и форматирование." },
-    "historyPromptOcr": { "message": "Приведи распознанный текст в аккуратный читаемый вид." },
-    "historyPromptCustom": { "message": "Обработай текст по аналогии с этим результатом:" },
-    "settingsSections": { "message": "Разделы настроек" },
-    "lexisyncSections": { "message": "Разделы LexiSync" },
-    "shortcutTitle": { "message": "Горячие клавиши LexiSync" },
+    "historyPromptStyle": {
+        "message": "Перепиши текст в стиле этого примера результата:"
+    },
+    "historyPromptEmoji": {
+        "message": "Добавь подходящие по смыслу эмодзи, не перегружая текст."
+    },
+    "historyPromptLayout": {
+        "message": "Исправь текст, набранный в неправильной раскладке."
+    },
+    "historyPromptTranslate": {
+        "message": "Переведи текст, сохранив смысл, терминологию и форматирование."
+    },
+    "historyPromptOcr": {
+        "message": "Приведи распознанный текст в аккуратный читаемый вид."
+    },
+    "historyPromptCustom": {
+        "message": "Обработай текст по аналогии с этим результатом:"
+    },
+    "settingsSections": {
+        "message": "Разделы настроек"
+    },
+    "lexisyncSections": {
+        "message": "Разделы LexiSync"
+    },
+    "shortcutTitle": {
+        "message": "Горячие клавиши LexiSync"
+    },
     "textNotFound": {
         "message": "Текст не найден. В Google Docs выделите текст, нажмите Ctrl+C и повторите горячую клавишу."
     },
-    "clipboardDenied": { "message": "Нет доступа к буферу обмена. Кликните по документу и попробуйте снова." },
-    "clipboardReadFailed": { "message": "Не удалось прочитать буфер обмена. Разрешите доступ и попробуйте снова." },
-    "rateLimitRetry": { "message": "Лимит. Автоповтор через" },
-    "seconds": { "message": "сек…" },
-    "spellcheckDone": { "message": "Ошибки исправлены" },
-    "styleChanged": { "message": "Стиль изменён" },
-    "emojiVariants": { "message": "Варианты с эмодзи" },
-    "myCommand": { "message": "Моя команда" },
-    "restoreCorrection": { "message": "Вернуть" },
-    "correctionAccepted": { "message": "Принято" },
-    "acceptAgain": { "message": "Снова принять исправление" },
-    "keepOriginal": { "message": "Оставить исходное слово" },
-    "addDictionary": { "message": "+ Словарь" },
-    "dictionaryFuture": { "message": "Не исправлять это слово в будущем" },
-    "added": { "message": "Добавлено" },
-    "cancelRequest": { "message": "Отменить запрос" },
-    "cancelling": { "message": "Отменяем запрос…" },
-    "processing": { "message": "LexiSync обрабатывает текст" },
-    "offlineError": { "message": "Нет подключения к интернету. Проверьте сеть и попробуйте снова." },
-    "textTooLong": { "message": "Текст слишком длинный. Выделите не более 3000 символов за раз." },
-    "reloadPage": { "message": "Пожалуйста, обновите страницу (F5)." },
-    "unknownError": { "message": "Неизвестная ошибка." },
-    "errorPrefix": { "message": "Ошибка:" },
-    "editableResult": { "message": "Результат можно редактировать" },
-    "openingSettings": { "message": "Открываем настройки через" },
-    "extractingText": { "message": "Извлекаем текст…" },
-    "refineShortName": { "message": "Сделать короче" },
-    "refineLongName": { "message": "Сделать подробнее" },
-    "refineFormalName": { "message": "Сделать формальнее" },
-    "refineLongPrompt": { "message": "Раскрой текст подробнее, добавив полезные пояснения без лишней воды." },
-    "refineFormalPrompt": { "message": "Перепиши текст в более формальном и профессиональном стиле." },
-    "actionToolbar": { "message": "Действия с выделенным текстом" },
-    "aiMenu": { "message": "AI-инструменты" },
-    "resultDialog": { "message": "Результат обработки текста" },
-    "selectOcrArea": { "message": "Выберите область экрана для распознавания текста" },
-    "optionsPageTitle": { "message": "Настройки LexiSync" },
-    "historyPageTitle": { "message": "История LexiSync" },
-    "requestFailed": { "message": "Не удалось выполнить запрос." },
-    "invalidApiKey": { "message": "Неверный API-ключ. Проверьте настройки." },
-    "mistralRateLimit": { "message": "Превышен лимит запросов Mistral. Попробуйте немного позже." },
-    "mistralUnavailable": { "message": "Сервис Mistral временно недоступен. Попробуйте ещё раз." },
-    "mistralApiError": { "message": "Ошибка Mistral API" },
+    "clipboardDenied": {
+        "message": "Нет доступа к буферу обмена. Кликните по документу и попробуйте снова."
+    },
+    "clipboardReadFailed": {
+        "message": "Не удалось прочитать буфер обмена. Разрешите доступ и попробуйте снова."
+    },
+    "rateLimitRetry": {
+        "message": "Лимит. Автоповтор через"
+    },
+    "seconds": {
+        "message": "сек…"
+    },
+    "spellcheckDone": {
+        "message": "Ошибки исправлены"
+    },
+    "styleChanged": {
+        "message": "Стиль изменён"
+    },
+    "emojiVariants": {
+        "message": "Варианты с эмодзи"
+    },
+    "myCommand": {
+        "message": "Моя команда"
+    },
+    "restoreCorrection": {
+        "message": "Вернуть"
+    },
+    "correctionAccepted": {
+        "message": "Принято"
+    },
+    "acceptAgain": {
+        "message": "Снова принять исправление"
+    },
+    "keepOriginal": {
+        "message": "Оставить исходное слово"
+    },
+    "addDictionary": {
+        "message": "+ Словарь"
+    },
+    "dictionaryFuture": {
+        "message": "Не исправлять это слово в будущем"
+    },
+    "added": {
+        "message": "Добавлено"
+    },
+    "cancelRequest": {
+        "message": "Отменить запрос"
+    },
+    "cancelling": {
+        "message": "Отменяем запрос…"
+    },
+    "processing": {
+        "message": "LexiSync обрабатывает текст"
+    },
+    "offlineError": {
+        "message": "Нет подключения к интернету. Проверьте сеть и попробуйте снова."
+    },
+    "textTooLong": {
+        "message": "Текст слишком длинный. Выделите не более 3000 символов за раз."
+    },
+    "reloadPage": {
+        "message": "Пожалуйста, обновите страницу (F5)."
+    },
+    "unknownError": {
+        "message": "Неизвестная ошибка."
+    },
+    "errorPrefix": {
+        "message": "Ошибка:"
+    },
+    "editableResult": {
+        "message": "Результат можно редактировать"
+    },
+    "openingSettings": {
+        "message": "Открываем настройки через"
+    },
+    "extractingText": {
+        "message": "Извлекаем текст…"
+    },
+    "refineShortName": {
+        "message": "Сделать короче"
+    },
+    "refineLongName": {
+        "message": "Сделать подробнее"
+    },
+    "refineFormalName": {
+        "message": "Сделать формальнее"
+    },
+    "refineLongPrompt": {
+        "message": "Раскрой текст подробнее, добавив полезные пояснения без лишней воды."
+    },
+    "refineFormalPrompt": {
+        "message": "Перепиши текст в более формальном и профессиональном стиле."
+    },
+    "actionToolbar": {
+        "message": "Действия с выделенным текстом"
+    },
+    "aiMenu": {
+        "message": "AI-инструменты"
+    },
+    "resultDialog": {
+        "message": "Результат обработки текста"
+    },
+    "selectOcrArea": {
+        "message": "Выберите область экрана для распознавания текста"
+    },
+    "optionsPageTitle": {
+        "message": "Настройки LexiSync"
+    },
+    "historyPageTitle": {
+        "message": "История LexiSync"
+    },
+    "requestFailed": {
+        "message": "Не удалось выполнить запрос."
+    },
+    "invalidApiKey": {
+        "message": "Неверный API-ключ. Проверьте настройки."
+    },
+    "mistralRateLimit": {
+        "message": "Превышен лимит запросов Mistral. Попробуйте немного позже."
+    },
+    "mistralUnavailable": {
+        "message": "Сервис Mistral временно недоступен. Попробуйте ещё раз."
+    },
+    "mistralApiError": {
+        "message": "Ошибка Mistral API"
+    },
     "mistralApiKeyExpired": {
         "message": "Срок действия API-ключа Mistral истёк. Сохраните новый ключ в настройках LexiSync."
     },
@@ -405,121 +1049,303 @@
     "mistralAccessForbidden": {
         "message": "Mistral распознал ключ, но запретил доступ. Проверьте рабочее пространство, права и биллинг."
     },
-    "imageMissing": { "message": "Изображение для распознавания не получено." },
-    "ocrNoText": { "message": "Mistral OCR не обнаружил текст в выбранной области." },
-    "emptyStream": { "message": "Mistral вернул пустой поток данных." },
-    "modeMissing": { "message": "Режим обработки не указан." },
-    "requestTimeout": { "message": "Превышено время ожидания ответа (45 секунд)." },
-    "unknownNetworkError": { "message": "Неизвестная ошибка сети." },
-    "settingsFileTooLarge": { "message": "Файл настроек слишком большой." },
-    "invalidSettingsFile": { "message": "Некорректный файл настроек." },
-    "unsupportedSettingsFormat": { "message": "Формат файла настроек не поддерживается." },
-    "resultDisplayMode": { "message": "Режим результата" },
+    "imageMissing": {
+        "message": "Изображение для распознавания не получено."
+    },
+    "ocrNoText": {
+        "message": "Mistral OCR не обнаружил текст в выбранной области."
+    },
+    "emptyStream": {
+        "message": "Mistral вернул пустой поток данных."
+    },
+    "modeMissing": {
+        "message": "Режим обработки не указан."
+    },
+    "requestTimeout": {
+        "message": "Превышено время ожидания ответа (45 секунд)."
+    },
+    "unknownNetworkError": {
+        "message": "Неизвестная ошибка сети."
+    },
+    "settingsFileTooLarge": {
+        "message": "Файл настроек слишком большой."
+    },
+    "invalidSettingsFile": {
+        "message": "Некорректный файл настроек."
+    },
+    "unsupportedSettingsFormat": {
+        "message": "Формат файла настроек не поддерживается."
+    },
+    "resultDisplayMode": {
+        "message": "Режим результата"
+    },
     "resultDisplayModeHint": {
         "message": "Автоматический режим показывает простые операции компактно, а изменение стиля — подробно."
     },
-    "resultDisplayAuto": { "message": "Авто" },
-    "resultDisplayCompact": { "message": "Компактно" },
-    "resultDisplayDetailed": { "message": "Подробно" },
-    "resultPreviewTitle": { "message": "Предпросмотр результата" },
-    "interfacePreviewAria": { "message": "Предпросмотр размера интерфейса" },
-    "dismissSuggestion": { "message": "Больше не предлагать выбранное слово" },
-    "recognizeText": { "message": "Распознать текст" },
-    "historyReplayPageMissing": { "message": "Не найдена открытая веб-страница." },
-    "requestInvalid": { "message": "Некорректный запрос." },
-    "copyFailed": { "message": "Не удалось скопировать текст" },
-    "selectTranslationLanguage": { "message": "Выбрать язык перевода" },
-    "translationLanguages": { "message": "Языки перевода" },
-    "correctionDetails": { "message": "Исправление" },
-    "acceptCorrection": { "message": "Принять исправление" },
-    "closeCorrectionDetails": { "message": "Закрыть описание исправления" },
-    "adaptiveLoadFailed": { "message": "Не удалось загрузить персональные подсказки." },
-    "liveProofLoadFailed": { "message": "Не удалось загрузить автоматическую проверку." },
-    "ocrLoadFailed": { "message": "Не удалось запустить распознавание текста." },
-    "incompleteStream": { "message": "Ответ Mistral прервался до завершения. Повторите запрос." },
-    "unsavedChanges": { "message": "Есть несохранённые изменения" },
-    "noUnsavedChanges": { "message": "Все изменения сохранены" },
-    "invalidSiteEntries": { "message": "Исправьте некорректные адреса сайтов:" },
-    "saveFailed": { "message": "Не удалось сохранить настройки." },
-    "siteSettingSaved": { "message": "Настройка сайта сохранена." },
-    "siteSettingUpdateFailed": { "message": "Не удалось изменить настройку сайта." },
-    "sitePermissionDenied": { "message": "Доступ к сайту не предоставлен." },
-    "requestModeInvalid": { "message": "Указан недопустимый режим обработки." },
-    "requestTextTooLong": { "message": "Выбранный текст слишком длинный." },
-    "requestContextTooLong": { "message": "Контекст страницы слишком длинный." },
-    "requestCustomPromptTooLong": { "message": "Инструкция пользовательской команды слишком длинная." },
-    "requestPageDataTooLong": { "message": "Данные страницы слишком длинные." },
-    "requestTextMissing": { "message": "Текст для обработки не получен." },
-    "requestCustomPromptMissing": { "message": "Инструкция пользовательской команды пуста." },
-    "ocrImageInvalid": { "message": "Некорректное изображение для распознавания." },
-    "ocrImageTooLarge": { "message": "Изображение для распознавания слишком большое." },
-    "dailyBudgetReached": { "message": "Достигнут дневной лимит запросов." },
-    "monthlyBudgetReached": { "message": "Достигнут месячный лимит токенов." },
-    "deletedCorrection": { "message": "Удалено" },
+    "resultDisplayAuto": {
+        "message": "Авто"
+    },
+    "resultDisplayCompact": {
+        "message": "Компактно"
+    },
+    "resultDisplayDetailed": {
+        "message": "Подробно"
+    },
+    "resultPreviewTitle": {
+        "message": "Предпросмотр результата"
+    },
+    "interfacePreviewAria": {
+        "message": "Предпросмотр размера интерфейса"
+    },
+    "dismissSuggestion": {
+        "message": "Больше не предлагать выбранное слово"
+    },
+    "recognizeText": {
+        "message": "Распознать текст"
+    },
+    "historyReplayPageMissing": {
+        "message": "Не найдена открытая веб-страница."
+    },
+    "requestInvalid": {
+        "message": "Некорректный запрос."
+    },
+    "copyFailed": {
+        "message": "Не удалось скопировать текст"
+    },
+    "selectTranslationLanguage": {
+        "message": "Выбрать язык перевода"
+    },
+    "translationLanguages": {
+        "message": "Языки перевода"
+    },
+    "correctionDetails": {
+        "message": "Исправление"
+    },
+    "acceptCorrection": {
+        "message": "Принять исправление"
+    },
+    "closeCorrectionDetails": {
+        "message": "Закрыть описание исправления"
+    },
+    "adaptiveLoadFailed": {
+        "message": "Не удалось загрузить персональные подсказки."
+    },
+    "liveProofLoadFailed": {
+        "message": "Не удалось загрузить автоматическую проверку."
+    },
+    "ocrLoadFailed": {
+        "message": "Не удалось запустить распознавание текста."
+    },
+    "incompleteStream": {
+        "message": "Ответ Mistral прервался до завершения. Повторите запрос."
+    },
+    "unsavedChanges": {
+        "message": "Есть несохранённые изменения"
+    },
+    "noUnsavedChanges": {
+        "message": "Все изменения сохранены"
+    },
+    "invalidSiteEntries": {
+        "message": "Исправьте некорректные адреса сайтов:"
+    },
+    "saveFailed": {
+        "message": "Не удалось сохранить настройки."
+    },
+    "siteSettingSaved": {
+        "message": "Настройка сайта сохранена."
+    },
+    "siteSettingUpdateFailed": {
+        "message": "Не удалось изменить настройку сайта."
+    },
+    "sitePermissionDenied": {
+        "message": "Доступ к сайту не предоставлен."
+    },
+    "requestModeInvalid": {
+        "message": "Указан недопустимый режим обработки."
+    },
+    "requestTextTooLong": {
+        "message": "Выбранный текст слишком длинный."
+    },
+    "requestContextTooLong": {
+        "message": "Контекст страницы слишком длинный."
+    },
+    "requestCustomPromptTooLong": {
+        "message": "Инструкция пользовательской команды слишком длинная."
+    },
+    "requestPageDataTooLong": {
+        "message": "Данные страницы слишком длинные."
+    },
+    "requestTextMissing": {
+        "message": "Текст для обработки не получен."
+    },
+    "requestCustomPromptMissing": {
+        "message": "Инструкция пользовательской команды пуста."
+    },
+    "ocrImageInvalid": {
+        "message": "Некорректное изображение для распознавания."
+    },
+    "ocrImageTooLarge": {
+        "message": "Изображение для распознавания слишком большое."
+    },
+    "dailyBudgetReached": {
+        "message": "Достигнут дневной лимит запросов."
+    },
+    "monthlyBudgetReached": {
+        "message": "Достигнут месячный лимит токенов."
+    },
+    "deletedCorrection": {
+        "message": "Удалено"
+    },
     "networkConnectionFailed": {
         "message": "Не удалось подключиться к сервису Mistral AI. Проверьте интернет и повторите попытку."
     },
-    "apiKeyInvalid": { "message": "API-ключ недействителен или был отозван. Проверьте ключ." },
-    "apiKeyValid": { "message": "API-ключ проверен и готов к работе." },
-    "retryRequest": { "message": "Повторить попытку" },
-    "liveProofCorrectionsFound": { "message": "Найдено исправлений:" },
-    "liveProofDismissHint": { "message": "Нажмите на зелёное, чтобы отклонить" },
-    "liveProofExcludeSite": { "message": "Не проверять сайт" },
-    "applyResult": { "message": "Применить" },
+    "apiKeyInvalid": {
+        "message": "API-ключ недействителен или был отозван. Проверьте ключ."
+    },
+    "apiKeyValid": {
+        "message": "API-ключ проверен и готов к работе."
+    },
+    "retryRequest": {
+        "message": "Повторить попытку"
+    },
+    "liveProofCorrectionsFound": {
+        "message": "Найдено исправлений:"
+    },
+    "liveProofDismissHint": {
+        "message": "Нажмите на зелёное, чтобы отклонить"
+    },
+    "liveProofExcludeSite": {
+        "message": "Не проверять сайт"
+    },
+    "applyResult": {
+        "message": "Применить"
+    },
     "privacyDataFlow": {
         "message": "В API отправляется только выбранный текст. Контекст страницы передаётся лишь при включённой настройке; API-ключ, история и статистика остаются на устройстве. Парольные и платёжные поля не обрабатываются."
     },
-    "siteSearch": { "message": "Найти исключённый сайт…" },
-    "siteSearchNoMatches": { "message": "Сайтов по этому запросу нет." },
-    "siteListEmpty": { "message": "Исключённые сайты появятся здесь." },
-    "removeSite": { "message": "Удалить сайт" },
-    "settingsSyncTitle": { "message": "Синхронизация настроек" },
-    "settingsSynced": { "message": "Настройки синхронизированы между браузерами." },
-    "settingsSyncFailed": { "message": "Синхронизация настроек недоступна. Изменения сохранены на этом устройстве." },
-    "retrySettingsSync": { "message": "Повторить синхронизацию" },
-    "settingsSyncRestored": { "message": "Синхронизация настроек восстановлена." },
-    "settingsSyncRetryFailed": { "message": "Не удалось синхронизировать настройки. Повторите попытку позже." },
-    "historySort": { "message": "Порядок истории" },
-    "historySortNewest": { "message": "Сначала новые" },
-    "historySortOldest": { "message": "Сначала старые" },
-    "historySortFavorites": { "message": "Сначала избранное" },
-    "requestCompletedIn": { "message": "Готово за $1 с" },
-    "resultFromCache": { "message": "Результат получен из локального кэша." },
-    "releaseNotesOpen": { "message": "Что нового" },
-    "releaseNotesOpenVersion": { "message": "Версия LexiSync $1. Открыть историю обновлений" },
-    "releaseNotesEyebrow": { "message": "История LexiSync" },
-    "releaseNotesTitle": { "message": "Что нового" },
-    "releaseNotesClose": { "message": "Закрыть историю обновлений" },
-    "releaseNotesIntro": { "message": "Коротко и понятно обо всех изменениях, улучшениях и исправлениях." },
-    "releaseNotesSearchLabel": { "message": "Поиск по обновлениям" },
-    "releaseNotesSearchPlaceholder": { "message": "Версия или изменение…" },
-    "releaseNotesCurrent": { "message": "Текущая" },
-    "releaseNotesKindNew": { "message": "Новое" },
-    "releaseNotesKindImproved": { "message": "Улучшено" },
-    "releaseNotesKindFixed": { "message": "Исправлено" },
-    "releaseNotesCount": { "message": "Показано версий: $1" },
-    "releaseNotesEmpty": { "message": "По этому запросу обновлений не найдено." },
-    "tabGuideMainTitle": { "message": "Начните с основных параметров" },
-    "tabGuideMainDescription": {
-        "message": "Подключите Mistral или GigaChat, выберите основной сервис и стиль ответа."
+    "siteSearch": {
+        "message": "Найти исключённый сайт…"
     },
-    "tabGuideAiTitle": { "message": "Управляйте моделями, квотами и лимитами" },
+    "siteSearchNoMatches": {
+        "message": "Сайтов по этому запросу нет."
+    },
+    "siteListEmpty": {
+        "message": "Исключённые сайты появятся здесь."
+    },
+    "removeSite": {
+        "message": "Удалить сайт"
+    },
+    "settingsSyncTitle": {
+        "message": "Синхронизация настроек"
+    },
+    "settingsSynced": {
+        "message": "Настройки синхронизированы между браузерами."
+    },
+    "settingsSyncFailed": {
+        "message": "Синхронизация настроек недоступна. Изменения сохранены на этом устройстве."
+    },
+    "retrySettingsSync": {
+        "message": "Повторить синхронизацию"
+    },
+    "settingsSyncRestored": {
+        "message": "Синхронизация настроек восстановлена."
+    },
+    "settingsSyncRetryFailed": {
+        "message": "Не удалось синхронизировать настройки. Повторите попытку позже."
+    },
+    "historySort": {
+        "message": "Порядок истории"
+    },
+    "historySortNewest": {
+        "message": "Сначала новые"
+    },
+    "historySortOldest": {
+        "message": "Сначала старые"
+    },
+    "historySortFavorites": {
+        "message": "Сначала избранное"
+    },
+    "requestCompletedIn": {
+        "message": "Готово за $1 с"
+    },
+    "resultFromCache": {
+        "message": "Результат получен из локального кэша."
+    },
+    "releaseNotesOpen": {
+        "message": "Что нового"
+    },
+    "releaseNotesOpenVersion": {
+        "message": "Версия LexiSync $1. Открыть историю обновлений"
+    },
+    "releaseNotesEyebrow": {
+        "message": "История LexiSync"
+    },
+    "releaseNotesTitle": {
+        "message": "Что нового"
+    },
+    "releaseNotesClose": {
+        "message": "Закрыть историю обновлений"
+    },
+    "releaseNotesIntro": {
+        "message": "Коротко и понятно обо всех изменениях, улучшениях и исправлениях."
+    },
+    "releaseNotesSearchLabel": {
+        "message": "Поиск по обновлениям"
+    },
+    "releaseNotesSearchPlaceholder": {
+        "message": "Версия или изменение…"
+    },
+    "releaseNotesCurrent": {
+        "message": "Текущая"
+    },
+    "releaseNotesKindNew": {
+        "message": "Новое"
+    },
+    "releaseNotesKindImproved": {
+        "message": "Улучшено"
+    },
+    "releaseNotesKindFixed": {
+        "message": "Исправлено"
+    },
+    "releaseNotesCount": {
+        "message": "Показано версий: $1"
+    },
+    "releaseNotesEmpty": {
+        "message": "По этому запросу обновлений не найдено."
+    },
+    "tabGuideMainTitle": {
+        "message": "Начните с основных параметров"
+    },
+    "tabGuideMainDescription": {
+        "message": "Подключите Mistral или Cloudflare Workers AI, выберите основной сервис и стиль ответа."
+    },
+    "tabGuideAiTitle": {
+        "message": "Управляйте моделями, квотами и лимитами"
+    },
     "tabGuideAiDescription": {
         "message": "Выберите экономный или сбалансированный режим и при необходимости задайте защитные лимиты."
     },
-    "tabGuideAppearanceTitle": { "message": "Настройте LexiSync под себя" },
+    "tabGuideAppearanceTitle": {
+        "message": "Настройте LexiSync под себя"
+    },
     "tabGuideAppearanceDescription": {
         "message": "Меняйте тему, стиль окон, размер интерфейса, плотность и прозрачность."
     },
-    "tabGuideSuggestionsTitle": { "message": "Помощь прямо во время ввода" },
+    "tabGuideSuggestionsTitle": {
+        "message": "Помощь прямо во время ввода"
+    },
     "tabGuideSuggestionsDescription": {
         "message": "Управляйте локальными подсказками и автоматической проверкой текста."
     },
-    "tabGuidePrivacyTitle": { "message": "Ваши данные под контролем" },
+    "tabGuidePrivacyTitle": {
+        "message": "Ваши данные под контролем"
+    },
     "tabGuidePrivacyDescription": {
         "message": "Решите, что сохранять, какие сайты исключить и когда передавать контекст страницы."
     },
-    "tabGuideCommandsTitle": { "message": "Соберите свои быстрые действия" },
+    "tabGuideCommandsTitle": {
+        "message": "Соберите свои быстрые действия"
+    },
     "tabGuideCommandsDescription": {
         "message": "Создавайте понятные команды для повторяющихся задач с текстом."
     },
@@ -728,19 +1554,13 @@
         "message": "Расход и лимиты"
     },
     "providerLimitsIntro": {
-        "message": "Фактические квоты задаются вашим тарифом GigaChat или Mistral. LexiSync показывает локальный расход и позволяет установить общий безопасный предел."
-    },
-    "gigachatTierPers": {
-        "message": "GIGACHAT_API_PERS"
+        "message": "Фактические квоты задаются вашим тарифом Cloudflare или Mistral. LexiSync показывает локальный расход и позволяет установить общий безопасный предел."
     },
     "providerModelLabel": {
         "message": "Активная модель:"
     },
     "providerAccountQuota": {
         "message": "Квоты аккаунта:"
-    },
-    "providerAccountQuotaHintGigaChat": {
-        "message": "Определяются балансом в кабинете Сбер Салют"
     },
     "mistralAccountQuotaHint": {
         "message": "Определяются вашим тарифом в La Plateforme"
@@ -994,92 +1814,20 @@
     "providerMistral": {
         "message": "🌪️ Mistral AI (Mistral Small)"
     },
-    "providerGigaChat": {
-        "message": "💚 GigaChat (Сбер)"
-    },
     "autoFallbackLabel": {
         "message": "Разрешить резервное переключение"
     },
     "autoFallbackHint": {
         "message": "Если выключено, текст никогда не отправляется другому AI-провайдеру. Если включено, резерв используется только при лимите, таймауте или временном сбое."
     },
-    "gigachatAuthKeyLabel": {
-        "message": "Ваш GigaChat Authorization Key:"
-    },
-    "gigachatAuthKeyPlaceholder": {
-        "message": "Вставьте ключ авторизации (MDE5...)"
-    },
-    "gigachatAuthKeySimpleHint": {
-        "message": "Ключ авторизации (Base64) из личного кабинета Сбер Салют/GigaChat. Токены доступа обновляются автоматически."
-    },
-    "checkGigaChatAuthKey": {
-        "message": "Проверить ключ GigaChat"
-    },
-    "toggleGigaChatAuthKey": {
-        "message": "Показать или скрыть ключ авторизации GigaChat"
-    },
-    "gigachatAuthKeyInvalid": {
-        "message": "Authorization Key GigaChat недействителен. Проверьте ключ в настройках."
-    },
-    "gigachatRateLimit": {
-        "message": "Превышен лимит запросов GigaChat. Попробуйте немного позже."
-    },
-    "gigachatUnavailable": {
-        "message": "Сервис GigaChat временно недоступен. Попробуйте ещё раз."
-    },
-    "gigachatApiError": {
-        "message": "Ошибка GigaChat API"
-    },
-    "gigachatNetworkFailed": {
-        "message": "Не удалось подключиться к сервису GigaChat. Проверьте интернет и повторите попытку."
-    },
-    "gigachatTimeout": {
-        "message": "Сервис авторизации GigaChat не ответил вовремя."
-    },
-    "gigachatNetworkError": {
-        "message": "Не удалось подключиться к серверу авторизации GigaChat."
-    },
-    "gigachatAuthFailed": {
-        "message": "Ошибка получения токена GigaChat."
-    },
-    "gigachatInvalidResponse": {
-        "message": "Некорректный ответ от сервера авторизации GigaChat."
-    },
-    "gigachatEmptyToken": {
-        "message": "Сервер GigaChat вернул пустой access token."
-    },
-    "tutorialGigaChatKeyRequired": {
-        "message": "Сначала вставьте Authorization Key GigaChat."
-    },
-    "gigachatAuthKeyValid": {
-        "message": "GigaChat Authorization Key проверен и готов к работе."
-    },
-    "gigachatModelUnavailable": {
-        "message": "Ключ работает, но доступ к модели GigaChat пока ограничен для этого аккаунта."
-    },
     "providerTimeout": {
         "message": "AI-сервис не ответил вовремя."
     },
-    "gigachatAuthKeyMissing": {
-        "message": "Authorization Key GigaChat не настроен."
-    },
-    "gigachatEmptyStream": {
-        "message": "GigaChat вернул пустой поток данных."
-    },
-    "gigachatIncompleteStream": {
-        "message": "Ответ GigaChat прервался до завершения. Повторите запрос."
-    },
-    "fallbackToGigaChatDueToRateLimit": {
-        "message": "Лимит Mistral достигнут. Запрос выполнен через GigaChat."
-    },
     "fallbackToMistralDueToRateLimit": {
-        "message": "Лимит GigaChat достигнут. Запрос выполнен через Mistral."
-    },
-    "fallbackToGigaChatDueToOutage": {
-        "message": "Сервис Mistral временно недоступен. Использован GigaChat."
+        "message": "Лимит Cloudflare достигнут. Запрос выполнен через Mistral."
     },
     "fallbackToMistralDueToOutage": {
-        "message": "Сервис GigaChat временно недоступен. Использован Mistral."
+        "message": "Сервис Cloudflare временно недоступен. Использован Mistral."
     },
     "screenCaptureRestricted": {
         "message": "Захват экрана (Alt+S) недоступен на системных страницах браузера. Откройте обычную веб-страницу."
@@ -1090,23 +1838,11 @@
     "ocrKeyRequired": {
         "message": "Для распознавания текста (OCR) требуется API-ключ Mistral."
     },
-    "mistralRateLimitNeedGigaChatKey": {
-        "message": "Лимит Mistral достигнут. Для автоматического переключения добавьте Authorization Key GigaChat в настройках."
-    },
-    "gigachatRateLimitNeedMistralKey": {
-        "message": "Лимит GigaChat достигнут. Для автоматического переключения добавьте Mistral API Key в настройках."
-    },
     "allProvidersRateLimited": {
-        "message": "Лимиты всех доступных AI-провайдеров (Mistral и GigaChat) исчерпаны. Попробуйте позже."
+        "message": "Лимиты всех доступных AI-провайдеров (Mistral и Cloudflare) исчерпаны. Попробуйте позже."
     },
     "ocrMistralKeyRequired": {
         "message": "Для распознавания текста (OCR) требуется API-ключ Mistral."
-    },
-    "getGigaChatKeyGuide": {
-        "message": "Где взять Authorization Key GigaChat? ➔ developers.sber.ru"
-    },
-    "tutorialOpenGigaChat": {
-        "message": "Открыть кабинет Сбер Салют ↗"
     },
     "serverStatusHealthy": {
         "message": "Работает отлично"
@@ -1305,5 +2041,122 @@
     },
     "selectRecord": {
         "message": "Выбрать запись"
+    },
+    "presetCloudflareQuota": {
+        "message": "🧡 Квота Cloudflare"
+    },
+    "providerCloudflare": {
+        "message": "🧡 Cloudflare Workers AI"
+    },
+    "cloudflareAccountIdLabel": {
+        "message": "Cloudflare Account ID:"
+    },
+    "cloudflareAccountIdPlaceholder": {
+        "message": "Вставьте 32-значный Account ID (hex)"
+    },
+    "cloudflareAccountIdHint": {
+        "message": "Account ID отображается в боковой панели панели управления Cloudflare (Workers & Pages)."
+    },
+    "cloudflareApiTokenLabel": {
+        "message": "Cloudflare API Token:"
+    },
+    "cloudflareApiTokenPlaceholder": {
+        "message": "Вставьте API-токен с доступом к Workers AI"
+    },
+    "toggleCloudflareApiToken": {
+        "message": "Показать или скрыть Cloudflare API Token"
+    },
+    "cloudflareApiTokenHint": {
+        "message": "Токен с правами Account - Workers AI - Read. Создается в My Profile -> API Tokens."
+    },
+    "cloudflareTierFree": {
+        "message": "Workers AI (Free tier · 10k нейронов/день)"
+    },
+    "providerAccountQuotaHintCloudflare": {
+        "message": "Бесплатный суточный лимит Cloudflare: 10 000 нейронов в день"
+    },
+    "getCloudflareApiKeySubTitle": {
+        "message": "🧡 Cloudflare Workers AI"
+    },
+    "getCloudflareStep1": {
+        "message": "Перейдите в Cloudflare Dashboard (dash.cloudflare.com) и скопируйте Account ID на главной или в Workers & Pages."
+    },
+    "getCloudflareStep2": {
+        "message": "В разделе My Profile -> API Tokens нажмите Create Token и выберите шаблон Workers AI Read (или создайте токен с правами Workers AI Read)."
+    },
+    "getCloudflareStep3": {
+        "message": "Скопируйте полученный API-токен и вставьте вместе с Account ID в поля настроек ниже."
+    },
+    "onboardingCloudflareTitle": {
+        "message": "Настройка Cloudflare Workers AI"
+    },
+    "onboardingCloudflareApi": {
+        "message": "Добавьте данные Cloudflare Workers AI"
+    },
+    "onboardingCloudflareApiHint": {
+        "message": "Cloudflare используется как надёжный резервный провайдер (или основной). Необходимы Account ID и API Token."
+    },
+    "tutorialOpenCloudflare": {
+        "message": "Открыть Cloudflare Dashboard ↗"
+    },
+    "tutorialCloudflareSignIn": {
+        "message": "Войдите в аккаунт Cloudflare на dash.cloudflare.com"
+    },
+    "tutorialCloudflareCreateToken": {
+        "message": "Скопируйте Account ID и создайте токен с доступом к Workers AI"
+    },
+    "tutorialCloudflarePaste": {
+        "message": "Вставьте Account ID и API Token в поля ниже"
+    },
+    "tutorialCloudflareAccountIdLabel": {
+        "message": "Cloudflare Account ID"
+    },
+    "tutorialCloudflareApiTokenLabel": {
+        "message": "Cloudflare API Token"
+    },
+    "tutorialCloudflareKeyRequired": {
+        "message": "Заполните оба поля: Account ID и API Token."
+    },
+    "cloudflareBothFieldsRequired": {
+        "message": "Для работы Cloudflare необходимо указать и Account ID, и API Token."
+    },
+    "fallbackToCloudflareDueToRateLimit": {
+        "message": "Лимит Mistral достигнут. Запрос выполнен через Cloudflare Workers AI."
+    },
+    "fallbackToCloudflareDueToOutage": {
+        "message": "Сервис Mistral временно недоступен. Использован Cloudflare Workers AI."
+    },
+    "cloudflareCredentialsMissing": {
+        "message": "Данные Cloudflare Workers AI (Account ID или API Token) не настроены."
+    },
+    "cloudflareAuthError": {
+        "message": "Неверный Cloudflare API Token. Проверьте токен в настройках."
+    },
+    "cloudflareAccountError": {
+        "message": "Cloudflare Account ID не найден или не имеет доступа к Workers AI. Проверьте ID."
+    },
+    "cloudflareRateLimit": {
+        "message": "Превышен лимит запросов Cloudflare Workers AI. Попробуйте позже."
+    },
+    "cloudflareServerError": {
+        "message": "Сервис Cloudflare Workers AI временно недоступен. Попробуйте позже."
+    },
+    "cloudflareInvalidRequest": {
+        "message": "Некорректный запрос к Cloudflare Workers AI API."
+    },
+    "cloudflareApiError": {
+        "message": "Ошибка Cloudflare Workers AI API."
+    },
+    "cloudflareNetworkError": {
+        "message": "Не удалось подключиться к Cloudflare API. Проверьте интернет-соединение."
+    },
+    "cloudflareEmptyAccountId": {
+        "message": "Account ID Cloudflare не может быть пустым."
+    },
+    "cloudflareEmptyToken": {
+        "message": "API Token Cloudflare не может быть пустым."
+    },
+    "cloudflareTimeout": {
+        "message": "Превышено время ожидания ответа от Cloudflare Workers AI."
     }
 }

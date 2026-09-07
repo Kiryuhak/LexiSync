@@ -21,7 +21,7 @@ import { restoreV4Settings, setupV4Settings } from './v4-settings';
 import { applyThemeCustomization, DEFAULT_THEME_CUSTOMIZATION } from './theme-customization';
 import { DEFAULT_BUDGET_SETTINGS, getLocalDayKey, getMonthUsage } from './budget';
 import { clearAllSecrets } from './secret-store';
-import { validateApiKey, validateGigaChatAuthKey, checkProviderHealth } from './ai-settings-client';
+import { validateApiKey, validateCloudflareCredentials, checkProviderHealth } from './ai-settings-client';
 import { AI_CONFIG } from './ai-models-config';
 import { loadCachedHealthStatus, saveCachedHealthStatus, type ProviderHealthStatus } from './provider-health';
 import { logger } from './logger';
@@ -45,7 +45,8 @@ import { createDiagnosticReport } from './diagnostics';
 import { copyText } from './clipboard';
 
 let restoredApiKey = '';
-let restoredGigaChatAuthKey = '';
+let restoredCloudflareAccountId = '';
+let restoredCloudflareApiToken = '';
 let serverHealthRefresh: Promise<void> | null = null;
 let savedOptionsState = '';
 let saveInProgress = false;
@@ -83,15 +84,26 @@ async function writePrivateApiKey(value: string): Promise<void> {
     if (response?.ok !== true) throw new Error(response?.error || 'Не удалось сохранить API-ключ.');
 }
 
-async function readPrivateGigaChatAuthKey(): Promise<string> {
-    const response = await chrome.runtime.sendMessage({ action: 'getGigaChatAuthKey' });
-    if (response?.ok !== true) throw new Error(response?.error || 'Не удалось прочитать GigaChat Authorization Key.');
+async function readPrivateCloudflareAccountId(): Promise<string> {
+    const response = await chrome.runtime.sendMessage({ action: 'getCloudflareAccountId' });
+    if (response?.ok !== true) throw new Error(response?.error || 'Не удалось прочитать Cloudflare Account ID.');
     return typeof response.value === 'string' ? response.value : '';
 }
 
-async function writePrivateGigaChatAuthKey(value: string): Promise<void> {
-    const response = await chrome.runtime.sendMessage({ action: 'setGigaChatAuthKey', value });
-    if (response?.ok !== true) throw new Error(response?.error || 'Не удалось сохранить GigaChat Authorization Key.');
+async function writePrivateCloudflareAccountId(value: string): Promise<void> {
+    const response = await chrome.runtime.sendMessage({ action: 'setCloudflareAccountId', value });
+    if (response?.ok !== true) throw new Error(response?.error || 'Не удалось сохранить Cloudflare Account ID.');
+}
+
+async function readPrivateCloudflareApiToken(): Promise<string> {
+    const response = await chrome.runtime.sendMessage({ action: 'getCloudflareApiToken' });
+    if (response?.ok !== true) throw new Error(response?.error || 'Не удалось прочитать Cloudflare API Token.');
+    return typeof response.value === 'string' ? response.value : '';
+}
+
+async function writePrivateCloudflareApiToken(value: string): Promise<void> {
+    const response = await chrome.runtime.sendMessage({ action: 'setCloudflareApiToken', value });
+    if (response?.ok !== true) throw new Error(response?.error || 'Не удалось сохранить Cloudflare API Token.');
 }
 
 async function verifyMistralApiKey(apiKey: string): Promise<{ ok: boolean; message: string }> {
@@ -100,7 +112,8 @@ async function verifyMistralApiKey(apiKey: string): Promise<{ ok: boolean; messa
 
 const SAVED_OPTION_IDS = [
     'apiKey',
-    'gigachatAuthKey',
+    'cloudflareAccountId',
+    'cloudflareApiToken',
     'primaryAiProvider',
     'autoFallbackEnabled',
     'toneSelect',
@@ -340,7 +353,8 @@ function renderDisabledSites(): void {
 
 async function saveOptions(): Promise<void> {
     const apiKeyInput = document.getElementById('apiKey') as HTMLInputElement;
-    const gigachatAuthKeyInput = document.getElementById('gigachatAuthKey') as HTMLInputElement;
+    const cloudflareAccountIdInput = document.getElementById('cloudflareAccountId') as HTMLInputElement;
+    const cloudflareApiTokenInput = document.getElementById('cloudflareApiToken') as HTMLInputElement;
     const primaryAiProviderSelect = document.getElementById('primaryAiProvider') as HTMLSelectElement;
     const autoFallbackEnabledInput = document.getElementById('autoFallbackEnabled') as HTMLInputElement;
     const toneSelect = document.getElementById('toneSelect') as HTMLSelectElement;
@@ -363,7 +377,8 @@ async function saveOptions(): Promise<void> {
     const saveBtn = document.getElementById('saveBtn') as HTMLButtonElement;
 
     const apiKey = apiKeyInput.value.trim();
-    const gigachatAuthKey = gigachatAuthKeyInput.value.trim();
+    const cloudflareAccountId = cloudflareAccountIdInput.value.trim();
+    const cloudflareApiToken = cloudflareApiTokenInput.value.trim();
     const normalizedDisabledSites = normalizeSiteEntries(disabledSitesInput.value);
     const originalBtnText = saveBtn.textContent;
     saveInProgress = true;
@@ -435,34 +450,56 @@ async function saveOptions(): Promise<void> {
             restoredApiKey = '';
         }
 
-        let gigachatKeyStatus = '';
-        if (gigachatAuthKey !== restoredGigaChatAuthKey && gigachatAuthKey) {
-            saveBtn.textContent = t('checkingKey', 'Проверка ключа…');
-            try {
-                const validation = await validateGigaChatAuthKey(gigachatAuthKey);
-                if (validation.ok) {
-                    await writePrivateGigaChatAuthKey(gigachatAuthKey);
-                    restoredGigaChatAuthKey = gigachatAuthKey;
-                } else {
-                    gigachatKeyStatus = validation.message;
-                    gigachatAuthKeyInput.value = restoredGigaChatAuthKey;
+        let cloudflareKeyStatus = '';
+        const cloudflareChanged =
+            cloudflareAccountId !== restoredCloudflareAccountId || cloudflareApiToken !== restoredCloudflareApiToken;
+        if (cloudflareChanged && (cloudflareAccountId || cloudflareApiToken)) {
+            if (cloudflareAccountId && cloudflareApiToken) {
+                saveBtn.textContent = t('checkingKey', 'Проверка ключа…');
+                try {
+                    const validation = await validateCloudflareCredentials({
+                        accountId: cloudflareAccountId,
+                        apiToken: cloudflareApiToken,
+                    });
+                    if (validation.ok) {
+                        await Promise.all([
+                            writePrivateCloudflareAccountId(cloudflareAccountId),
+                            writePrivateCloudflareApiToken(cloudflareApiToken),
+                        ]);
+                        restoredCloudflareAccountId = cloudflareAccountId;
+                        restoredCloudflareApiToken = cloudflareApiToken;
+                    } else {
+                        cloudflareKeyStatus = validation.message;
+                        cloudflareAccountIdInput.value = restoredCloudflareAccountId;
+                        cloudflareApiTokenInput.value = restoredCloudflareApiToken;
+                    }
+                } catch (error) {
+                    logger.error('Ошибка сети при проверке Cloudflare Workers AI', error);
+                    cloudflareKeyStatus = t(
+                        'keyCheckUnavailable',
+                        'Настройки сохранены. Проверить API-ключ сейчас не удалось.',
+                    );
+                    cloudflareAccountIdInput.value = restoredCloudflareAccountId;
+                    cloudflareApiTokenInput.value = restoredCloudflareApiToken;
                 }
-            } catch (error) {
-                logger.error('Ошибка сети при проверке ключа GigaChat', error);
-                gigachatKeyStatus = t(
-                    'keyCheckUnavailable',
-                    'Настройки сохранены. Проверить API-ключ сейчас не удалось.',
+            } else {
+                cloudflareKeyStatus = t(
+                    'cloudflareBothFieldsRequired',
+                    'Для Cloudflare необходимы и Account ID, и API Token.',
                 );
-                gigachatAuthKeyInput.value = restoredGigaChatAuthKey;
+                cloudflareAccountIdInput.value = restoredCloudflareAccountId;
+                cloudflareApiTokenInput.value = restoredCloudflareApiToken;
             }
-        } else if (!gigachatAuthKey && restoredGigaChatAuthKey) {
-            await writePrivateGigaChatAuthKey('');
-            restoredGigaChatAuthKey = '';
+        } else if (cloudflareChanged && !cloudflareAccountId && !cloudflareApiToken) {
+            await Promise.all([writePrivateCloudflareAccountId(''), writePrivateCloudflareApiToken('')]);
+            restoredCloudflareAccountId = '';
+            restoredCloudflareApiToken = '';
         }
 
         savedOptionsState = captureOptionsState();
-        const combinedStatus = apiKeyStatus || gigachatKeyStatus || t('saveSuccess', '✓ Настройки успешно сохранены!');
-        showOptionsStatus(combinedStatus, apiKeyStatus || gigachatKeyStatus ? 'warning' : 'success');
+        const combinedStatus =
+            apiKeyStatus || cloudflareKeyStatus || t('saveSuccess', '✓ Настройки успешно сохранены!');
+        showOptionsStatus(combinedStatus, apiKeyStatus || cloudflareKeyStatus ? 'warning' : 'success');
         void refreshServerHealthStatus(false);
         window.setTimeout(() => {
             const status = document.getElementById('status');
@@ -481,7 +518,8 @@ async function saveOptions(): Promise<void> {
 
 async function restoreOptions(): Promise<void> {
     const apiKeyInput = document.getElementById('apiKey') as HTMLInputElement;
-    const gigachatAuthKeyInput = document.getElementById('gigachatAuthKey') as HTMLInputElement;
+    const cloudflareAccountIdInput = document.getElementById('cloudflareAccountId') as HTMLInputElement;
+    const cloudflareApiTokenInput = document.getElementById('cloudflareApiToken') as HTMLInputElement;
     const primaryAiProviderSelect = document.getElementById('primaryAiProvider') as HTMLSelectElement;
     const autoFallbackEnabledInput = document.getElementById('autoFallbackEnabled') as HTMLInputElement;
     const toneSelect = document.getElementById('toneSelect') as HTMLSelectElement;
@@ -502,7 +540,7 @@ async function restoreOptions(): Promise<void> {
     const personalDictionaryInput = document.getElementById('personalDictionary') as HTMLTextAreaElement;
     const aiModeSelect = document.getElementById('aiMode') as HTMLSelectElement;
 
-    const [items, privateApiKey, privateGigaChatAuthKey] = await Promise.all([
+    const [items, privateApiKey, privateCloudflareAccountId, privateCloudflareApiToken] = await Promise.all([
         chrome.storage.local.get({
             primaryAiProvider: 'auto',
             autoFallbackEnabled: true,
@@ -538,13 +576,16 @@ async function restoreOptions(): Promise<void> {
             settingsSyncStatus: { state: 'synced', updatedAt: 0 },
         }),
         readPrivateApiKey(),
-        readPrivateGigaChatAuthKey(),
+        readPrivateCloudflareAccountId(),
+        readPrivateCloudflareApiToken(),
     ]);
 
     apiKeyInput.value = privateApiKey;
     restoredApiKey = apiKeyInput.value;
-    gigachatAuthKeyInput.value = privateGigaChatAuthKey;
-    restoredGigaChatAuthKey = gigachatAuthKeyInput.value;
+    cloudflareAccountIdInput.value = privateCloudflareAccountId;
+    restoredCloudflareAccountId = cloudflareAccountIdInput.value;
+    cloudflareApiTokenInput.value = privateCloudflareApiToken;
+    restoredCloudflareApiToken = cloudflareApiTokenInput.value;
     primaryAiProviderSelect.value = normalizePrimaryAiProvider(items.primaryAiProvider);
     autoFallbackEnabledInput.checked = normalizeAutoFallbackEnabled(items.autoFallbackEnabled);
     toneSelect.value = items.selectedTone as string;
@@ -608,7 +649,7 @@ async function restoreOptions(): Promise<void> {
     void initializeServerHealth();
 }
 
-function renderServerHealthCard(provider: 'gigachat' | 'mistral', status: ProviderHealthStatus): void {
+function renderServerHealthCard(provider: 'cloudflare' | 'mistral', status: ProviderHealthStatus): void {
     const card = document.getElementById(`${provider}StatusCard`);
     const dot = document.getElementById(`${provider}StatusDot`);
     const text = document.getElementById(`${provider}StatusText`);
@@ -626,13 +667,15 @@ async function refreshServerHealthStatus(showChecking = true): Promise<void> {
     if (serverHealthRefresh) return serverHealthRefresh;
 
     const refreshButton = document.getElementById('checkServerStatusBtn') as HTMLButtonElement | null;
-    const gigachatAuthKey =
-        (document.getElementById('gigachatAuthKey') as HTMLInputElement)?.value || restoredGigaChatAuthKey;
+    const cloudflareAccountId =
+        (document.getElementById('cloudflareAccountId') as HTMLInputElement)?.value || restoredCloudflareAccountId;
+    const cloudflareApiToken =
+        (document.getElementById('cloudflareApiToken') as HTMLInputElement)?.value || restoredCloudflareApiToken;
     const mistralKey = (document.getElementById('apiKey') as HTMLInputElement)?.value || restoredApiKey;
 
     if (showChecking) {
-        renderServerHealthCard('gigachat', {
-            provider: 'gigachat',
+        renderServerHealthCard('cloudflare', {
+            provider: 'cloudflare',
             state: 'checking',
             message: t('serverStatusChecking', 'Проверка связи...'),
             checkedAt: Date.now(),
@@ -648,14 +691,14 @@ async function refreshServerHealthStatus(showChecking = true): Promise<void> {
     refreshButton?.setAttribute('aria-busy', 'true');
     if (refreshButton) refreshButton.disabled = true;
     serverHealthRefresh = (async () => {
-        const [gigachatStatus, mistralStatus] = await Promise.all([
-            checkProviderHealth('gigachat', gigachatAuthKey),
+        const [cloudflareStatus, mistralStatus] = await Promise.all([
+            checkProviderHealth('cloudflare', { accountId: cloudflareAccountId, apiToken: cloudflareApiToken }),
             checkProviderHealth('mistral', mistralKey),
         ]);
 
-        renderServerHealthCard('gigachat', gigachatStatus);
+        renderServerHealthCard('cloudflare', cloudflareStatus);
         renderServerHealthCard('mistral', mistralStatus);
-        await saveCachedHealthStatus({ gigachat: gigachatStatus, mistral: mistralStatus });
+        await saveCachedHealthStatus({ cloudflare: cloudflareStatus, mistral: mistralStatus });
     })().finally(() => {
         refreshButton?.removeAttribute('aria-busy');
         if (refreshButton) refreshButton.disabled = false;
@@ -666,7 +709,7 @@ async function refreshServerHealthStatus(showChecking = true): Promise<void> {
 
 async function initializeServerHealth(): Promise<void> {
     const cached = await loadCachedHealthStatus();
-    if (cached.gigachat) renderServerHealthCard('gigachat', cached.gigachat);
+    if (cached.cloudflare) renderServerHealthCard('cloudflare', cached.cloudflare);
     if (cached.mistral) renderServerHealthCard('mistral', cached.mistral);
     await refreshServerHealthStatus(false);
 }
@@ -1039,7 +1082,10 @@ document.addEventListener('DOMContentLoaded', () => {
             setupV4Settings();
             return setupOnboarding({
                 getApiKey: () => restoredApiKey,
-                getGigaChatAuthKey: () => restoredGigaChatAuthKey,
+                getCloudflareCredentials: () => ({
+                    accountId: restoredCloudflareAccountId,
+                    apiToken: restoredCloudflareApiToken,
+                }),
                 onApiKeySaved: async (apiKey) => {
                     await writePrivateApiKey(apiKey);
                     restoredApiKey = apiKey;
@@ -1048,11 +1094,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     savedOptionsState = captureOptionsState();
                     updateSaveButtonState();
                 },
-                onGigaChatAuthKeySaved: async (authKey) => {
-                    await writePrivateGigaChatAuthKey(authKey);
-                    restoredGigaChatAuthKey = authKey;
-                    const settingsKeyInput = document.getElementById('gigachatAuthKey') as HTMLInputElement | null;
-                    if (settingsKeyInput) settingsKeyInput.value = authKey;
+                onCloudflareCredentialsSaved: async ({ accountId, apiToken }) => {
+                    await Promise.all([
+                        writePrivateCloudflareAccountId(accountId),
+                        writePrivateCloudflareApiToken(apiToken),
+                    ]);
+                    restoredCloudflareAccountId = accountId;
+                    restoredCloudflareApiToken = apiToken;
+                    const accountIdInput = document.getElementById('cloudflareAccountId') as HTMLInputElement | null;
+                    const apiTokenInput = document.getElementById('cloudflareApiToken') as HTMLInputElement | null;
+                    if (accountIdInput) accountIdInput.value = accountId;
+                    if (apiTokenInput) apiTokenInput.value = apiToken;
                     savedOptionsState = captureOptionsState();
                     updateSaveButtonState();
                 },
@@ -1222,26 +1274,26 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    const toggleGigaChatBtn = document.getElementById('toggleGigaChatAuthKey');
-    const eyeOpenGigaChat = document.getElementById('eyeOpenGigaChat');
-    const eyeClosedGigaChat = document.getElementById('eyeClosedGigaChat');
-    const gigachatKeyInput = document.getElementById('gigachatAuthKey') as HTMLInputElement | null;
+    const toggleCloudflareBtn = document.getElementById('toggleCloudflareApiToken');
+    const eyeOpenCloudflare = document.getElementById('eyeOpenCloudflare');
+    const eyeClosedCloudflare = document.getElementById('eyeClosedCloudflare');
+    const cloudflareTokenInput = document.getElementById('cloudflareApiToken') as HTMLInputElement | null;
 
-    if (toggleGigaChatBtn && eyeOpenGigaChat && eyeClosedGigaChat && gigachatKeyInput) {
-        toggleGigaChatBtn.addEventListener('click', () => {
-            const isPassword = gigachatKeyInput.getAttribute('type') === 'password';
-            gigachatKeyInput.setAttribute('type', isPassword ? 'text' : 'password');
-            toggleGigaChatBtn.setAttribute('aria-pressed', String(isPassword));
+    if (toggleCloudflareBtn && eyeOpenCloudflare && eyeClosedCloudflare && cloudflareTokenInput) {
+        toggleCloudflareBtn.addEventListener('click', () => {
+            const isPassword = cloudflareTokenInput.getAttribute('type') === 'password';
+            cloudflareTokenInput.setAttribute('type', isPassword ? 'text' : 'password');
+            toggleCloudflareBtn.setAttribute('aria-pressed', String(isPassword));
             const newLabel = isPassword ? t('hideApiKey', 'Скрыть API-ключ') : t('showApiKey', 'Показать API-ключ');
-            toggleGigaChatBtn.setAttribute('aria-label', newLabel);
-            toggleGigaChatBtn.title = newLabel;
+            toggleCloudflareBtn.setAttribute('aria-label', newLabel);
+            toggleCloudflareBtn.title = newLabel;
 
             if (isPassword) {
-                eyeOpenGigaChat.style.display = 'none';
-                eyeClosedGigaChat.style.display = 'block';
+                eyeOpenCloudflare.style.display = 'none';
+                eyeClosedCloudflare.style.display = 'block';
             } else {
-                eyeOpenGigaChat.style.display = 'block';
-                eyeClosedGigaChat.style.display = 'none';
+                eyeOpenCloudflare.style.display = 'block';
+                eyeClosedCloudflare.style.display = 'none';
             }
         });
     }

@@ -1,12 +1,12 @@
 import { t } from './i18n';
-import { validateApiKey, validateGigaChatAuthKey } from './ai-settings-client';
+import { validateApiKey, validateCloudflareCredentials } from './ai-settings-client';
 import { logger } from './logger';
 
 export interface OnboardingOptions {
     getApiKey: () => string;
-    getGigaChatAuthKey?: () => string;
+    getCloudflareCredentials?: () => { accountId: string; apiToken: string };
     onApiKeySaved: (key: string) => Promise<void>;
-    onGigaChatAuthKeySaved?: (key: string) => Promise<void>;
+    onCloudflareCredentialsSaved?: (creds: { accountId: string; apiToken: string }) => Promise<void>;
 }
 
 export async function setupOnboarding(options: OnboardingOptions): Promise<void> {
@@ -17,9 +17,12 @@ export async function setupOnboarding(options: OnboardingOptions): Promise<void>
     const keyInput = document.getElementById('onboardingApiKey') as HTMLInputElement | null;
     const saveKeyButton = document.getElementById('onboardingSaveKey') as HTMLButtonElement | null;
     const keyStatus = document.getElementById('onboardingKeyStatus');
-    const gigaChatKeyInput = document.getElementById('onboardingGigaChatApiKey') as HTMLInputElement | null;
-    const saveGigaChatKeyButton = document.getElementById('onboardingSaveGigaChatKey') as HTMLButtonElement | null;
-    const gigaChatKeyStatus = document.getElementById('onboardingGigaChatKeyStatus');
+    const cloudflareAccountIdInput = document.getElementById(
+        'onboardingCloudflareAccountId',
+    ) as HTMLInputElement | null;
+    const cloudflareApiTokenInput = document.getElementById('onboardingCloudflareApiToken') as HTMLInputElement | null;
+    const saveCloudflareKeyButton = document.getElementById('onboardingSaveCloudflareKey') as HTMLButtonElement | null;
+    const cloudflareKeyStatus = document.getElementById('onboardingCloudflareKeyStatus');
     const progress = document.getElementById('onboardingProgress');
     const progressBar = document.getElementById('onboardingProgressBar') as HTMLElement | null;
     const steps = [...document.querySelectorAll<HTMLElement>('[data-onboarding-step]')];
@@ -30,7 +33,7 @@ export async function setupOnboarding(options: OnboardingOptions): Promise<void>
     let previousFocus: HTMLElement | null = null;
     const render = () => {
         steps.forEach((step, index) => step.classList.toggle('is-active', index === activeStep));
-        onboarding.dataset.provider = activeStep === 1 ? 'mistral' : activeStep === 2 ? 'gigachat' : 'neutral';
+        onboarding.dataset.provider = activeStep === 1 ? 'mistral' : activeStep === 2 ? 'cloudflare' : 'neutral';
         progress.textContent = `${activeStep + 1} ${t('of', 'из')} ${steps.length}`;
         if (progressBar) progressBar.style.width = `${((activeStep + 1) / steps.length) * 100}%`;
         nextButton.textContent = activeStep === steps.length - 1 ? t('start', 'Начать работу') : t('next', 'Далее');
@@ -39,14 +42,16 @@ export async function setupOnboarding(options: OnboardingOptions): Promise<void>
         previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         activeStep = 0;
         if (keyInput) keyInput.value = options.getApiKey() || '';
-        if (gigaChatKeyInput) gigaChatKeyInput.value = options.getGigaChatAuthKey?.() || '';
+        const creds = options.getCloudflareCredentials?.();
+        if (cloudflareAccountIdInput) cloudflareAccountIdInput.value = creds?.accountId || '';
+        if (cloudflareApiTokenInput) cloudflareApiTokenInput.value = creds?.apiToken || '';
         if (keyStatus) {
             keyStatus.textContent = '';
             delete keyStatus.dataset.kind;
         }
-        if (gigaChatKeyStatus) {
-            gigaChatKeyStatus.textContent = '';
-            delete gigaChatKeyStatus.dataset.kind;
+        if (cloudflareKeyStatus) {
+            cloudflareKeyStatus.textContent = '';
+            delete cloudflareKeyStatus.dataset.kind;
         }
         onboarding.hidden = false;
         render();
@@ -99,45 +104,47 @@ export async function setupOnboarding(options: OnboardingOptions): Promise<void>
             saveKeyButton.textContent = originalText;
         }
     });
-    saveGigaChatKeyButton?.addEventListener('click', async () => {
-        if (!gigaChatKeyInput || !gigaChatKeyStatus) return;
-        const authKey = gigaChatKeyInput.value.trim();
-        if (!authKey) {
-            gigaChatKeyStatus.textContent = t(
-                'tutorialGigaChatKeyRequired',
-                'Сначала вставьте Authorization Key GigaChat.',
+    saveCloudflareKeyButton?.addEventListener('click', async () => {
+        if (!cloudflareAccountIdInput || !cloudflareApiTokenInput || !cloudflareKeyStatus) return;
+        const accountId = cloudflareAccountIdInput.value.trim();
+        const apiToken = cloudflareApiTokenInput.value.trim();
+        if (!accountId || !apiToken) {
+            cloudflareKeyStatus.textContent = t(
+                'tutorialCloudflareKeyRequired',
+                'Введите Cloudflare Account ID и API Token.',
             );
-            gigaChatKeyStatus.dataset.kind = 'error';
-            gigaChatKeyInput.focus();
+            cloudflareKeyStatus.dataset.kind = 'error';
+            if (!accountId) cloudflareAccountIdInput.focus();
+            else cloudflareApiTokenInput.focus();
             return;
         }
-        const originalText = saveGigaChatKeyButton.textContent;
-        saveGigaChatKeyButton.disabled = true;
-        saveGigaChatKeyButton.textContent = t('checkingKey', 'Проверка…');
-        gigaChatKeyStatus.textContent = '';
-        delete gigaChatKeyStatus.dataset.kind;
+        const originalText = saveCloudflareKeyButton.textContent;
+        saveCloudflareKeyButton.disabled = true;
+        saveCloudflareKeyButton.textContent = t('checkingKey', 'Проверка…');
+        cloudflareKeyStatus.textContent = '';
+        delete cloudflareKeyStatus.dataset.kind;
         try {
-            const validation = await validateGigaChatAuthKey(authKey);
+            const validation = await validateCloudflareCredentials({ accountId, apiToken });
             if (validation.ok) {
-                if (options.onGigaChatAuthKeySaved) {
-                    await options.onGigaChatAuthKeySaved(authKey);
+                if (options.onCloudflareCredentialsSaved) {
+                    await options.onCloudflareCredentialsSaved({ accountId, apiToken });
                 }
-                gigaChatKeyStatus.textContent = validation.message;
-                gigaChatKeyStatus.dataset.kind = 'success';
+                cloudflareKeyStatus.textContent = validation.message;
+                cloudflareKeyStatus.dataset.kind = 'success';
                 return;
             }
-            gigaChatKeyStatus.textContent = validation.message;
-            gigaChatKeyStatus.dataset.kind = 'error';
+            cloudflareKeyStatus.textContent = validation.message;
+            cloudflareKeyStatus.dataset.kind = 'error';
         } catch (error) {
-            logger.error('Ошибка проверки ключа GigaChat в обучении', error);
-            gigaChatKeyStatus.textContent = t(
+            logger.error('Ошибка проверки ключей Cloudflare Workers AI в обучении', error);
+            cloudflareKeyStatus.textContent = t(
                 'keyCheckUnavailable',
                 'Сейчас не удалось проверить ключ. Попробуйте ещё раз.',
             );
-            gigaChatKeyStatus.dataset.kind = 'error';
+            cloudflareKeyStatus.dataset.kind = 'error';
         } finally {
-            saveGigaChatKeyButton.disabled = false;
-            saveGigaChatKeyButton.textContent = originalText;
+            saveCloudflareKeyButton.disabled = false;
+            saveCloudflareKeyButton.textContent = originalText;
         }
     });
     onboarding.addEventListener('keydown', (event) => {

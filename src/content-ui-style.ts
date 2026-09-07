@@ -412,15 +412,15 @@ export const POPUP_STYLE_TEXT = `
             .lexisync-provider-dot.dot-outage {
                 background: #ef4444;
             }
-            .lexisync-provider-gigachat {
-                background: rgba(34, 197, 94, 0.12);
-                color: #16a34a;
-                border: 1px solid rgba(34, 197, 94, 0.28);
+            .lexisync-provider-cloudflare {
+                background: rgba(246, 130, 31, 0.12);
+                color: #ea580c;
+                border: 1px solid rgba(246, 130, 31, 0.28);
             }
-            #lexisync-extension-ui[data-theme="dark"] .lexisync-provider-gigachat {
-                background: rgba(34, 197, 94, 0.22);
-                color: #4ade80;
-                border-color: rgba(34, 197, 94, 0.4);
+            #lexisync-extension-ui[data-theme="dark"] .lexisync-provider-cloudflare {
+                background: rgba(246, 130, 31, 0.22);
+                color: #fb923c;
+                border-color: rgba(246, 130, 31, 0.4);
             }
             .lexisync-provider-mistral {
                 background: rgba(255, 112, 0, 0.12);

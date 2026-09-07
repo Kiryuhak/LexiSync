@@ -145,7 +145,7 @@ export function sanitizePortableSetting(key: (typeof PORTABLE_SETTING_KEYS)[numb
         ].includes(key)
     )
         return value !== false;
-    if (key === 'primaryAiProvider') return ['auto', 'mistral', 'gigachat'].includes(String(value)) ? value : 'auto';
+    if (key === 'primaryAiProvider') return ['auto', 'mistral', 'cloudflare'].includes(String(value)) ? value : 'auto';
     if (key === 'selectedTone')
         return ['business', 'friendly', 'persuasive', 'creative'].includes(String(value)) ? value : 'business';
     if (key === 'selectedTheme') return ['auto', 'light', 'dark'].includes(String(value)) ? value : 'auto';

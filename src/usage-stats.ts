@@ -72,6 +72,10 @@ export const EMPTY_USAGE_STATS: UsageStats = {
     byMode: {},
     estimatedInputTokens: 0,
     estimatedOutputTokens: 0,
+    mistralTokens: 0,
+    cloudflareTokens: 0,
+    cloudflareNeurons: 0,
+    fallbackCount: 0,
     daily: {},
 };
 
@@ -90,17 +94,35 @@ function normalizeStats(value: unknown): UsageStats {
         byMode,
         estimatedInputTokens: Math.max(0, Math.trunc(Number(candidate.estimatedInputTokens) || 0)),
         estimatedOutputTokens: Math.max(0, Math.trunc(Number(candidate.estimatedOutputTokens) || 0)),
+        mistralTokens: Math.max(0, Math.trunc(Number(candidate.mistralTokens) || 0)),
+        cloudflareTokens: Math.max(0, Math.trunc(Number(candidate.cloudflareTokens) || 0)),
+        cloudflareNeurons: Number(Math.max(0, Number(candidate.cloudflareNeurons) || 0).toFixed(4)),
+        fallbackCount: Math.max(0, Math.trunc(Number(candidate.fallbackCount) || 0)),
         daily: Object.fromEntries(
             Object.entries(candidate.daily && typeof candidate.daily === 'object' ? candidate.daily : {})
                 .filter(([day]) => /^\d{4}-\d{2}-\d{2}$/.test(day))
                 .slice(-62)
                 .map(([day, usage]) => {
-                    const value = usage && typeof usage === 'object' ? usage : { requests: 0, tokens: 0 };
+                    const value =
+                        usage && typeof usage === 'object'
+                            ? (usage as {
+                                  requests?: unknown;
+                                  tokens?: unknown;
+                                  mistralTokens?: unknown;
+                                  cloudflareTokens?: unknown;
+                                  cloudflareNeurons?: unknown;
+                                  fallbackCount?: unknown;
+                              })
+                            : {};
                     return [
                         day,
                         {
                             requests: Math.max(0, Math.trunc(Number(value.requests) || 0)),
                             tokens: Math.max(0, Math.trunc(Number(value.tokens) || 0)),
+                            mistralTokens: Math.max(0, Math.trunc(Number(value.mistralTokens) || 0)),
+                            cloudflareTokens: Math.max(0, Math.trunc(Number(value.cloudflareTokens) || 0)),
+                            cloudflareNeurons: Number(Math.max(0, Number(value.cloudflareNeurons) || 0).toFixed(4)),
+                            fallbackCount: Math.max(0, Math.trunc(Number(value.fallbackCount) || 0)),
                         },
                     ];
                 }),
@@ -139,6 +161,9 @@ export interface UsageMutationPayload {
     success?: boolean;
     inputTokens?: number;
     outputTokens?: number;
+    provider?: 'mistral' | 'cloudflare';
+    neurons?: number;
+    fallbackOccurred?: boolean;
 }
 
 async function requestUsageMutation(mutation: UsageMutation, payload: UsageMutationPayload): Promise<void> {
@@ -166,13 +191,35 @@ export async function applyUsageMutationNow(mutation: UsageMutation, payload: Us
         stats.byMode[payload.mode] = (stats.byMode[payload.mode] || 0) + 1;
         const inputTokens = Math.max(0, Math.trunc(Number(payload.inputTokens) || 0));
         const outputTokens = Math.max(0, Math.trunc(Number(payload.outputTokens) || 0));
+        const reqTokens = inputTokens + outputTokens;
+        const reqNeurons = Math.max(0, Number(payload.neurons) || 0);
+
         stats.estimatedInputTokens = (stats.estimatedInputTokens || 0) + inputTokens;
         stats.estimatedOutputTokens = (stats.estimatedOutputTokens || 0) + outputTokens;
+
+        if (payload.provider === 'cloudflare') {
+            stats.cloudflareTokens = (stats.cloudflareTokens || 0) + reqTokens;
+            if (reqNeurons > 0) {
+                stats.cloudflareNeurons = Number(((stats.cloudflareNeurons || 0) + reqNeurons).toFixed(4));
+            }
+        } else {
+            stats.mistralTokens = (stats.mistralTokens || 0) + reqTokens;
+        }
+
+        if (payload.fallbackOccurred) {
+            stats.fallbackCount = (stats.fallbackCount || 0) + 1;
+        }
+
         const day = getLocalDayKey();
         const daily = stats.daily || {};
+        const prevDay = daily[day] || { requests: 0, tokens: 0 };
         daily[day] = {
-            requests: (daily[day]?.requests || 0) + 1,
-            tokens: (daily[day]?.tokens || 0) + inputTokens + outputTokens,
+            requests: prevDay.requests + 1,
+            tokens: prevDay.tokens + reqTokens,
+            mistralTokens: (prevDay.mistralTokens || 0) + (payload.provider === 'cloudflare' ? 0 : reqTokens),
+            cloudflareTokens: (prevDay.cloudflareTokens || 0) + (payload.provider === 'cloudflare' ? reqTokens : 0),
+            cloudflareNeurons: Number(((prevDay.cloudflareNeurons || 0) + reqNeurons).toFixed(4)),
+            fallbackCount: (prevDay.fallbackCount || 0) + (payload.fallbackOccurred ? 1 : 0),
         };
         stats.daily = Object.fromEntries(Object.entries(daily).sort().slice(-62));
     } else {
