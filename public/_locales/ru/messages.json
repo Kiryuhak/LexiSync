@@ -2266,5 +2266,23 @@
     },
     "refineConvincePrompt": {
         "message": "Перепиши текст с убедительной аргументацией и сильными доводами."
+    },
+    "quickTabImprove": {
+        "message": "Улучшить"
+    },
+    "quickTabRephrase": {
+        "message": "Перефразировать"
+    },
+    "quickTabShorten": {
+        "message": "Сократить"
+    },
+    "expandToDetailed": {
+        "message": "Развернуть подробный вид"
+    },
+    "dismissCorrection": {
+        "message": "Отклонить"
+    },
+    "acceptApply": {
+        "message": "Применить"
     }
 }

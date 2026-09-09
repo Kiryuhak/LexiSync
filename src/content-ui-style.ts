@@ -630,15 +630,126 @@ export const POPUP_STYLE_TEXT = `
                 color: var(--text-primary) !important;
                 background: var(--hover-bg) !important;
             }
-            #lexisync-extension-ui[data-compact-result="true"]:not([data-theme="dark"]) .lexisync-result-button,
-            #lexisync-extension-ui[data-compact-result="true"]:not([data-theme="dark"]) .lexisync-result-button--primary {
+            #lexisync-extension-ui[data-compact-result="true"]:not([data-theme="dark"]) .lexisync-result-button:not(.lexisync-result-button--accept),
+            #lexisync-extension-ui[data-compact-result="true"]:not([data-theme="dark"]) .lexisync-result-button--primary:not(.lexisync-result-button--accept) {
                 color: #151515 !important;
                 background: #f1f1f2 !important;
             }
-            #lexisync-extension-ui[data-compact-result="true"] .lexisync-result-button:hover {
+            #lexisync-extension-ui[data-compact-result="true"] .lexisync-result-button:hover:not(.lexisync-result-button--accept) {
                 background: var(--primary-soft) !important;
                 transform: none;
             }
+            .lexisync-diff-del {
+                text-decoration: line-through;
+                opacity: 0.75;
+                color: #ef4444;
+                background: rgba(239, 68, 68, 0.09);
+                padding: 1px 4px;
+                border-radius: 4px;
+                margin-right: 3px;
+                font-weight: 400;
+            }
+            .lexisync-diff-ins {
+                text-decoration: none;
+                font-weight: 600;
+                color: #059669;
+                background: rgba(16, 185, 129, 0.12);
+                padding: 1px 4px;
+                border-radius: 4px;
+            }
+            #lexisync-extension-ui[data-theme="dark"] .lexisync-diff-del {
+                color: #f87171;
+                background: rgba(239, 68, 68, 0.2);
+            }
+            #lexisync-extension-ui[data-theme="dark"] .lexisync-diff-ins {
+                color: #34d399;
+                background: rgba(16, 185, 129, 0.2);
+            }
+            .lexisync-quick-tabs {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                padding: 6px 14px 4px;
+                border-bottom: 1px solid var(--inner-border);
+                overflow-x: auto;
+                scrollbar-width: none;
+            }
+            .lexisync-quick-tab {
+                border: 0;
+                background: var(--bg-secondary);
+                color: var(--text-secondary);
+                padding: 4px 10px;
+                border-radius: 12px;
+                font-size: 11px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.15s ease;
+                white-space: nowrap;
+            }
+            .lexisync-quick-tab:hover {
+                background: var(--hover-bg);
+                color: var(--text-primary);
+            }
+            .lexisync-quick-tab--active {
+                background: var(--primary-soft);
+                color: var(--primary-strong);
+                font-weight: 600;
+            }
+            .lexisync-expand-btn {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 26px;
+                height: 26px;
+                border-radius: 6px;
+                border: 0;
+                background: transparent;
+                color: var(--text-secondary);
+                cursor: pointer;
+                transition: background 0.15s, color 0.15s;
+            }
+            .lexisync-expand-btn:hover {
+                background: var(--hover-bg);
+                color: var(--text-primary);
+            }
+            .lexisync-expand-btn svg {
+                width: 14px;
+                height: 14px;
+            }
+            .lexisync-result-button--accept {
+                background: #10b981 !important;
+                color: #ffffff !important;
+                border-radius: 18px !important;
+                padding: 7px 18px !important;
+                font-weight: 600 !important;
+                font-size: 13px !important;
+                border: 0 !important;
+                box-shadow: 0 2px 8px rgba(16, 185, 129, 0.28) !important;
+                cursor: pointer !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                gap: 6px !important;
+                transition: transform 0.15s, background 0.15s !important;
+            }
+            .lexisync-result-button--accept:hover {
+                background: #059669 !important;
+                transform: translateY(-1px) !important;
+            }
+            .lexisync-result-button--dismiss {
+                background: transparent !important;
+                color: var(--text-secondary) !important;
+                border-radius: 18px !important;
+                padding: 7px 14px !important;
+                font-weight: 500 !important;
+                font-size: 13px !important;
+                border: 0 !important;
+                cursor: pointer !important;
+            }
+            .lexisync-result-button--dismiss:hover {
+                background: var(--hover-bg) !important;
+                color: var(--text-primary) !important;
+            }
+
             .lexisync-correction-row {
                 background: var(--bg-elevated);
                 border-color: var(--inner-border) !important;

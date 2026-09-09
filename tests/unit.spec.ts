@@ -14,7 +14,7 @@ import {
 } from '../src/mistral-client';
 import { matchesSite, normalizeSitePatterns, resolveStyleProfile } from '../src/site-profiles';
 import { getOriginPattern } from '../src/site-access';
-import { getWordCorrections, resolveCorrections } from '../src/spellcheck';
+import { getWordCorrections, resolveCorrections, renderInlineDiffFragment } from '../src/spellcheck';
 import { createSettingsFingerprint, serializeCacheSource } from '../src/request-cache';
 import { normalizeDisabledSites, normalizeSiteEntries } from '../src/privacy';
 import { validateMistralRequest } from '../src/request-validation';
@@ -3831,4 +3831,258 @@ test('buildPromptPayload поддерживает WritingGoal с аудитор�
     expect(systemMessage).toBeDefined();
     expect(systemMessage!.content).toContain('клиентоориентированно');
     expect(systemMessage!.content).toContain('убедить');
+});
+
+test('renderInlineDiffFragment создаёт теги del и ins для отображения различий в стиле Grammarly', () => {
+    interface MockNode {
+        tagName: string;
+        className: string;
+        textContent: string;
+        children: MockNode[];
+        attributes: Map<string, string>;
+        style: Record<string, string>;
+        appendChild: (child: MockNode) => MockNode;
+        append: (...items: Array<MockNode | string>) => void;
+        replaceChildren: (...items: Array<MockNode | string>) => void;
+        insertAdjacentElement: (pos: string, el: MockNode) => void;
+        querySelector: (sel: string) => MockNode | null;
+        querySelectorAll: (sel: string) => MockNode[];
+        setAttribute: (k: string, v: string) => void;
+    }
+
+    const createNode = (tag = 'div'): MockNode => {
+        let textVal = '';
+        return {
+            tagName: tag.toUpperCase(),
+            className: '',
+            get textContent(): string {
+                if (tag === '#text') return textVal;
+                return this.children.length > 0 ? this.children.map((c) => c.textContent).join('') : textVal;
+            },
+            set textContent(v: string) {
+                textVal = v;
+            },
+            children: [],
+            attributes: new Map(),
+            style: {},
+            appendChild(child) {
+                this.children.push(child);
+                return child;
+            },
+            append(...items) {
+                for (const item of items) {
+                    if (typeof item === 'string') {
+                        const t = createNode('#text');
+                        t.textContent = item;
+                        this.children.push(t);
+                    } else {
+                        this.children.push(item);
+                    }
+                }
+            },
+            replaceChildren(...items) {
+                this.children = [];
+                this.append(...items);
+            },
+            insertAdjacentElement(_pos, el) {
+                this.children.push(el);
+            },
+            querySelector(sel) {
+                return this.querySelectorAll(sel)[0] || null;
+            },
+            querySelectorAll(sel) {
+                const results: MockNode[] = [];
+                const search = (current: MockNode) => {
+                    const tagMatch = current.tagName.toLowerCase() === sel.toLowerCase();
+                    const classMatch = sel.startsWith('.') && current.className.split(/\s+/).includes(sel.slice(1));
+                    const tagClassMatch =
+                        sel.includes('.') &&
+                        current.tagName.toLowerCase() === sel.split('.')[0].toLowerCase() &&
+                        current.className.split(/\s+/).includes(sel.split('.')[1]);
+                    if (tagMatch || classMatch || tagClassMatch) {
+                        results.push(current);
+                    }
+                    for (const ch of current.children) search(ch);
+                };
+                for (const ch of this.children) search(ch);
+                return results;
+            },
+            setAttribute(k, v) {
+                this.attributes.set(k, v);
+            },
+        };
+    };
+
+    const origDoc = globalThis.document;
+    globalThis.document = {
+        createElement: (tag: string) => createNode(tag),
+        createElementNS: (_ns: string, tag: string) => createNode(tag),
+        createTextNode: (text: string) => {
+            const t = createNode('#text');
+            t.textContent = text;
+            return t;
+        },
+        createDocumentFragment: () => createNode('#fragment'),
+    } as unknown as Document;
+
+    try {
+        const original = 'next friday i am excited to cohost';
+        const corrected = 'Next Friday I am thrilled to cohost';
+
+        const fragment = renderInlineDiffFragment(original, corrected) as unknown as MockNode;
+        const container = createNode('div');
+        container.appendChild(fragment);
+
+        const dels = container.querySelectorAll('del.lexisync-diff-del');
+        const inss = container.querySelectorAll('ins.lexisync-diff-ins');
+
+        expect(dels.length).toBeGreaterThan(0);
+        expect(inss.length).toBeGreaterThan(0);
+
+        const delTexts = dels.map((el) => el.textContent);
+        const insTexts = inss.map((el) => el.textContent);
+
+        expect(delTexts).toContain('next friday i');
+        expect(insTexts).toContain('Next Friday I');
+        expect(delTexts).toContain('excited');
+        expect(insTexts).toContain('thrilled');
+    } finally {
+        globalThis.document = origDoc;
+    }
+});
+
+test('renderCompactResultPreview корректно отображает карточку с табами и кнопками в компактном режиме', async () => {
+    interface MockNode {
+        tagName: string;
+        className: string;
+        textContent: string;
+        children: MockNode[];
+        attributes: Map<string, string>;
+        style: Record<string, string>;
+        appendChild: (child: MockNode) => MockNode;
+        append: (...items: Array<MockNode | string>) => void;
+        replaceChildren: (...items: Array<MockNode | string>) => void;
+        insertAdjacentElement: (pos: string, el: MockNode) => void;
+        querySelector: (sel: string) => MockNode | null;
+        querySelectorAll: (sel: string) => MockNode[];
+        setAttribute: (k: string, v: string) => void;
+    }
+
+    const createNode = (tag = 'div'): MockNode => {
+        let textVal = '';
+        return {
+            tagName: tag.toUpperCase(),
+            className: '',
+            get textContent(): string {
+                if (tag === '#text') return textVal;
+                return this.children.length > 0 ? this.children.map((c) => c.textContent).join('') : textVal;
+            },
+            set textContent(v: string) {
+                textVal = v;
+            },
+            children: [],
+            attributes: new Map(),
+            style: {},
+            appendChild(child) {
+                this.children.push(child);
+                return child;
+            },
+            append(...items) {
+                for (const item of items) {
+                    if (typeof item === 'string') {
+                        const t = createNode('#text');
+                        t.textContent = item;
+                        this.children.push(t);
+                    } else {
+                        this.children.push(item);
+                    }
+                }
+            },
+            replaceChildren(...items) {
+                this.children = [];
+                this.append(...items);
+            },
+            insertAdjacentElement(_pos, el) {
+                this.children.push(el);
+            },
+            querySelector(sel) {
+                return this.querySelectorAll(sel)[0] || null;
+            },
+            querySelectorAll(sel) {
+                const results: MockNode[] = [];
+                const search = (current: MockNode) => {
+                    const tagMatch = current.tagName.toLowerCase() === sel.toLowerCase();
+                    const classMatch = sel.startsWith('.') && current.className.split(/\s+/).includes(sel.slice(1));
+                    const tagClassMatch =
+                        sel.includes('.') &&
+                        current.tagName.toLowerCase() === sel.split('.')[0].toLowerCase() &&
+                        current.className.split(/\s+/).includes(sel.split('.')[1]);
+                    if (tagMatch || classMatch || tagClassMatch) {
+                        results.push(current);
+                    }
+                    for (const ch of current.children) search(ch);
+                };
+                for (const ch of this.children) search(ch);
+                return results;
+            },
+            setAttribute(k, v) {
+                this.attributes.set(k, v);
+            },
+        };
+    };
+
+    const origDoc = globalThis.document;
+    globalThis.document = {
+        createElement: (tag: string) => createNode(tag),
+        createElementNS: (_ns: string, tag: string) => createNode(tag),
+        createTextNode: (text: string) => {
+            const t = createNode('#text');
+            t.textContent = text;
+            return t;
+        },
+        createDocumentFragment: () => createNode('#fragment'),
+    } as unknown as Document;
+
+    try {
+        const { renderCompactResultPreview } = await import('../src/result-dialog-view');
+        const container = createNode('div');
+
+        renderCompactResultPreview(
+            container as unknown as HTMLElement,
+            {
+                title: 'Ошибки исправлены',
+                before: 'Готовый текст ',
+                correction: 'без ошибок',
+                after: '.',
+                replace: 'Применить',
+                beforeAfter: 'До / После',
+                repeat: 'Повторить',
+                shorter: 'Короче',
+                tabImprove: 'Улучшить',
+                tabRephrase: 'Перефразировать',
+                tabShorten: 'Сократить',
+                dismiss: 'Отклонить',
+            },
+            false, // compact mode
+        );
+
+        const tabs = container.querySelector('.lexisync-quick-tabs');
+        expect(tabs).not.toBeNull();
+        const tabButtons = container.querySelectorAll('.lexisync-quick-tab');
+        expect(tabButtons.length).toBe(3);
+        expect(tabButtons[0].textContent).toBe('Улучшить');
+
+        const expandBtn = container.querySelector('.lexisync-preview-expand');
+        expect(expandBtn).not.toBeNull();
+
+        const acceptBtn = container.querySelector('.lexisync-result-button--accept');
+        expect(acceptBtn).not.toBeNull();
+        expect(acceptBtn!.textContent).toContain('Применить');
+
+        const dismissBtn = container.querySelector('.lexisync-result-button--dismiss');
+        expect(dismissBtn).not.toBeNull();
+        expect(dismissBtn!.textContent).toBe('Отклонить');
+    } finally {
+        globalThis.document = origDoc;
+    }
 });

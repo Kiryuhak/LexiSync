@@ -3,7 +3,7 @@ import { getCachedText, getCacheHash, setCachedText } from './ai-cache';
 import { t } from './i18n';
 import { addHistoryItem, updateHistoryItemResult } from './history-store';
 import { isSiteDisabled, normalizeDisabledSites, shouldStoreOnCurrentPage } from './privacy';
-import { normalizeSpellcheckResult, renderSpellcheckDiffFragment } from './spellcheck';
+import { normalizeSpellcheckResult, renderSpellcheckDiffFragment, renderInlineDiffFragment } from './spellcheck';
 import type { CustomCommand, HistoryItem, RequestMode, SelectionData, StreamResponse } from './types';
 import { recordCacheHit } from './usage-stats';
 import { createSvgIcon, renderMarkdown, setIcon } from './dom-rendering';
@@ -16,7 +16,7 @@ import { normalizeResultDisplayMode, shouldUseCompactResult } from './result-dis
 import { createSpellcheckUi } from './content-spellcheck-ui';
 import { renderPrimaryResultActions } from './content-result-actions';
 import { formatRequestDuration } from './request-duration';
-import { mountResultDialogFrame } from './result-dialog-view';
+import { mountResultDialogFrame, createExpandIcon } from './result-dialog-view';
 import { createLanguagePicker } from './content-language-picker';
 import { formatTextStats, calculateDetailedStats } from './text-stats';
 import { estimateTokens } from './budget';
@@ -296,11 +296,78 @@ export function executeRequest(
         adjustPopupPosition();
     });
 
+    let quickTabsBar: HTMLDivElement | null = null;
+
+    function ensureQuickTabs(): void {
+        if (!compactResultMode || quickTabsBar) return;
+        quickTabsBar = document.createElement('div');
+        quickTabsBar.className = 'lexisync-quick-tabs';
+
+        const tabsConfig: Array<{ label: string; modeTarget: RequestMode; active: boolean }> = [
+            { label: t('quickTabImprove', 'Улучшить'), modeTarget: 'spellcheck', active: mode === 'spellcheck' },
+            { label: t('quickTabRephrase', 'Перефразировать'), modeTarget: 'style', active: mode === 'style' },
+            { label: t('quickTabShorten', 'Сократить'), modeTarget: 'summary', active: mode === 'summary' },
+        ];
+
+        for (const tabConf of tabsConfig) {
+            const tab = document.createElement('button');
+            tab.type = 'button';
+            tab.className = `lexisync-quick-tab${tabConf.active ? ' lexisync-quick-tab--active' : ''}`;
+            tab.textContent = tabConf.label;
+            tab.onclick = (e) => {
+                e.stopPropagation();
+                if (tabConf.active) return;
+                void executeRequest(tabConf.modeTarget, undefined, context);
+            };
+            quickTabsBar.appendChild(tab);
+        }
+
+        header.insertAdjacentElement('afterend', quickTabsBar);
+    }
+
+    function expandToDetailedView(): void {
+        compactResultMode = false;
+        const currentPopup = context.getPopup();
+        if (currentPopup) {
+            delete currentPopup.dataset.compactResult;
+            currentPopup.style.width = 'min(640px, calc(100vw - 24px))';
+        }
+        quickTabsBar?.remove();
+        quickTabsBar = null;
+        if (mode === 'spellcheck') {
+            spellcheckUi.setResult(originalText, fullResult);
+            correctionsContainer.style.display = 'flex';
+            correctionsContainer.hidden = false;
+        } else {
+            contentPane.contentEditable = 'true';
+            contentPane.setAttribute('aria-label', t('editableResult', 'Результат можно редактировать'));
+            renderMarkdown(contentPane, fullResult);
+        }
+        resultTools.style.display = 'flex';
+        resultTools.hidden = false;
+        statsBar.style.display = 'flex';
+        statsBar.hidden = false;
+        updateTextStats();
+        finishStream(true);
+        renderPrimaryResultActions({
+            mode,
+            selection: currentSelection,
+            actionsContainer,
+            headerTitle: headerTitleWrapper,
+            getResult: getEffectiveResult,
+            showStatus: showActionStatus,
+            setTimeout: (callback, delay) => lifecycle.setTimeout(callback, delay),
+            isCompact: () => false,
+            onDismiss: () => closePopup(),
+        });
+        adjustPopupPosition();
+    }
+
     function applyCompactResultLayout(): void {
         const currentPopup = context.getPopup();
         if (currentPopup) {
             currentPopup.dataset.compactResult = 'true';
-            currentPopup.style.width = 'min(360px, calc(100vw - 24px))';
+            currentPopup.style.width = 'min(400px, calc(100vw - 24px))';
             currentPopup.style.boxSizing = 'border-box';
         }
         correctionsContainer.replaceChildren();
@@ -312,6 +379,7 @@ export function executeRequest(
         statsBar.replaceChildren();
         statsBar.hidden = true;
         statsBar.style.display = 'none';
+        ensureQuickTabs();
     }
 
     function getCacheSource(): string {
@@ -619,11 +687,21 @@ export function executeRequest(
                 if (mode === 'summary') {
                     fullResult = stripSummaryPrefix(fullResult);
                 }
-                if (mode === 'spellcheck') {
+                if (
+                    compactResultMode &&
+                    originalText &&
+                    fullResult &&
+                    originalText.trim() !== fullResult.trim() &&
+                    mode !== 'ocr'
+                ) {
+                    contentPane.replaceChildren(renderInlineDiffFragment(originalText, fullResult));
+                    ensureQuickTabs();
+                } else if (mode === 'spellcheck') {
                     fullResult = normalizeSpellcheckResult(fullResult);
                     spellcheckUi.setResult(currentSelection.text, fullResult);
                 } else if (compactResultMode) {
                     contentPane.textContent = fullResult;
+                    ensureQuickTabs();
                 } else {
                     renderMarkdown(contentPane, fullResult);
                 }
@@ -736,6 +814,19 @@ export function executeRequest(
             context.setPinned?.(next);
             updatePinVisual();
         };
+        if (compactResultMode) {
+            const expandBtn = document.createElement('button');
+            expandBtn.type = 'button';
+            expandBtn.className = 'lexisync-expand-btn';
+            expandBtn.title = t('expandToDetailed', 'Развернуть подробный вид');
+            expandBtn.setAttribute('aria-label', t('expandToDetailed', 'Развернуть подробный вид'));
+            expandBtn.appendChild(createExpandIcon());
+            expandBtn.onclick = (e) => {
+                e.stopPropagation();
+                expandToDetailedView();
+            };
+            loaderOrClose.appendChild(expandBtn);
+        }
         updatePinVisual();
         loaderOrClose.appendChild(pinBtn);
 
@@ -1232,7 +1323,10 @@ export function executeRequest(
                 getResult: getEffectiveResult,
                 showStatus: showActionStatus,
                 setTimeout: (callback, delay) => lifecycle.setTimeout(callback, delay),
+                isCompact: () => compactResultMode,
+                onDismiss: () => closePopup(),
             });
+
             updateTextStats();
         }
         adjustPopupPosition();
@@ -1337,13 +1431,18 @@ export function executeRequest(
             } else {
                 fullResult = cleanedCached;
             }
-            if (mode === 'spellcheck') {
+            if (compactResultMode && originalText && fullResult && originalText.trim() !== fullResult.trim()) {
+                contentPane.replaceChildren(renderInlineDiffFragment(originalText, fullResult));
+                ensureQuickTabs();
+            } else if (mode === 'spellcheck') {
                 spellcheckUi.setResult(currentSelection.text, fullResult);
             } else if (compactResultMode) {
                 contentPane.textContent = fullResult;
+                ensureQuickTabs();
             } else {
                 renderMarkdown(contentPane, fullResult);
             }
+
             finishStream(true);
             showActionStatus(t('resultFromCache', 'Result loaded from the local cache.'));
         } else {

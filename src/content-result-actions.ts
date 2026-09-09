@@ -14,6 +14,8 @@ interface ResultActionsOptions {
     getResult: () => string;
     showStatus: (message: string, isError?: boolean) => void;
     setTimeout: (callback: () => void, delay: number) => unknown;
+    isCompact?: () => boolean;
+    onDismiss?: () => void;
 }
 
 export function renderPrimaryResultActions(options: ResultActionsOptions): void {
@@ -21,8 +23,13 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
     actionsContainer.style.display = 'flex';
     actionsContainer.replaceChildren();
 
+    const isCompact = options.isCompact?.() === true;
     const btnClass = mode === 'translate' || mode === 'layout' ? 'lexisync-translate-btn' : 'lexisync-btn-action';
-    const replaceIcon = mode === 'translate' || mode === 'layout' ? ICONS.replaceCurved : ICONS.replace;
+    const replaceIcon = isCompact
+        ? ICONS.check
+        : mode === 'translate' || mode === 'layout'
+          ? ICONS.replaceCurved
+          : ICONS.replace;
     const copyIcon = mode === 'translate' || mode === 'layout' ? ICONS.copyStandard : ICONS.copy;
 
     const hasReplaceTarget =
@@ -31,8 +38,12 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
     if (hasReplaceTarget) {
         const replaceButton = document.createElement('button');
         replaceButton.type = 'button';
-        replaceButton.className = `${btnClass} lexisync-result-button lexisync-result-button--primary`;
-        appendIconAndText(replaceButton, replaceIcon, t('replaceText', 'Заменить текст'));
+        replaceButton.className = isCompact
+            ? `${btnClass} lexisync-result-button lexisync-result-button--accept`
+            : `${btnClass} lexisync-result-button lexisync-result-button--primary`;
+        const replaceText = isCompact ? t('acceptApply', 'Применить') : t('replaceText', 'Заменить текст');
+        appendIconAndText(replaceButton, replaceIcon, replaceText);
+
         replaceButton.onpointerdown = (e) => e.stopPropagation();
         replaceButton.onmousedown = (e) => e.stopPropagation();
         replaceButton.onclick = (event) => {
@@ -101,6 +112,22 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
             }
         };
         actionsContainer.appendChild(appendButton);
+
+        if (isCompact && options.onDismiss) {
+            const dismissButton = document.createElement('button');
+            dismissButton.type = 'button';
+            dismissButton.className = `${btnClass} lexisync-result-button lexisync-result-button--dismiss`;
+            dismissButton.textContent = t('dismissCorrection', 'Отклонить');
+            dismissButton.onpointerdown = (e) => e.stopPropagation();
+            dismissButton.onmousedown = (e) => e.stopPropagation();
+            dismissButton.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                options.onDismiss?.();
+            };
+            actionsContainer.appendChild(dismissButton);
+            return;
+        }
     }
 
     if (mode === 'ocr') {
@@ -121,7 +148,9 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
         copyButton.setAttribute('aria-label', t('copy', 'Копировать'));
         setIcon(copyButton, copyIcon);
     } else {
-        copyButton.className = `${btnClass} lexisync-result-button lexisync-result-button--primary`;
+        copyButton.className = isCompact
+            ? `${btnClass} lexisync-result-button lexisync-result-button--accept`
+            : `${btnClass} lexisync-result-button lexisync-result-button--primary`;
         appendIconAndText(copyButton, copyIcon, t('copy', 'Копировать'));
     }
     copyButton.onpointerdown = (e) => e.stopPropagation();
@@ -157,6 +186,24 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
     };
 
     actionsContainer.appendChild(copyButton);
+
+    if (isCompact) {
+        if (options.onDismiss) {
+            const dismissButton = document.createElement('button');
+            dismissButton.type = 'button';
+            dismissButton.className = `${btnClass} lexisync-result-button lexisync-result-button--dismiss`;
+            dismissButton.textContent = t('dismissCorrection', 'Отклонить');
+            dismissButton.onpointerdown = (e) => e.stopPropagation();
+            dismissButton.onmousedown = (e) => e.stopPropagation();
+            dismissButton.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                options.onDismiss?.();
+            };
+            actionsContainer.appendChild(dismissButton);
+        }
+        return;
+    }
 
     const downloadButton = document.createElement('button');
     downloadButton.type = 'button';

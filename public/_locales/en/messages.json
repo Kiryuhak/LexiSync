@@ -2266,5 +2266,23 @@
     },
     "refineConvincePrompt": {
         "message": "Rewrite the text with compelling arguments and persuasive reasoning."
+    },
+    "quickTabImprove": {
+        "message": "Improve"
+    },
+    "quickTabRephrase": {
+        "message": "Rephrase"
+    },
+    "quickTabShorten": {
+        "message": "Shorten"
+    },
+    "expandToDetailed": {
+        "message": "Expand detailed view"
+    },
+    "dismissCorrection": {
+        "message": "Dismiss"
+    },
+    "acceptApply": {
+        "message": "Apply"
     }
 }

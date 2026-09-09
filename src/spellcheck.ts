@@ -221,3 +221,42 @@ export function renderSpellcheckDiffFragment(
     appendText(fragment, corrected.slice(cursor));
     return fragment;
 }
+
+export function renderInlineDiffFragment(original: string, corrected: string): DocumentFragment {
+    const fragment = document.createDocumentFragment();
+    const appendText = (container: Node, value: string) => {
+        value.split('\n').forEach((line, index, lines) => {
+            container.appendChild(document.createTextNode(line));
+            if (index < lines.length - 1) container.appendChild(document.createElement('br'));
+        });
+    };
+    const corrections = getWordCorrections(original, corrected);
+    let cursor = 0;
+    for (const correction of corrections) {
+        appendText(fragment, corrected.slice(cursor, correction.start));
+        if (correction.original && correction.corrected) {
+            const del = document.createElement('del');
+            del.className = 'lexisync-diff-del';
+            appendText(del, correction.original);
+            fragment.appendChild(del);
+
+            const ins = document.createElement('ins');
+            ins.className = 'lexisync-diff-ins';
+            appendText(ins, correction.corrected);
+            fragment.appendChild(ins);
+        } else if (correction.original && !correction.corrected) {
+            const del = document.createElement('del');
+            del.className = 'lexisync-diff-del';
+            appendText(del, correction.original);
+            fragment.appendChild(del);
+        } else if (!correction.original && correction.corrected) {
+            const ins = document.createElement('ins');
+            ins.className = 'lexisync-diff-ins';
+            appendText(ins, correction.corrected);
+            fragment.appendChild(ins);
+        }
+        cursor = correction.end;
+    }
+    appendText(fragment, corrected.slice(cursor));
+    return fragment;
+}
