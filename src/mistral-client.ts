@@ -272,6 +272,7 @@ export async function streamText(
             messages: prompt.messages,
             stream: true,
             max_tokens: getAiOutputTokenLimit(msg.mode, settings.aiMode, msg.text, msg.rawMessages),
+            temperature: msg.mode === 'spellcheck' ? 0.0 : msg.mode === 'summary' ? 0.2 : 0.3,
         }),
     };
     const requestCompletion = () => fetchWithRetry(`${API_BASE_URL}/chat/completions`, requestInit, signal);

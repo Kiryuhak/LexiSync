@@ -7,6 +7,7 @@ import { AiProviderError, type AIResponse, type CloudflareCredentials } from './
 import { recordErrorLog } from './error-log';
 import { getAiOutputTokenLimit } from './ai-output-budget';
 import { AI_CONFIG } from './ai-models-config';
+import { validateAiOutput } from './ai-sanity-check';
 
 export const CLOUDFLARE_API_BASE_URL = AI_CONFIG.cloudflare.baseUrl;
 export const CLOUDFLARE_DEFAULT_MODEL = AI_CONFIG.cloudflare.defaultModel;
@@ -198,6 +199,7 @@ export async function streamCloudflareText(
     const prompt = buildPromptPayload(msg, settings);
     const shouldRestorePii = Object.keys(prompt.piiMaskMap).length > 0;
     const maxTokens = getAiOutputTokenLimit(msg.mode, settings.aiMode, msg.text, msg.rawMessages);
+    const temperature = msg.mode === 'spellcheck' ? 0.0 : msg.mode === 'summary' ? 0.2 : 0.3;
 
     let fullCollectedText = '';
     let usageData: CloudflareUsage | undefined;
@@ -207,6 +209,7 @@ export async function streamCloudflareText(
         messages: prompt.messages,
         stream: true,
         max_tokens: maxTokens,
+        temperature,
     };
 
     let response: Response;
@@ -269,6 +272,32 @@ export async function streamCloudflareText(
         }
     };
 
+    const finalizeCompletedContent = () => {
+        emitCompletedContent();
+        const sanity = validateAiOutput({
+            originalText: msg.text || '',
+            correctedText: fullCollectedText,
+            mode: msg.mode,
+            targetLang: msg.targetLang,
+        });
+        if (!sanity.valid) {
+            void recordErrorLog({
+                level: 'warn',
+                source: 'cloudflare-client',
+                provider: 'cloudflare',
+                errorCode: 'QUALITY_CHECK_FAILED',
+                message: `Ответ Cloudflare не прошёл проверку качества: ${sanity.reason}`,
+            });
+            throw new AiProviderError(
+                `${t('qualityCheckFailed', 'Ответ Cloudflare не прошёл проверку качества.')} (${sanity.reason})`,
+                'QUALITY_CHECK_FAILED',
+                'cloudflare',
+                true,
+            );
+        }
+        fullCollectedText = sanity.cleanedText;
+    };
+
     const processLine = (line: string): boolean => {
         const parsed = readCloudflareSsePayload(line);
         if (parsed.usage) {
@@ -304,7 +333,7 @@ export async function streamCloudflareText(
                         true,
                     );
                 }
-                emitCompletedContent();
+                finalizeCompletedContent();
                 await reader.cancel();
                 return {
                     text: fullCollectedText,
@@ -332,7 +361,7 @@ export async function streamCloudflareText(
                     true,
                 );
             }
-            emitCompletedContent();
+            finalizeCompletedContent();
             await reader.cancel();
             return {
                 text: fullCollectedText,

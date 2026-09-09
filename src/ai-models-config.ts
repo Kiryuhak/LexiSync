@@ -10,12 +10,12 @@ export const AI_CONFIG = {
         id: 'cloudflare' as const,
         name: 'Cloudflare Workers AI',
         baseUrl: 'https://api.cloudflare.com/client/v4',
-        defaultModel: '@cf/meta/llama-3.2-3b-instruct',
-        defaultModelShortName: 'Llama 3.2 3B',
+        defaultModel: '@cf/qwen/qwen2.5-7b-instruct',
+        defaultModelShortName: 'Qwen 2.5 7B',
         availableModels: [
-            '@cf/meta/llama-3.2-3b-instruct',
-            '@cf/meta/llama-3.1-8b-instruct',
             '@cf/qwen/qwen2.5-7b-instruct',
+            '@cf/meta/llama-3.1-8b-instruct',
+            '@cf/meta/llama-3.2-3b-instruct',
         ] as const,
     },
 } as const;

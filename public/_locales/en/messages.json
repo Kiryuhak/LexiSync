@@ -2362,5 +2362,11 @@
     },
     "driveTokenLabel": {
         "message": "Google Drive Access Token"
+    },
+    "fallbackDueToQuality": {
+        "message": "Cloudflare response failed quality check. Request completed via Mistral."
+    },
+    "qualityCheckFailed": {
+        "message": "Cloudflare response failed quality check."
     }
 }
