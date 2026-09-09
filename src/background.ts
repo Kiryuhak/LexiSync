@@ -324,7 +324,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
         const operation =
             request.action === 'getCloudflareCredentials'
-                ? initializationPromise.then(getStoredCloudflareCredentials)
+                ? initializationPromise
+                      .then(getStoredCloudflareCredentials)
+                      .then((creds) => ({ value: creds, accountId: creds.accountId, apiToken: creds.apiToken }))
                 : initializationPromise
                       .then(() =>
                           setStoredCloudflareCredentials({
@@ -332,7 +334,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                               apiToken: typeof request.apiToken === 'string' ? request.apiToken : '',
                           }),
                       )
-                      .then(() => ({ accountId: '', apiToken: '' }));
+                      .then(() => ({ value: { accountId: '', apiToken: '' }, accountId: '', apiToken: '' }));
         void operation
             .then((data) => sendResponse({ ok: true, ...data }))
             .catch((error) =>

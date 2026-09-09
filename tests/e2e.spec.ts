@@ -1057,7 +1057,7 @@ test('вкладки настроек простым языком объясня
     }
 
     await page.locator('[data-tab="main"]').click();
-    await expect(page.locator('.field-hint[data-settings-group="main"]')).toHaveCount(3);
+    await expect(page.locator('.field-hint[data-settings-group="main"]')).toHaveCount(4);
     await expect(page.locator('.settings-field .field-hint')).toHaveText(localizedCopy.searchHint);
 
     await page.emulateMedia({ reducedMotion: 'reduce' });
