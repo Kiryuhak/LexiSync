@@ -934,10 +934,11 @@ test('renderPrimaryResultActions отображает только кнопку 
         });
 
         const inputButtons = inputActionsContainer.querySelectorAll('button');
-        expect(inputButtons).toHaveLength(3);
+        expect(inputButtons).toHaveLength(4);
         expect(inputButtons[0].textContent).toContain('Заменить текст');
-        expect(inputButtons[1].getAttribute('aria-label')).toBe('Копировать');
-        expect(inputButtons[2].getAttribute('aria-label')).toContain('Скачать');
+        expect(inputButtons[1].textContent).toContain('Вставить ниже');
+        expect(inputButtons[2].getAttribute('aria-label')).toBe('Копировать');
+        expect(inputButtons[3].getAttribute('aria-label')).toContain('Скачать');
     } finally {
         vi.stubGlobal('document', originalDocument);
         vi.stubGlobal('DOMParser', originalDOMParser);
@@ -3740,4 +3741,94 @@ test('ai-cache getCacheStats возвращает начальные метри�
     expect(typeof stats.misses).toBe('number');
     expect(typeof stats.savedTokens).toBe('number');
     expect(typeof stats.savedDurationMs).toBe('number');
+});
+
+test('classifyCorrection категоризирует ошибки по правилам русского языка и типографики', async () => {
+    const { classifyCorrection } = await import('../src/grammar-analytics');
+
+    expect(classifyCorrection('учится', 'учиться')).toBe('tsya_tsya');
+    expect(classifyCorrection('не правда', 'неправда')).toBe('ne_ni');
+    expect(classifyCorrection('москва', 'Москва')).toBe('capitalization');
+    expect(classifyCorrection('слово , слово', 'слово, слово')).toBe('punctuation');
+    expect(classifyCorrection('"цитата"', '«цитата»')).toBe('typography');
+    expect(classifyCorrection('тире - это знак', 'тире — это знак')).toBe('typography');
+    expect(classifyCorrection('ghbdtn', 'привет')).toBe('layout');
+    expect(classifyCorrection('красивым', 'красивыми')).toBe('case_agreement');
+    expect(classifyCorrection('карова', 'корова')).toBe('spelling');
+});
+
+test('getWordCorrections обогащает исправления категорией ошибки', async () => {
+    const { getWordCorrections } = await import('../src/spellcheck');
+
+    const corrections = getWordCorrections(
+        'Он учится говорить и поедет в москва',
+        'Он учиться говорить и поедет в Москва',
+    );
+    expect(corrections.length).toBeGreaterThanOrEqual(2);
+
+    const tsyaCorrection = corrections.find((c) => c.original.includes('учится'));
+    expect(tsyaCorrection).toBeDefined();
+    expect(tsyaCorrection?.category).toBe('tsya_tsya');
+
+    const capCorrection = corrections.find((c) => c.original.includes('москва'));
+    expect(capCorrection).toBeDefined();
+    expect(capCorrection?.category).toBe('capitalization');
+});
+
+test('appendBelowSelectedText корректно вставляет текст ниже поля ввода и поддерживает отмену', async () => {
+    const { appendBelowSelectedText } = await import('../src/text-replacement');
+
+    const input = {
+        value: 'Исходная строка текста',
+        selectionStart: 0,
+        selectionEnd: 22,
+        dispatchEvent: vi.fn(),
+        focus: vi.fn(),
+        tagName: 'TEXTAREA',
+    } as unknown as HTMLTextAreaElement;
+
+    const selection = {
+        text: 'Исходная строка текста',
+        context: 'Исходная строка текста',
+        range: null,
+        activeElement: input,
+        start: 0,
+        end: 22,
+        isInput: true,
+    };
+
+    const undo = appendBelowSelectedText(selection, 'Добавленная строка');
+    expect(typeof undo).toBe('function');
+    expect(input.value).toBe('Исходная строка текста\nДобавленная строка');
+
+    // Отмена восстанавливает исходный текст
+    undo!();
+    expect(input.value).toBe('Исходная строка текста');
+});
+
+test('buildPromptPayload поддерживает WritingGoal с аудиторией и намерением', async () => {
+    const { buildPromptPayload } = await import('../src/prompt-builder');
+
+    const payload = buildPromptPayload(
+        {
+            text: 'Тестовый текст для проверки',
+            mode: 'style',
+            writingGoal: {
+                audience: 'client',
+                intent: 'convince',
+            },
+        },
+        {
+            selectedTone: 'business',
+            sendPageContext: false,
+            personalDictionary: [],
+            glossary: [],
+            enablePiiMasking: false,
+        },
+    );
+
+    const systemMessage = payload.messages.find((m) => m.role === 'system');
+    expect(systemMessage).toBeDefined();
+    expect(systemMessage!.content).toContain('клиентоориентированно');
+    expect(systemMessage!.content).toContain('убедить');
 });

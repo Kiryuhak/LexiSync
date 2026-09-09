@@ -9,6 +9,7 @@ const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const extensionDir = path.join(rootDir, '.output', 'chrome-mv3');
 const rawDir = path.join(rootDir, '.output', 'showcase');
 const outputDir = path.join(rootDir, 'docs', 'store-assets', 'firefox');
+const chromeOutputDir = path.join(rootDir, 'docs', 'store-assets', 'chrome', 'ru');
 const carouselPath = path.join(rootDir, 'docs', 'assets', 'lexisync-showcase-color.gif');
 const profileDir = await fs.mkdtemp(path.join(os.tmpdir(), 'lexisync-showcase-'));
 
@@ -75,14 +76,14 @@ const scenes = [
         glow: '#9b7cf7',
     },
     {
-        raw: 'appearance.png',
-        output: 'lexisync-appearance-settings.png',
-        eyebrow: 'ПЕРСОНАЛЬНОЕ ОФОРМЛЕНИЕ',
-        title: 'Настройте LexiSync под себя',
-        description: 'Выберите тему, стиль окон, размер, плотность и прозрачность интерфейса.',
-        badges: ['MagicOS', 'Aurora Glass', 'Светлая и тёмная тема'],
-        accent: '#7656e8',
-        glow: '#36c8d3',
+        raw: 'providers.png',
+        output: 'lexisync-ai-providers.png',
+        eyebrow: 'ДВА AI-ПРОВАЙДЕРА',
+        title: 'Выберите AI для вашей задачи',
+        description: 'Подключите Mistral и Cloudflare Workers AI, назначьте основной сервис и резервный маршрут.',
+        badges: ['Mistral AI', 'Cloudflare Workers AI', 'Статус подключения'],
+        accent: '#f38020',
+        glow: '#f6c945',
     },
     {
         raw: 'privacy.png',
@@ -132,7 +133,7 @@ async function waitForBackground(context) {
     await background.evaluate(async () => {
         for (let attempt = 0; attempt < 100; attempt++) {
             const { settingsSchemaVersion } = await chrome.storage.local.get('settingsSchemaVersion');
-            if (settingsSchemaVersion === 10) return;
+            if (settingsSchemaVersion === 14) return;
             await new Promise((resolve) => setTimeout(resolve, 25));
         }
         throw new Error('Настройки расширения не инициализированы.');
@@ -206,9 +207,43 @@ async function createCarousel() {
         .toFile(carouselPath);
 }
 
+async function createChromeAssets() {
+    const chromeScenes = [
+        ['lexisync-ai-actions.png', '01-lexisync-ai-actions.png'],
+        ['lexisync-result-window.png', '02-lexisync-result-window.png'],
+        ['lexisync-ai-providers.png', '03-lexisync-ai-providers.png'],
+        ['lexisync-privacy-settings.png', '04-lexisync-privacy-settings.png'],
+        ['lexisync-quick-start.png', '05-lexisync-quick-start.png'],
+    ];
+    await fs.mkdir(chromeOutputDir, { recursive: true });
+    await Promise.all(
+        chromeScenes.map(([source, target]) =>
+            sharp(path.join(outputDir, source))
+                .resize(1280, 800, { fit: 'cover', position: 'attention' })
+                .png()
+                .toFile(path.join(chromeOutputDir, target)),
+        ),
+    );
+
+    const primary = path.join(outputDir, 'lexisync-ai-actions.png');
+    const promoDir = path.join(chromeOutputDir, 'promo');
+    await fs.mkdir(promoDir, { recursive: true });
+    await Promise.all([
+        sharp(primary)
+            .resize(440, 280, { fit: 'cover', position: 'attention' })
+            .png()
+            .toFile(path.join(promoDir, 'lexisync-small-promo-440x280.png')),
+        sharp(primary)
+            .resize(1400, 560, { fit: 'cover', position: 'attention' })
+            .png()
+            .toFile(path.join(promoDir, 'lexisync-marquee-promo-1400x560.png')),
+    ]);
+}
+
 await fs.access(path.join(extensionDir, 'manifest.json'));
 await fs.mkdir(rawDir, { recursive: true });
 await fs.mkdir(outputDir, { recursive: true });
+await fs.mkdir(chromeOutputDir, { recursive: true });
 
 const context = await chromium.launchPersistentContext(profileDir, {
     headless: false,
@@ -242,15 +277,23 @@ try {
     const keyPage = await context.newPage();
     await keyPage.goto(optionsUrl);
     await keyPage.evaluate(() => chrome.runtime.sendMessage({ action: 'setApiKey', value: 'showcase-key' }));
+    await keyPage.evaluate(() =>
+        chrome.runtime.sendMessage({
+            action: 'setCloudflareCredentials',
+            credentials: {
+                accountId: '1234567890abcdef1234567890abcdef',
+                apiToken: 'showcase-cloudflare-token',
+            },
+        }),
+    );
     await keyPage.close();
 
-    const appearance = await context.newPage();
-    await appearance.goto(optionsUrl);
-    await appearance.locator('[data-tab="appearance"]').click();
-    await appearance.locator('#visualStyleSelect').selectOption('magicos-11');
-    await appearance.locator('#visualStyleSelect').scrollIntoViewIfNeeded();
-    await captureRaw(appearance, 'appearance.png');
-    await appearance.close();
+    const providers = await context.newPage();
+    await providers.goto(optionsUrl);
+    await providers.locator('[data-tab="main"]').click();
+    await providers.locator('#cloudflareAccountId').scrollIntoViewIfNeeded();
+    await captureRaw(providers, 'providers.png');
+    await providers.close();
 
     const privacy = await context.newPage();
     await privacy.goto(optionsUrl);
@@ -268,7 +311,8 @@ try {
     const onboarding = await context.newPage();
     await onboarding.goto(`${optionsUrl}?tutorial=1`);
     await onboarding.locator('#onboardingNext').click();
-    await onboarding.locator('#onboardingApiKey').waitFor({ state: 'visible' });
+    await onboarding.locator('#onboardingNext').click();
+    await onboarding.locator('#onboardingCloudflareAccountId').waitFor({ state: 'visible' });
     await captureRaw(onboarding, 'onboarding.png');
     await onboarding.close();
 
@@ -305,6 +349,7 @@ try {
 
     for (const scene of scenes) await compose(context, scene);
     await createCarousel();
+    await createChromeAssets();
     process.stdout.write(
         `Создано ${scenes.length} скриншотов и анимированная галерея ${path.relative(rootDir, carouselPath)}\n`,
     );
