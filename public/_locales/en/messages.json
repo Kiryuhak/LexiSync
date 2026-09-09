@@ -2284,5 +2284,83 @@
     },
     "acceptApply": {
         "message": "Apply"
+    },
+    "onboardingSyncChip": {
+        "message": "Google Drive · End-to-End Encryption"
+    },
+    "onboardingSyncTitle": {
+        "message": "Sync & Cloud Restore"
+    },
+    "onboardingSyncDesc": {
+        "message": "If you already configured LexiSync on another device, restore your settings and keys from an encrypted backup."
+    },
+    "onboardingMasterPasswordLabel": {
+        "message": "Master password for encryption"
+    },
+    "masterPasswordPlaceholder": {
+        "message": "Enter master password…"
+    },
+    "driveTokenPlaceholder": {
+        "message": "Google Drive Access Token (optional)…"
+    },
+    "onboardingRestoreDriveBtn": {
+        "message": "Restore from cloud"
+    },
+    "onboardingRestoreFileBtn": {
+        "message": "📁 Restore from file (.lexibak)"
+    },
+    "onboardingManualSkipBtn": {
+        "message": "Set up manually →"
+    },
+    "masterPasswordRequired": {
+        "message": "Enter master password to decrypt or create backup."
+    },
+    "backupRestoredSuccess": {
+        "message": "Settings and keys successfully restored!"
+    },
+    "backupDownloading": {
+        "message": "Downloading backup from Google Drive…"
+    },
+    "backupUploading": {
+        "message": "Saving backup to Google Drive…"
+    },
+    "backupUploadedSuccess": {
+        "message": "Backup successfully saved to Google Drive!"
+    },
+    "backupFileNotFound": {
+        "message": "Backup not found in Google Drive (app data folder is empty)."
+    },
+    "backupInvalidPassword": {
+        "message": "Incorrect master password. Could not decrypt data."
+    },
+    "backupCorrupted": {
+        "message": "Backup file is corrupted or in an unknown format."
+    },
+    "backupNetworkError": {
+        "message": "Network error connecting to Google Drive. Check your connection."
+    },
+    "backupUnauthorized": {
+        "message": "Google Drive authorization error. Check your access token."
+    },
+    "cloudBackupSectionTitle": {
+        "message": "Secure Cloud Sync (Google Drive)"
+    },
+    "cloudBackupSectionDesc": {
+        "message": "End-to-End AES-256-GCM encryption with master password. Settings and keys are encrypted locally before uploading to Google Drive (appDataFolder)."
+    },
+    "saveToDriveBtn": {
+        "message": "☁️ Save to Google Drive"
+    },
+    "restoreFromDriveBtn": {
+        "message": "⬇️ Restore from Google Drive"
+    },
+    "exportEncryptedFileBtn": {
+        "message": "💾 Export to file (.lexibak)"
+    },
+    "importEncryptedFileBtn": {
+        "message": "📂 Import from file"
+    },
+    "driveTokenLabel": {
+        "message": "Google Drive Access Token"
     }
 }

@@ -9,6 +9,7 @@ export default defineConfig({
             'tests/storage.spec.ts',
             'tests/content-lifecycle.spec.ts',
             'tests/site-access.spec.ts',
+            'tests/crypto-backup.spec.ts',
         ],
         coverage: {
             provider: 'v8',
@@ -53,6 +54,8 @@ export default defineConfig({
                 'src/content-dialog-accessibility.ts',
                 'src/diagnostics.ts',
                 'src/popup-position.ts',
+                'src/crypto-backup.ts',
+                'src/google-drive-sync.ts',
             ],
             thresholds: { lines: 68, functions: 58, statements: 62, branches: 53 },
         },

@@ -38,6 +38,13 @@ import {
 } from './options-appearance';
 import { hasAllSitesAccess, requestAllSitesAccess, removeAllSitesAccess } from './site-access';
 import { setupOnboarding } from './options-onboarding';
+import { createEncryptedBackup, restoreEncryptedBackup } from './crypto-backup';
+import {
+    downloadBackupFromGoogleDrive,
+    getGoogleDriveToken,
+    setGoogleDriveToken,
+    uploadBackupToGoogleDrive,
+} from './google-drive-sync';
 import { DEFAULT_TEXT_SNIPPETS } from './text-snippets';
 import { normalizeSearchEngine, SEARCH_ENGINE_IDS, type SearchEngine } from './search-url';
 import { getErrorLogs, clearErrorLogs, formatErrorLogsAsText, downloadErrorLogsText } from './error-log';
@@ -1329,6 +1336,198 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } finally {
             importFile.value = '';
+        }
+    });
+
+    const driveMasterPassword = document.getElementById('driveMasterPassword') as HTMLInputElement | null;
+    const driveTokenInput = document.getElementById('driveTokenInput') as HTMLInputElement | null;
+    const saveToDriveBtn = document.getElementById('saveToDriveBtn') as HTMLButtonElement | null;
+    const restoreFromDriveBtn = document.getElementById('restoreFromDriveBtn') as HTMLButtonElement | null;
+    const exportEncryptedFileBtn = document.getElementById('exportEncryptedFileBtn') as HTMLButtonElement | null;
+    const importEncryptedFileBtn = document.getElementById('importEncryptedFileBtn') as HTMLButtonElement | null;
+    const importEncryptedFileInput = document.getElementById('importEncryptedFileInput') as HTMLInputElement | null;
+    const driveBackupStatus = document.getElementById('driveBackupStatus');
+
+    void getGoogleDriveToken().then((token) => {
+        if (driveTokenInput && token) driveTokenInput.value = token;
+    });
+
+    const setDriveStatus = (message: string, kind: 'success' | 'error' | 'info') => {
+        if (!driveBackupStatus) return;
+        driveBackupStatus.textContent = message;
+        driveBackupStatus.dataset.kind = kind;
+    };
+
+    saveToDriveBtn?.addEventListener('click', async () => {
+        const password = driveMasterPassword?.value.trim() || '';
+        if (!password) {
+            setDriveStatus(
+                t('masterPasswordRequired', 'Введите мастер-пароль для расшифровки или создания резервной копии.'),
+                'error',
+            );
+            driveMasterPassword?.focus();
+            return;
+        }
+        const token = driveTokenInput?.value.trim() || '';
+        if (token) await setGoogleDriveToken(token);
+
+        const originalText = saveToDriveBtn.textContent;
+        saveToDriveBtn.disabled = true;
+        saveToDriveBtn.textContent = t('backupUploading', 'Сохранение резервной копии в Google Drive…');
+        setDriveStatus('', 'info');
+
+        try {
+            const encryptedJson = await createEncryptedBackup(password);
+            await uploadBackupToGoogleDrive(encryptedJson, token || undefined);
+            setDriveStatus(t('backupUploadedSuccess', 'Резервная копия успешно сохранена в Google Drive!'), 'success');
+        } catch (error) {
+            logger.error('Ошибка сохранения бэкапа в Google Drive:', error);
+            const msg = error instanceof Error ? error.message : '';
+            if (msg === 'UNAUTHORIZED' || msg === 'NO_TOKEN') {
+                setDriveStatus(
+                    t('backupUnauthorized', 'Ошибка авторизации Google Drive. Проверьте токен доступа.'),
+                    'error',
+                );
+            } else if (msg === 'NETWORK_ERROR') {
+                setDriveStatus(
+                    t('backupNetworkError', 'Сетевая ошибка при обращении к Google Drive. Проверьте соединение.'),
+                    'error',
+                );
+            } else {
+                setDriveStatus(
+                    t('backupCorrupted', 'Файл резервной копии повреждён или имеет неизвестный формат.'),
+                    'error',
+                );
+            }
+        } finally {
+            saveToDriveBtn.disabled = false;
+            saveToDriveBtn.textContent = originalText;
+        }
+    });
+
+    restoreFromDriveBtn?.addEventListener('click', async () => {
+        const password = driveMasterPassword?.value.trim() || '';
+        if (!password) {
+            setDriveStatus(
+                t('masterPasswordRequired', 'Введите мастер-пароль для расшифровки или создания резервной копии.'),
+                'error',
+            );
+            driveMasterPassword?.focus();
+            return;
+        }
+        const token = driveTokenInput?.value.trim() || '';
+        if (token) await setGoogleDriveToken(token);
+
+        const originalText = restoreFromDriveBtn.textContent;
+        restoreFromDriveBtn.disabled = true;
+        restoreFromDriveBtn.textContent = t('backupDownloading', 'Загрузка резервной копии из Google Drive…');
+        setDriveStatus('', 'info');
+
+        try {
+            const { content } = await downloadBackupFromGoogleDrive(token || undefined);
+            await restoreEncryptedBackup(content, password);
+            await restoreOptions();
+            setDriveStatus(t('backupRestoredSuccess', 'Настройки и ключи успешно восстановлены!'), 'success');
+        } catch (error) {
+            logger.error('Ошибка восстановления из Google Drive:', error);
+            const msg = error instanceof Error ? error.message : '';
+            if (msg === 'INVALID_PASSWORD') {
+                setDriveStatus(
+                    t('backupInvalidPassword', 'Неверный мастер-пароль. Не удалось расшифровать данные.'),
+                    'error',
+                );
+            } else if (msg === 'FILE_NOT_FOUND') {
+                setDriveStatus(
+                    t('backupFileNotFound', 'Резервная копия не найдена в Google Drive (папка приложения пуста).'),
+                    'error',
+                );
+            } else if (msg === 'UNAUTHORIZED' || msg === 'NO_TOKEN') {
+                setDriveStatus(
+                    t('backupUnauthorized', 'Ошибка авторизации Google Drive. Проверьте токен доступа.'),
+                    'error',
+                );
+            } else if (msg === 'NETWORK_ERROR') {
+                setDriveStatus(
+                    t('backupNetworkError', 'Сетевая ошибка при обращении к Google Drive. Проверьте соединение.'),
+                    'error',
+                );
+            } else {
+                setDriveStatus(
+                    t('backupCorrupted', 'Файл резервной копии повреждён или имеет неизвестный формат.'),
+                    'error',
+                );
+            }
+        } finally {
+            restoreFromDriveBtn.disabled = false;
+            restoreFromDriveBtn.textContent = originalText;
+        }
+    });
+
+    exportEncryptedFileBtn?.addEventListener('click', async () => {
+        const password = driveMasterPassword?.value.trim() || '';
+        if (!password) {
+            setDriveStatus(
+                t('masterPasswordRequired', 'Введите мастер-пароль для расшифровки или создания резервной копии.'),
+                'error',
+            );
+            driveMasterPassword?.focus();
+            return;
+        }
+        try {
+            const encryptedJson = await createEncryptedBackup(password);
+            const blob = new Blob([encryptedJson], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `lexisync-backup-${new Date().toISOString().slice(0, 10)}.lexibak`;
+            a.click();
+            window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+            setDriveStatus(t('backupUploadedSuccess', 'Резервная копия успешно сохранена в Google Drive!'), 'success');
+        } catch (error) {
+            logger.error('Ошибка экспорта зашифрованного файла:', error);
+            setDriveStatus(
+                t('backupCorrupted', 'Файл резервной копии повреждён или имеет неизвестный формат.'),
+                'error',
+            );
+        }
+    });
+
+    importEncryptedFileBtn?.addEventListener('click', () => importEncryptedFileInput?.click());
+
+    importEncryptedFileInput?.addEventListener('change', async () => {
+        const file = importEncryptedFileInput.files?.[0];
+        if (!file) return;
+        const password = driveMasterPassword?.value.trim() || '';
+        if (!password) {
+            setDriveStatus(
+                t('masterPasswordRequired', 'Введите мастер-пароль для расшифровки или создания резервной копии.'),
+                'error',
+            );
+            driveMasterPassword?.focus();
+            importEncryptedFileInput.value = '';
+            return;
+        }
+        try {
+            const text = await file.text();
+            await restoreEncryptedBackup(text, password);
+            await restoreOptions();
+            setDriveStatus(t('backupRestoredSuccess', 'Настройки и ключи успешно восстановлены!'), 'success');
+        } catch (error) {
+            logger.error('Ошибка импорта зашифрованного файла:', error);
+            const msg = error instanceof Error ? error.message : '';
+            if (msg === 'INVALID_PASSWORD') {
+                setDriveStatus(
+                    t('backupInvalidPassword', 'Неверный мастер-пароль. Не удалось расшифровать данные.'),
+                    'error',
+                );
+            } else {
+                setDriveStatus(
+                    t('backupCorrupted', 'Файл резервной копии повреждён или имеет неизвестный формат.'),
+                    'error',
+                );
+            }
+        } finally {
+            importEncryptedFileInput.value = '';
         }
     });
 

@@ -1,6 +1,9 @@
 import { t } from './i18n';
 import { validateApiKey, validateCloudflareCredentials } from './ai-settings-client';
 import { logger } from './logger';
+import { restoreEncryptedBackup } from './crypto-backup';
+import { downloadBackupFromGoogleDrive, setGoogleDriveToken } from './google-drive-sync';
+import { getStoredApiKey, getStoredCloudflareCredentials } from './secret-store';
 
 export interface OnboardingOptions {
     getApiKey: () => string;
@@ -14,15 +17,29 @@ export async function setupOnboarding(options: OnboardingOptions): Promise<void>
     const nextButton = document.getElementById('onboardingNext') as HTMLButtonElement | null;
     const skipButton = document.getElementById('onboardingSkip') as HTMLButtonElement | null;
     const openButton = document.getElementById('openOnboarding') as HTMLButtonElement | null;
+
+    // Step 1 elements (Cloud sync and restore)
+    const masterPasswordInput = document.getElementById('onboardingMasterPassword') as HTMLInputElement | null;
+    const driveTokenInput = document.getElementById('onboardingDriveToken') as HTMLInputElement | null;
+    const restoreDriveButton = document.getElementById('onboardingRestoreDrive') as HTMLButtonElement | null;
+    const restoreFileButton = document.getElementById('onboardingRestoreFile') as HTMLButtonElement | null;
+    const fileInput = document.getElementById('onboardingFileInput') as HTMLInputElement | null;
+    const manualSkipButton = document.getElementById('onboardingManualSkip') as HTMLButtonElement | null;
+    const syncStatus = document.getElementById('onboardingSyncStatus');
+
+    // Step 2 elements (Mistral)
     const keyInput = document.getElementById('onboardingApiKey') as HTMLInputElement | null;
     const saveKeyButton = document.getElementById('onboardingSaveKey') as HTMLButtonElement | null;
     const keyStatus = document.getElementById('onboardingKeyStatus');
+
+    // Step 3 elements (Cloudflare)
     const cloudflareAccountIdInput = document.getElementById(
         'onboardingCloudflareAccountId',
     ) as HTMLInputElement | null;
     const cloudflareApiTokenInput = document.getElementById('onboardingCloudflareApiToken') as HTMLInputElement | null;
     const saveCloudflareKeyButton = document.getElementById('onboardingSaveCloudflareKey') as HTMLButtonElement | null;
     const cloudflareKeyStatus = document.getElementById('onboardingCloudflareKeyStatus');
+
     const progress = document.getElementById('onboardingProgress');
     const progressBar = document.getElementById('onboardingProgressBar') as HTMLElement | null;
     const steps = [...document.querySelectorAll<HTMLElement>('[data-onboarding-step]')];
@@ -33,7 +50,7 @@ export async function setupOnboarding(options: OnboardingOptions): Promise<void>
     let previousFocus: HTMLElement | null = null;
     const render = () => {
         steps.forEach((step, index) => step.classList.toggle('is-active', index === activeStep));
-        onboarding.dataset.provider = activeStep === 1 ? 'mistral' : activeStep === 2 ? 'cloudflare' : 'neutral';
+        onboarding.dataset.provider = activeStep === 2 ? 'mistral' : activeStep === 3 ? 'cloudflare' : 'neutral';
         progress.textContent = `${activeStep + 1} ${t('of', 'из')} ${steps.length}`;
         if (progressBar) progressBar.style.width = `${((activeStep + 1) / steps.length) * 100}%`;
         nextButton.textContent = activeStep === steps.length - 1 ? t('start', 'Начать работу') : t('next', 'Далее');
@@ -41,6 +58,12 @@ export async function setupOnboarding(options: OnboardingOptions): Promise<void>
     const open = () => {
         previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         activeStep = 0;
+        if (masterPasswordInput) masterPasswordInput.value = '';
+        if (driveTokenInput) driveTokenInput.value = '';
+        if (syncStatus) {
+            syncStatus.textContent = '';
+            delete syncStatus.dataset.kind;
+        }
         if (keyInput) keyInput.value = options.getApiKey() || '';
         const creds = options.getCloudflareCredentials?.();
         if (cloudflareAccountIdInput) cloudflareAccountIdInput.value = creds?.accountId || '';
@@ -71,6 +94,137 @@ export async function setupOnboarding(options: OnboardingOptions): Promise<void>
     });
     skipButton.addEventListener('click', () => void complete());
     openButton?.addEventListener('click', open);
+
+    const handleRestoreData = async (encryptedJson: string, masterPassword: string) => {
+        const result = await restoreEncryptedBackup(encryptedJson, masterPassword);
+        if (result.hasMistralKey) {
+            const restoredKey = await getStoredApiKey();
+            if (keyInput) keyInput.value = restoredKey;
+            await options.onApiKeySaved(restoredKey);
+        }
+        if (result.hasCloudflareCreds) {
+            const creds = await getStoredCloudflareCredentials();
+            if (cloudflareAccountIdInput) cloudflareAccountIdInput.value = creds.accountId || '';
+            if (cloudflareApiTokenInput) cloudflareApiTokenInput.value = creds.apiToken || '';
+            if (options.onCloudflareCredentialsSaved) {
+                await options.onCloudflareCredentialsSaved(creds);
+            }
+        }
+        return result;
+    };
+
+    manualSkipButton?.addEventListener('click', () => {
+        activeStep = 2;
+        render();
+        keyInput?.focus();
+    });
+
+    restoreDriveButton?.addEventListener('click', async () => {
+        if (!syncStatus) return;
+        const masterPassword = masterPasswordInput?.value.trim() || '';
+        if (!masterPassword) {
+            syncStatus.textContent = t(
+                'masterPasswordRequired',
+                'Введите мастер-пароль для расшифровки или создания резервной копии.',
+            );
+            syncStatus.dataset.kind = 'error';
+            masterPasswordInput?.focus();
+            return;
+        }
+        const driveToken = driveTokenInput?.value.trim() || '';
+        if (driveToken) {
+            await setGoogleDriveToken(driveToken);
+        }
+        const originalText = restoreDriveButton.textContent;
+        restoreDriveButton.disabled = true;
+        restoreDriveButton.textContent = t('backupDownloading', 'Загрузка резервной копии из Google Drive…');
+        syncStatus.textContent = '';
+        delete syncStatus.dataset.kind;
+
+        try {
+            const { content } = await downloadBackupFromGoogleDrive(driveToken || undefined);
+            await handleRestoreData(content, masterPassword);
+            syncStatus.textContent = t('backupRestoredSuccess', 'Настройки и ключи успешно восстановлены!');
+            syncStatus.dataset.kind = 'success';
+        } catch (error) {
+            logger.error('Ошибка восстановления из Google Drive в онбординге:', error);
+            const msg = error instanceof Error ? error.message : '';
+            if (msg === 'INVALID_PASSWORD') {
+                syncStatus.textContent = t(
+                    'backupInvalidPassword',
+                    'Неверный мастер-пароль. Не удалось расшифровать данные.',
+                );
+            } else if (msg === 'FILE_NOT_FOUND') {
+                syncStatus.textContent = t(
+                    'backupFileNotFound',
+                    'Резервная копия не найдена в Google Drive (папка приложения пуста).',
+                );
+            } else if (msg === 'UNAUTHORIZED' || msg === 'NO_TOKEN') {
+                syncStatus.textContent = t(
+                    'backupUnauthorized',
+                    'Ошибка авторизации Google Drive. Проверьте токен доступа.',
+                );
+            } else if (msg === 'NETWORK_ERROR') {
+                syncStatus.textContent = t(
+                    'backupNetworkError',
+                    'Сетевая ошибка при обращении к Google Drive. Проверьте соединение.',
+                );
+            } else {
+                syncStatus.textContent = t(
+                    'backupCorrupted',
+                    'Файл резервной копии повреждён или имеет неизвестный формат.',
+                );
+            }
+            syncStatus.dataset.kind = 'error';
+        } finally {
+            restoreDriveButton.disabled = false;
+            restoreDriveButton.textContent = originalText;
+        }
+    });
+
+    restoreFileButton?.addEventListener('click', () => {
+        fileInput?.click();
+    });
+
+    fileInput?.addEventListener('change', async () => {
+        const file = fileInput.files?.[0];
+        if (!file || !syncStatus) return;
+        const masterPassword = masterPasswordInput?.value.trim() || '';
+        if (!masterPassword) {
+            syncStatus.textContent = t(
+                'masterPasswordRequired',
+                'Введите мастер-пароль для расшифровки или создания резервной копии.',
+            );
+            syncStatus.dataset.kind = 'error';
+            masterPasswordInput?.focus();
+            fileInput.value = '';
+            return;
+        }
+        try {
+            const text = await file.text();
+            await handleRestoreData(text, masterPassword);
+            syncStatus.textContent = t('backupRestoredSuccess', 'Настройки и ключи успешно восстановлены!');
+            syncStatus.dataset.kind = 'success';
+        } catch (error) {
+            logger.error('Ошибка восстановления из файла в онбординге:', error);
+            const msg = error instanceof Error ? error.message : '';
+            if (msg === 'INVALID_PASSWORD') {
+                syncStatus.textContent = t(
+                    'backupInvalidPassword',
+                    'Неверный мастер-пароль. Не удалось расшифровать данные.',
+                );
+            } else {
+                syncStatus.textContent = t(
+                    'backupCorrupted',
+                    'Файл резервной копии повреждён или имеет неизвестный формат.',
+                );
+            }
+            syncStatus.dataset.kind = 'error';
+        } finally {
+            fileInput.value = '';
+        }
+    });
+
     saveKeyButton?.addEventListener('click', async () => {
         if (!keyInput || !keyStatus) return;
         const apiKey = keyInput.value.trim();
@@ -104,6 +258,7 @@ export async function setupOnboarding(options: OnboardingOptions): Promise<void>
             saveKeyButton.textContent = originalText;
         }
     });
+
     saveCloudflareKeyButton?.addEventListener('click', async () => {
         if (!cloudflareAccountIdInput || !cloudflareApiTokenInput || !cloudflareKeyStatus) return;
         const accountId = cloudflareAccountIdInput.value.trim();
@@ -147,6 +302,7 @@ export async function setupOnboarding(options: OnboardingOptions): Promise<void>
             saveCloudflareKeyButton.textContent = originalText;
         }
     });
+
     onboarding.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
             event.preventDefault();
@@ -168,6 +324,7 @@ export async function setupOnboarding(options: OnboardingOptions): Promise<void>
             first.focus();
         }
     });
+
     const forcedByUrl = new URLSearchParams(window.location.search).get('tutorial') === '1';
     if (stored.onboardingCompleted !== true || forcedByUrl) open();
 }

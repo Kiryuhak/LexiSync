@@ -2284,5 +2284,83 @@
     },
     "acceptApply": {
         "message": "Применить"
+    },
+    "onboardingSyncChip": {
+        "message": "Google Drive · End-to-End шифрование"
+    },
+    "onboardingSyncTitle": {
+        "message": "Синхронизация и облачное восстановление"
+    },
+    "onboardingSyncDesc": {
+        "message": "Если вы уже настраивали LexiSync на другом устройстве, восстановите настройки и ключи из зашифрованной резервной копии."
+    },
+    "onboardingMasterPasswordLabel": {
+        "message": "Мастер-пароль для шифрования"
+    },
+    "masterPasswordPlaceholder": {
+        "message": "Введите мастер-пароль…"
+    },
+    "driveTokenPlaceholder": {
+        "message": "Google Drive Access Token (опционально)…"
+    },
+    "onboardingRestoreDriveBtn": {
+        "message": "Восстановить из облака"
+    },
+    "onboardingRestoreFileBtn": {
+        "message": "📁 Восстановить из файла (.lexibak)"
+    },
+    "onboardingManualSkipBtn": {
+        "message": "Настроить вручную →"
+    },
+    "masterPasswordRequired": {
+        "message": "Введите мастер-пароль для расшифровки или создания резервной копии."
+    },
+    "backupRestoredSuccess": {
+        "message": "Настройки и ключи успешно восстановлены!"
+    },
+    "backupDownloading": {
+        "message": "Загрузка резервной копии из Google Drive…"
+    },
+    "backupUploading": {
+        "message": "Сохранение резервной копии в Google Drive…"
+    },
+    "backupUploadedSuccess": {
+        "message": "Резервная копия успешно сохранена в Google Drive!"
+    },
+    "backupFileNotFound": {
+        "message": "Резервная копия не найдена в Google Drive (папка приложения пуста)."
+    },
+    "backupInvalidPassword": {
+        "message": "Неверный мастер-пароль. Не удалось расшифровать данные."
+    },
+    "backupCorrupted": {
+        "message": "Файл резервной копии повреждён или имеет неизвестный формат."
+    },
+    "backupNetworkError": {
+        "message": "Сетевая ошибка при обращении к Google Drive. Проверьте соединение."
+    },
+    "backupUnauthorized": {
+        "message": "Ошибка авторизации Google Drive. Проверьте токен доступа."
+    },
+    "cloudBackupSectionTitle": {
+        "message": "Защищённая облачная синхронизация (Google Drive)"
+    },
+    "cloudBackupSectionDesc": {
+        "message": "Сквозное шифрование AES-256-GCM по мастер-паролю. Настройки и ключи шифруются локально перед отправкой в скрытую папку Google Drive (appDataFolder)."
+    },
+    "saveToDriveBtn": {
+        "message": "☁️ Сохранить в Google Drive"
+    },
+    "restoreFromDriveBtn": {
+        "message": "⬇️ Восстановить из Google Drive"
+    },
+    "exportEncryptedFileBtn": {
+        "message": "💾 Экспорт в файл (.lexibak)"
+    },
+    "importEncryptedFileBtn": {
+        "message": "📂 Импорт из файла"
+    },
+    "driveTokenLabel": {
+        "message": "Google Drive Access Token"
     }
 }

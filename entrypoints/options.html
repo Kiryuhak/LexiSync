@@ -964,6 +964,79 @@
                 </div>
 
                 <div class="settings-section" data-settings-group="privacy" hidden>
+                    <h2 data-i18n="cloudBackupSectionTitle">Защищённая облачная синхронизация (Google Drive)</h2>
+                    <p data-i18n="cloudBackupSectionDesc">
+                        Сквозное шифрование AES-256-GCM по мастер-паролю. Настройки и ключи шифруются локально перед
+                        отправкой в скрытую папку Google Drive (appDataFolder).
+                    </p>
+                    <div style="margin-top: 12px">
+                        <label for="driveMasterPassword" data-i18n="onboardingMasterPasswordLabel"
+                            >Мастер-пароль для шифрования</label
+                        >
+                        <div class="onboarding-key-row" style="max-width: 480px">
+                            <input
+                                id="driveMasterPassword"
+                                type="password"
+                                autocomplete="off"
+                                spellcheck="false"
+                                data-i18n-placeholder="masterPasswordPlaceholder"
+                                placeholder="Введите мастер-пароль…"
+                            />
+                        </div>
+                    </div>
+                    <div style="margin-top: 10px">
+                        <label for="driveTokenInput" data-i18n="driveTokenLabel">Google Drive Access Token</label>
+                        <div class="onboarding-key-row" style="max-width: 480px">
+                            <input
+                                id="driveTokenInput"
+                                type="password"
+                                autocomplete="off"
+                                spellcheck="false"
+                                data-i18n-placeholder="driveTokenPlaceholder"
+                                placeholder="Google Drive Access Token (опционально)…"
+                            />
+                        </div>
+                    </div>
+                    <div class="settings-row" style="margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px">
+                        <button type="button" id="saveToDriveBtn" class="primary-button" data-i18n="saveToDriveBtn">
+                            ☁️ Сохранить в Google Drive
+                        </button>
+                        <button
+                            type="button"
+                            id="restoreFromDriveBtn"
+                            class="secondary-button"
+                            data-i18n="restoreFromDriveBtn"
+                        >
+                            ⬇️ Восстановить из Google Drive
+                        </button>
+                        <button
+                            type="button"
+                            id="exportEncryptedFileBtn"
+                            class="secondary-button"
+                            data-i18n="exportEncryptedFileBtn"
+                        >
+                            💾 Экспорт в файл (.lexibak)
+                        </button>
+                        <button
+                            type="button"
+                            id="importEncryptedFileBtn"
+                            class="secondary-button"
+                            data-i18n="importEncryptedFileBtn"
+                        >
+                            📂 Импорт из файла
+                        </button>
+                        <input id="importEncryptedFileInput" type="file" accept=".enc,.json,.lexibak" hidden />
+                    </div>
+                    <p
+                        id="driveBackupStatus"
+                        class="onboarding-key-status"
+                        style="margin-top: 10px"
+                        role="status"
+                        aria-live="polite"
+                    ></p>
+                </div>
+
+                <div class="settings-section" data-settings-group="privacy" hidden>
                     <h2 data-i18n="usageTitle">Локальная статистика</h2>
                     <div class="usage-summary" aria-live="polite">
                         <div class="usage-metric">
@@ -1767,6 +1840,101 @@
                     </ul>
                 </section>
                 <section class="onboarding-step" data-onboarding-step="1">
+                    <div class="onboarding-provider-chip" aria-label="Google Drive Sync">
+                        <span aria-hidden="true">☁️</span>
+                        <span data-i18n="onboardingSyncChip">Google Drive · End-to-End шифрование</span>
+                    </div>
+                    <h3 data-i18n="onboardingSyncTitle">Синхронизация и облачное восстановление</h3>
+                    <p data-i18n="onboardingSyncDesc">
+                        Если вы уже настраивали LexiSync на другом устройстве, восстановите настройки и ключи из
+                        зашифрованной резервной копии.
+                    </p>
+                    <label
+                        class="onboarding-key-label"
+                        for="onboardingMasterPassword"
+                        data-i18n="onboardingMasterPasswordLabel"
+                        >Мастер-пароль для шифрования</label
+                    >
+                    <div class="onboarding-key-row">
+                        <input
+                            id="onboardingMasterPassword"
+                            type="password"
+                            autocomplete="off"
+                            spellcheck="false"
+                            data-i18n-placeholder="masterPasswordPlaceholder"
+                            placeholder="Введите мастер-пароль…"
+                        />
+                    </div>
+                    <label
+                        class="onboarding-key-label"
+                        for="onboardingDriveToken"
+                        data-i18n="driveTokenLabel"
+                        style="margin-top: 8px"
+                        >Google Drive Access Token</label
+                    >
+                    <div class="onboarding-key-row">
+                        <input
+                            id="onboardingDriveToken"
+                            type="password"
+                            autocomplete="off"
+                            spellcheck="false"
+                            data-i18n-placeholder="driveTokenPlaceholder"
+                            placeholder="Google Drive Access Token (опционально)…"
+                        />
+                        <button
+                            id="onboardingRestoreDrive"
+                            class="onboarding-button primary"
+                            type="button"
+                            data-i18n="onboardingRestoreDriveBtn"
+                        >
+                            Восстановить из облака
+                        </button>
+                    </div>
+                    <div
+                        class="onboarding-sync-fallback-row"
+                        style="
+                            margin-top: 10px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: space-between;
+                            gap: 8px;
+                        "
+                    >
+                        <input
+                            id="onboardingFileInput"
+                            type="file"
+                            accept=".enc,.json,.lexibak"
+                            style="display: none"
+                        />
+                        <button
+                            id="onboardingRestoreFile"
+                            class="onboarding-button secondary"
+                            type="button"
+                            data-i18n="onboardingRestoreFileBtn"
+                        >
+                            📁 Восстановить из файла (.lexibak)
+                        </button>
+                        <button
+                            id="onboardingManualSkip"
+                            type="button"
+                            class="onboarding-link-button"
+                            data-i18n="onboardingManualSkipBtn"
+                            style="
+                                background: none;
+                                border: none;
+                                color: var(--color-accent, #6750a4);
+                                cursor: pointer;
+                                font-size: 13px;
+                                font-weight: 600;
+                                text-decoration: underline;
+                            "
+                        >
+                            Настроить вручную →
+                        </button>
+                    </div>
+                    <p id="onboardingSyncStatus" class="onboarding-key-status" role="status" aria-live="polite"></p>
+                </section>
+                <section class="onboarding-step" data-onboarding-step="2">
                     <h3 data-i18n="onboardingApi">Добавьте API-ключ Mistral</h3>
                     <p data-i18n="onboardingApiHint">
                         Ключ нужен для AI-команд и хранится только в локальном хранилище расширения.
@@ -1807,7 +1975,7 @@
                     </div>
                     <p id="onboardingKeyStatus" class="onboarding-key-status" role="status" aria-live="polite"></p>
                 </section>
-                <section class="onboarding-step" data-onboarding-step="2">
+                <section class="onboarding-step" data-onboarding-step="3">
                     <div class="onboarding-provider-chip" aria-label="Cloudflare Workers AI">
                         <span aria-hidden="true">☁️</span>
                         <span data-i18n="onboardingCloudflareTitle">Cloudflare Workers AI · 10 000 Neurons/день</span>
@@ -1882,7 +2050,7 @@
                         aria-live="polite"
                     ></p>
                 </section>
-                <section class="onboarding-step" data-onboarding-step="3">
+                <section class="onboarding-step" data-onboarding-step="4">
                     <h3 data-i18n="tutorialFirstAction">Выполните первую команду</h3>
                     <p data-i18n="tutorialFirstActionHint">LexiSync работает прямо с текстом на открытой странице.</p>
                     <ol class="tutorial-flow">
@@ -1901,7 +2069,7 @@
                         </li>
                     </ol>
                 </section>
-                <section class="onboarding-step" data-onboarding-step="4">
+                <section class="onboarding-step" data-onboarding-step="5">
                     <h3 data-i18n="tutorialWorkspace">Быстрые команды и клавиши</h3>
                     <p data-i18n="tutorialWorkspaceHint">Используйте горячие клавиши или плавающую панель LexiSync:</p>
                     <ul class="onboarding-list onboarding-shortcuts-list">
@@ -1920,7 +2088,7 @@
                         </li>
                     </ul>
                 </section>
-                <section class="onboarding-step" data-onboarding-step="5">
+                <section class="onboarding-step" data-onboarding-step="6">
                     <h3 data-i18n="onboardingPrivacy">Приватность под вашим контролем</h3>
                     <p data-i18n="onboardingPrivacyHint">
                         Текст отправляется выбранному AI-провайдеру только для выполнения команды. При автоматическом
@@ -1934,7 +2102,7 @@
                 </section>
                 <div class="onboarding-actions">
                     <div class="onboarding-progress-wrap">
-                        <span id="onboardingProgress" class="onboarding-progress">1 из 6</span>
+                        <span id="onboardingProgress" class="onboarding-progress">1 из 7</span>
                         <div class="onboarding-progress-track" aria-hidden="true">
                             <span id="onboardingProgressBar"></span>
                         </div>
