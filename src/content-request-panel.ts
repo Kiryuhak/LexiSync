@@ -166,6 +166,7 @@ export function executeRequest(
         compactDetails: compactCorrectionDetails,
         corrections: correctionsContainer,
         tools: resultTools,
+        stats: statsBar,
         actions: actionsContainer,
         status: actionStatus,
     } = mountResultDialogFrame(popupUI);
@@ -280,6 +281,7 @@ export function executeRequest(
         adjustPosition: adjustPopupPosition,
         onResultChange: (result) => {
             if (storageAllowed && savedHistoryId !== null) void updateHistoryItemResult(savedHistoryId, result);
+            updateTextStats();
         },
     });
 
@@ -307,6 +309,9 @@ export function executeRequest(
         resultTools.replaceChildren();
         resultTools.hidden = true;
         resultTools.style.display = 'none';
+        statsBar.replaceChildren();
+        statsBar.hidden = true;
+        statsBar.style.display = 'none';
     }
 
     function getCacheSource(): string {
@@ -372,10 +377,61 @@ export function executeRequest(
         finishStream(false);
     }
 
+    function updateTextStats(): void {
+        const text = getEffectiveResult();
+        if (!text || compactResultMode || mode === 'ocr') {
+            statsBar.hidden = true;
+            statsBar.style.display = 'none';
+            return;
+        }
+        const detailed = calculateDetailedStats(text);
+        if (detailed.words === 0) {
+            statsBar.hidden = true;
+            statsBar.style.display = 'none';
+            return;
+        }
+        const formatted = formatTextStats(originalText, text, {
+            words: t('statsWords', 'слов'),
+            chars: t('statsChars', 'симв.'),
+            minShort: t('statsMinShort', 'мин'),
+        });
+        const levelLabel =
+            detailed.readabilityLevel === 'easy'
+                ? t('readabilityEasy', 'Легко читается')
+                : detailed.readabilityLevel === 'medium'
+                  ? t('readabilityMedium', 'Оптимально')
+                  : t('readabilityHard', 'Сложный текст');
+
+        const levelColor =
+            detailed.readabilityLevel === 'easy'
+                ? 'var(--success-color, #10B981)'
+                : detailed.readabilityLevel === 'medium'
+                  ? 'var(--accent, #6366F1)'
+                  : 'var(--warning-color, #F59E0B)';
+
+        statsBar.replaceChildren();
+        statsBar.style.cssText =
+            'display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 12px; margin:4px 0; font-size:11px; color:var(--text-secondary); background:var(--bg-secondary); border-radius:6px;';
+
+        const left = document.createElement('span');
+        left.textContent = formatted;
+
+        const right = document.createElement('span');
+        right.style.cssText = `font-weight:500; color:${levelColor};`;
+        right.textContent = `${t('readabilityScore', 'Читаемость')}: ${levelLabel}`;
+        right.title = `${t('fleschScoreHint', 'Индекс удобочитаемости по шкале Флеша')}: ${detailed.readabilityScore}/100`;
+
+        statsBar.append(left, right);
+        statsBar.hidden = false;
+        statsBar.style.display = 'flex';
+        adjustPopupPosition();
+    }
+
     contentPane.addEventListener('input', () => {
         if (storageAllowed && savedHistoryId !== null && contentPane.contentEditable === 'true') {
             void updateHistoryItemResult(savedHistoryId, getEffectiveResult());
         }
+        updateTextStats();
     });
 
     function renderLoadingControl(): void {
@@ -436,6 +492,9 @@ export function executeRequest(
         contentPane.contentEditable = 'false';
         contentPane.removeAttribute('contenteditable');
         resultTools.style.display = 'none';
+        statsBar.replaceChildren();
+        statsBar.hidden = true;
+        statsBar.style.display = 'none';
         const skeleton = document.createElement('div');
         skeleton.className = 'lexisync-skeleton';
         skeleton.setAttribute('role', 'status');
@@ -1134,6 +1193,33 @@ export function executeRequest(
                                 ),
                             ),
                         ),
+                        createTool(t('refineClient', 'Клиенту'), () =>
+                            refine(
+                                t('refineClient', 'Клиенту'),
+                                t(
+                                    'refineClientPrompt',
+                                    'Перепиши текст вежливо, заботливо и убедительно в тоне общения с клиентом.',
+                                ),
+                            ),
+                        ),
+                        createTool(t('refineExecutive', 'Руководству'), () =>
+                            refine(
+                                t('refineExecutive', 'Руководству'),
+                                t(
+                                    'refineExecutivePrompt',
+                                    'Перепиши текст максимально ёмко, структурированно и с фокусом на результат для руководства.',
+                                ),
+                            ),
+                        ),
+                        createTool(t('refineConvince', 'Убедить'), () =>
+                            refine(
+                                t('refineConvince', 'Убедить'),
+                                t(
+                                    'refineConvincePrompt',
+                                    'Перепиши текст с убедительной аргументацией и сильными доводами.',
+                                ),
+                            ),
+                        ),
                     );
                 }
                 resultTools.replaceChildren(...tools);
@@ -1147,6 +1233,7 @@ export function executeRequest(
                 showStatus: showActionStatus,
                 setTimeout: (callback, delay) => lifecycle.setTimeout(callback, delay),
             });
+            updateTextStats();
         }
         adjustPopupPosition();
     }

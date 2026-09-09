@@ -2215,5 +2215,56 @@
     },
     "typographyApplied": {
         "message": "✓ Типографика применена (0 токенов)"
+    },
+    "statsMinShort": {
+        "message": "мин"
+    },
+    "fleschScoreHint": {
+        "message": "Индекс удобочитаемости по шкале Флеша"
+    },
+    "correctionsFound": {
+        "message": "Исправлений"
+    },
+    "acceptAllCorrections": {
+        "message": "Принять все"
+    },
+    "acceptAllCorrectionsHint": {
+        "message": "Принять все предложенные исправления"
+    },
+    "restoreAllCorrections": {
+        "message": "Вернуть все"
+    },
+    "restoreAllCorrectionsHint": {
+        "message": "Оставить весь исходный текст без изменений"
+    },
+    "appendBelowText": {
+        "message": "Вставить ниже"
+    },
+    "appendBelowTextHint": {
+        "message": "Вставить результат с новой строки ниже выделенного фрагмента"
+    },
+    "appended": {
+        "message": "Вставлено!"
+    },
+    "undoInsertion": {
+        "message": "Отменить вставку"
+    },
+    "refineClient": {
+        "message": "Клиенту"
+    },
+    "refineClientPrompt": {
+        "message": "Перепиши текст вежливо, заботливо и убедительно в тоне общения с клиентом."
+    },
+    "refineExecutive": {
+        "message": "Руководству"
+    },
+    "refineExecutivePrompt": {
+        "message": "Перепиши текст максимально ёмко, структурированно и с фокусом на результат для руководства."
+    },
+    "refineConvince": {
+        "message": "Убедить"
+    },
+    "refineConvincePrompt": {
+        "message": "Перепиши текст с убедительной аргументацией и сильными доводами."
     }
 }

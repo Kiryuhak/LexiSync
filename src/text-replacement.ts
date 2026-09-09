@@ -60,3 +60,45 @@ export function replaceSelectedText(selection: SelectionData, newText: string): 
     }
     return null;
 }
+
+export function appendBelowSelectedText(selection: SelectionData, newText: string): (() => void) | null {
+    const { isInput, activeElement, start, end, range } = selection;
+    try {
+        if (isInput && activeElement) {
+            const oldValue = activeElement.value;
+            const oldStart = start ?? 0;
+            const oldEnd = end ?? oldStart;
+            const prefixNewline = oldEnd > 0 && !oldValue.slice(0, oldEnd).endsWith('\n') ? '\n' : '';
+            const textToInsert = prefixNewline + newText;
+            const nextValue = oldValue.slice(0, oldEnd) + textToInsert + oldValue.slice(oldEnd);
+            setNativeValue(activeElement, nextValue);
+            activeElement.selectionStart = activeElement.selectionEnd = oldEnd + textToInsert.length;
+            dispatchValueEvents(activeElement);
+            activeElement.focus();
+
+            const undoFn = () => {
+                setNativeValue(activeElement, oldValue);
+                activeElement.selectionStart = oldStart;
+                activeElement.selectionEnd = oldEnd;
+                dispatchValueEvents(activeElement);
+                activeElement.focus();
+            };
+            return undoFn;
+        }
+
+        if (range) {
+            const cloneRange = range.cloneRange();
+            cloneRange.collapse(false);
+            const browserSelection = window.getSelection();
+            browserSelection?.removeAllRanges();
+            browserSelection?.addRange(cloneRange);
+            document.execCommand('insertText', false, '\n' + newText);
+            const undoFn = () => document.execCommand('undo');
+            return undoFn;
+        }
+    } catch (error) {
+        logger.error('Ошибка при вставке текста ниже:', error);
+        void copyText(newText).catch(() => undefined);
+    }
+    return null;
+}

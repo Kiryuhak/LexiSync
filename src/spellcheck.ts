@@ -1,4 +1,5 @@
 import { t } from './i18n';
+import { classifyCorrection, type GrammarErrorCategory } from './grammar-analytics';
 
 interface TextToken {
     value: string;
@@ -13,6 +14,7 @@ export interface WordCorrection {
     corrected: string;
     start: number;
     end: number;
+    category?: GrammarErrorCategory;
 }
 
 const MAX_LCS_CELLS = 1_000_000;
@@ -100,7 +102,11 @@ export function getWordCorrections(original: string, corrected: string): WordCor
     const correctedTokens = tokenizeText(corrected).filter((token) => token.significant);
     if ((originalTokens.length + 1) * (correctedTokens.length + 1) > MAX_LCS_CELLS) {
         const correction = getSegmentCorrection(original, corrected);
-        return correction ? [correction] : [];
+        if (correction) {
+            correction.category = classifyCorrection(correction.original, correction.corrected);
+            return [correction];
+        }
+        return [];
     }
     const rows = Array.from({ length: originalTokens.length + 1 }, () => new Uint16Array(correctedTokens.length + 1));
 
@@ -140,7 +146,10 @@ export function getWordCorrections(original: string, corrected: string): WordCor
         const originalSegment = original.slice(originalCursor, originalEnd);
         const correctedSegment = corrected.slice(correctedCursor, correctedEnd);
         const correction = getSegmentCorrection(originalSegment, correctedSegment, correctedCursor, corrections.length);
-        if (correction) corrections.push(correction);
+        if (correction) {
+            correction.category = classifyCorrection(correction.original, correction.corrected);
+            corrections.push(correction);
+        }
         if (anchor) {
             originalCursor = anchor.original.end;
             correctedCursor = anchor.corrected.end;

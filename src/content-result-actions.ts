@@ -3,7 +3,7 @@ import { appendIconAndText, setIcon } from './dom-rendering';
 import { ICONS } from './icons';
 import { t } from './i18n';
 import { parseMarkdownToHTML } from './markdown';
-import { replaceSelectedText } from './text-replacement';
+import { appendBelowSelectedText, replaceSelectedText } from './text-replacement';
 import type { RequestMode, SelectionData } from './types';
 
 interface ResultActionsOptions {
@@ -64,6 +64,43 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
             }
         };
         actionsContainer.appendChild(replaceButton);
+
+        const appendButton = document.createElement('button');
+        appendButton.type = 'button';
+        appendButton.className = `${btnClass} lexisync-result-button`;
+        appendButton.title = t('appendBelowTextHint', 'Вставить результат с новой строки ниже выделенного фрагмента');
+        appendIconAndText(appendButton, ICONS.continueText, t('appendBelowText', 'Вставить ниже'));
+        appendButton.onpointerdown = (e) => e.stopPropagation();
+        appendButton.onmousedown = (e) => e.stopPropagation();
+        appendButton.onclick = (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const undo = appendBelowSelectedText(selection, getResult());
+            if (undo) {
+                appendIconAndText(appendButton, ICONS.check, t('appended', 'Вставлено!'));
+                appendButton.classList.add('lexisync-result-button--success');
+                appendButton.disabled = true;
+                const undoButton = document.createElement('button');
+                undoButton.type = 'button';
+                undoButton.className = `${btnClass} lexisync-result-button lexisync-undo-button`;
+                appendIconAndText(undoButton, ICONS.replaceCurved, t('undoInsertion', 'Отменить вставку'));
+                undoButton.onpointerdown = (e) => e.stopPropagation();
+                undoButton.onmousedown = (e) => e.stopPropagation();
+                undoButton.onclick = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    undo();
+                    undoButton.remove();
+                    appendButton.disabled = false;
+                    appendButton.classList.remove('lexisync-result-button--success');
+                    appendIconAndText(appendButton, ICONS.continueText, t('appendBelowText', 'Вставить ниже'));
+                };
+                actionsContainer.appendChild(undoButton);
+            } else {
+                showStatus(t('copied', 'Текст скопирован!'));
+            }
+        };
+        actionsContainer.appendChild(appendButton);
     }
 
     if (mode === 'ocr') {

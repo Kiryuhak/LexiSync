@@ -6,6 +6,7 @@ import {
     type WordCorrection,
 } from './spellcheck';
 import { addPersonalDictionaryWord } from './settings-store';
+import { GRAMMAR_CATEGORIES } from './grammar-analytics';
 
 export interface SpellcheckUiController {
     setResult: (original: string, corrected: string, corrections?: WordCorrection[]) => void;
@@ -35,10 +36,12 @@ export function createSpellcheckUi(options: SpellcheckUiOptions): SpellcheckUiCo
             const correction = corrections.find((item) => item.tokenIndex === Number(mark.dataset.tokenIndex));
             if (!correction) continue;
             const description = `${correction.original.trim() || '∅'} → ${correction.corrected.trim() || '∅'}`;
+            const catInfo = correction.category ? GRAMMAR_CATEGORIES[correction.category] : undefined;
+            const hintText = catInfo?.ruleHintRu ? ` • ${catInfo.ruleHintRu}` : '';
             if (mark.title) {
                 mark.setAttribute('aria-label', mark.title);
             } else {
-                mark.title = description;
+                mark.title = `${description}${hintText}`;
                 mark.setAttribute('aria-label', `${t('correctionDetails', 'Исправление')}: ${description}`);
             }
             mark.setAttribute('role', 'button');
@@ -53,14 +56,73 @@ export function createSpellcheckUi(options: SpellcheckUiOptions): SpellcheckUiCo
             return;
         }
         options.correctionsContainer.style.display = corrections.length > 0 ? 'flex' : 'none';
+        if (corrections.length === 0) return;
+
+        // Панель массовых действий и счётчика
+        const header = document.createElement('div');
+        header.className = 'lexisync-corrections-header';
+        header.style.cssText =
+            'display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:4px; font-size:12px;';
+
+        const summary = document.createElement('span');
+        summary.style.cssText = 'font-weight:600; color:var(--text-secondary);';
+        summary.textContent = `${t('correctionsFound', 'Исправлений')}: ${corrections.length}`;
+
+        const batchActions = document.createElement('div');
+        batchActions.style.cssText = 'display:flex; gap:6px;';
+
+        const acceptAllBtn = document.createElement('button');
+        acceptAllBtn.type = 'button';
+        acceptAllBtn.className = 'lexisync-batch-btn';
+        acceptAllBtn.textContent = t('acceptAllCorrections', 'Принять все');
+        acceptAllBtn.title = t('acceptAllCorrectionsHint', 'Принять все предложенные исправления');
+        acceptAllBtn.style.cssText =
+            'border:0; border-radius:6px; padding:3px 8px; cursor:pointer; background:var(--bg-secondary); color:var(--text-primary); font-size:11px;';
+        acceptAllBtn.onclick = () => {
+            rejected.clear();
+            render();
+            options.onResultChange(getResult(corrected));
+        };
+
+        const rejectAllBtn = document.createElement('button');
+        rejectAllBtn.type = 'button';
+        rejectAllBtn.className = 'lexisync-batch-btn';
+        rejectAllBtn.textContent = t('restoreAllCorrections', 'Вернуть все');
+        rejectAllBtn.title = t('restoreAllCorrectionsHint', 'Оставить весь исходный текст без изменений');
+        rejectAllBtn.style.cssText = acceptAllBtn.style.cssText;
+        rejectAllBtn.onclick = () => {
+            for (const item of corrections) rejected.add(item.tokenIndex);
+            render();
+            options.onResultChange(getResult(corrected));
+        };
+
+        batchActions.append(acceptAllBtn, rejectAllBtn);
+        header.append(summary, batchActions);
+        options.correctionsContainer.appendChild(header);
+
         for (const correction of corrections) {
             const row = document.createElement('div');
             row.className = 'lexisync-correction-row';
             row.style.cssText =
                 'display:flex; align-items:center; gap:7px; padding:7px 9px; border:1px solid var(--border-color); border-radius:8px; font-size:12px;';
+
+            const catInfo = correction.category ? GRAMMAR_CATEGORIES[correction.category] : undefined;
+            if (catInfo) {
+                const badge = document.createElement('span');
+                badge.className = 'lexisync-correction-cat';
+                badge.textContent = `${catInfo.icon} ${catInfo.titleRu}`;
+                badge.title = catInfo.ruleHintRu || catInfo.descriptionRu;
+                badge.style.cssText =
+                    'font-size:10px; font-weight:600; padding:2px 6px; border-radius:4px; white-space:nowrap; background:rgba(99, 102, 241, 0.12); color:var(--text-primary); flex-shrink:0;';
+                row.appendChild(badge);
+            }
+
             const label = document.createElement('span');
             label.style.cssText = 'flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
             label.textContent = `${correction.original.trim() || '∅'} → ${correction.corrected.trim() || '∅'}`;
+            if (catInfo?.ruleHintRu) {
+                label.title = catInfo.ruleHintRu;
+            }
             const choice = document.createElement('button');
             choice.type = 'button';
             choice.textContent = rejected.has(correction.tokenIndex)
@@ -70,7 +132,7 @@ export function createSpellcheckUi(options: SpellcheckUiOptions): SpellcheckUiCo
                 ? t('acceptAgain', 'Снова принять исправление')
                 : t('keepOriginal', 'Оставить исходное слово');
             choice.style.cssText =
-                'border:0; border-radius:6px; padding:5px 7px; cursor:pointer; background:var(--bg-secondary); color:var(--text-primary);';
+                'border:0; border-radius:6px; padding:5px 7px; cursor:pointer; background:var(--bg-secondary); color:var(--text-primary); flex-shrink:0;';
             choice.onclick = () => toggleCorrection(correction);
             const dictionary = document.createElement('button');
             dictionary.type = 'button';
@@ -110,9 +172,14 @@ export function createSpellcheckUi(options: SpellcheckUiOptions): SpellcheckUiCo
     };
 
     const showCompactDetails = (correction: WordCorrection) => {
+        const catInfo = correction.category ? GRAMMAR_CATEGORIES[correction.category] : undefined;
         const description = document.createElement('span');
         description.className = 'lexisync-compact-correction-copy';
-        description.textContent = `${correction.original.trim() || '∅'} → ${correction.corrected.trim() || '∅'}`;
+        const prefix = catInfo ? `${catInfo.icon} ` : '';
+        description.textContent = `${prefix}${correction.original.trim() || '∅'} → ${correction.corrected.trim() || '∅'}`;
+        if (catInfo?.ruleHintRu) {
+            description.title = catInfo.ruleHintRu;
+        }
         const keepOriginal = document.createElement('button');
         keepOriginal.type = 'button';
         keepOriginal.className = 'lexisync-tool-chip';

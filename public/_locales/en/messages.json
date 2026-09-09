@@ -2215,5 +2215,56 @@
     },
     "typographyApplied": {
         "message": "✓ Typography applied (0 tokens)"
+    },
+    "statsMinShort": {
+        "message": "min"
+    },
+    "fleschScoreHint": {
+        "message": "Flesch reading ease score"
+    },
+    "correctionsFound": {
+        "message": "Corrections"
+    },
+    "acceptAllCorrections": {
+        "message": "Accept all"
+    },
+    "acceptAllCorrectionsHint": {
+        "message": "Accept all suggested corrections"
+    },
+    "restoreAllCorrections": {
+        "message": "Restore all"
+    },
+    "restoreAllCorrectionsHint": {
+        "message": "Keep all original text without changes"
+    },
+    "appendBelowText": {
+        "message": "Insert below"
+    },
+    "appendBelowTextHint": {
+        "message": "Insert the result on a new line below the selection"
+    },
+    "appended": {
+        "message": "Inserted!"
+    },
+    "undoInsertion": {
+        "message": "Undo insertion"
+    },
+    "refineClient": {
+        "message": "For client"
+    },
+    "refineClientPrompt": {
+        "message": "Rewrite the text politely, attentively, and persuasively for a client."
+    },
+    "refineExecutive": {
+        "message": "For executive"
+    },
+    "refineExecutivePrompt": {
+        "message": "Rewrite the text concisely, structured, and focused on results for executive leadership."
+    },
+    "refineConvince": {
+        "message": "Convince"
+    },
+    "refineConvincePrompt": {
+        "message": "Rewrite the text with compelling arguments and persuasive reasoning."
     }
 }

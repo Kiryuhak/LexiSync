@@ -1,6 +1,11 @@
 import type { RequestMode, StyleProfile } from './types';
 import { maskPii } from './pii-masker';
 
+export interface WritingGoal {
+    audience?: 'colleagues' | 'client' | 'executive' | 'general';
+    intent?: 'inform' | 'convince' | 'explain' | 'summarize';
+}
+
 export interface PromptRequest {
     text?: string;
     context?: string;
@@ -10,6 +15,7 @@ export interface PromptRequest {
     pageUrl?: string;
     customPrompt?: string;
     replyIntent?: 'agree' | 'decline' | 'clarify' | 'alternative';
+    writingGoal?: WritingGoal;
     rawMessages?: ChatMessage[];
 }
 
@@ -93,6 +99,9 @@ export function buildPromptPayload(msg: PromptRequest, settings: PromptSettings)
             simple: 'простым, ясным языком без канцеляризмов и громоздких оборотов',
             shorten: 'максимально сжато и коротко (примерно в 2 раза), убрав воду и оставив лишь главные факты',
             expand: 'развернув тезисы в связный, подробный и убедительный текст с деталями и примерами',
+            client: 'в вежливом, клиентоориентированном и заботливом тоне',
+            executive: 'в ёмком, структурированном и ориентированном на результат стиле для руководства',
+            convince: 'с убедительной аргументацией и сильными доводами',
         };
         systemPrompt += ` Перепиши текст ${toneMap[settings.selectedTone] || toneMap.business}, сделав его естественнее. Верни чистый готовый текст без Markdown-разметки и без звёздочек.`;
         const profileInstruction = cleanUntrusted(settings.activeStyleProfile?.instruction, 1000);
@@ -145,6 +154,27 @@ export function buildPromptPayload(msg: PromptRequest, settings: PromptSettings)
         const customPrompt = cleanUntrusted(msg.customPrompt, 2000);
         if (!customPrompt) throw new Error('Инструкция пользовательской команды пуста.');
         systemPrompt += ` Выполни пользовательскую инструкцию: ${customPrompt}`;
+    }
+
+    if (msg.writingGoal) {
+        const audienceMap: Record<string, string> = {
+            colleagues: 'Пиши в конструктивном, доброжелательном и ясном тоне для коллег по команде.',
+            client: 'Пиши максимально вежливо, внимательно и клиентоориентированно.',
+            executive: 'Пиши кратко, структурированно, с фокусом на результат и конкретные решения для руководства.',
+            general: 'Пиши понятно и доступно для широкой аудитории.',
+        };
+        const intentMap: Record<string, string> = {
+            inform: 'Главная цель — понятно проинформировать о ключевых фактах.',
+            convince: 'Главная цель — аргументированно убедить и привести убедительные доводы.',
+            explain: 'Главная цель — наглядно и просто объяснить суть вопроса.',
+            summarize: 'Главная цель — дать ёмкую выжимку главного без лишних слов.',
+        };
+        if (msg.writingGoal.audience && audienceMap[msg.writingGoal.audience]) {
+            systemPrompt += ` ${audienceMap[msg.writingGoal.audience]}`;
+        }
+        if (msg.writingGoal.intent && intentMap[msg.writingGoal.intent]) {
+            systemPrompt += ` ${intentMap[msg.writingGoal.intent]}`;
+        }
     }
 
     const blocks: string[] = [];

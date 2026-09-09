@@ -6,6 +6,7 @@ export interface ResultDialogElements {
     compactDetails: HTMLDivElement;
     corrections: HTMLDivElement;
     tools: HTMLDivElement;
+    stats: HTMLDivElement;
     actions: HTMLDivElement;
     status: HTMLDivElement;
 }
@@ -34,6 +35,10 @@ export function mountResultDialogFrame(container: HTMLElement): ResultDialogElem
     const tools = document.createElement('div');
     tools.className = 'lexisync-result-tools';
 
+    const stats = document.createElement('div');
+    stats.className = 'lexisync-text-stats';
+    stats.hidden = true;
+
     const actions = document.createElement('div');
     actions.className = 'lexisync-actions';
 
@@ -44,7 +49,7 @@ export function mountResultDialogFrame(container: HTMLElement): ResultDialogElem
     status.setAttribute('aria-atomic', 'true');
     status.hidden = true;
 
-    container.append(header, content, compactDetails, corrections, tools, actions, status);
+    container.append(header, content, compactDetails, corrections, tools, stats, actions, status);
 
     return {
         header,
@@ -54,6 +59,7 @@ export function mountResultDialogFrame(container: HTMLElement): ResultDialogElem
         compactDetails,
         corrections,
         tools,
+        stats,
         actions,
         status,
     };

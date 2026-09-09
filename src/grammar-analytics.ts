@@ -269,6 +269,94 @@ export function classifyTextDifference(original: string, result: string): Set<Gr
     return categories;
 }
 
+export function classifyCorrection(original: string, corrected: string): GrammarErrorCategory {
+    const orig = original.trim();
+    const corr = corrected.trim();
+    if (!orig && !corr) return 'spelling';
+
+    // 1. Раскладка
+    if (LAYOUT_REGEX.test(orig) && /[а-яё]/i.test(corr) && orig.length > 2 && !/^(http|www|https|git)/i.test(orig)) {
+        return 'layout';
+    }
+
+    // 2. Типографика (кавычки «», тире —, спецсимволы, неразрывные пробелы)
+    if (
+        (orig.includes('"') && (corr.includes('«') || corr.includes('»'))) ||
+        (orig.includes('--') && corr.includes('—')) ||
+        (orig.includes('-') && corr.includes('—')) ||
+        (orig.includes('...') && corr.includes('…')) ||
+        orig.includes('\u00A0') ||
+        corr.includes('\u00A0')
+    ) {
+        return 'typography';
+    }
+
+    // 3. Пунктуация
+    const isOnlyPunct = (s: string) => /^[^\p{L}\p{N}]+$/u.test(s);
+    if ((!orig && isOnlyPunct(corr)) || (!corr && isOnlyPunct(orig)) || (isOnlyPunct(orig) && isOnlyPunct(corr))) {
+        return 'punctuation';
+    }
+    const origNoSpace = orig.replace(/\s+/g, '');
+    const corrNoSpace = corr.replace(/\s+/g, '');
+    if (origNoSpace === corrNoSpace && /[.,!?:;\-—]/.test(orig)) {
+        return 'punctuation';
+    }
+    const origPunctCount = (orig.match(/[,;:\-—?!.]/g) || []).length;
+    const corrPunctCount = (corr.match(/[,;:\-—?!.]/g) || []).length;
+    if (
+        origPunctCount !== corrPunctCount &&
+        orig.replace(/[,;:\-—?!.]/g, '').toLowerCase() === corr.replace(/[,;:\-—?!.]/g, '').toLowerCase()
+    ) {
+        const lowerCorr = corr.toLowerCase();
+        if (INTRODUCTORY_WORDS.some((word) => lowerCorr.includes(word))) {
+            return 'introductory_words';
+        }
+        return 'punctuation';
+    }
+
+    // 4. -тся / -ться
+    const origTsya = extractTsyaWords(orig);
+    const corrTsya = extractTsyaWords(corr);
+    if (
+        origTsya.length > 0 &&
+        corrTsya.length > 0 &&
+        (origTsya.some((w) => !corrTsya.includes(w)) || corrTsya.some((w) => !origTsya.includes(w)))
+    ) {
+        return 'tsya_tsya';
+    }
+
+    // 5. НЕ / НИ
+    const origNe = extractNeNiPhrases(orig);
+    const corrNe = extractNeNiPhrases(corr);
+    if (origNe.length > 0 || corrNe.length > 0) {
+        if (origNe.length !== corrNe.length || origNe.some((w, i) => corrNe[i] !== w)) {
+            return 'ne_ni';
+        }
+    }
+
+    // 6. Заглавные буквы / регистр
+    if (orig.toLowerCase() === corr.toLowerCase() && orig !== corr) {
+        return 'capitalization';
+    }
+
+    // 7. Вводные слова
+    if (INTRODUCTORY_WORDS.some((word) => corr.toLowerCase().includes(word))) {
+        return 'introductory_words';
+    }
+
+    // 8. Согласование / окончания
+    if (orig.length >= 4 && corr.length >= 4) {
+        const minLen = Math.min(orig.length, corr.length);
+        let prefix = 0;
+        while (prefix < minLen && orig[prefix].toLowerCase() === corr[prefix].toLowerCase()) prefix++;
+        if (prefix >= 3 && orig.length - prefix <= 4 && corr.length - prefix <= 4) {
+            return 'case_agreement';
+        }
+    }
+
+    return 'spelling';
+}
+
 export function generateGrammarAnalytics(items: HistoryItem[]): GrammarAnalyticsReport {
     // Перевод, изменение стиля и остальные творческие команды не являются
     // проверкой грамотности и не должны ухудшать пользовательский индекс.
