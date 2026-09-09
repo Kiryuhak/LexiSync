@@ -23,10 +23,10 @@
 
 Кросс-браузерное расширение для Chrome и Firefox на базе **Mistral AI** (`mistral-small-latest`, `mistral-ocr-latest`) и **Cloudflare Workers AI** (`@cf/zai-org/glm-4.7-flash`, `@cf/qwen/qwen3-30b-a3b-fp8`, `@cf/meta/llama-3.2-3b-instruct`). Позволяет исправлять ошибки, переписывать и переводить текст, менять раскладку, подбирать эмодзи и распознавать текст на изображениях напрямую из браузера.
 
-<h2 align="center">✨ Как работает LexiSync</h2>
+<h2 align="center">✨ Интерфейс LexiSync 5.6.2</h2>
 
 <p align="center">
-  Выделите текст, выберите нужное действие и примените готовый результат — всё прямо на веб-странице.
+  Новая русскоязычная галерея для Chrome и Firefox: без обрезанного интерфейса, тестовых ключей и служебных данных.
 </p>
 
 <p align="center">
@@ -34,25 +34,25 @@
 </p>
 
 <details>
-  <summary><strong>🪄 Работа с текстом — меню и готовый результат</strong></summary>
+  <summary><strong>🪄 Google Chrome — меню и готовый результат</strong></summary>
   <br>
   <p align="center">
-    <img src="docs/store-assets/firefox/lexisync-ai-actions.png" alt="Меню действий LexiSync на русском языке" width="49%">
-    <img src="docs/store-assets/firefox/lexisync-result-window.png" alt="Компактное окно результата LexiSync" width="49%">
+    <img src="docs/store-assets/chrome/ru/01-lexisync-ai-actions.png" alt="Меню действий LexiSync для Google Chrome на русском языке" width="49%">
+    <img src="docs/store-assets/chrome/ru/02-lexisync-result-window.png" alt="Окно исправленного текста LexiSync для Google Chrome" width="49%">
   </p>
 </details>
 
 <details>
-  <summary><strong>🤖 AI-провайдеры и контроль расходов</strong></summary>
+  <summary><strong>🤖 Google Chrome — AI-провайдеры и контроль расходов</strong></summary>
   <br>
   <p align="center">
-    <img src="docs/store-assets/firefox/lexisync-ai-providers.png" alt="Настройки AI-провайдеров LexiSync" width="49%">
-    <img src="docs/store-assets/firefox/lexisync-ai-usage.png" alt="Лимиты и статистика AI в LexiSync" width="49%">
+    <img src="docs/store-assets/chrome/ru/03-lexisync-ai-providers.png" alt="Настройки AI-провайдеров LexiSync для Google Chrome" width="49%">
+    <img src="docs/store-assets/chrome/ru/04-lexisync-ai-usage.png" alt="Лимиты и статистика AI в LexiSync для Google Chrome" width="49%">
   </p>
 </details>
 
 <details>
-  <summary><strong>🔒 Приватность и быстрый старт</strong></summary>
+  <summary><strong>🦊 Mozilla Firefox — приватность и быстрый старт</strong></summary>
   <br>
   <p align="center">
     <img src="docs/store-assets/firefox/lexisync-privacy-settings.png" alt="Настройки приватности LexiSync" width="49%">
@@ -68,6 +68,7 @@
 - **Резервное переключение по качеству (Fallback):** сетевой сбой, 429/5xx, оборванный ответ или `QUALITY_CHECK_FAILED` запускает не более одного перехода к настроенному резервному провайдеру. Ошибки ключей и конфигурации не маскируются.
 - **Шифрование настроек AES-256-GCM:** настройки и API-ключи можно сохранить в зашифрованный файл или в скрытую папку Google Drive. Мастер-пароль не сохраняется, а токен Drive изолирован вместе с AI-секретами.
 - **Устранение ошибок окружения:** исправлено обращение к `storage` в журнале ошибок при тестировании, обеспечена передача выбранной модели Cloudflare в исполнитель запросов.
+- **Новые материалы для магазинов:** полностью пересобраны русскоязычные скриншоты Chrome и Firefox и анимированная галерея README; интерфейс показан крупно, без обрезки и секретных данных.
 
 Предыдущие изменения — в [CHANGELOG](CHANGELOG.md) и истории обновлений внутри расширения.
 

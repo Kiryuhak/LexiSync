@@ -43,8 +43,8 @@ export const RELEASE_NOTES: ReleaseNote[] = [
         'Deep engineering audit and AI text correction quality upgrade',
         [
             [
-                'Переход на высокоточную русскоязычную модель Cloudflare Workers AI Qwen 2.5 7B Instruct по умолчанию.',
-                'Switched to high-precision multilingual Cloudflare Workers AI model Qwen 2.5 7B Instruct by default.',
+                'Переход на актуальную многоязычную модель Cloudflare Workers AI GLM 4.7 Flash по умолчанию с возможностью выбрать Qwen3 или Llama 3.2.',
+                'Switched to the current multilingual Cloudflare Workers AI model GLM 4.7 Flash by default, with Qwen3 and Llama 3.2 available as alternatives.',
             ],
             [
                 'Консервативный системный промпт для исправления ошибок: строгое сохранение структуры, стиля, фактов и запрет синонимов.',
