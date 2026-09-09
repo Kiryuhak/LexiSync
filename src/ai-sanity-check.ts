@@ -51,7 +51,7 @@ export function cleanAiOutputText(rawText: string, originalText = ''): string {
     }
 
     // 4. Если в ответе нет переносов строк, но есть литералы \n, преобразуем их в настоящие переносы
-    if (!cleaned.includes('\n') && cleaned.includes('\\n')) {
+    if (originalText.includes('\n') && !cleaned.includes('\n') && cleaned.includes('\\n')) {
         cleaned = cleaned.replace(/\\n/g, '\n');
     }
 
@@ -69,7 +69,38 @@ export function cleanAiOutputText(rawText: string, originalText = ''): string {
         cleaned = cleaned.slice(1, -1).trim();
     }
 
+    const leadingWhitespace = originalText.match(/^\s*/)?.[0] || '';
+    const trailingWhitespace = originalText.match(/\s*$/)?.[0] || '';
+    if (leadingWhitespace || trailingWhitespace) {
+        cleaned = `${leadingWhitespace}${cleaned.trim()}${trailingWhitespace}`;
+    }
+
     return cleaned;
+}
+
+function extractMatches(value: string, pattern: RegExp): string[] {
+    return [...value.matchAll(pattern)].map((match) => match[0]).sort((a, b) => a.localeCompare(b));
+}
+
+function sameMatches(original: string, corrected: string, pattern: RegExp): boolean {
+    return JSON.stringify(extractMatches(original, pattern)) === JSON.stringify(extractMatches(corrected, pattern));
+}
+
+function getWordOverlapRatio(original: string, corrected: string): number {
+    const originalWords = original.toLocaleLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
+    const correctedWords = corrected.toLocaleLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
+    if (originalWords.length < 8 || correctedWords.length < 8) return 1;
+
+    const remaining = new Map<string, number>();
+    for (const word of originalWords) remaining.set(word, (remaining.get(word) || 0) + 1);
+    let common = 0;
+    for (const word of correctedWords) {
+        const count = remaining.get(word) || 0;
+        if (count <= 0) continue;
+        common += 1;
+        remaining.set(word, count - 1);
+    }
+    return (2 * common) / (originalWords.length + correctedWords.length);
 }
 
 /**
@@ -87,6 +118,7 @@ export function validateAiOutput(options: AiSanityCheckOptions): AiSanityResult 
     // Проверки специфичные для режима "spellcheck" (исправление ошибок)
     if (mode === 'spellcheck') {
         const origTrim = originalText.trim();
+        const cleanTrim = cleaned.trim();
         const origLen = origTrim.length;
 
         if (origLen >= 15) {
@@ -139,6 +171,14 @@ export function validateAiOutput(options: AiSanityCheckOptions): AiSanityResult 
             }
         }
 
+        if (!sameMatches(origTrim, cleanTrim, urlRegex)) {
+            return {
+                valid: false,
+                reason: 'AI_OUTPUT_CHANGED_URLS',
+                cleanedText: cleaned,
+            };
+        }
+
         // 6. Сохранение Email
         const emailRegex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g;
         const origEmails = origTrim.match(emailRegex) || [];
@@ -152,19 +192,58 @@ export function validateAiOutput(options: AiSanityCheckOptions): AiSanityResult 
             }
         }
 
-        // 7. Сохранение ключевых чисел (номера телефонов, годы, точные цифровые значения от 3 цифр)
-        const numberMatches = origTrim.match(/\b\d{3,}(?:[.,]\d+)?\b/g) || [];
-        for (const num of numberMatches) {
-            if (!cleaned.includes(num)) {
-                return {
-                    valid: false,
-                    reason: `AI_OUTPUT_LOST_NUMBER: ${num}`,
-                    cleanedText: cleaned,
-                };
-            }
+        if (!sameMatches(origTrim, cleanTrim, emailRegex)) {
+            return {
+                valid: false,
+                reason: 'AI_OUTPUT_CHANGED_EMAILS',
+                cleanedText: cleaned,
+            };
         }
 
-        // 8. Проверка на служебные мета-комментарии модели
+        // 7. Любые числа, даты, версии и временные значения должны совпадать как мультимножество.
+        const numberRegex = /(?<![\p{L}\p{N}_])[-+]?\d+(?:[.,:/-]\d+)*(?![\p{L}\p{N}_])/gu;
+        if (!sameMatches(origTrim, cleanTrim, numberRegex)) {
+            return {
+                valid: false,
+                reason: 'AI_OUTPUT_CHANGED_NUMBERS',
+                cleanedText: cleaned,
+            };
+        }
+
+        // 8. Не позволяем модели менять фрагменты кода и технические идентификаторы.
+        const codeSpanRegex = /`[^`\n]+`/g;
+        const technicalIdentifierRegex =
+            /\b(?:[A-Z]{2,}|[A-Za-z_$][A-Za-z0-9$]*[_$][A-Za-z0-9_$]*|[a-z]+[A-Z][A-Za-z0-9]*)\b/g;
+        if (
+            !sameMatches(origTrim, cleanTrim, codeSpanRegex) ||
+            !sameMatches(origTrim, cleanTrim, technicalIdentifierRegex)
+        ) {
+            return {
+                valid: false,
+                reason: 'AI_OUTPUT_CHANGED_TECHNICAL_ENTITY',
+                cleanedText: cleaned,
+            };
+        }
+
+        // 9. Корректор не должен менять структуру абзацев или переписывать большую часть слов.
+        const originalLineBreaks = (originalText.match(/\r?\n/g) || []).length;
+        const correctedLineBreaks = (cleaned.match(/\r?\n/g) || []).length;
+        if (originalLineBreaks !== correctedLineBreaks) {
+            return {
+                valid: false,
+                reason: 'AI_OUTPUT_CHANGED_LINE_STRUCTURE',
+                cleanedText: cleaned,
+            };
+        }
+        if (getWordOverlapRatio(origTrim, cleanTrim) < 0.5) {
+            return {
+                valid: false,
+                reason: 'AI_OUTPUT_EXCESSIVE_REWRITE',
+                cleanedText: cleaned,
+            };
+        }
+
+        // 10. Проверка на служебные мета-комментарии модели
         for (const metaPattern of META_COMMENTARY_PATTERNS) {
             if (metaPattern.test(cleaned)) {
                 return {

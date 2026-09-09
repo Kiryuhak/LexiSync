@@ -1,7 +1,7 @@
 import { t } from './i18n';
 import { AiProviderError, type AiProviderType, type CloudflareCredentials } from './ai-provider-types';
 import { validateCloudflareCredentials } from './cloudflare-client';
-import { AI_CONFIG } from './ai-models-config';
+import { AI_CONFIG, normalizeCloudflareModel } from './ai-models-config';
 
 export type HealthState = 'healthy' | 'degraded' | 'outage' | 'unconfigured' | 'checking';
 
@@ -58,8 +58,10 @@ export async function checkProviderHealth(
     provider: AiProviderType,
     apiKey: string | CloudflareCredentials,
     timeoutMs = 7000,
+    cloudflareModel: unknown = AI_CONFIG.cloudflare.defaultModel,
 ): Promise<ProviderHealthStatus> {
     if (provider === 'cloudflare') {
+        const resolvedModel = normalizeCloudflareModel(cloudflareModel);
         let creds: CloudflareCredentials;
         if (typeof apiKey === 'object' && apiKey !== null) {
             creds = apiKey;
@@ -76,12 +78,12 @@ export async function checkProviderHealth(
                 state: 'unconfigured',
                 message: t('serverStatusUnconfigured', 'Ключ не настроен'),
                 checkedAt: Date.now(),
-                model: AI_CONFIG.cloudflare.defaultModelShortName,
+                model: resolvedModel,
             };
         }
 
         const signal = AbortSignal.timeout(timeoutMs);
-        const result = await validateCloudflareCredentials(creds, AI_CONFIG.cloudflare.defaultModel, signal);
+        const result = await validateCloudflareCredentials(creds, resolvedModel, signal);
 
         if (result.ok) {
             const isDegraded = (result.latencyMs ?? 0) >= 2500;
@@ -93,7 +95,7 @@ export async function checkProviderHealth(
                     ? t('serverStatusDegradedLatency', 'Замедление ответа')
                     : t('serverStatusHealthy', 'Работает отлично'),
                 checkedAt: Date.now(),
-                model: AI_CONFIG.cloudflare.defaultModelShortName,
+                model: resolvedModel,
             };
         }
 
@@ -109,7 +111,7 @@ export async function checkProviderHealth(
             latencyMs: result.latencyMs,
             message: result.message,
             checkedAt: Date.now(),
-            model: AI_CONFIG.cloudflare.defaultModelShortName,
+            model: resolvedModel,
         };
     }
 

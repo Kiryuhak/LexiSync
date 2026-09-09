@@ -394,9 +394,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         void initializationPromise
             .then(async () =>
                 request.health === true
-                    ? checkProviderHealth(request.provider, request.credential)
+                    ? checkProviderHealth(request.provider, request.credential, 7000, request.model)
                     : request.provider === 'cloudflare'
-                      ? validateCloudflareCredentials(request.credential)
+                      ? validateCloudflareCredentials(request.credential, request.model)
                       : validateApiKey(request.credential),
             )
             .then((data) => sendResponse({ ok: true, data }))

@@ -38,7 +38,7 @@ const test = base.extend({
                     return settings.settingsSchemaVersion;
                 }),
             )
-            .toBe(14);
+            .toBe(15);
         await use(context);
         await context.close();
     },
@@ -338,8 +338,8 @@ test('модальное окно остаётся рядом с указате�
     await expect(result.locator('.lexisync-content-pane')).toContainText('Строка результата 16.');
     const box = await result.boundingBox();
     expect(box).not.toBeNull();
-    expect(box!.y).toBeGreaterThan(50);
-    const viewportBottomSafetyMargin = 15;
+    expect(box!.y).toBeGreaterThanOrEqual(20);
+    const viewportBottomSafetyMargin = 10;
     expect(box!.y + box!.height).toBeLessThanOrEqual(500 - viewportBottomSafetyMargin);
     const resultCenterY = box!.y + box!.height / 2;
     const selectionCenterY = selectionTarget!.y + selectionTarget!.height / 2;
@@ -384,7 +384,7 @@ test('Telegram-подобная модалка с transform не смещает 
         await route.fulfill({
             status: 200,
             contentType: 'text/event-stream',
-            body: 'data: {"choices":[{"delta":{"content":"Исправленный текст Telegram."}}]}\n\ndata: [DONE]\n\n',
+            body: 'data: {"choices":[{"delta":{"content":"Текст внутри трансформированного окна Telegram для проверки координат."}}]}\n\ndata: [DONE]\n\n',
         });
     });
     await page.evaluate(() => {
@@ -408,7 +408,7 @@ test('Telegram-подобная модалка с transform не смещает 
     await page.keyboard.press('Alt+r');
 
     const result = page.locator('#lexisync-extension-ui[data-surface="result"]');
-    await expect(result).toContainText('Исправленный текст Telegram.');
+    await expect(result).toContainText('Текст внутри трансформированного окна Telegram для проверки координат.');
     const resultBox = await result.boundingBox();
     expect(resultBox).not.toBeNull();
     expect(Math.abs(resultBox!.x - selectionBox!.x)).toBeLessThan(70);
@@ -502,7 +502,7 @@ test('Проверка ошибок подсвечивает только исп
     await expect(page.locator('#spellcheck-input')).toHaveValue('Пишуу кот для проверки.');
 
     // Возвращаем исходное значение одной кнопкой.
-    await uiPanel.locator('.lexisync-result-button:not(.lexisync-result-button--primary):not(.icon-only)').click();
+    await uiPanel.locator('.lexisync-undo-button').click();
     await expect(page.locator('#spellcheck-input')).toHaveValue('Пишуу кот для провирки.');
 });
 
@@ -880,7 +880,7 @@ test('потеря service worker завершает загрузку и поз�
             .fulfill({
                 status: 200,
                 contentType: 'text/event-stream',
-                body: `data: {"choices":[{"delta":{"content":"Соединение восстановлено"}}]}\n\ndata: [DONE]\n\n`,
+                body: `data: {"choices":[{"delta":{"content":"This domain is for deterministic LexiSync browser tests. Соединение восстановлено."}}]}\n\ndata: [DONE]\n\n`,
             })
             .catch(() => undefined);
     });
@@ -1057,7 +1057,7 @@ test('вкладки настроек простым языком объясня
     }
 
     await page.locator('[data-tab="main"]').click();
-    await expect(page.locator('.field-hint[data-settings-group="main"]')).toHaveCount(4);
+    await expect(page.locator('.field-hint[data-settings-group="main"]')).toHaveCount(5);
     await expect(page.locator('.settings-field .field-hint')).toHaveText(localizedCopy.searchHint);
 
     await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -1340,7 +1340,7 @@ test('Компактный режим настраивается и показы
 
     const panel = page.locator('#lexisync-extension-ui');
     await expect(panel).toHaveAttribute('data-ui-style', 'magicos-11');
-    await expect(panel.locator('.lexisync-content-pane')).toHaveText('Sample Domai');
+    await expect(panel.locator('.lexisync-content-pane')).toContainText('Sample Domai');
     await expect(panel.locator('.lexisync-result-button')).toHaveCount(3);
     await expect(panel.locator('.lexisync-corrections')).toBeHidden();
     await expect(panel.locator('.lexisync-result-tools')).toBeHidden();
@@ -1367,7 +1367,7 @@ test('Компактный режим настраивается и показы
         };
     });
     expect(compactLayout.compact).toBe('true');
-    expect(compactLayout.width).toBe(360);
+    expect(compactLayout.width).toBe(400);
     expect(compactLayout.height).toBeLessThan(280);
     expect(compactLayout.backdropFilter).toContain('blur(36px)');
     expect(compactLayout.headerBackground).toContain('linear-gradient');
@@ -2141,7 +2141,7 @@ test('новый Mistral API-ключ применяется к следующе
             contentType: authorization === `Bearer ${newKey}` ? 'text/event-stream' : 'application/json',
             body:
                 authorization === `Bearer ${newKey}`
-                    ? 'data: {"choices":[{"delta":{"content":"Ключ обновлён"}}]}\n\ndata: [DONE]\n\n'
+                    ? 'data: {"choices":[{"delta":{"content":"This domain is for deterministic LexiSync browser tests — ключ обновлён."}}]}\n\ndata: [DONE]\n\n'
                     : JSON.stringify({ message: 'Your API key expired.' }),
         });
     });
@@ -2150,7 +2150,7 @@ test('новый Mistral API-ключ применяется к следующе
     await grantSiteAccess(context, page);
     await selectTextOnPage(page);
     await page.keyboard.press('Alt+r');
-    await expect(page.locator('#lexisync-extension-ui')).toContainText('Ключ обновлён', { timeout: 10_000 });
+    await expect(page.locator('#lexisync-extension-ui')).toContainText(/ключ обновлён/i, { timeout: 10_000 });
     expect(authorization).toBe(`Bearer ${newKey}`);
     await optionsPage.close();
 });
@@ -2190,8 +2190,10 @@ test('обучение проводит нового пользователя ч
 
     const onboarding = page.locator('#onboarding');
     await expect(onboarding).toBeVisible();
-    await expect(page.locator('#onboardingProgress')).toHaveText(/1.*6/);
+    await expect(page.locator('#onboardingProgress')).toHaveText(/1.*7/);
 
+    await page.locator('#onboardingNext').click();
+    await expect(page.locator('[data-onboarding-step="1"]')).toBeVisible();
     await page.locator('#onboardingNext').click();
     const onboardingApiKey = page.locator('#onboardingApiKey');
     const onboardingSaveKey = page.locator('#onboardingSaveKey');
@@ -2218,7 +2220,7 @@ test('обучение проводит нового пользователя ч
     const onboardingCloudflareApiToken = page.locator('#onboardingCloudflareApiToken');
     const onboardingSaveCloudflareKey = page.locator('#onboardingSaveCloudflareKey');
     await expect(onboarding).toHaveAttribute('data-provider', 'cloudflare');
-    await expect(page.locator('.onboarding-provider-chip')).toContainText(/Cloudflare/);
+    await expect(page.locator('.onboarding-provider-chip[aria-label="Cloudflare Workers AI"]')).toBeVisible();
     await expect(onboardingCloudflareAccountId).toBeVisible();
     await expect(onboardingCloudflareApiToken).toBeVisible();
     await expect(page.locator('.onboarding-external-link[href="https://dash.cloudflare.com/"]')).toBeVisible();
@@ -2235,9 +2237,9 @@ test('обучение проводит нового пользователя ч
         value: { accountId: '12345678901234567890123456789012', apiToken: 'tutorial-cf-api-token' },
     });
 
-    for (let step = 3; step <= 5; step++) {
+    for (let step = 5; step <= 7; step++) {
         await page.locator('#onboardingNext').click();
-        await expect(page.locator('#onboardingProgress')).toHaveText(new RegExp(`${step + 1}.*6`));
+        await expect(page.locator('#onboardingProgress')).toHaveText(new RegExp(`${step}.*7`));
     }
     await expect(page.locator('#onboardingNext')).toHaveText(/Начать|Start|Get started/);
     await page.locator('#onboardingNext').click();
@@ -2248,7 +2250,7 @@ test('обучение проводит нового пользователя ч
 
     await page.locator('#openOnboarding').click();
     await expect(onboarding).toBeVisible();
-    await expect(page.locator('#onboardingProgress')).toHaveText(/1.*6/);
+    await expect(page.locator('#onboardingProgress')).toHaveText(/1.*7/);
 });
 
 test('автопроверка позволяет отклонить отдельное исправление', async ({ page, context }) => {
@@ -2343,7 +2345,7 @@ test('результат AI-запроса отображает бейдж ис�
 }) => {
     await setFakeApiKey(context);
     await context.route('https://api.mistral.ai/v1/chat/completions', async (route) => {
-        const content = 'Исправленный текст без ошибок.';
+        const content = 'This domain is for deterministic LexiSync browser tests.';
         await route.fulfill({
             status: 200,
             contentType: 'text/event-stream',

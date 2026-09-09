@@ -2048,6 +2048,21 @@
     "providerCloudflare": {
         "message": "🧡 Cloudflare Workers AI"
     },
+    "cloudflareModelLabel": {
+        "message": "Cloudflare model:"
+    },
+    "cloudflareModelGlm": {
+        "message": "GLM-4.7-Flash (recommended)"
+    },
+    "cloudflareModelQwen": {
+        "message": "Qwen3 30B-A3B"
+    },
+    "cloudflareModelLlama": {
+        "message": "Llama 3.2 3B"
+    },
+    "cloudflareModelHint": {
+        "message": "GLM-4.7-Flash is optimized for multilingual instruction following; Mistral remains the primary choice in automatic mode when configured."
+    },
     "cloudflareAccountIdLabel": {
         "message": "Cloudflare Account ID:"
     },
@@ -2366,7 +2381,10 @@
     "fallbackDueToQuality": {
         "message": "Cloudflare response failed quality check. Request completed via Mistral."
     },
+    "fallbackToCloudflareDueToQuality": {
+        "message": "Mistral response failed quality check. Request completed via Cloudflare Workers AI."
+    },
     "qualityCheckFailed": {
-        "message": "Cloudflare response failed quality check."
+        "message": "The AI response failed quality checks."
     }
 }

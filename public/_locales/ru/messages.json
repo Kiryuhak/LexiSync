@@ -2048,6 +2048,21 @@
     "providerCloudflare": {
         "message": "🧡 Cloudflare Workers AI"
     },
+    "cloudflareModelLabel": {
+        "message": "Модель Cloudflare:"
+    },
+    "cloudflareModelGlm": {
+        "message": "GLM-4.7-Flash (рекомендуется)"
+    },
+    "cloudflareModelQwen": {
+        "message": "Qwen3 30B-A3B"
+    },
+    "cloudflareModelLlama": {
+        "message": "Llama 3.2 3B"
+    },
+    "cloudflareModelHint": {
+        "message": "GLM-4.7-Flash оптимизирована для многоязычных инструкций; Mistral остаётся основным выбором в автоматическом режиме, если настроен."
+    },
     "cloudflareAccountIdLabel": {
         "message": "Cloudflare Account ID:"
     },
@@ -2366,7 +2381,10 @@
     "fallbackDueToQuality": {
         "message": "Ответ Cloudflare не прошёл проверку качества. Запрос выполнен через Mistral."
     },
+    "fallbackToCloudflareDueToQuality": {
+        "message": "Ответ Mistral не прошёл проверку качества. Запрос выполнен через Cloudflare Workers AI."
+    },
     "qualityCheckFailed": {
-        "message": "Ответ Cloudflare не прошёл проверку качества."
+        "message": "Ответ ИИ не прошёл проверку качества."
     }
 }

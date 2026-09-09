@@ -5,6 +5,7 @@ import { normalizeBudgetProfile } from './budget';
 import { logger } from './logger';
 import { normalizeTextSnippets } from './text-snippets';
 import type { RequestMode } from './types';
+import { normalizeCloudflareModel } from './ai-models-config';
 
 const PORTABLE_SETTING_KEYS = [
     'selectedTone',
@@ -42,6 +43,7 @@ const PORTABLE_SETTING_KEYS = [
     'textSnippets',
     'primaryAiProvider',
     'autoFallbackEnabled',
+    'cloudflareModel',
     'glossary',
     'pinnedToolbarActions',
 ] as const;
@@ -70,6 +72,7 @@ const SYNC_SETTING_KEYS = [
     'autoFastMode',
     'primaryAiProvider',
     'autoFallbackEnabled',
+    'cloudflareModel',
 ] as const;
 
 export interface SettingsSyncStatus {
@@ -146,6 +149,7 @@ export function sanitizePortableSetting(key: (typeof PORTABLE_SETTING_KEYS)[numb
     )
         return value !== false;
     if (key === 'primaryAiProvider') return ['auto', 'mistral', 'cloudflare'].includes(String(value)) ? value : 'auto';
+    if (key === 'cloudflareModel') return normalizeCloudflareModel(value);
     if (key === 'selectedTone')
         return ['business', 'friendly', 'persuasive', 'creative'].includes(String(value)) ? value : 'business';
     if (key === 'selectedTheme') return ['auto', 'light', 'dark'].includes(String(value)) ? value : 'auto';

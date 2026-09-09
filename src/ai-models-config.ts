@@ -10,14 +10,22 @@ export const AI_CONFIG = {
         id: 'cloudflare' as const,
         name: 'Cloudflare Workers AI',
         baseUrl: 'https://api.cloudflare.com/client/v4',
-        defaultModel: '@cf/qwen/qwen2.5-7b-instruct',
-        defaultModelShortName: 'Qwen 2.5 7B',
+        defaultModel: '@cf/zai-org/glm-4.7-flash',
+        defaultModelShortName: 'GLM-4.7-Flash',
         availableModels: [
-            '@cf/qwen/qwen2.5-7b-instruct',
-            '@cf/meta/llama-3.1-8b-instruct',
+            '@cf/zai-org/glm-4.7-flash',
+            '@cf/qwen/qwen3-30b-a3b-fp8',
             '@cf/meta/llama-3.2-3b-instruct',
         ] as const,
     },
 } as const;
 
 export type SupportedAiProviderId = keyof typeof AI_CONFIG;
+
+export type CloudflareModel = (typeof AI_CONFIG.cloudflare.availableModels)[number];
+
+export function normalizeCloudflareModel(value: unknown): CloudflareModel {
+    return AI_CONFIG.cloudflare.availableModels.includes(value as CloudflareModel)
+        ? (value as CloudflareModel)
+        : AI_CONFIG.cloudflare.defaultModel;
+}

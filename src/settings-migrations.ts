@@ -3,8 +3,9 @@ import { normalizeSitePatterns } from './site-profiles';
 import type { StyleProfile } from './types';
 import { DEFAULT_THEME_CUSTOMIZATION } from './theme-customization';
 import { DEFAULT_TEXT_SNIPPETS } from './text-snippets';
+import { normalizeCloudflareModel } from './ai-models-config';
 
-const CURRENT_SETTINGS_SCHEMA = 14;
+const CURRENT_SETTINGS_SCHEMA = 15;
 const MIGRATION_SETTING_KEYS = [
     'settingsSchemaVersion',
     'disabledSites',
@@ -35,6 +36,7 @@ const MIGRATION_SETTING_KEYS = [
     'liveProofreadDisabledSites',
     'enablePiiMasking',
     'textSnippets',
+    'cloudflareModel',
 ] as const;
 
 function getSchemaVersion(value: unknown): number {
@@ -148,6 +150,9 @@ export async function migrateSettings(): Promise<void> {
     }
     if (currentVersion < 14) {
         updates.budgetProfile = getBudgetProfile(stored.dailyRequestLimit, stored.monthlyTokenLimit);
+    }
+    if (currentVersion < 15) {
+        updates.cloudflareModel = normalizeCloudflareModel(stored.cloudflareModel);
     }
     updates.settingsSchemaVersion = CURRENT_SETTINGS_SCHEMA;
     const migratedKeys = Object.keys(updates).filter((key) => key !== 'settingsSchemaVersion');

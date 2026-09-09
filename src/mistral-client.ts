@@ -5,6 +5,8 @@ import { recordErrorLog } from './error-log';
 import type { AiMode, RequestMode, StyleProfile } from './types';
 import { getAiOutputTokenLimit } from './ai-output-budget';
 import { AI_CONFIG } from './ai-models-config';
+import { AiProviderError } from './ai-provider-types';
+import { validateAiOutput } from './ai-sanity-check';
 
 export interface MistralRequest {
     action: 'callMistral' | 'cancelMistral';
@@ -295,12 +297,41 @@ export async function streamText(
     const decoder = new TextDecoder();
     let buffer = '';
     let bufferedMaskedContent = '';
+    let fullCollectedText = '';
     let receivedContent = false;
+    const deferOutputUntilValidated = msg.mode === 'spellcheck';
     const emitCompletedContent = () => {
         if (shouldRestorePii && bufferedMaskedContent) {
-            onChunk(unmaskPii(bufferedMaskedContent, prompt.piiMaskMap));
+            const restored = unmaskPii(bufferedMaskedContent, prompt.piiMaskMap);
+            fullCollectedText += restored;
+            if (!deferOutputUntilValidated) onChunk(restored);
             bufferedMaskedContent = '';
         }
+    };
+    const validateCompletedContent = () => {
+        const sanity = validateAiOutput({
+            originalText: msg.text || '',
+            correctedText: fullCollectedText,
+            mode: msg.mode,
+            targetLang: msg.targetLang,
+        });
+        if (!sanity.valid) {
+            void recordErrorLog({
+                level: 'warn',
+                source: 'mistral-client',
+                provider: 'mistral',
+                errorCode: 'QUALITY_CHECK_FAILED',
+                message: `Ответ Mistral не прошёл проверку качества: ${sanity.reason}`,
+            });
+            throw new AiProviderError(
+                `${t('qualityCheckFailed', 'Ответ ИИ не прошёл проверку качества.')} (${sanity.reason})`,
+                'QUALITY_CHECK_FAILED',
+                'mistral',
+                true,
+            );
+        }
+        fullCollectedText = sanity.cleanedText;
+        if (deferOutputUntilValidated) onChunk(sanity.cleanedText);
     };
     const processLine = (line: string): boolean => {
         if (line.trim() === 'data: [DONE]') return true;
@@ -308,7 +339,10 @@ export async function streamText(
         if (content) {
             receivedContent = true;
             if (shouldRestorePii) bufferedMaskedContent += content;
-            else onChunk(content);
+            else {
+                fullCollectedText += content;
+                if (!deferOutputUntilValidated) onChunk(content);
+            }
         }
         return false;
     };
@@ -324,6 +358,7 @@ export async function streamText(
                 if (!receivedContent)
                     throw new MistralRequestError(t('emptyStream', 'Mistral вернул пустой поток данных.'), true);
                 emitCompletedContent();
+                validateCompletedContent();
                 await reader.cancel();
                 return;
             }
@@ -333,6 +368,7 @@ export async function streamText(
             if (!receivedContent)
                 throw new MistralRequestError(t('emptyStream', 'Mistral вернул пустой поток данных.'), true);
             emitCompletedContent();
+            validateCompletedContent();
             await reader.cancel();
             return;
         }

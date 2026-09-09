@@ -1057,7 +1057,7 @@ test('Unit 18: Retry-After включает cooldown и следующий за�
     mockFetch.mockRestore();
 });
 
-test('Unit 19: неполный ответ не запускает резервного провайдера', async () => {
+test('Unit 19: неполный ответ сбрасывается и запускает резервного провайдера', async () => {
     const { executeAiStreamRequest } = await import('../src/ai-client');
     const encoder = new TextEncoder();
     const chunks: string[] = [];
@@ -1089,7 +1089,7 @@ test('Unit 19: неполный ответ не запускает резерв�
         } as unknown as Response);
     });
 
-    const result = executeAiStreamRequest({
+    const result = await executeAiStreamRequest({
         request: { action: 'callMistral', text: 'Тест', mode: 'style' },
         settings: {
             selectedTone: 'business',
@@ -1108,10 +1108,10 @@ test('Unit 19: неполный ответ не запускает резерв�
         onReset,
     });
 
-    await expect(result).rejects.toMatchObject({ code: 'INVALID_RESPONSE' });
-    expect(onReset).not.toHaveBeenCalled();
-    expect(mockFetch).toHaveBeenCalledTimes(1);
-    expect(chunks.join('')).toBe('Незавершённый');
+    expect(result).toMatchObject({ providerUsed: 'cloudflare', fallbackOccurred: true });
+    expect(onReset).toHaveBeenCalledTimes(1);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(chunks.join('')).toBe('Полный ответ');
     mockFetch.mockRestore();
 });
 
@@ -2306,7 +2306,7 @@ test('Unit 2: Mistral 429 Rate Limit переключается на Cloudflare'
     mockFetch.mockRestore();
 });
 
-test('Unit 3: Cloudflare успешный стриминг (200 OK) с моделью Llama 3.2 3B', async () => {
+test('Unit 3: Cloudflare успешный стриминг (200 OK) с моделью GLM-4.7-Flash', async () => {
     const { executeAiStreamRequest } = await import('../src/ai-client');
 
     const chunks: string[] = [];
@@ -2355,7 +2355,7 @@ test('Unit 3: Cloudflare успешный стриминг (200 OK) с моде�
     expect(result.providerUsed).toBe('cloudflare');
     expect(result.fallbackOccurred).toBe(false);
     expect(chunks.join('')).toBe('Cloudflare быстрый ответ');
-    expect(requestUrl).toContain('qwen2.5-7b-instruct');
+    expect(requestUrl).toContain('glm-4.7-flash');
     expect(requestUrl).toContain('cf-account-456');
     expect(authHeader).toBe('Bearer cf-token-456');
     mockFetch.mockRestore();
@@ -2940,7 +2940,7 @@ test('CloudflareClient: streamCloudflareText передает prompt, систе
     expect(response.text).toBe('Ответ 1 Ответ 2');
     expect(chunks.join('')).toBe('Ответ 1 Ответ 2');
     expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/accounts/test-acc/ai/run/@cf/qwen/qwen2.5-7b-instruct'),
+        expect.stringContaining('/accounts/test-acc/ai/run/@cf/zai-org/glm-4.7-flash'),
         expect.objectContaining({
             method: 'POST',
             headers: expect.objectContaining({

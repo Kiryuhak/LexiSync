@@ -37,7 +37,8 @@ export class AiProviderError extends Error {
     }
 
     get isFallbackEligible(): boolean {
-        // Fallback разрешён только для 429, тайм-аута, ошибки сети, 5xx и сбоя проверки качества (sanity check).
+        // Fallback разрешён только для 429, тайм-аута, ошибки сети, 5xx,
+        // некорректного ответа сервиса и сбоя проверки качества (sanity check).
         // Запрещен для AUTH_ERROR (401, 403), ACCOUNT_ERROR (404), INVALID_REQUEST (400) и INVALID_CONFIG.
         return (
             this.retryable &&
@@ -47,6 +48,7 @@ export class AiProviderError extends Error {
                 'SERVER_ERROR',
                 'NETWORK_ERROR',
                 'TIMEOUT',
+                'INVALID_RESPONSE',
                 'QUALITY_CHECK_FAILED',
             ].includes(this.code)
         );

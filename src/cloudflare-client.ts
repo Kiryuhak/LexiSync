@@ -6,7 +6,7 @@ import { parseRetryAfterMs } from './mistral-client';
 import { AiProviderError, type AIResponse, type CloudflareCredentials } from './ai-provider-types';
 import { recordErrorLog } from './error-log';
 import { getAiOutputTokenLimit } from './ai-output-budget';
-import { AI_CONFIG } from './ai-models-config';
+import { AI_CONFIG, normalizeCloudflareModel } from './ai-models-config';
 import { validateAiOutput } from './ai-sanity-check';
 
 export const CLOUDFLARE_API_BASE_URL = AI_CONFIG.cloudflare.baseUrl;
@@ -85,9 +85,17 @@ export function readCloudflareSsePayload(line: string): { content: string; usage
         const parsed = JSON.parse(raw) as {
             response?: string;
             result?: { response?: string; usage?: CloudflareUsage };
+            choices?: Array<{ delta?: { content?: string | Array<{ text?: string }> } }>;
             usage?: CloudflareUsage;
         };
-        const content = parsed.response ?? parsed.result?.response ?? '';
+        const deltaContent = parsed.choices?.[0]?.delta?.content;
+        const choiceContent =
+            typeof deltaContent === 'string'
+                ? deltaContent
+                : Array.isArray(deltaContent)
+                  ? deltaContent.map((part) => part.text || '').join('')
+                  : '';
+        const content = parsed.response ?? parsed.result?.response ?? choiceContent;
         const usage = parsed.usage ?? parsed.result?.usage;
         return { content, usage };
     } catch {
@@ -115,7 +123,8 @@ export async function validateCloudflareCredentials(
     }
 
     const start = Date.now();
-    const url = `${CLOUDFLARE_API_BASE_URL}/accounts/${encodeURIComponent(accountId)}/ai/run/${model}`;
+    const resolvedModel = normalizeCloudflareModel(model);
+    const url = `${CLOUDFLARE_API_BASE_URL}/accounts/${encodeURIComponent(accountId)}/ai/run/${resolvedModel}`;
 
     const controller = new AbortController();
     const timeoutTimer = setTimeout(() => controller.abort(), 12_000);
@@ -147,7 +156,7 @@ export async function validateCloudflareCredentials(
                 ok: true,
                 message: t('serverStatusHealthy', 'Работает отлично'),
                 latencyMs,
-                model,
+                model: resolvedModel,
             };
         }
 
@@ -197,6 +206,7 @@ export async function streamCloudflareText(
     }
 
     const prompt = buildPromptPayload(msg, settings);
+    const resolvedModel = normalizeCloudflareModel(selectedModel);
     const shouldRestorePii = Object.keys(prompt.piiMaskMap).length > 0;
     const maxTokens = getAiOutputTokenLimit(msg.mode, settings.aiMode, msg.text, msg.rawMessages);
     const temperature = msg.mode === 'spellcheck' ? 0.0 : msg.mode === 'summary' ? 0.2 : 0.3;
@@ -204,7 +214,7 @@ export async function streamCloudflareText(
     let fullCollectedText = '';
     let usageData: CloudflareUsage | undefined;
 
-    const url = `${CLOUDFLARE_API_BASE_URL}/accounts/${encodeURIComponent(accountId)}/ai/run/${selectedModel}`;
+    const url = `${CLOUDFLARE_API_BASE_URL}/accounts/${encodeURIComponent(accountId)}/ai/run/${resolvedModel}`;
     const requestBody = {
         messages: prompt.messages,
         stream: true,
@@ -262,12 +272,13 @@ export async function streamCloudflareText(
     let buffer = '';
     let bufferedMaskedContent = '';
     let receivedContent = false;
+    const deferOutputUntilValidated = msg.mode === 'spellcheck';
 
     const emitCompletedContent = () => {
         if (shouldRestorePii && bufferedMaskedContent) {
             const restored = unmaskPii(bufferedMaskedContent, prompt.piiMaskMap);
             fullCollectedText += restored;
-            onChunk(restored);
+            if (!deferOutputUntilValidated) onChunk(restored);
             bufferedMaskedContent = '';
         }
     };
@@ -296,6 +307,7 @@ export async function streamCloudflareText(
             );
         }
         fullCollectedText = sanity.cleanedText;
+        if (deferOutputUntilValidated) onChunk(sanity.cleanedText);
     };
 
     const processLine = (line: string): boolean => {
@@ -310,7 +322,7 @@ export async function streamCloudflareText(
                 bufferedMaskedContent += parsed.content;
             } else {
                 fullCollectedText += parsed.content;
-                onChunk(parsed.content);
+                if (!deferOutputUntilValidated) onChunk(parsed.content);
             }
         }
         return false;
@@ -338,7 +350,7 @@ export async function streamCloudflareText(
                 return {
                     text: fullCollectedText,
                     provider: 'cloudflare',
-                    model: selectedModel,
+                    model: resolvedModel,
                     usage: usageData
                         ? {
                               promptTokens: usageData.prompt_tokens,
@@ -366,7 +378,7 @@ export async function streamCloudflareText(
             return {
                 text: fullCollectedText,
                 provider: 'cloudflare',
-                model: selectedModel,
+                model: resolvedModel,
                 usage: usageData
                     ? {
                           promptTokens: usageData.prompt_tokens,
@@ -384,7 +396,7 @@ export async function streamCloudflareText(
                 t('emptyStream', 'Cloudflare Workers AI вернул пустой поток данных.'),
                 'INVALID_RESPONSE',
                 'cloudflare',
-                false,
+                true,
             );
         }
 
@@ -392,7 +404,7 @@ export async function streamCloudflareText(
             t('incompleteStream', 'Ответ Cloudflare Workers AI прервался до завершения. Повторите запрос.'),
             'INVALID_RESPONSE',
             'cloudflare',
-            false,
+            true,
         );
     } catch (err) {
         if (signal.aborted) throw err;

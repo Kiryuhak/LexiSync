@@ -250,7 +250,8 @@ describe('Sanity Check: cleanAiOutputText', () => {
 
     test('преобразует экранированные \\n в реальные переносы строк', () => {
         const raw = 'Первая строка\\nВторая строка';
-        expect(cleanAiOutputText(raw)).toBe('Первая строка\nВторая строка');
+        expect(cleanAiOutputText(raw, 'Первая строка\nВторая строка')).toBe('Первая строка\nВторая строка');
+        expect(cleanAiOutputText(raw, 'Строка с литералом \\n внутри')).toBe(raw);
     });
 });
 
@@ -300,6 +301,46 @@ describe('Sanity Check: validateAiOutput', () => {
         const res = validateAiOutput({ originalText: original, correctedText: corrected, mode: 'spellcheck' });
         expect(res.valid).toBe(false);
         expect(res.reason).toContain('AI_OUTPUT_LOST_EMAIL');
+    });
+
+    test('бракует изменение любого числа, включая короткие значения', () => {
+        const res = validateAiOutput({
+            originalText: 'В отчёте указано 42 успешных запуска.',
+            correctedText: 'В отчёте указано 43 успешных запуска.',
+            mode: 'spellcheck',
+        });
+        expect(res.valid).toBe(false);
+        expect(res.reason).toBe('AI_OUTPUT_CHANGED_NUMBERS');
+    });
+
+    test('бракует изменение технического идентификатора', () => {
+        const res = validateAiOutput({
+            originalText: 'Метод getUserById возвращает данные пользователя.',
+            correctedText: 'Метод getUserByID возвращает данные пользователя.',
+            mode: 'spellcheck',
+        });
+        expect(res.valid).toBe(false);
+        expect(res.reason).toBe('AI_OUTPUT_CHANGED_TECHNICAL_ENTITY');
+    });
+
+    test('бракует изменение структуры строк', () => {
+        const res = validateAiOutput({
+            originalText: 'Первая строка.\nВторая строка.',
+            correctedText: 'Первая строка. Вторая строка.',
+            mode: 'spellcheck',
+        });
+        expect(res.valid).toBe(false);
+        expect(res.reason).toBe('AI_OUTPUT_CHANGED_LINE_STRUCTURE');
+    });
+
+    test('бракует чрезмерный рерайтинг грамматически корректного текста', () => {
+        const res = validateAiOutput({
+            originalText: 'Сегодня команда завершила проверку отчёта и отправила документ руководителю.',
+            correctedText: 'Нынешним днём сотрудники закончили аудит справки и передали материал директору.',
+            mode: 'spellcheck',
+        });
+        expect(res.valid).toBe(false);
+        expect(res.reason).toBe('AI_OUTPUT_EXCESSIVE_REWRITE');
     });
 
     test('бракует ответ с мета-комментарием модели вместо чистого текста', () => {
@@ -359,7 +400,7 @@ describe('Cloudflare Stream & Quality Fallback Integration', () => {
         vi.restoreAllMocks();
     });
 
-    test('брак Cloudflare (QUALITY_CHECK_FAILED) автоматически сбрасывает поток и переключается на Mistral', async () => {
+    test('брак Cloudflare не попадает в UI и переключается на Mistral', async () => {
         resetAiProviderHealth();
         const encoder = new TextEncoder();
         const chunks: string[] = [];
@@ -418,12 +459,76 @@ describe('Cloudflare Stream & Quality Fallback Integration', () => {
             },
         });
 
-        expect(resetCount).toBe(1);
+        expect(resetCount).toBe(0);
         expect(res.providerUsed).toBe('mistral');
         expect(res.fallbackOccurred).toBe(true);
         expect(res.fallbackReason).toBe('QUALITY_CHECK_FAILED');
         expect(chunks.join('')).toBe('Он надеется встретиться.');
         expect(res.fallbackNotification).toContain('Ответ Cloudflare не прошёл проверку качества');
+
+        vi.restoreAllMocks();
+    });
+
+    test('брак Mistral не попадает в UI и переключается на Cloudflare', async () => {
+        resetAiProviderHealth();
+        const encoder = new TextEncoder();
+        const chunks: string[] = [];
+        let resetCount = 0;
+
+        const badMistralStream = new ReadableStream({
+            start(controller) {
+                controller.enqueue(
+                    encoder.encode(
+                        'data: {"choices":[{"delta":{"content":"He hopes to meet tomorrow."}}]}\n\ndata: [DONE]\n\n',
+                    ),
+                );
+                controller.close();
+            },
+        });
+        const goodCloudflareStream = new ReadableStream({
+            start(controller) {
+                controller.enqueue(
+                    encoder.encode('data: {"response":"Он надеется встретиться завтра."}\n\ndata: [DONE]\n\n'),
+                );
+                controller.close();
+            },
+        });
+
+        let callCount = 0;
+        vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+            callCount++;
+            const stream = callCount === 1 ? badMistralStream : goodCloudflareStream;
+            return new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } });
+        });
+
+        const res = await executeAiStreamRequest({
+            request: { action: 'callMistral', mode: 'spellcheck', text: 'Он надеется встретится завтра.' },
+            settings: {
+                selectedTone: 'business',
+                sendPageContext: false,
+                personalDictionary: [],
+                glossary: [],
+                aiMode: 'balanced',
+            } as unknown as MistralSettings,
+            primaryProvider: 'mistral',
+            autoFallback: true,
+            mistralApiKey: 'mistral-valid-key',
+            cloudflareAccountId: 'cf-acc-1',
+            cloudflareApiToken: 'cf-tok-1',
+            signal: new AbortController().signal,
+            onChunk: (chunk) => chunks.push(chunk),
+            onReset: () => {
+                resetCount++;
+                chunks.length = 0;
+            },
+        });
+
+        expect(resetCount).toBe(0);
+        expect(res.providerUsed).toBe('cloudflare');
+        expect(res.fallbackOccurred).toBe(true);
+        expect(res.fallbackReason).toBe('QUALITY_CHECK_FAILED');
+        expect(chunks.join('')).toBe('Он надеется встретиться завтра.');
+        expect(res.fallbackNotification).toContain('Ответ Mistral не прошёл проверку качества');
 
         vi.restoreAllMocks();
     });

@@ -84,7 +84,7 @@ test('Cloudflare клиент отправляет точный endpoint, Bearer
     );
 
     expect(fetchSpy).toHaveBeenCalledWith(
-        'https://api.cloudflare.com/client/v4/accounts/acc-1234567890abcdef/ai/run/@cf/qwen/qwen2.5-7b-instruct',
+        'https://api.cloudflare.com/client/v4/accounts/acc-1234567890abcdef/ai/run/@cf/zai-org/glm-4.7-flash',
         expect.objectContaining({
             method: 'POST',
             headers: expect.objectContaining({
@@ -129,12 +129,14 @@ test.each([500, 502, 503, 504])('HTTP %i мапится в SERVER_ERROR и до�
     expect(err.isFallbackEligible).toBe(true);
 });
 
-test.each(['INVALID_RESPONSE', 'INVALID_REQUEST', 'AUTH_ERROR', 'ACCOUNT_ERROR'] as const)(
-    '%s не допускает fallback',
-    (code) => {
-        expect(new AiProviderError('test', code, 'cloudflare', true).isFallbackEligible).toBe(false);
-    },
-);
+test.each(['INVALID_REQUEST', 'AUTH_ERROR', 'ACCOUNT_ERROR'] as const)('%s не допускает fallback', (code) => {
+    expect(new AiProviderError('test', code, 'cloudflare', true).isFallbackEligible).toBe(false);
+});
+
+test('INVALID_RESPONSE допускает fallback только для повторяемой ошибки сервиса', () => {
+    expect(new AiProviderError('test', 'INVALID_RESPONSE', 'cloudflare', true).isFallbackEligible).toBe(true);
+    expect(new AiProviderError('test', 'INVALID_RESPONSE', 'cloudflare', false).isFallbackEligible).toBe(false);
+});
 
 test('QUOTA_EXCEEDED допускает fallback', () => {
     expect(new AiProviderError('test', 'QUOTA_EXCEEDED', 'cloudflare', true).isFallbackEligible).toBe(true);
@@ -231,7 +233,7 @@ test('обрыв SSE потока Cloudflare без [DONE] выбрасывае�
             new AbortController().signal,
             () => undefined,
         ),
-    ).rejects.toMatchObject({ code: 'INVALID_RESPONSE', isFallbackEligible: false });
+    ).rejects.toMatchObject({ code: 'INVALID_RESPONSE', retryable: true });
 });
 
 test('testCloudflareConnection валидирует пустые поля, 200 OK и 401 ошибку', async () => {

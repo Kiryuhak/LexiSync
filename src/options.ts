@@ -22,7 +22,7 @@ import { applyThemeCustomization, DEFAULT_THEME_CUSTOMIZATION } from './theme-cu
 import { DEFAULT_BUDGET_SETTINGS, getLocalDayKey, getMonthUsage } from './budget';
 import { clearAllSecrets } from './secret-store';
 import { validateApiKey, validateCloudflareCredentials, checkProviderHealth } from './ai-settings-client';
-import { AI_CONFIG } from './ai-models-config';
+import { AI_CONFIG, normalizeCloudflareModel } from './ai-models-config';
 import { loadCachedHealthStatus, saveCachedHealthStatus, type ProviderHealthStatus } from './provider-health';
 import { logger } from './logger';
 import { normalizeAutoFallbackEnabled, normalizePrimaryAiProvider } from './runtime-settings-cache';
@@ -122,6 +122,7 @@ const SAVED_OPTION_IDS = [
     'apiKey',
     'cloudflareAccountId',
     'cloudflareApiToken',
+    'cloudflareModel',
     'primaryAiProvider',
     'autoFallbackEnabled',
     'toneSelect',
@@ -368,6 +369,7 @@ async function saveOptions(): Promise<void> {
     const apiKeyInput = document.getElementById('apiKey') as HTMLInputElement;
     const cloudflareAccountIdInput = document.getElementById('cloudflareAccountId') as HTMLInputElement;
     const cloudflareApiTokenInput = document.getElementById('cloudflareApiToken') as HTMLInputElement;
+    const cloudflareModelSelect = document.getElementById('cloudflareModel') as HTMLSelectElement;
     const primaryAiProviderSelect = document.getElementById('primaryAiProvider') as HTMLSelectElement;
     const autoFallbackEnabledInput = document.getElementById('autoFallbackEnabled') as HTMLInputElement;
     const toneSelect = document.getElementById('toneSelect') as HTMLSelectElement;
@@ -411,6 +413,7 @@ async function saveOptions(): Promise<void> {
         const updates: Record<string, unknown> = {};
         if (changed('primaryAiProvider')) updates.primaryAiProvider = primaryAiProviderSelect.value;
         if (changed('autoFallbackEnabled')) updates.autoFallbackEnabled = autoFallbackEnabledInput.checked;
+        if (changed('cloudflareModel')) updates.cloudflareModel = normalizeCloudflareModel(cloudflareModelSelect.value);
         if (changed('toneSelect')) updates.selectedTone = toneSelect.value;
         if (changed('themeSelect')) updates.selectedTheme = themeSelect.value;
         if (changed('visualStyleSelect')) updates.visualStyle = normalizeAppearanceStyle(visualStyleSelect.value);
@@ -488,10 +491,13 @@ async function saveOptions(): Promise<void> {
             if (cloudflareAccountId && cloudflareApiToken) {
                 saveBtn.textContent = t('checkingKey', 'Проверка ключа…');
                 try {
-                    const validation = await validateCloudflareCredentials({
-                        accountId: cloudflareAccountId,
-                        apiToken: cloudflareApiToken,
-                    });
+                    const validation = await validateCloudflareCredentials(
+                        {
+                            accountId: cloudflareAccountId,
+                            apiToken: cloudflareApiToken,
+                        },
+                        normalizeCloudflareModel(cloudflareModelSelect.value),
+                    );
                     if (validation.ok) {
                         await Promise.all([
                             writePrivateCloudflareAccountId(cloudflareAccountId),
@@ -551,6 +557,7 @@ async function restoreOptions(): Promise<void> {
     const apiKeyInput = document.getElementById('apiKey') as HTMLInputElement;
     const cloudflareAccountIdInput = document.getElementById('cloudflareAccountId') as HTMLInputElement;
     const cloudflareApiTokenInput = document.getElementById('cloudflareApiToken') as HTMLInputElement;
+    const cloudflareModelSelect = document.getElementById('cloudflareModel') as HTMLSelectElement;
     const primaryAiProviderSelect = document.getElementById('primaryAiProvider') as HTMLSelectElement;
     const autoFallbackEnabledInput = document.getElementById('autoFallbackEnabled') as HTMLInputElement;
     const toneSelect = document.getElementById('toneSelect') as HTMLSelectElement;
@@ -575,6 +582,7 @@ async function restoreOptions(): Promise<void> {
         chrome.storage.local.get({
             primaryAiProvider: 'auto',
             autoFallbackEnabled: true,
+            cloudflareModel: AI_CONFIG.cloudflare.defaultModel,
             selectedTone: 'business',
             selectedTheme: 'auto',
             visualStyle: 'liquid-glass',
@@ -624,6 +632,7 @@ async function restoreOptions(): Promise<void> {
     restoredCloudflareApiToken = cloudflareApiTokenInput.value;
     primaryAiProviderSelect.value = normalizePrimaryAiProvider(items.primaryAiProvider);
     autoFallbackEnabledInput.checked = normalizeAutoFallbackEnabled(items.autoFallbackEnabled);
+    cloudflareModelSelect.value = normalizeCloudflareModel(items.cloudflareModel);
     toneSelect.value = items.selectedTone as string;
     themeSelect.value = items.selectedTheme as string;
     visualStyleSelect.value = normalizeAppearanceStyle(items.visualStyle);
@@ -722,6 +731,9 @@ async function refreshServerHealthStatus(showChecking = true): Promise<void> {
         (document.getElementById('cloudflareAccountId') as HTMLInputElement)?.value || restoredCloudflareAccountId;
     const cloudflareApiToken =
         (document.getElementById('cloudflareApiToken') as HTMLInputElement)?.value || restoredCloudflareApiToken;
+    const cloudflareModel = normalizeCloudflareModel(
+        (document.getElementById('cloudflareModel') as HTMLSelectElement | null)?.value,
+    );
     const mistralKey = (document.getElementById('apiKey') as HTMLInputElement)?.value || restoredApiKey;
 
     if (showChecking) {
@@ -743,7 +755,11 @@ async function refreshServerHealthStatus(showChecking = true): Promise<void> {
     if (refreshButton) refreshButton.disabled = true;
     serverHealthRefresh = (async () => {
         const [cloudflareStatus, mistralStatus] = await Promise.all([
-            checkProviderHealth('cloudflare', { accountId: cloudflareAccountId, apiToken: cloudflareApiToken }),
+            checkProviderHealth(
+                'cloudflare',
+                { accountId: cloudflareAccountId, apiToken: cloudflareApiToken },
+                cloudflareModel,
+            ),
             checkProviderHealth('mistral', mistralKey),
         ]);
 
@@ -998,6 +1014,8 @@ async function refreshProviderQuotasUI(): Promise<void> {
     const localUsageMonthEl = document.getElementById('localUsageMonth');
     const localUsageResetEl = document.getElementById('localUsageReset');
     const mistralModelEl = document.getElementById('mistralActiveModelDisplay');
+    const cloudflareModelEl = document.getElementById('cloudflareActiveModelDisplay');
+    const cloudflareModelSelect = document.getElementById('cloudflareModel') as HTMLSelectElement | null;
 
     const todayKey = getLocalDayKey();
     const todayStats = stats?.daily?.[todayKey] || { requests: 0, tokens: 0 };
@@ -1012,6 +1030,14 @@ async function refreshProviderQuotasUI(): Promise<void> {
         const codeEl = document.createElement('code');
         codeEl.textContent = `(${AI_CONFIG.mistral.defaultModel})`;
         mistralModelEl.appendChild(codeEl);
+    }
+    if (cloudflareModelEl) {
+        const model = normalizeCloudflareModel(cloudflareModelSelect?.value);
+        const optionLabel = cloudflareModelSelect?.selectedOptions[0]?.textContent?.trim();
+        cloudflareModelEl.textContent = `${optionLabel || AI_CONFIG.cloudflare.defaultModelShortName} `;
+        const codeEl = document.createElement('code');
+        codeEl.textContent = `(${model})`;
+        cloudflareModelEl.appendChild(codeEl);
     }
     void refreshCacheEfficiencyUI();
 }
@@ -1267,6 +1293,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const aiModeSelect = document.getElementById('aiMode') as HTMLSelectElement | null;
     aiModeSelect?.addEventListener('change', () => {
         syncAiModeCards(aiModeSelect.value);
+        void refreshProviderQuotasUI();
+    });
+    document.getElementById('cloudflareModel')?.addEventListener('change', () => {
         void refreshProviderQuotasUI();
     });
 

@@ -55,8 +55,8 @@ export const RELEASE_NOTES: ReleaseNote[] = [
                 'Introduced multi-stage AI response sanity checks and automatic conversational prefix stripping.',
             ],
             [
-                'Автоматический fallback с Cloudflare на Mistral при браке качества (QUALITY_CHECK_FAILED) со сбросом поврежденного потока.',
-                'Automatic fallback from Cloudflare to Mistral on quality degradation (QUALITY_CHECK_FAILED) with clean stream reset.',
+                'Автоматический двусторонний fallback между Cloudflare и Mistral при браке качества (QUALITY_CHECK_FAILED) без показа повреждённого потока.',
+                'Automatic two-way fallback between Cloudflare and Mistral on quality degradation (QUALITY_CHECK_FAILED) without exposing a rejected stream.',
             ],
             [
                 'Исправлен сбой записи журнала ошибок в тестовой среде и добавлена передача выбранной модели Cloudflare.',

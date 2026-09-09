@@ -222,6 +222,12 @@ export function getFallbackNotification(
                 'Лимит Mistral достигнут. Запрос выполнен через Cloudflare Workers AI.',
             );
         }
+        if (code === 'QUALITY_CHECK_FAILED') {
+            return t(
+                'fallbackToCloudflareDueToQuality',
+                'Ответ Mistral не прошёл проверку качества. Запрос выполнен через Cloudflare Workers AI.',
+            );
+        }
         return t(
             'fallbackToCloudflareDueToOutage',
             'Сервис Mistral временно недоступен. Использован Cloudflare Workers AI.',

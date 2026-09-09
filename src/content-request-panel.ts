@@ -687,7 +687,10 @@ export function executeRequest(
                 if (mode === 'summary') {
                     fullResult = stripSummaryPrefix(fullResult);
                 }
-                if (
+                if (mode === 'spellcheck') {
+                    fullResult = normalizeSpellcheckResult(fullResult);
+                    spellcheckUi.setResult(currentSelection.text, fullResult);
+                } else if (
                     compactResultMode &&
                     originalText &&
                     fullResult &&
@@ -696,9 +699,6 @@ export function executeRequest(
                 ) {
                     contentPane.replaceChildren(renderInlineDiffFragment(originalText, fullResult));
                     ensureQuickTabs();
-                } else if (mode === 'spellcheck') {
-                    fullResult = normalizeSpellcheckResult(fullResult);
-                    spellcheckUi.setResult(currentSelection.text, fullResult);
                 } else if (compactResultMode) {
                     contentPane.textContent = fullResult;
                     ensureQuickTabs();
@@ -1431,11 +1431,11 @@ export function executeRequest(
             } else {
                 fullResult = cleanedCached;
             }
-            if (compactResultMode && originalText && fullResult && originalText.trim() !== fullResult.trim()) {
+            if (mode === 'spellcheck') {
+                spellcheckUi.setResult(currentSelection.text, fullResult);
+            } else if (compactResultMode && originalText && fullResult && originalText.trim() !== fullResult.trim()) {
                 contentPane.replaceChildren(renderInlineDiffFragment(originalText, fullResult));
                 ensureQuickTabs();
-            } else if (mode === 'spellcheck') {
-                spellcheckUi.setResult(currentSelection.text, fullResult);
             } else if (compactResultMode) {
                 contentPane.textContent = fullResult;
                 ensureQuickTabs();
