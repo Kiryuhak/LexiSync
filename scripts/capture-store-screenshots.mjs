@@ -86,6 +86,17 @@ const scenes = [
         glow: '#f6c945',
     },
     {
+        raw: 'usage.png',
+        output: 'lexisync-ai-usage.png',
+        eyebrow: 'РАСХОД И ЛИМИТЫ',
+        title: 'Контролируйте модели и использование AI',
+        description:
+            'Смотрите активную модель, локальную статистику и задавайте безопасные дневные и месячные пределы.',
+        badges: ['GLM 4.7 Flash', 'Локальная статистика', 'Лимиты расходов'],
+        accent: '#2479e8',
+        glow: '#5bd4c7',
+    },
+    {
         raw: 'privacy.png',
         output: 'lexisync-privacy-settings.png',
         eyebrow: 'ПРИВАТНОСТЬ',
@@ -120,11 +131,11 @@ const scenes = [
 function marketingHtml(scene, imageUrl) {
     const badges = scene.badges.map((badge) => `<span>${badge}</span>`).join('');
     return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><style>
-        *{box-sizing:border-box}html,body{width:1536px;height:1024px;margin:0;overflow:hidden}body{position:relative;color:#121a34;background:radial-gradient(circle at 10% 8%,color-mix(in srgb,${scene.accent} 24%,white),transparent 34%),radial-gradient(circle at 92% 88%,color-mix(in srgb,${scene.glow} 32%,white),transparent 38%),linear-gradient(145deg,#fbfcff,#eef3ff);font-family:Inter,system-ui,-apple-system,sans-serif}
+        *{box-sizing:border-box}html,body{width:1280px;height:800px;margin:0;overflow:hidden}body{position:relative;color:#121a34;background:radial-gradient(circle at 10% 8%,color-mix(in srgb,${scene.accent} 24%,white),transparent 34%),radial-gradient(circle at 92% 88%,color-mix(in srgb,${scene.glow} 32%,white),transparent 38%),linear-gradient(145deg,#fbfcff,#eef3ff);font-family:Inter,system-ui,-apple-system,sans-serif}
         body:before{position:absolute;inset:0;content:"";background-image:linear-gradient(rgba(79,91,145,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(79,91,145,.035) 1px,transparent 1px);background-size:42px 42px;mask-image:linear-gradient(90deg,#000,transparent 60%)}
-        .copy{position:absolute;z-index:2;top:76px;left:62px;width:490px}.brand{display:flex;align-items:center;gap:14px;margin-bottom:118px;font-size:34px;font-weight:820;letter-spacing:-.03em}.logo{display:grid;width:58px;height:58px;place-items:center;color:white;background:linear-gradient(135deg,${scene.accent},${scene.glow});border:1px solid rgba(255,255,255,.74);border-radius:19px;box-shadow:0 15px 34px color-mix(in srgb,${scene.accent} 28%,transparent);font-size:29px}.eyebrow{margin-bottom:16px;color:${scene.accent};font-size:15px;font-weight:850;letter-spacing:.12em}.title{margin:0;font-size:58px;line-height:1.06;letter-spacing:-.045em}.description{margin:25px 0 28px;color:#59647d;font-size:23px;line-height:1.48}.badges{display:flex;flex-wrap:wrap;gap:9px}.badges span{padding:9px 13px;color:#3d4863;background:rgba(255,255,255,.72);border:1px solid rgba(255,255,255,.9);border-radius:999px;box-shadow:0 8px 24px rgba(48,57,95,.08);font-size:13px;font-weight:700;backdrop-filter:blur(14px)}
-        .visual{position:absolute;z-index:1;top:62px;right:42px;width:900px;height:900px;padding:13px;background:rgba(255,255,255,.48);border:1px solid rgba(255,255,255,.88);border-radius:36px;box-shadow:0 34px 90px rgba(35,45,84,.24),inset 0 1px 0 white;transform:perspective(1400px) rotateY(-2deg);backdrop-filter:blur(24px)}.visual:before{position:absolute;top:15px;right:24px;left:24px;height:3px;content:"";background:linear-gradient(90deg,transparent,${scene.accent},${scene.glow},transparent);border-radius:999px;opacity:.76}.visual img{width:100%;height:100%;object-fit:cover;object-position:center top;border-radius:25px;border:1px solid rgba(57,73,125,.12)}
-        .step{position:absolute;right:72px;bottom:41px;z-index:3;padding:8px 12px;color:white;background:${scene.accent};border-radius:999px;box-shadow:0 10px 28px color-mix(in srgb,${scene.accent} 36%,transparent);font-size:12px;font-weight:800;letter-spacing:.06em}
+        .copy{position:absolute;z-index:2;top:50px;left:50px;width:405px}.brand{display:flex;align-items:center;gap:12px;margin-bottom:74px;font-size:29px;font-weight:820;letter-spacing:-.03em}.logo{display:grid;width:50px;height:50px;place-items:center;color:white;background:linear-gradient(135deg,${scene.accent},${scene.glow});border:1px solid rgba(255,255,255,.74);border-radius:17px;box-shadow:0 15px 34px color-mix(in srgb,${scene.accent} 28%,transparent);font-size:25px}.eyebrow{margin-bottom:13px;color:${scene.accent};font-size:13px;font-weight:850;letter-spacing:.12em}.title{margin:0;font-size:46px;line-height:1.06;letter-spacing:-.045em}.description{margin:20px 0 23px;color:#59647d;font-size:18px;line-height:1.48}.badges{display:flex;flex-wrap:wrap;gap:8px}.badges span{padding:8px 11px;color:#3d4863;background:rgba(255,255,255,.72);border:1px solid rgba(255,255,255,.9);border-radius:999px;box-shadow:0 8px 24px rgba(48,57,95,.08);font-size:11px;font-weight:700;backdrop-filter:blur(14px)}
+        .visual{position:absolute;z-index:1;top:44px;right:30px;width:750px;height:712px;padding:11px;background:rgba(255,255,255,.48);border:1px solid rgba(255,255,255,.88);border-radius:30px;box-shadow:0 30px 76px rgba(35,45,84,.24),inset 0 1px 0 white;transform:perspective(1400px) rotateY(-2deg);backdrop-filter:blur(24px)}.visual:before{position:absolute;top:13px;right:22px;left:22px;height:3px;content:"";background:linear-gradient(90deg,transparent,${scene.accent},${scene.glow},transparent);border-radius:999px;opacity:.76}.visual img{width:100%;height:100%;object-fit:cover;object-position:center top;border-radius:21px;border:1px solid rgba(57,73,125,.12)}
+        .step{position:absolute;right:55px;bottom:26px;z-index:3;padding:7px 11px;color:white;background:${scene.accent};border-radius:999px;box-shadow:0 10px 28px color-mix(in srgb,${scene.accent} 36%,transparent);font-size:10px;font-weight:800;letter-spacing:.06em}
     </style></head><body><section class="copy"><div class="brand"><span class="logo">✦</span>LexiSync</div><div class="eyebrow">${scene.eyebrow}</div><h1 class="title">${scene.title}</h1><p class="description">${scene.description}</p><div class="badges">${badges}</div></section><div class="visual"><img src="${imageUrl}" alt=""></div><div class="step">ИНТЕРФЕЙС НА РУССКОМ</div></body></html>`;
 }
 
@@ -133,7 +144,7 @@ async function waitForBackground(context) {
     await background.evaluate(async () => {
         for (let attempt = 0; attempt < 100; attempt++) {
             const { settingsSchemaVersion } = await chrome.storage.local.get('settingsSchemaVersion');
-            if (settingsSchemaVersion === 14) return;
+            if (settingsSchemaVersion === 15) return;
             await new Promise((resolve) => setTimeout(resolve, 25));
         }
         throw new Error('Настройки расширения не инициализированы.');
@@ -174,6 +185,10 @@ async function injectExtension(extensionPage, page) {
         }
         throw new Error('Content script LexiSync не отвечает.');
     }, tabId);
+    await extensionPage.evaluate(
+        (id) => chrome.tabs.sendMessage(id, { action: 'setSiteEnabled', enabled: true }),
+        tabId,
+    );
 }
 
 async function captureRaw(page, name) {
@@ -183,7 +198,7 @@ async function captureRaw(page, name) {
 async function compose(context, scene) {
     const image = await fs.readFile(path.join(rawDir, scene.raw));
     const page = await context.newPage();
-    await page.setViewportSize({ width: 1536, height: 1024 });
+    await page.setViewportSize({ width: 1280, height: 800 });
     await page.setContent(marketingHtml(scene, `data:image/png;base64,${image.toString('base64')}`));
     await page.locator('.visual img').evaluate((element) => element.decode());
     await page.screenshot({ path: path.join(outputDir, scene.output), animations: 'disabled' });
@@ -193,7 +208,7 @@ async function compose(context, scene) {
 async function createCarousel() {
     const names = scenes.map((scene) => scene.output);
     const frames = await Promise.all(
-        names.map((name) => sharp(path.join(outputDir, name)).resize(1152, 768, { fit: 'cover' }).png().toBuffer()),
+        names.map((name) => sharp(path.join(outputDir, name)).resize(960, 600, { fit: 'cover' }).png().toBuffer()),
     );
     await sharp(frames, { join: { animated: true } })
         .gif({
@@ -207,13 +222,22 @@ async function createCarousel() {
         .toFile(carouselPath);
 }
 
-async function createChromeAssets() {
+function promoHtml(iconUrl) {
+    return `<!doctype html><html><head><meta charset="utf-8"><style>
+        *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden}body{display:grid;place-items:center;background:radial-gradient(circle at 18% 15%,#9e8cff 0,transparent 35%),radial-gradient(circle at 82% 82%,#62d8da 0,transparent 38%),linear-gradient(145deg,#342384,#131a45)}
+        .grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.07) 1px,transparent 1px);background-size:36px 36px;mask-image:radial-gradient(circle,#000,transparent 76%)}
+        .card{position:absolute;width:44%;height:48%;border:1px solid rgba(255,255,255,.38);border-radius:12%;background:rgba(255,255,255,.13);box-shadow:0 28px 80px rgba(8,10,40,.38);backdrop-filter:blur(18px)}.left{left:7%;top:18%;transform:rotate(-8deg)}.right{right:7%;bottom:14%;transform:rotate(8deg)}
+        .logo{z-index:2;width:min(30vw,30vh);height:min(30vw,30vh);padding:5%;border:1px solid rgba(255,255,255,.62);border-radius:29%;background:rgba(255,255,255,.94);box-shadow:0 25px 75px rgba(10,14,55,.44)}.logo img{width:100%;height:100%;object-fit:contain}
+    </style></head><body><div class="grid"></div><div class="card left"></div><div class="card right"></div><div class="logo"><img src="${iconUrl}" alt=""></div></body></html>`;
+}
+
+async function createChromeAssets(context) {
     const chromeScenes = [
         ['lexisync-ai-actions.png', '01-lexisync-ai-actions.png'],
         ['lexisync-result-window.png', '02-lexisync-result-window.png'],
         ['lexisync-ai-providers.png', '03-lexisync-ai-providers.png'],
-        ['lexisync-privacy-settings.png', '04-lexisync-privacy-settings.png'],
-        ['lexisync-quick-start.png', '05-lexisync-quick-start.png'],
+        ['lexisync-ai-usage.png', '04-lexisync-ai-usage.png'],
+        ['lexisync-privacy-settings.png', '05-lexisync-privacy-settings.png'],
     ];
     await fs.mkdir(chromeOutputDir, { recursive: true });
     await Promise.all(
@@ -225,19 +249,21 @@ async function createChromeAssets() {
         ),
     );
 
-    const primary = path.join(outputDir, 'lexisync-ai-actions.png');
     const promoDir = path.join(chromeOutputDir, 'promo');
     await fs.mkdir(promoDir, { recursive: true });
-    await Promise.all([
-        sharp(primary)
-            .resize(440, 280, { fit: 'cover', position: 'attention' })
-            .png()
-            .toFile(path.join(promoDir, 'lexisync-small-promo-440x280.png')),
-        sharp(primary)
-            .resize(1400, 560, { fit: 'cover', position: 'attention' })
-            .png()
-            .toFile(path.join(promoDir, 'lexisync-marquee-promo-1400x560.png')),
-    ]);
+    const icon = await fs.readFile(path.join(rootDir, 'public', 'icons', 'icon-128.png'));
+    const iconUrl = `data:image/png;base64,${icon.toString('base64')}`;
+    for (const [width, height, filename] of [
+        [440, 280, 'lexisync-small-promo-440x280.png'],
+        [1400, 560, 'lexisync-marquee-promo-1400x560.png'],
+    ]) {
+        const page = await context.newPage();
+        await page.setViewportSize({ width, height });
+        await page.setContent(promoHtml(iconUrl));
+        await page.locator('.logo img').evaluate((element) => element.decode());
+        await page.screenshot({ path: path.join(promoDir, filename), animations: 'disabled' });
+        await page.close();
+    }
 }
 
 await fs.access(path.join(extensionDir, 'manifest.json'));
@@ -254,6 +280,25 @@ const context = await chromium.launchPersistentContext(profileDir, {
 
 try {
     const background = await waitForBackground(context);
+    await background.evaluate(() => {
+        const networkFetch = globalThis.fetch.bind(globalThis);
+        globalThis.fetch = async (input, init) => {
+            const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input);
+            if (url === 'https://api.mistral.ai/v1/models') {
+                return new Response('{"data":[]}', {
+                    status: 200,
+                    headers: { 'content-type': 'application/json' },
+                });
+            }
+            if (url.startsWith('https://api.cloudflare.com/client/v4/accounts/')) {
+                return new Response('{"success":true,"result":{"response":"Pong"}}', {
+                    status: 200,
+                    headers: { 'content-type': 'application/json' },
+                });
+            }
+            return networkFetch(input, init);
+        };
+    });
     await background.evaluate(() =>
         chrome.storage.local.set({
             onboardingCompleted: true,
@@ -263,6 +308,8 @@ try {
             compactResultMode: false,
             sendPageContext: false,
             historyEnabled: true,
+            quickActionBubbleEnabled: false,
+            cloudflareModel: '@cf/zai-org/glm-4.7-flash',
             disabledSites: ['social.example', 'private.example'],
         }),
     );
@@ -280,10 +327,8 @@ try {
     await keyPage.evaluate(() =>
         chrome.runtime.sendMessage({
             action: 'setCloudflareCredentials',
-            credentials: {
-                accountId: '1234567890abcdef1234567890abcdef',
-                apiToken: 'showcase-cloudflare-token',
-            },
+            accountId: '1234567890abcdef1234567890abcdef',
+            apiToken: 'showcase-cloudflare-token',
         }),
     );
     await keyPage.close();
@@ -294,6 +339,13 @@ try {
     await providers.locator('#cloudflareAccountId').scrollIntoViewIfNeeded();
     await captureRaw(providers, 'providers.png');
     await providers.close();
+
+    const usage = await context.newPage();
+    await usage.goto(optionsUrl);
+    await usage.locator('[data-tab="ai"]').click();
+    await usage.locator('#cloudflareActiveModelDisplay').scrollIntoViewIfNeeded();
+    await captureRaw(usage, 'usage.png');
+    await usage.close();
 
     const privacy = await context.newPage();
     await privacy.goto(optionsUrl);
@@ -310,8 +362,10 @@ try {
 
     const onboarding = await context.newPage();
     await onboarding.goto(`${optionsUrl}?tutorial=1`);
-    await onboarding.locator('#onboardingNext').click();
-    await onboarding.locator('#onboardingNext').click();
+    for (let step = 0; step < 3; step++) {
+        await onboarding.locator('#onboardingNext').click();
+        await onboarding.locator(`[data-onboarding-step="${step + 1}"].is-active`).waitFor({ state: 'visible' });
+    }
     await onboarding.locator('#onboardingCloudflareAccountId').waitFor({ state: 'visible' });
     await captureRaw(onboarding, 'onboarding.png');
     await onboarding.close();
@@ -349,7 +403,7 @@ try {
 
     for (const scene of scenes) await compose(context, scene);
     await createCarousel();
-    await createChromeAssets();
+    await createChromeAssets(context);
     process.stdout.write(
         `Создано ${scenes.length} скриншотов и анимированная галерея ${path.relative(rootDir, carouselPath)}\n`,
     );
