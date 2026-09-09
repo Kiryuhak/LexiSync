@@ -42,8 +42,10 @@ export interface RestoreResult {
 }
 
 const PBKDF2_ITERATIONS = 100_000;
+const MAX_PBKDF2_ITERATIONS = 2_000_000;
 const SALT_BYTE_LENGTH = 16;
 const IV_BYTE_LENGTH = 12;
+const MAX_CIPHERTEXT_BYTE_LENGTH = 2_000_000;
 
 export function bytesToBase64(bytes: Uint8Array): string {
     let binary = '';
@@ -142,12 +144,37 @@ export async function decryptBackupPayload(
     if (!pkg.kdf || !pkg.cipher || !pkg.kdf.salt || !pkg.cipher.iv || !pkg.cipher.data) {
         throw new Error('CORRUPTED_BACKUP');
     }
+    if (
+        pkg.kdf.name !== 'PBKDF2' ||
+        pkg.kdf.hash !== 'SHA-256' ||
+        pkg.cipher.algorithm !== 'AES-GCM' ||
+        !Number.isInteger(pkg.kdf.iterations) ||
+        pkg.kdf.iterations < PBKDF2_ITERATIONS ||
+        pkg.kdf.iterations > MAX_PBKDF2_ITERATIONS
+    ) {
+        throw new Error('CORRUPTED_BACKUP');
+    }
 
-    const salt = base64ToBytes(pkg.kdf.salt);
-    const iv = base64ToBytes(pkg.cipher.iv);
-    const ciphertext = base64ToBytes(pkg.cipher.data);
+    let salt: Uint8Array;
+    let iv: Uint8Array;
+    let ciphertext: Uint8Array;
+    try {
+        salt = base64ToBytes(pkg.kdf.salt);
+        iv = base64ToBytes(pkg.cipher.iv);
+        ciphertext = base64ToBytes(pkg.cipher.data);
+    } catch {
+        throw new Error('CORRUPTED_BACKUP');
+    }
+    if (
+        salt.byteLength !== SALT_BYTE_LENGTH ||
+        iv.byteLength !== IV_BYTE_LENGTH ||
+        ciphertext.byteLength === 0 ||
+        ciphertext.byteLength > MAX_CIPHERTEXT_BYTE_LENGTH
+    ) {
+        throw new Error('CORRUPTED_BACKUP');
+    }
 
-    const aesKey = await deriveAesKey(masterPassword, salt, pkg.kdf.iterations || PBKDF2_ITERATIONS);
+    const aesKey = await deriveAesKey(masterPassword, salt, pkg.kdf.iterations);
 
     let decryptedBuffer: ArrayBuffer;
     try {

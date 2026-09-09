@@ -1,7 +1,7 @@
 import { logger } from './logger';
+import { getStoredGoogleDriveToken, setStoredGoogleDriveToken } from './secret-store';
 
 const GOOGLE_DRIVE_BACKUP_FILENAME = 'lexisync_backup.enc';
-const STORAGE_KEY_DRIVE_TOKEN = 'googleDriveToken';
 const STORAGE_KEY_DRIVE_LAST_SYNC = 'googleDriveLastSync';
 
 export interface GoogleDriveBackupInfo {
@@ -19,24 +19,18 @@ export interface GoogleDriveSyncStatus {
 
 export async function getGoogleDriveToken(): Promise<string> {
     try {
-        const stored = await chrome.storage.local.get({ [STORAGE_KEY_DRIVE_TOKEN]: '' });
-        return (stored[STORAGE_KEY_DRIVE_TOKEN] as string) || '';
+        return await getStoredGoogleDriveToken();
     } catch {
         return '';
     }
 }
 
 export async function setGoogleDriveToken(token: string): Promise<void> {
-    const trimmed = token.trim();
-    if (trimmed) {
-        await chrome.storage.local.set({ [STORAGE_KEY_DRIVE_TOKEN]: trimmed });
-    } else {
-        await chrome.storage.local.remove(STORAGE_KEY_DRIVE_TOKEN);
-    }
+    await setStoredGoogleDriveToken(token);
 }
 
 export async function disconnectGoogleDrive(): Promise<void> {
-    await chrome.storage.local.remove([STORAGE_KEY_DRIVE_TOKEN, STORAGE_KEY_DRIVE_LAST_SYNC]);
+    await Promise.all([setStoredGoogleDriveToken(''), chrome.storage.local.remove(STORAGE_KEY_DRIVE_LAST_SYNC)]);
 }
 
 export async function findDriveBackupFile(token: string): Promise<GoogleDriveBackupInfo> {

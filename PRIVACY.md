@@ -1,7 +1,7 @@
 # Политика конфиденциальности LexiSync
 
 **Дата вступления в силу:** 24 августа 2026 г.
-**Последнее обновление:** 7 сентября 2026 г.
+**Последнее обновление:** 9 сентября 2026 г.
 
 [English version](#lexisync-privacy-policy)
 
@@ -52,18 +52,21 @@ LexiSync может обрабатывать следующие категори
 
 Настройка отключена по умолчанию. Пользователь может отключить её глобально или для конкретного сайта.
 
-### 2.4. API-ключи Mistral и учетные данные Cloudflare Workers AI
+### 2.4. API-ключи Mistral и учётные данные Cloudflare Workers AI
 
-Пользователь может предоставить собственный API-ключ Mistral AI и/или учетные данные Cloudflare Workers AI (Account ID и API Token). Учетные данные:
+Пользователь может предоставить собственный API-ключ Mistral AI и/или учётные данные Cloudflare Workers AI (Account ID и API Token). Учётные данные:
 
 - хранятся локально в отдельной защищённой базе IndexedDB расширения на устройстве пользователя;
 - используются исключительно для авторизации запросов к официальным API (`https://api.mistral.ai/` и `https://api.cloudflare.com/`);
-- учетные данные Cloudflare (Account ID и API Token) сохраняются в изолированном хранилище расширения chrome.storage.local, защищены от доступа со страниц контентных скриптов; устаревшие токены GigaChat автоматически удаляются при обновлении;
 - не включаются в экспорт настроек;
 - не передаются через синхронизацию настроек браузера;
 - не отправляются разработчику LexiSync или сторонним аналитическим сервисам.
 
-### 2.5. Локальные настройки и данные функций
+### 2.5. Google Drive и зашифрованные резервные копии
+
+По желанию пользователь может предоставить токен доступа Google Drive и сохранить зашифрованную резервную копию в скрытой папке приложения (`appDataFolder`). Токен хранится локально в той же отдельной IndexedDB, что и AI-ключи, не включается в резервную копию и используется только для запросов к `https://www.googleapis.com/`. Перед отправкой в Google Drive настройки и выбранные секреты шифруются на устройстве с помощью AES-256-GCM и мастер-пароля; мастер-пароль не сохраняется. Без этой команды данные в Google Drive не передаются.
+
+### 2.6. Локальные настройки и данные функций
 
 На устройстве могут храниться:
 
@@ -78,7 +81,7 @@ LexiSync может обрабатывать следующие категори
 
 LexiSync не отправляет разработчику телеметрию, аналитику, журналы действий, историю запросов или рекламные идентификаторы.
 
-### 2.6. Настройки, синхронизируемые браузером
+### 2.7. Настройки, синхронизируемые браузером
 
 Некоторые несекретные предпочтения могут сохраняться через `chrome.storage.sync` или совместимый механизм WebExtensions. Их синхронизация выполняется поставщиком браузера в рамках учётной записи пользователя. API-ключи, история текстов, кэш, пользовательские команды, текстовые макросы, словарь, глоссарий и списки сайтов не входят в набор автоматически синхронизируемых настроек LexiSync. Текстовые макросы включаются только в файл настроек, который пользователь самостоятельно экспортирует на устройство.
 
@@ -93,15 +96,19 @@ LexiSync не отправляет разработчику телеметрию
 
 Срок хранения, модерация, место обработки и возможное использование данных определяются выбранным пользователем тарифом, настройками аккаунта и актуальными условиями провайдера. LexiSync не управляет инфраструктурой Mistral AI или Cloudflare Workers AI.
 
-### 3.2. Поисковая система по выбору пользователя
+### 3.2. Google Drive
+
+Если пользователь явно подключает Google Drive и запускает синхронизацию, LexiSync передаёт Google токен авторизации и зашифрованный файл резервной копии. Файл сохраняется в `appDataFolder` и не содержит мастер-пароль. Обработка регулируется [Политикой конфиденциальности Google](https://policies.google.com/privacy) и настройками аккаунта пользователя.
+
+### 3.3. Поисковая система по выбору пользователя
 
 Если пользователь нажимает кнопку поиска выделенного текста, LexiSync открывает новую вкладку с запросом в выбранной поисковой системе: Google, Яндекс или DuckDuckGo. Текст запроса и стандартные данные веб-запроса обрабатываются выбранной поисковой системой по её собственной политике. LexiSync не выполняет такой поиск автоматически.
 
-### 3.3. Синхронизация браузера
+### 3.4. Синхронизация браузера
 
 Поставщик браузера может синхронизировать ограниченный набор несекретных настроек LexiSync между устройствами пользователя. Такая обработка регулируется политикой конфиденциальности Google Chrome, Mozilla Firefox или другого используемого браузера.
 
-### 3.4. Другие случаи
+### 3.5. Другие случаи
 
 LexiSync не продаёт пользовательские данные и не передаёт их рекламным сетям, брокерам данных или аналитическим сервисам. Передача также может потребоваться по закону или для защиты безопасности и прав пользователей, разработчика либо третьих лиц.
 
@@ -112,6 +119,8 @@ LexiSync не продаёт пользовательские данные и н
 - **Дневная статистика использования:** локальная детализация ограничена последними 62 днями; общие счётчики сохраняются до очистки пользователем.
 - **Настройки, словари и адаптивные данные:** хранятся до изменения, сброса или удаления расширения.
 - **API-ключи:** хранятся до удаления ключей пользователем или удаления локальных данных расширения.
+- **Токен Google Drive:** хранится до отключения Google Drive пользователем или удаления локальных данных расширения.
+- **Зашифрованная резервная копия Google Drive:** хранится в `appDataFolder` до замены или удаления пользователем в Google Drive.
 - **Данные у AI-провайдеров и поисковых систем:** хранятся в соответствии с политиками и настройками соответствующего сервиса.
 
 В приватных окнах история и кэш LexiSync не сохраняются.
@@ -130,6 +139,7 @@ LexiSync не продаёт пользовательские данные и н
 - добавлять, изменять и удалять локальные текстовые макросы;
 - удалить историю, кэш, локальную статистику и адаптивные данные;
 - удалить API-ключи;
+- подключить или отключить Google Drive, создать, загрузить и восстановить зашифрованную резервную копию;
 - отозвать доступ расширения к сайтам в настройках браузера;
 - удалить расширение и его локальные данные.
 
@@ -145,6 +155,7 @@ LexiSync использует минимально необходимые раз
 - `contextMenus` — команды для выделенного текста и изображений;
 - `https://api.mistral.ai/*` — защищённые запросы к Mistral AI API;
 - `https://api.cloudflare.com/*` — защищённые запросы к Cloudflare Workers AI REST API;
+- `https://www.googleapis.com/*` — запросы к Google Drive API только для явно включённой зашифрованной резервной копии;
 - необязательный доступ к HTTP/HTTPS-сайтам — постоянная работа только на сайтах, которые пользователь разрешил отдельно.
 
 Расширение не запрашивает доступ к cookies, полной истории браузера, геолокации, контактам, камере или микрофону и не выполняет удалённый JavaScript или WebAssembly.
@@ -153,7 +164,8 @@ LexiSync использует минимально необходимые раз
 
 - Все запросы к Mistral AI и Cloudflare Workers AI выполняются по HTTPS.
 - Исполняемый код поставляется внутри пакета расширения в соответствии с Manifest V3.
-- API-ключи отделены от обычных настроек и не включаются в синхронизацию или экспорт.
+- API-ключи и токен Google Drive отделены от обычных настроек; токен Drive не включается в синхронизацию или резервную копию.
+- Резервные копии шифруются локально AES-256-GCM; параметры импортируемого файла проверяются до выполнения ресурсоёмкой операции расшифровки.
 - Постоянный доступ к сайтам запрашивается только по инициативе пользователя и может быть отозван.
 - Автоматическая проверка отключена по умолчанию и старается исключать чувствительные поля.
 - Локальная маскировка персональных данных включена по умолчанию для текстовых AI-команд.
@@ -168,7 +180,7 @@ LexiSync не предназначен специально для детей и
 
 LexiSync использует разрешения браузера и пользовательские данные только для предоставления и улучшения заявленной пользовательской функции работы с текстом. Данные не используются для персонализированной рекламы, ретаргетинга, профилирования, продажи, определения платёжеспособности или целей, не связанных с работой расширения.
 
-Разработчик LexiSync не получает пользовательский текст на собственные серверы и не предоставляет людям доступ к нему. Передача Mistral AI, Cloudflare Workers AI и выбранной поисковой системе происходит только для выполнения функции, запрошенной пользователем, и регулируется условиями соответствующего сервиса.
+Разработчик LexiSync не получает пользовательский текст на собственные серверы и не предоставляет людям доступ к нему. Передача Mistral AI, Cloudflare Workers AI, Google Drive и выбранной поисковой системе происходит только для выполнения функции, запрошенной пользователем, и регулируется условиями соответствующего сервиса.
 
 ## 10. Изменения политики
 
@@ -179,7 +191,7 @@ LexiSync использует разрешения браузера и поль�
 # LexiSync Privacy Policy
 
 **Effective:** August 24, 2026
-**Last updated:** September 7, 2026
+**Last updated:** September 9, 2026
 
 LexiSync is a browser extension for checking, correcting, rewriting, translating, and recognizing text in images. This Policy explains what data LexiSync processes, why it is needed, where it is stored, and when it is transferred to third parties.
 
@@ -212,6 +224,7 @@ LexiSync may process:
 - an image of the user-selected page area when OCR is invoked (Mistral AI);
 - surrounding text, page title, and current domain when optional page context is enabled;
 - the user's Mistral AI and/or Cloudflare Workers AI credentials;
+- an optional Google Drive access token and an encrypted backup file when the user enables Drive backup;
 - local settings, per-site permissions and exclusions;
 - local text history, result cache, adaptive language data, and aggregate usage counters.
 
@@ -219,7 +232,9 @@ Selected text may contain user-generated content or personal communications. Lex
 
 ## 3. Local storage and browser sync
 
-API keys for Mistral AI and credentials for Cloudflare Workers AI (Account ID and API Token) are stored locally in extension storage. They are used only to validate keys and authorize requests to `https://api.mistral.ai/` and `https://api.cloudflare.com/`. They are not exported, synchronized through browser settings sync, or sent to the LexiSync developer.
+API keys for Mistral AI, credentials for Cloudflare Workers AI (Account ID and API Token), and an optional Google Drive access token are stored locally in a separate private IndexedDB database. They are used only to authorize requests to `https://api.mistral.ai/`, `https://api.cloudflare.com/`, and `https://www.googleapis.com/`. AI credentials are included only in an encrypted backup explicitly created by the user; the Drive token is never included. Secrets are not synchronized through browser settings sync or sent to the LexiSync developer.
+
+When the user explicitly creates a Google Drive backup, settings and selected AI credentials are encrypted on the device with AES-256-GCM and a master password before upload to the hidden `appDataFolder`. The master password is not stored. No backup is sent to Google Drive unless the user enables and starts this feature.
 
 Local extension storage may contain appearance and feature settings, primary AI provider preference, automatic fallback toggle, commands, text snippets, dictionaries, glossaries, style profiles, site lists, text history, cached results, adaptive suggestion data, and aggregate request statistics. LexiSync does not send telemetry, analytics, activity logs, text history, or advertising identifiers to the developer.
 
@@ -240,6 +255,10 @@ Provider retention, moderation, processing location, and possible data use are d
 
 When the user clicks the search button, LexiSync opens a new tab containing the selected text as a query in Google, Yandex, or DuckDuckGo. The selected search provider receives the query and ordinary web-request data under its own policy. LexiSync never starts this search automatically.
 
+### Google Drive
+
+When the user explicitly connects Google Drive and starts synchronization, LexiSync sends Google an authorization token and the encrypted backup file. The file is stored in `appDataFolder` without the master password. Processing is governed by the [Google Privacy Policy](https://policies.google.com/privacy) and the user's account settings.
+
 ### Browser synchronization
 
 The browser provider may synchronize a limited set of non-secret preferences between the user's devices. This processing is governed by the privacy policy of Google Chrome, Mozilla Firefox, or the user's other browser.
@@ -253,6 +272,8 @@ LexiSync does not sell user data or transfer it to advertising networks, data br
 - **Daily usage statistics:** local daily details cover the latest 62 days; aggregate counters remain until cleared by the user.
 - **Settings, dictionaries, and adaptive data:** remain until changed, reset, or the extension is removed.
 - **API keys:** remain until the user removes them or deletes the extension's local data.
+- **Google Drive token:** remains until the user disconnects Drive or deletes the extension's local data.
+- **Encrypted Google Drive backup:** remains in `appDataFolder` until replaced or deleted by the user in Google Drive.
 - **AI provider and search-provider data:** retained according to the respective service's policy and account settings.
 
 LexiSync does not save its history or cache in private browsing windows.
@@ -268,6 +289,7 @@ Users can:
 - add, edit, and delete local text snippets;
 - clear history, cache, aggregate usage statistics, and adaptive data;
 - remove API keys;
+- connect or disconnect Google Drive and create, download, or restore an encrypted backup;
 - revoke site access in browser settings;
 - uninstall the extension and remove its local data.
 
@@ -283,13 +305,14 @@ LexiSync uses the minimum permissions required for its user-facing purpose:
 - `contextMenus` for selected-text and image commands;
 - `https://api.mistral.ai/*` for HTTPS requests to Mistral AI API;
 - `https://api.cloudflare.com/*` for HTTPS requests to Cloudflare Workers AI REST API;
+- `https://www.googleapis.com/*` for Google Drive API requests only when the user enables encrypted backup;
 - optional HTTP/HTTPS site access only for websites the user authorizes individually.
 
 LexiSync does not request access to cookies, full browser history, geolocation, contacts, camera, or microphone, and does not execute remote JavaScript or WebAssembly.
 
 ## 8. Security
 
-All Mistral AI and Cloudflare Workers AI requests use HTTPS. Executable code is packaged with the extension under Manifest V3. API keys are separated from ordinary settings and excluded from sync and export. Persistent website access is requested only after a user action and can be revoked. Automatic proofreading is disabled by default and attempts to exclude sensitive fields. Local personal-data masking is enabled by default for text AI commands.
+All Mistral AI, Cloudflare Workers AI, and Google Drive requests use HTTPS. Executable code is packaged with the extension under Manifest V3. API keys and the Drive token are separated from ordinary settings; the Drive token is excluded from sync and backup. Backup files are encrypted locally with AES-256-GCM, and untrusted cryptographic parameters are validated before decryption. Persistent website access is requested only after a user action and can be revoked. Automatic proofreading is disabled by default and attempts to exclude sensitive fields. Local personal-data masking is enabled by default for text AI commands.
 
 No storage or transmission method is completely secure. Users are responsible for protecting their API keys and choosing which text or images to send to external services.
 
@@ -301,7 +324,7 @@ LexiSync is not specifically directed to children and does not knowingly collect
 
 LexiSync uses browser permissions and user data solely to provide and improve its disclosed, user-facing text-processing purpose. Data is not used for personalized advertising, retargeting, profiling, sale, creditworthiness decisions, or purposes unrelated to the extension.
 
-The LexiSync developer does not receive user text on developer-owned servers or provide human access to it. Transfers to Mistral AI, Cloudflare Workers AI, and a user-selected search provider occur only to perform a function requested by the user and are governed by the respective service's terms.
+The LexiSync developer does not receive user text on developer-owned servers or provide human access to it. Transfers to Mistral AI, Cloudflare Workers AI, Google Drive, and a user-selected search provider occur only to perform a function requested by the user and are governed by the respective service's terms.
 
 ## 11. Policy changes
 

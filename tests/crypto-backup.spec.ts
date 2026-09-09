@@ -108,6 +108,26 @@ describe('crypto-backup: Zero-Knowledge Web Crypto', () => {
 
         await expect(decryptBackupPayload(corruptedPkg, 'master-pass')).rejects.toThrow('INVALID_PASSWORD');
     });
+
+    test('decryptBackupPayload ограничивает параметры KDF и размеры служебных полей', async () => {
+        const payload: BackupPayload = {
+            version: 1,
+            createdAt: new Date().toISOString(),
+            settings: {},
+            secrets: {},
+        };
+        const encrypted = await encryptBackupPayload(payload, 'master-pass');
+
+        await expect(
+            decryptBackupPayload({ ...encrypted, kdf: { ...encrypted.kdf, iterations: 2_000_001 } }, 'master-pass'),
+        ).rejects.toThrow('CORRUPTED_BACKUP');
+        await expect(
+            decryptBackupPayload(
+                { ...encrypted, cipher: { ...encrypted.cipher, iv: bytesToBase64(new Uint8Array(11)) } },
+                'master-pass',
+            ),
+        ).rejects.toThrow('CORRUPTED_BACKUP');
+    });
 });
 
 describe('crypto-backup: Полный цикл создания и восстановления бэкапа в хранилище', () => {
@@ -202,6 +222,7 @@ describe('google-drive-sync: Google Drive AppData клиент', () => {
         expect(await getGoogleDriveToken()).toBe('');
         await setGoogleDriveToken('ya29.test-token-12345');
         expect(await getGoogleDriveToken()).toBe('ya29.test-token-12345');
+        expect(mockStorage).not.toHaveProperty('googleDriveToken');
         await setGoogleDriveToken('');
         expect(await getGoogleDriveToken()).toBe('');
     });

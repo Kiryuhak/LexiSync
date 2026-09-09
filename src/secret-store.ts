@@ -4,12 +4,14 @@ import type { CloudflareCredentials } from './ai-provider-types';
 const API_KEY_RECORD = 'mistralApiKey';
 const CLOUDFLARE_API_TOKEN_RECORD = 'cloudflareApiToken';
 const CLOUDFLARE_ACCOUNT_ID_RECORD = 'cloudflareAccountId';
+const GOOGLE_DRIVE_TOKEN_RECORD = 'googleDriveAccessToken';
 const LEGACY_GIGACHAT_RECORD = 'gigachatAuthKey';
 const LEGACY_GROQ_RECORD = 'groqApiKey';
 
 let mistralApiKeyCache: string | undefined;
 let cloudflareApiTokenCache: string | undefined;
 let cloudflareAccountIdCache: string | undefined;
+let googleDriveTokenCache: string | undefined;
 let pendingSecretWrite: Promise<void> = Promise.resolve();
 
 function queueSecretWrite(operation: () => Promise<void>): Promise<void> {
@@ -81,6 +83,23 @@ export async function setStoredCloudflareCredentials(credentials: CloudflareCred
     ]);
 }
 
+export async function getStoredGoogleDriveToken(): Promise<string> {
+    await pendingSecretWrite;
+    if (googleDriveTokenCache !== undefined) return googleDriveTokenCache;
+    googleDriveTokenCache = (await readPrivateRecord<string>('secrets', GOOGLE_DRIVE_TOKEN_RECORD)) || '';
+    return googleDriveTokenCache;
+}
+
+export async function setStoredGoogleDriveToken(value: string): Promise<void> {
+    const normalized = value.trim();
+    if (normalized.length > 4096) throw new Error('API_KEY_TOO_LONG');
+    await queueSecretWrite(async () => {
+        if (normalized) await writePrivateRecord('secrets', GOOGLE_DRIVE_TOKEN_RECORD, normalized);
+        else await deletePrivateRecord('secrets', GOOGLE_DRIVE_TOKEN_RECORD);
+        googleDriveTokenCache = normalized;
+    });
+}
+
 export async function migrateApiKeyToSecretStore(): Promise<void> {
     // Очистка старого кэша GigaChat и Groq из storage.local
     await chrome.storage.local.remove([
@@ -95,6 +114,7 @@ export async function migrateApiKeyToSecretStore(): Promise<void> {
         mistralApiKey: '',
         cloudflareApiToken: '',
         cloudflareAccountId: '',
+        googleDriveToken: '',
     });
 
     const legacyMistralKey = typeof stored.mistralApiKey === 'string' ? stored.mistralApiKey.trim() : '';
@@ -109,6 +129,10 @@ export async function migrateApiKeyToSecretStore(): Promise<void> {
     if (legacyCfAccount && !(await getStoredCloudflareAccountId())) await setStoredCloudflareAccountId(legacyCfAccount);
     if ('cloudflareAccountId' in stored) await chrome.storage.local.remove('cloudflareAccountId');
 
+    const legacyDriveToken = typeof stored.googleDriveToken === 'string' ? stored.googleDriveToken.trim() : '';
+    if (legacyDriveToken && !(await getStoredGoogleDriveToken())) await setStoredGoogleDriveToken(legacyDriveToken);
+    if ('googleDriveToken' in stored) await chrome.storage.local.remove('googleDriveToken');
+
     // Очистка устаревших ключей из приватной IndexedDB
     await deletePrivateRecord('secrets', LEGACY_GIGACHAT_RECORD);
     await deletePrivateRecord('secrets', LEGACY_GROQ_RECORD);
@@ -119,10 +143,12 @@ export async function clearAllSecrets(): Promise<void> {
         await deletePrivateRecord('secrets', API_KEY_RECORD);
         await deletePrivateRecord('secrets', CLOUDFLARE_API_TOKEN_RECORD);
         await deletePrivateRecord('secrets', CLOUDFLARE_ACCOUNT_ID_RECORD);
+        await deletePrivateRecord('secrets', GOOGLE_DRIVE_TOKEN_RECORD);
         await deletePrivateRecord('secrets', LEGACY_GIGACHAT_RECORD);
         await deletePrivateRecord('secrets', LEGACY_GROQ_RECORD);
         mistralApiKeyCache = '';
         cloudflareApiTokenCache = '';
         cloudflareAccountIdCache = '';
+        googleDriveTokenCache = '';
     });
 }
