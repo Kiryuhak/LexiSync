@@ -722,6 +722,106 @@
                     </div>
                 </section>
 
+                <section class="settings-section" data-settings-group="main">
+                    <h2 data-i18n="typographySectionTitle">✨ Локальная типографика и чистка текста</h2>
+                    <p class="field-hint" data-i18n="typographySectionHint">
+                        Работает мгновенно (0 мс) прямо в браузере без обращения к сети и без расхода токенов.
+                    </p>
+
+                    <div class="privacy-option" data-settings-group="main">
+                        <input type="checkbox" id="typographyQuotesDashes" checked />
+                        <label for="typographyQuotesDashes">
+                            <span data-i18n="typographyQuotesDashesLabel">Кавычки-ёлочки и длинные тире</span>
+                            <small data-i18n="typographyQuotesDashesHint"
+                                >Заменяет "..." на «...» (и „лапки“ внутри цитат), дефисы между словами на длинное тире
+                                ( — ), а в диапазонах чисел на короткое (1941–1945).</small
+                            >
+                        </label>
+                    </div>
+
+                    <div class="privacy-option" data-settings-group="main">
+                        <input type="checkbox" id="typographyPunctuationSpaces" checked />
+                        <label for="typographyPunctuationSpaces">
+                            <span data-i18n="typographyPunctuationSpacesLabel">Пробелы вокруг знаков препинания</span>
+                            <small data-i18n="typographyPunctuationSpacesHint"
+                                >Убирает лишние пробелы перед знаками препинания и внутри скобок, добавляет пропущенный
+                                пробел после запятой и точки.</small
+                            >
+                        </label>
+                    </div>
+
+                    <div class="privacy-option" data-settings-group="main">
+                        <input type="checkbox" id="typographyDoubleCaps" checked />
+                        <label for="typographyDoubleCaps">
+                            <span data-i18n="typographyDoubleCapsLabel">Исправление двойных заглавных букв</span>
+                            <small data-i18n="typographyDoubleCapsHint"
+                                >Устраняет случайные опечатки залипания Shift в начале слова (ПРивет → Привет, ЭТо →
+                                Это), не затрагивая аббревиатуры (ГОСТ, HTML).</small
+                            >
+                        </label>
+                    </div>
+
+                    <div class="privacy-option" data-settings-group="main">
+                        <input type="checkbox" id="typographySpecialSymbols" checked />
+                        <label for="typographySpecialSymbols">
+                            <span data-i18n="typographySpecialSymbolsLabel">Спецсимволы и многоточия</span>
+                            <small data-i18n="typographySpecialSymbolsHint"
+                                >Заменяет (c) → ©, (r) → ®, (tm) → ™, +- → ± и три точки ... на знак многоточия …</small
+                            >
+                        </label>
+                    </div>
+
+                    <div class="privacy-option" data-settings-group="main">
+                        <input type="checkbox" id="typographyNbsp" />
+                        <label for="typographyNbsp">
+                            <span data-i18n="typographyNbspLabel">Неразрывные пробелы после предлогов</span>
+                            <small data-i18n="typographyNbspHint"
+                                >Предотвращает висячие предлоги и союзы (в, на, с, и...) в конце строк, ставит
+                                неразрывный пробел перед единицами (2026 г., 100 руб.).</small
+                            >
+                        </label>
+                    </div>
+
+                    <div style="margin-top: 14px; display: flex; flex-direction: column; gap: 8px">
+                        <label
+                            for="typographySandboxInput"
+                            style="font-size: 13px; font-weight: 600"
+                            data-i18n="typographySandboxLabel"
+                        >
+                            Интерактивная проверка типографики:
+                        </label>
+                        <textarea
+                            id="typographySandboxInput"
+                            rows="2"
+                            style="
+                                width: 100%;
+                                border-radius: 8px;
+                                font-family: inherit;
+                                font-size: 13px;
+                                padding: 8px;
+                                box-sizing: border-box;
+                            "
+                            placeholder='Например: ПРивет ,как дела ?Мы читали статью "Правда" в 2020-2026 гг.'
+                            data-i18n-placeholder="typographySandboxPlaceholder"
+                        ></textarea>
+                        <div style="display: flex; gap: 10px; align-items: center">
+                            <button
+                                type="button"
+                                id="typographySandboxBtn"
+                                class="secondary-button"
+                                data-i18n="typographySandboxRun"
+                            >
+                                Проверить типографику
+                            </button>
+                            <span
+                                id="typographySandboxStatus"
+                                style="font-size: 12px; color: var(--primary)"
+                                aria-live="polite"
+                            ></span>
+                        </div>
+                    </div>
+                </section>
+
                 <div class="privacy-option" data-settings-group="privacy" hidden>
                     <input type="checkbox" id="allSitesAccess" />
                     <label for="allSitesAccess">

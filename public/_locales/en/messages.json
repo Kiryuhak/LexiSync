@@ -2158,5 +2158,62 @@
     },
     "cloudflareTimeout": {
         "message": "Cloudflare Workers AI request timed out."
+    },
+    "contextMenuTextClean": {
+        "message": "Typography & Clean (local)"
+    },
+    "doneLocalZeroTokens": {
+        "message": "✓ Local • 0 tokens"
+    },
+    "cleanQuotesDashes": {
+        "message": "Quotes & dashes"
+    },
+    "typographySectionTitle": {
+        "message": "✨ Local Typography & Text Cleaning"
+    },
+    "typographySectionHint": {
+        "message": "Works instantly (0 ms) directly in the browser with no network calls and zero token usage."
+    },
+    "typographyQuotesDashesLabel": {
+        "message": "Smart quotes and em dashes"
+    },
+    "typographyQuotesDashesHint": {
+        "message": "Replaces \"...\" with smart quotes «...» (and inner quotes), hyphens with em dashes ( — ), and number ranges with en dashes (1941–1945)."
+    },
+    "typographyPunctuationSpacesLabel": {
+        "message": "Spaces around punctuation"
+    },
+    "typographyPunctuationSpacesHint": {
+        "message": "Removes extra spaces before punctuation and inside parentheses, adds missing space after commas and periods."
+    },
+    "typographyDoubleCapsLabel": {
+        "message": "Fix double capital letters"
+    },
+    "typographyDoubleCapsHint": {
+        "message": "Fixes accidental Shift-lag typos at the start of words (HEllo → Hello), without affecting abbreviations (HTML, CSS)."
+    },
+    "typographySpecialSymbolsLabel": {
+        "message": "Special symbols and ellipsis"
+    },
+    "typographySpecialSymbolsHint": {
+        "message": "Replaces (c) → ©, (r) → ®, (tm) → ™, +- → ± and three dots ... with ellipsis …"
+    },
+    "typographyNbspLabel": {
+        "message": "Non-breaking spaces after prepositions"
+    },
+    "typographyNbspHint": {
+        "message": "Prevents hanging prepositions at line ends, adds non-breaking spaces before units (2026 yr., 100 kg)."
+    },
+    "typographySandboxLabel": {
+        "message": "Interactive typography sandbox:"
+    },
+    "typographySandboxPlaceholder": {
+        "message": "For example: HEllo ,how are you ?We read the article \"News\" in 2020-2026."
+    },
+    "typographySandboxRun": {
+        "message": "Run typography"
+    },
+    "typographyApplied": {
+        "message": "✓ Typography applied (0 tokens)"
     }
 }

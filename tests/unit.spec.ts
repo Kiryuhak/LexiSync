@@ -2102,6 +2102,45 @@ test('text-cleaner очищает текст от артефактов, лишн
     expect(cleanText('  "hello"  ', { trimLines: false, collapseSpaces: false })).toBe('  "hello"  ');
 });
 
+test('text-cleaner поддерживает расширенные правила типографики: пунктуацию, кавычки, тире, двойные заглавные и спецсимволы', async () => {
+    const { cleanText, normalizeTypographySettings, DEFAULT_TYPOGRAPHY_SETTINGS } = await import('../src/text-cleaner');
+
+    // 1. Нормализация настроек
+    expect(normalizeTypographySettings(null)).toEqual(DEFAULT_TYPOGRAPHY_SETTINGS);
+    expect(normalizeTypographySettings({ nonBreakingSpaces: true }).nonBreakingSpaces).toBe(true);
+
+    // 2. Двойные заглавные буквы (опечатки CapsLock) и защита аббревиатур
+    const capsText = 'ПРивет, КАк дела? ЭТо важный ГОСТ и CSS тест.';
+    expect(cleanText(capsText)).toBe('Привет, Как дела? Это важный ГОСТ и CSS тест.');
+
+    // 3. Пробелы вокруг знаков препинания и скобок
+    const punctText = 'Привет ,как дела ? ( в скобках ) ,вот так:слово;другое.';
+    expect(cleanText(punctText)).toBe('Привет, как дела? (в скобках), вот так: слово; другое.');
+
+    // 4. Диапазоны чисел, длинное тире, прямая речь и математический минус
+    const dashesText = '- Здравствуйте!\nВ 1941-1945 годах температура была -15 градусов.';
+    const dashesCleaned = cleanText(dashesText);
+    expect(dashesCleaned).toContain('— Здравствуйте!');
+    expect(dashesCleaned).toContain('1941–1945');
+    expect(dashesCleaned).toContain('−15');
+
+    // 5. Вложенные кавычки (ёлочки и лапки)
+    const quotesText = 'Читали статью "В газете "Правда" сегодня"?';
+    expect(cleanText(quotesText)).toBe('Читали статью «В газете „Правда“ сегодня»?');
+
+    // 6. Спецсимволы и многоточие
+    const symText = 'LexiSync (c) 2026 (tm) погрешность +- 2%....';
+    expect(cleanText(symText)).toBe('LexiSync © 2026 ™ погрешность ± 2%…');
+
+    // 7. Неразрывные пробелы
+    const nbspText = 'Мы пошли в лес с другом в 2026 г. по адресу № 12.';
+    const nbspCleaned = cleanText(nbspText, { nonBreakingSpaces: true });
+    expect(nbspCleaned).toContain('в\u00A0лес');
+    expect(nbspCleaned).toContain('с\u00A0другом');
+    expect(nbspCleaned).toContain('2026\u00A0г.');
+    expect(nbspCleaned).toContain('№\u00A012');
+});
+
 test('text-replacement возвращает локальную функцию отмены замены', async () => {
     const { replaceSelectedText } = await import('../src/text-replacement');
 

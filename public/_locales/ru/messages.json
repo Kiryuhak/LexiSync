@@ -2158,5 +2158,62 @@
     },
     "cloudflareTimeout": {
         "message": "Превышено время ожидания ответа от Cloudflare Workers AI."
+    },
+    "contextMenuTextClean": {
+        "message": "Типографика и чистка (локально)"
+    },
+    "doneLocalZeroTokens": {
+        "message": "✓ Локально • 0 токенов"
+    },
+    "cleanQuotesDashes": {
+        "message": "Кавычки и тире"
+    },
+    "typographySectionTitle": {
+        "message": "✨ Локальная типографика и чистка текста"
+    },
+    "typographySectionHint": {
+        "message": "Работает мгновенно (0 мс) прямо в браузере без обращения к сети и без расхода токенов."
+    },
+    "typographyQuotesDashesLabel": {
+        "message": "Кавычки-ёлочки и длинные тире"
+    },
+    "typographyQuotesDashesHint": {
+        "message": "Заменяет \"...\" на «...» (и „лапки“ внутри цитат), дефисы между словами на длинное тире ( — ), а в диапазонах чисел на короткое (1941–1945)."
+    },
+    "typographyPunctuationSpacesLabel": {
+        "message": "Пробелы вокруг знаков препинания"
+    },
+    "typographyPunctuationSpacesHint": {
+        "message": "Убирает лишние пробелы перед знаками препинания и внутри скобок, добавляет пропущенный пробел после запятой и точки."
+    },
+    "typographyDoubleCapsLabel": {
+        "message": "Исправление двойных заглавных букв"
+    },
+    "typographyDoubleCapsHint": {
+        "message": "Устраняет случайные опечатки залипания Shift в начале слова (ПРивет → Привет, ЭТо → Это), не затрагивая аббревиатуры (ГОСТ, HTML)."
+    },
+    "typographySpecialSymbolsLabel": {
+        "message": "Спецсимволы и многоточия"
+    },
+    "typographySpecialSymbolsHint": {
+        "message": "Заменяет (c) → ©, (r) → ®, (tm) → ™, +- → ± и три точки ... на знак многоточия …"
+    },
+    "typographyNbspLabel": {
+        "message": "Неразрывные пробелы после предлогов"
+    },
+    "typographyNbspHint": {
+        "message": "Предотвращает висячие предлоги и союзы (в, на, с, и...) в конце строк, ставит неразрывный пробел перед единицами (2026 г., 100 руб.)."
+    },
+    "typographySandboxLabel": {
+        "message": "Интерактивная проверка типографики:"
+    },
+    "typographySandboxPlaceholder": {
+        "message": "Например: ПРивет ,как дела ?Мы читали статью \"Правда\" в 2020-2026 гг."
+    },
+    "typographySandboxRun": {
+        "message": "Проверить типографику"
+    },
+    "typographyApplied": {
+        "message": "✓ Типографика применена (0 токенов)"
     }
 }

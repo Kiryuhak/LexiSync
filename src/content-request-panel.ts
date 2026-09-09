@@ -149,7 +149,7 @@ export function executeRequest(
         headerLabel = t('caseConvertTitle', 'Смена регистра');
     } else if (mode === 'text_clean') {
         headerIcon = ICONS.textClean;
-        headerLabel = t('textCleanTitle', 'Очистка текста');
+        headerLabel = t('textCleanTitle', 'Типографика и чистка');
     } else if (mode === 'ocr') {
         headerEmoji = '📸';
         headerLabel = t('ocrResult', 'Распознанный текст');
@@ -460,7 +460,7 @@ export function executeRequest(
             if (compactResultMode) contentPane.textContent = fullResult;
             else renderMarkdown(contentPane, fullResult);
             finishStream(true);
-            showActionStatus(t('doneLocal', '✓ Выполнено локально'));
+            showActionStatus(t('doneLocalZeroTokens', '✓ Локально • 0 токенов'));
             return;
         }
 
@@ -1020,17 +1020,71 @@ export function executeRequest(
                 } else if (mode === 'text_clean') {
                     tools.push(
                         createTool(t('cleanAll', 'Всё'), () => {
-                            fullResult = cleanText(originalText);
-                            contentPane.textContent = fullResult;
-                            editedResultSnapshot = fullResult;
-                        }),
-                        createTool(t('cleanSpaces', 'Только пробелы'), () => {
-                            fullResult = cleanText(originalText, { typography: false, fixLineBreaks: false });
+                            fullResult = cleanText(originalText, {
+                                trimLines: true,
+                                collapseSpaces: true,
+                                removeInvisible: true,
+                                fixLineBreaks: true,
+                                typography: true,
+                                quotes: true,
+                                dashes: true,
+                                ranges: true,
+                                nonBreakingSpaces: true,
+                                fixPunctuationSpaces: true,
+                                fixDoubleCaps: true,
+                                specialSymbols: true,
+                                ellipsis: true,
+                            });
                             contentPane.textContent = fullResult;
                             editedResultSnapshot = fullResult;
                         }),
                         createTool(t('cleanTypography', 'Типографика'), () => {
-                            fullResult = cleanText(originalText, { collapseSpaces: false, fixLineBreaks: false });
+                            fullResult = cleanText(originalText, {
+                                collapseSpaces: false,
+                                fixLineBreaks: false,
+                                typography: true,
+                                quotes: true,
+                                dashes: true,
+                                ranges: true,
+                                nonBreakingSpaces: true,
+                                fixPunctuationSpaces: true,
+                                fixDoubleCaps: false,
+                                specialSymbols: true,
+                                ellipsis: true,
+                            });
+                            contentPane.textContent = fullResult;
+                            editedResultSnapshot = fullResult;
+                        }),
+                        createTool(t('cleanQuotesDashes', 'Кавычки и тире'), () => {
+                            fullResult = cleanText(originalText, {
+                                collapseSpaces: false,
+                                fixLineBreaks: false,
+                                typography: true,
+                                quotes: true,
+                                dashes: true,
+                                ranges: true,
+                                nonBreakingSpaces: false,
+                                fixPunctuationSpaces: false,
+                                fixDoubleCaps: false,
+                                specialSymbols: false,
+                                ellipsis: false,
+                            });
+                            contentPane.textContent = fullResult;
+                            editedResultSnapshot = fullResult;
+                        }),
+                        createTool(t('cleanSpaces', 'Только пробелы'), () => {
+                            fullResult = cleanText(originalText, {
+                                typography: false,
+                                quotes: false,
+                                dashes: false,
+                                ranges: false,
+                                nonBreakingSpaces: false,
+                                fixPunctuationSpaces: false,
+                                fixDoubleCaps: false,
+                                specialSymbols: false,
+                                ellipsis: false,
+                                fixLineBreaks: false,
+                            });
                             contentPane.textContent = fullResult;
                             editedResultSnapshot = fullResult;
                         }),

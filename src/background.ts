@@ -204,6 +204,11 @@ function setupContextMenus(): void {
                     contexts: ['selection'],
                 });
                 chrome.contextMenus.create({
+                    id: 'text_clean',
+                    title: `✨ ${t('contextMenuTextClean', 'Типографика и чистка (локально)')}`,
+                    contexts: ['selection'],
+                });
+                chrome.contextMenus.create({
                     id: 'ocr',
                     title: `📸 ${t('recognizeText', 'Распознать текст')} (Alt+S)`,
                     contexts: ['page', 'image', 'selection'],

@@ -443,7 +443,7 @@ export function showMoreMenu(x: number, y: number, context: ContentMenuContext, 
     popupUI.appendChild(
         createMenuBtn(
             ICONS.textClean,
-            t('textCleanTitle', 'Очистить текст'),
+            t('textCleanTitle', 'Типографика и чистка'),
             () => {
                 setLastUsedAction('text_clean');
                 context.handleAction('text_clean');
@@ -648,7 +648,7 @@ export function showAIMenu(x: number, y: number, context: ContentMenuContext, to
     popupUI.appendChild(
         createMenuBtn(
             ICONS.textClean,
-            t('textCleanTitle', 'Очистить текст'),
+            t('textCleanTitle', 'Типографика и чистка'),
             () => {
                 setLastUsedAction('text_clean');
                 context.handleAction('text_clean');

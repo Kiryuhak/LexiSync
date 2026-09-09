@@ -43,6 +43,7 @@ import { normalizeSearchEngine, SEARCH_ENGINE_IDS, type SearchEngine } from './s
 import { getErrorLogs, clearErrorLogs, formatErrorLogsAsText, downloadErrorLogsText } from './error-log';
 import { createDiagnosticReport } from './diagnostics';
 import { copyText } from './clipboard';
+import { cleanText } from './text-cleaner';
 
 let restoredApiKey = '';
 let restoredCloudflareAccountId = '';
@@ -133,6 +134,11 @@ const SAVED_OPTION_IDS = [
     'disabledSites',
     'personalDictionary',
     'aiMode',
+    'typographyQuotesDashes',
+    'typographyPunctuationSpaces',
+    'typographyDoubleCaps',
+    'typographySpecialSymbols',
+    'typographyNbsp',
 ] as const;
 
 function normalizeUiAiMode(value: unknown): 'fast' | 'balanced' {
@@ -425,6 +431,24 @@ async function saveOptions(): Promise<void> {
                 .filter(Boolean)
                 .slice(0, 2000);
         if (changed('aiMode')) updates.aiMode = normalizeUiAiMode(aiModeSelect.value);
+        if (changed('typographyQuotesDashes'))
+            updates.typographyQuotesDashes = (
+                document.getElementById('typographyQuotesDashes') as HTMLInputElement
+            ).checked;
+        if (changed('typographyPunctuationSpaces'))
+            updates.typographyPunctuationSpaces = (
+                document.getElementById('typographyPunctuationSpaces') as HTMLInputElement
+            ).checked;
+        if (changed('typographyDoubleCaps'))
+            updates.typographyDoubleCaps = (
+                document.getElementById('typographyDoubleCaps') as HTMLInputElement
+            ).checked;
+        if (changed('typographySpecialSymbols'))
+            updates.typographySpecialSymbols = (
+                document.getElementById('typographySpecialSymbols') as HTMLInputElement
+            ).checked;
+        if (changed('typographyNbsp'))
+            updates.typographyNbsp = (document.getElementById('typographyNbsp') as HTMLInputElement).checked;
         if (Object.keys(updates).length) await chrome.storage.local.set(updates);
         disabledSitesInput.value = normalizedDisabledSites.valid.join('\n');
 
@@ -574,6 +598,11 @@ async function restoreOptions(): Promise<void> {
             ...DEFAULT_BUDGET_SETTINGS,
             usageStats: EMPTY_USAGE_STATS,
             settingsSyncStatus: { state: 'synced', updatedAt: 0 },
+            typographyQuotesDashes: true,
+            typographyPunctuationSpaces: true,
+            typographyDoubleCaps: true,
+            typographySpecialSymbols: true,
+            typographyNbsp: false,
         }),
         readPrivateApiKey(),
         readPrivateCloudflareAccountId(),
@@ -607,6 +636,21 @@ async function restoreOptions(): Promise<void> {
     const initialAiMode = normalizeUiAiMode(items.aiMode);
     aiModeSelect.value = initialAiMode;
     syncAiModeCards(initialAiMode);
+    const typographyQuotesDashesInput = document.getElementById('typographyQuotesDashes') as HTMLInputElement | null;
+    const typographyPunctuationSpacesInput = document.getElementById(
+        'typographyPunctuationSpaces',
+    ) as HTMLInputElement | null;
+    const typographyDoubleCapsInput = document.getElementById('typographyDoubleCaps') as HTMLInputElement | null;
+    const typographySpecialSymbolsInput = document.getElementById(
+        'typographySpecialSymbols',
+    ) as HTMLInputElement | null;
+    const typographyNbspInput = document.getElementById('typographyNbsp') as HTMLInputElement | null;
+    if (typographyQuotesDashesInput) typographyQuotesDashesInput.checked = items.typographyQuotesDashes !== false;
+    if (typographyPunctuationSpacesInput)
+        typographyPunctuationSpacesInput.checked = items.typographyPunctuationSpaces !== false;
+    if (typographyDoubleCapsInput) typographyDoubleCapsInput.checked = items.typographyDoubleCaps !== false;
+    if (typographySpecialSymbolsInput) typographySpecialSymbolsInput.checked = items.typographySpecialSymbols !== false;
+    if (typographyNbspInput) typographyNbspInput.checked = items.typographyNbsp === true;
     const allSitesAccessInput = document.getElementById('allSitesAccess') as HTMLInputElement | null;
     if (allSitesAccessInput) {
         allSitesAccessInput.checked = await hasAllSitesAccess();
@@ -826,6 +870,43 @@ function setupSearchEngineSelector(): void {
     select.addEventListener('change', updateActiveChip);
     syncSearchEngineSelector = updateActiveChip;
     updateActiveChip();
+}
+
+function setupTypographySandbox(): void {
+    const sandboxInput = document.getElementById('typographySandboxInput') as HTMLTextAreaElement | null;
+    const sandboxBtn = document.getElementById('typographySandboxBtn') as HTMLButtonElement | null;
+    const sandboxStatus = document.getElementById('typographySandboxStatus') as HTMLElement | null;
+    if (!sandboxInput || !sandboxBtn || !sandboxStatus) return;
+
+    sandboxBtn.addEventListener('click', () => {
+        const original = sandboxInput.value;
+        if (!original.trim()) return;
+        const quotesDashes =
+            (document.getElementById('typographyQuotesDashes') as HTMLInputElement | null)?.checked ?? true;
+        const punctSpaces =
+            (document.getElementById('typographyPunctuationSpaces') as HTMLInputElement | null)?.checked ?? true;
+        const doubleCaps =
+            (document.getElementById('typographyDoubleCaps') as HTMLInputElement | null)?.checked ?? true;
+        const specialSymbols =
+            (document.getElementById('typographySpecialSymbols') as HTMLInputElement | null)?.checked ?? true;
+        const nbsp = (document.getElementById('typographyNbsp') as HTMLInputElement | null)?.checked ?? false;
+
+        const cleaned = cleanText(original, {
+            typography: true,
+            quotes: quotesDashes,
+            dashes: quotesDashes,
+            ranges: quotesDashes,
+            fixPunctuationSpaces: punctSpaces,
+            fixDoubleCaps: doubleCaps,
+            specialSymbols: specialSymbols,
+            nonBreakingSpaces: nbsp,
+        });
+        sandboxInput.value = cleaned;
+        sandboxStatus.textContent = t('typographyApplied', '✓ Типографика применена (0 токенов)');
+        window.setTimeout(() => {
+            sandboxStatus.textContent = '';
+        }, 2500);
+    });
 }
 
 function setupFactoryReset(): void {
@@ -1170,6 +1251,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupPromptLibrary();
     setupFactoryReset();
     setupInteractiveGuide();
+    setupTypographySandbox();
     document.getElementById('checkServerStatusBtn')?.addEventListener('click', () => {
         void refreshServerHealthStatus(true);
     });
