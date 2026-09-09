@@ -84,7 +84,7 @@ test('Cloudflare клиент отправляет точный endpoint, Bearer
     );
 
     expect(fetchSpy).toHaveBeenCalledWith(
-        'https://api.cloudflare.com/client/v4/accounts/acc-1234567890abcdef/ai/run/@cf/meta/llama-3.2-3b-instruct',
+        'https://api.cloudflare.com/client/v4/accounts/acc-1234567890abcdef/ai/run/@cf/qwen/qwen2.5-7b-instruct',
         expect.objectContaining({
             method: 'POST',
             headers: expect.objectContaining({

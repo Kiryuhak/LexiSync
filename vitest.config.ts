@@ -10,11 +10,13 @@ export default defineConfig({
             'tests/content-lifecycle.spec.ts',
             'tests/site-access.spec.ts',
             'tests/crypto-backup.spec.ts',
+            'tests/ai-quality.spec.ts',
         ],
         coverage: {
             provider: 'v8',
             reporter: ['text', 'json-summary'],
             include: [
+                'src/ai-sanity-check.ts',
                 'src/cloudflare-client.ts',
                 'src/cloudflare-provider.ts',
                 'src/ai-client.ts',

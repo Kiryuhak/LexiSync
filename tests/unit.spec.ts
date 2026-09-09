@@ -88,9 +88,9 @@ test('безопасно нормализует поисковик и повре
 });
 
 test('история обновлений содержит все выпуски и поддерживает поиск', () => {
-    expect(RELEASE_NOTES[0].version).toBe('5.6.1');
+    expect(RELEASE_NOTES[0].version).toBe('5.6.2');
     expect(RELEASE_NOTES.at(-1)?.version).toBe('2.5');
-    expect(RELEASE_NOTES).toHaveLength(61);
+    expect(RELEASE_NOTES).toHaveLength(62);
     expect(new Set(RELEASE_NOTES.map((release) => release.version)).size).toBe(RELEASE_NOTES.length);
     expect(filterReleaseNotes(RELEASE_NOTES, 'MagicOS', 'ru').map((release) => release.version)).toEqual([
         '5.3.4',
@@ -2355,7 +2355,7 @@ test('Unit 3: Cloudflare успешный стриминг (200 OK) с моде�
     expect(result.providerUsed).toBe('cloudflare');
     expect(result.fallbackOccurred).toBe(false);
     expect(chunks.join('')).toBe('Cloudflare быстрый ответ');
-    expect(requestUrl).toContain('llama-3.2-3b-instruct');
+    expect(requestUrl).toContain('qwen2.5-7b-instruct');
     expect(requestUrl).toContain('cf-account-456');
     expect(authHeader).toBe('Bearer cf-token-456');
     mockFetch.mockRestore();
@@ -2940,7 +2940,7 @@ test('CloudflareClient: streamCloudflareText передает prompt, систе
     expect(response.text).toBe('Ответ 1 Ответ 2');
     expect(chunks.join('')).toBe('Ответ 1 Ответ 2');
     expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/accounts/test-acc/ai/run/@cf/meta/llama-3.2-3b-instruct'),
+        expect.stringContaining('/accounts/test-acc/ai/run/@cf/qwen/qwen2.5-7b-instruct'),
         expect.objectContaining({
             method: 'POST',
             headers: expect.objectContaining({
