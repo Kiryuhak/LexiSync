@@ -13,8 +13,10 @@ const licenseText = await fs.readFile(path.join(root, 'LICENSE'), 'utf8');
 const MAX_ZIP_ENTRIES = 10_000;
 const MAX_UNCOMPRESSED_BYTES = 100 * 1024 * 1024;
 const MAX_INITIAL_SCRIPT_BYTES = {
-    'background.js': 95 * 1024,
-    'inject.js': 160 * 1024,
+    // Бюджеты учитывают слой проверки ответов обоих AI-провайдеров и текущий полный inline-интерфейс.
+    // Запас от проверенной production-сборки оставлен небольшим, чтобы рост по-прежнему был явным.
+    'background.js': 110 * 1024,
+    'inject.js': 190 * 1024,
 };
 
 const licenseOwner = licenseText.match(/^Copyright \(c\) \d{4}(?:-\d{4})? (.+)$/m)?.[1];
