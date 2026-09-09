@@ -120,14 +120,13 @@ const scenes = [
     },
 ];
 
-function marketingHtml(scene, imageUrl, platform) {
-    const platformLabel = platform === 'chrome' ? 'Для Google Chrome' : 'Для Mozilla Firefox';
+function marketingHtml(scene, imageUrl) {
     return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><style>
         *{box-sizing:border-box}html,body{width:1280px;height:800px;margin:0;overflow:hidden}body{position:relative;color:#111936;background:radial-gradient(circle at 8% 0%,color-mix(in srgb,${scene.accent} 18%,white),transparent 34%),radial-gradient(circle at 94% 18%,color-mix(in srgb,${scene.glow} 18%,white),transparent 30%),linear-gradient(145deg,#fbfcff,#edf2ff);font-family:Inter,system-ui,-apple-system,sans-serif}
         body:before{position:absolute;inset:0;content:"";background-image:linear-gradient(rgba(72,84,132,.032) 1px,transparent 1px),linear-gradient(90deg,rgba(72,84,132,.032) 1px,transparent 1px);background-size:36px 36px;mask-image:linear-gradient(#000,transparent 48%)}
-        .top{position:relative;z-index:2;height:116px;display:flex;align-items:center;padding:18px 34px 17px 40px;gap:26px}.brand{display:flex;align-items:center;gap:11px;min-width:184px;font-size:24px;font-weight:850;letter-spacing:-.035em}.logo{display:grid;width:44px;height:44px;place-items:center;color:white;background:linear-gradient(135deg,${scene.accent},${scene.glow});border:1px solid rgba(255,255,255,.8);border-radius:14px;box-shadow:0 12px 28px color-mix(in srgb,${scene.accent} 25%,transparent);font-size:22px}.copy{min-width:0;flex:1}.eyebrow{margin-bottom:4px;color:${scene.accent};font-size:11px;font-weight:850;letter-spacing:.12em}.title{margin:0;font-size:29px;line-height:1.05;letter-spacing:-.035em}.description{margin:6px 0 0;color:#5d6882;font-size:14px;line-height:1.3}.platform{flex:none;padding:9px 13px;color:#3f4964;background:rgba(255,255,255,.76);border:1px solid rgba(255,255,255,.95);border-radius:999px;box-shadow:0 8px 24px rgba(45,55,92,.08);font-size:12px;font-weight:750;backdrop-filter:blur(14px)}
+        .top{position:relative;z-index:2;height:116px;display:flex;align-items:center;padding:18px 40px 17px;gap:26px}.brand{display:flex;align-items:center;gap:11px;min-width:184px;font-size:24px;font-weight:850;letter-spacing:-.035em}.logo{display:grid;width:44px;height:44px;place-items:center;color:white;background:linear-gradient(135deg,${scene.accent},${scene.glow});border:1px solid rgba(255,255,255,.8);border-radius:14px;box-shadow:0 12px 28px color-mix(in srgb,${scene.accent} 25%,transparent);font-size:22px}.copy{min-width:0;flex:1}.eyebrow{margin-bottom:4px;color:${scene.accent};font-size:11px;font-weight:850;letter-spacing:.12em}.title{margin:0;font-size:29px;line-height:1.05;letter-spacing:-.035em}.description{margin:6px 0 0;color:#5d6882;font-size:14px;line-height:1.3}
         .visual{position:absolute;z-index:1;left:28px;top:116px;width:1224px;height:674px;padding:12px;background:rgba(255,255,255,.72);border:1px solid rgba(255,255,255,.95);border-radius:25px;box-shadow:0 24px 58px rgba(35,45,84,.2),inset 0 1px 0 white;backdrop-filter:blur(20px)}.visual:before{position:absolute;top:8px;right:32px;left:32px;height:3px;content:"";background:linear-gradient(90deg,transparent,${scene.accent},${scene.glow},transparent);border-radius:999px;opacity:.66}.visual img{display:block;width:1200px;height:650px;object-fit:contain;border-radius:15px;border:1px solid rgba(57,73,125,.12);background:#f2f5fd}
-    </style></head><body><header class="top"><div class="brand"><span class="logo">✦</span>LexiSync</div><section class="copy"><div class="eyebrow">${scene.eyebrow}</div><h1 class="title">${scene.title}</h1><p class="description">${scene.description}</p></section><div class="platform">${platformLabel}</div></header><div class="visual"><img src="${imageUrl}" alt=""></div></body></html>`;
+    </style></head><body><header class="top"><div class="brand"><span class="logo">✦</span>LexiSync</div><section class="copy"><div class="eyebrow">${scene.eyebrow}</div><h1 class="title">${scene.title}</h1><p class="description">${scene.description}</p></section></header><div class="visual"><img src="${imageUrl}" alt=""></div></body></html>`;
 }
 
 async function waitForBackground(context) {
@@ -189,11 +188,11 @@ async function captureRaw(page, name) {
     await page.screenshot({ path: path.join(rawDir, name), animations: 'disabled' });
 }
 
-async function compose(context, scene, destinationDir, platform) {
+async function compose(context, scene, destinationDir) {
     const image = await fs.readFile(path.join(rawDir, scene.raw));
     const page = await context.newPage();
     await page.setViewportSize({ width: 1280, height: 800 });
-    await page.setContent(marketingHtml(scene, `data:image/png;base64,${image.toString('base64')}`, platform));
+    await page.setContent(marketingHtml(scene, `data:image/png;base64,${image.toString('base64')}`));
     await page.locator('.visual img').evaluate((element) => element.decode());
     await page.screenshot({ path: path.join(destinationDir, scene.output), animations: 'disabled' });
     await page.close();
@@ -388,13 +387,13 @@ try {
     await captureRaw(result, 'result.png');
     await result.close();
 
-    for (const scene of scenes) await compose(context, scene, outputDir, 'firefox');
+    for (const scene of scenes) await compose(context, scene, outputDir);
     for (const scene of scenes.slice(0, 5)) {
         const chromeScene = {
             ...scene,
             output: `${String(scenes.indexOf(scene) + 1).padStart(2, '0')}-${scene.output}`,
         };
-        await compose(context, chromeScene, chromeOutputDir, 'chrome');
+        await compose(context, chromeScene, chromeOutputDir);
     }
     await createCarousel();
     await createChromeAssets(context);
