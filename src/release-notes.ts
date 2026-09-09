@@ -36,6 +36,39 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.6.2',
+        '2026-09-09',
+        'improved',
+        'Глубокий инженерный аудит и повышение качества ИИ',
+        'Deep engineering audit and AI text correction quality upgrade',
+        [
+            [
+                'Переход на высокоточную русскоязычную модель Cloudflare Workers AI Qwen 2.5 7B Instruct по умолчанию.',
+                'Switched to high-precision multilingual Cloudflare Workers AI model Qwen 2.5 7B Instruct by default.',
+            ],
+            [
+                'Консервативный системный промпт для исправления ошибок: строгое сохранение структуры, стиля, фактов и запрет синонимов.',
+                'Conservative spellcheck system prompt: strictly preserving structure, style, facts, and prohibiting arbitrary synonyms.',
+            ],
+            [
+                'Внедрена многоступенчатая санитарная проверка ответов ИИ (Sanity Checks) и очистка служебных префиксов.',
+                'Introduced multi-stage AI response sanity checks and automatic conversational prefix stripping.',
+            ],
+            [
+                'Автоматический fallback с Cloudflare на Mistral при браке качества (QUALITY_CHECK_FAILED) со сбросом поврежденного потока.',
+                'Automatic fallback from Cloudflare to Mistral on quality degradation (QUALITY_CHECK_FAILED) with clean stream reset.',
+            ],
+            [
+                'Исправлен сбой записи журнала ошибок в тестовой среде и добавлена передача выбранной модели Cloudflare.',
+                'Fixed error log storage exception in test environments and enabled custom Cloudflare model forwarding.',
+            ],
+            [
+                'Добавлен комплексный набор регрессионных тестов качества на 28 русскоязычных сценариях.',
+                'Added a comprehensive 28-case Russian AI text correction quality regression test suite.',
+            ],
+        ],
+    ),
+    note(
         '5.6.1',
         '2026-09-08',
         'new',

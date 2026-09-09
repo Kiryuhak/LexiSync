@@ -7,13 +7,13 @@
   ·
   <a href="https://addons.mozilla.org/ru/firefox/addon/65facfa619b74330bdfa/"><strong>Установить из Firefox Add-ons</strong></a>
   ·
-  <a href="https://github.com/Kiryuhak/LexiSync/releases/tag/v5.6.1"><strong>Релиз v5.6.1</strong></a>
+  <a href="https://github.com/Kiryuhak/LexiSync/releases/tag/v5.6.2"><strong>Релиз v5.6.2</strong></a>
   ·
   <a href="docs/RELEASING.md">Инструкция по выпуску</a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/версия-5.6.1-blue.svg?style=flat-square" alt="Версия 5.6.1">
+  <img src="https://img.shields.io/badge/версия-5.6.2-blue.svg?style=flat-square" alt="Версия 5.6.2">
   <img src="https://img.shields.io/badge/Manifest-V3-success.svg?style=flat-square" alt="Manifest V3">
   <img src="https://img.shields.io/badge/Chrome-Поддерживается-4285F4.svg?style=flat-square&logo=googlechrome&logoColor=white" alt="Chrome">
   <img src="https://img.shields.io/badge/Firefox-Поддерживается-FF7139.svg?style=flat-square&logo=firefoxbrowser&logoColor=white" alt="Firefox">
@@ -21,7 +21,7 @@
   <img src="https://img.shields.io/badge/лицензия-ISC-green.svg?style=flat-square" alt="Лицензия ISC">
 </p>
 
-Кросс-браузерное расширение для Chrome и Firefox на базе **Mistral AI** (`mistral-small-latest`, `mistral-ocr-latest`) и **Cloudflare Workers AI** (`@cf/meta/llama-3.2-3b-instruct`). Позволяет мгновенно исправлять ошибки, переписывать и переводить текст, менять раскладку, подбирать эмодзи и распознавать текст на изображениях без посредников и лишних задержек.
+Кросс-браузерное расширение для Chrome и Firefox на базе **Mistral AI** (`mistral-small-latest`, `mistral-ocr-latest`) и **Cloudflare Workers AI** (`@cf/qwen/qwen2.5-7b-instruct`, `@cf/meta/llama-3.1-8b-instruct`). Позволяет мгновенно исправлять ошибки, переписывать и переводить текст, менять раскладку, подбирать эмодзи и распознавать текст на изображениях без посредников и лишних задержек.
 
 <h2 align="center">✨ Как работает LexiSync</h2>
 
@@ -59,6 +59,15 @@
     <img src="docs/store-assets/firefox/lexisync-update-history.png" alt="История обновлений LexiSync" width="49%">
   </p>
 </details>
+
+## ✨ Что нового в 5.6.2
+
+- **Высокоточная модель Cloudflare по умолчанию:** переход на `@cf/qwen/qwen2.5-7b-instruct` — современную модель с глубоким пониманием русской морфологии, пунктуации и синтаксиса, превосходящую Llama 3.2 3B в задачах корректуры.
+- **Консервативный системный промпт:** строгие негативные инструкции запрещают подмену слов синонимами, необоснованное перефразирование, изменение стиля и перевод языка при исправлении грамматики.
+- **Санитарный контроль ответов (Sanity Checks):** встроенная система проверки отсеивает брак модели — пустые ответы, аномальное сжатие/раздувание, потерю кириллицы (языковой дрифт), исчезновение ссылок, чисел и email, а также служебные фразы («Вот исправленный текст:»).
+- **Резервное переключение по качеству (Fallback):** при обнаружении брака качества (`QUALITY_CHECK_FAILED`) повреждённый поток сбрасывается и запрос незаметно выполняется через Mistral AI.
+- **Шифрование настроек AES-256-GCM:** поддержка сквозного шифрования резервных копий пользовательских настроек и API-ключей для синхронизации через Google Drive и быстрого восстановления.
+- **Устранение ошибок окружения:** исправлено обращение к `storage` в журнале ошибок при тестировании, обеспечена передача выбранной модели Cloudflare в исполнитель запросов.
 
 ## ✨ Что нового в 5.6.1
 
