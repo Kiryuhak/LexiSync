@@ -79,6 +79,7 @@ function getStorageApi() {
 
 export async function getErrorLogs(): Promise<ErrorLogEntry[]> {
     const api = getStorageApi();
+    if (!api?.storage?.local) return [];
     try {
         const stored = await api.storage.local.get({ [LOG_STORAGE_KEY]: [] });
         const list = Array.isArray(stored[LOG_STORAGE_KEY]) ? stored[LOG_STORAGE_KEY] : [];
@@ -99,6 +100,7 @@ export async function recordErrorLog(entry: {
     knownKeys?: string[];
 }): Promise<void> {
     const api = getStorageApi();
+    if (!api?.storage?.local) return;
     try {
         const knownKeys = entry.knownKeys || [];
         const sanitizedMsg = sanitizeLogMessage(entry.message, knownKeys);
@@ -126,6 +128,7 @@ export async function recordErrorLog(entry: {
 
 export async function clearErrorLogs(): Promise<void> {
     const api = getStorageApi();
+    if (!api?.storage?.local) return;
     try {
         await api.storage.local.set({ [LOG_STORAGE_KEY]: [] });
     } catch (error) {

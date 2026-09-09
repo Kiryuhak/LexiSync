@@ -231,6 +231,12 @@ export function getFallbackNotification(
         if (code === 'RATE_LIMIT' || code === 'QUOTA_EXCEEDED') {
             return t('fallbackToMistralDueToRateLimit', 'Лимит Cloudflare достигнут. Запрос выполнен через Mistral.');
         }
+        if (code === 'QUALITY_CHECK_FAILED') {
+            return t(
+                'fallbackDueToQuality',
+                'Ответ Cloudflare не прошёл проверку качества. Запрос выполнен через Mistral.',
+            );
+        }
         return t('fallbackToMistralDueToOutage', 'Сервис Cloudflare временно недоступен. Использован Mistral.');
     }
     return '';
@@ -334,6 +340,7 @@ export async function executeAiStreamRequest(options: AiRequestOptions): Promise
                     options.settings,
                     providerSignal,
                     onProviderChunk,
+                    provider === 'cloudflare' ? options.cloudflareModel : undefined,
                 );
             },
         );

@@ -20,6 +20,7 @@ export type AiErrorCode =
     | 'INVALID_RESPONSE'
     | 'INVALID_REQUEST'
     | 'INVALID_CONFIG'
+    | 'QUALITY_CHECK_FAILED'
     | 'UNKNOWN_ERROR';
 
 export class AiProviderError extends Error {
@@ -36,11 +37,18 @@ export class AiProviderError extends Error {
     }
 
     get isFallbackEligible(): boolean {
-        // Fallback разрешён только для 429, тайм-аута, ошибки сети и 5xx.
+        // Fallback разрешён только для 429, тайм-аута, ошибки сети, 5xx и сбоя проверки качества (sanity check).
         // Запрещен для AUTH_ERROR (401, 403), ACCOUNT_ERROR (404), INVALID_REQUEST (400) и INVALID_CONFIG.
         return (
             this.retryable &&
-            ['RATE_LIMIT', 'QUOTA_EXCEEDED', 'SERVER_ERROR', 'NETWORK_ERROR', 'TIMEOUT'].includes(this.code)
+            [
+                'RATE_LIMIT',
+                'QUOTA_EXCEEDED',
+                'SERVER_ERROR',
+                'NETWORK_ERROR',
+                'TIMEOUT',
+                'QUALITY_CHECK_FAILED',
+            ].includes(this.code)
         );
     }
 }
@@ -83,6 +91,7 @@ export interface AIProvider {
         settings: MistralSettings,
         signal: AbortSignal,
         onChunk: (chunk: string) => void,
+        model?: string,
     ): Promise<AIResponse>;
 }
 
