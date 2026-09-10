@@ -8,13 +8,14 @@ import {
     withGoogleDriveAuth,
 } from '../src/google-drive-auth';
 import { setStoredGoogleDriveToken } from '../src/secret-store';
+import { GOOGLE_DRIVE_ERROR } from '../src/google-drive-errors';
 
 describe('google-drive-auth: авторизация без ручных токенов', () => {
     let mockStorage: Record<string, unknown>;
     const chromeManifest = {
         manifest_version: 3 as const,
         name: 'LexiSync',
-        version: '5.6.3',
+        version: '5.6.4',
         oauth2: { client_id: 'chrome-client-id', scopes: [] },
     };
 
@@ -56,7 +57,7 @@ describe('google-drive-auth: авторизация без ручных токе
         });
         const operation = vi
             .fn<(token: string) => Promise<string>>()
-            .mockRejectedValueOnce(new Error('UNAUTHORIZED'))
+            .mockRejectedValueOnce(new Error(GOOGLE_DRIVE_ERROR.AUTH))
             .mockResolvedValueOnce('готово');
 
         await expect(withGoogleDriveAuth(operation)).resolves.toBe('готово');
@@ -68,12 +69,31 @@ describe('google-drive-auth: авторизация без ручных токе
         );
     });
 
+    test('при Google Drive 403 не удаляет рабочий токен и не повторяет OAuth', async () => {
+        const launchWebAuthFlow = vi.fn();
+        Object.assign(chrome.runtime, {
+            getManifest: () => ({
+                manifest_version: 3,
+                name: 'LexiSync',
+                version: '5.6.4',
+                browser_specific_settings: { gecko: { id: 'lexisync@kiryuhak.dev' } },
+            }),
+        });
+        Object.assign(chrome.identity, { launchWebAuthFlow });
+        await setStoredGoogleDriveToken('working-token');
+        const operation = vi.fn().mockRejectedValue(new Error(GOOGLE_DRIVE_ERROR.FORBIDDEN));
+
+        await expect(withGoogleDriveAuth(operation)).rejects.toThrow(GOOGLE_DRIVE_ERROR.FORBIDDEN);
+        expect(operation).toHaveBeenCalledTimes(1);
+        expect(launchWebAuthFlow).not.toHaveBeenCalled();
+    });
+
     test('Firefox открывает OAuth и сохраняет полученный токен в приватном хранилище', async () => {
         Object.assign(chrome.runtime, {
             getManifest: () => ({
                 manifest_version: 3,
                 name: 'LexiSync',
-                version: '5.6.3',
+                version: '5.6.4',
                 browser_specific_settings: { gecko: { id: 'lexisync@kiryuhak.dev' } },
             }),
         });

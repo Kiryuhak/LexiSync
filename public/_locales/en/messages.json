@@ -2404,7 +2404,28 @@
         "message": "Network error connecting to Google Drive. Check your connection."
     },
     "backupUnauthorized": {
-        "message": "Could not sign in to Google Drive. Try connecting again."
+        "message": "You need to sign in to Google Drive again."
+    },
+    "googleDriveAuthError": {
+        "message": "You need to sign in to Google Drive again."
+    },
+    "googleDriveApiNotEnabled": {
+        "message": "Google Drive API is not enabled for this project."
+    },
+    "googleDriveInsufficientPermissions": {
+        "message": "Not enough permission to access the backup."
+    },
+    "googleDriveRateLimit": {
+        "message": "Google Drive temporarily limited requests. Try again later."
+    },
+    "googleDriveForbidden": {
+        "message": "Google Drive rejected the request. Check access to the backup."
+    },
+    "googleDriveTimeout": {
+        "message": "Google Drive did not respond in time. Try again later."
+    },
+    "googleDriveApiError": {
+        "message": "Google Drive is temporarily unavailable. Try again later."
     },
     "cloudBackupSectionTitle": {
         "message": "Secure Cloud Sync (Google Drive)"

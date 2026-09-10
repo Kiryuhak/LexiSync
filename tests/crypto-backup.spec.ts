@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import {
     bytesToBase64,
     base64ToBytes,
@@ -15,6 +15,11 @@ import {
     findDriveBackupFile,
     uploadBackupToGoogleDrive,
 } from '../src/google-drive-sync';
+import { describeGoogleDriveError, GOOGLE_DRIVE_ERROR } from '../src/google-drive-errors';
+
+afterEach(() => {
+    vi.useRealTimers();
+});
 
 describe('crypto-backup: Zero-Knowledge Web Crypto', () => {
     test('bytesToBase64 и base64ToBytes корректно конвертируют произвольные байты', () => {
@@ -192,6 +197,17 @@ describe('crypto-backup: Полный цикл создания и восста�
 describe('google-drive-sync: Google Drive AppData клиент', () => {
     let mockStorage: Record<string, unknown> = {};
 
+    const googleErrorResponse = (status: number, reason: string): Response =>
+        new Response(
+            JSON.stringify({
+                error: {
+                    status: status === 401 ? 'UNAUTHENTICATED' : 'PERMISSION_DENIED',
+                    errors: [{ reason }],
+                },
+            }),
+            { status, headers: { 'Content-Type': 'application/json' } },
+        );
+
     beforeEach(() => {
         mockStorage = {};
         vi.stubGlobal('chrome', {
@@ -251,14 +267,83 @@ describe('google-drive-sync: Google Drive AppData клиент', () => {
         expect(result.size).toBe(1024);
     });
 
-    test('findDriveBackupFile выбрасывает UNAUTHORIZED при 401 от Google API', async () => {
-        const fetchMock = vi.fn().mockResolvedValue({
-            ok: false,
-            status: 401,
-        });
+    test('findDriveBackupFile классифицирует 401 как AUTH_ERROR', async () => {
+        const fetchMock = vi.fn().mockResolvedValue(googleErrorResponse(401, 'authError'));
         vi.stubGlobal('fetch', fetchMock);
 
-        await expect(findDriveBackupFile('expired-token')).rejects.toThrow('UNAUTHORIZED');
+        await expect(findDriveBackupFile('expired-token')).rejects.toThrow(GOOGLE_DRIVE_ERROR.AUTH);
+        expect(describeGoogleDriveError(new Error(GOOGLE_DRIVE_ERROR.AUTH))).toBe(
+            'Требуется повторный вход в Google Drive.',
+        );
+    });
+
+    test.each([
+        ['invalidCredentials', GOOGLE_DRIVE_ERROR.AUTH, 'Требуется повторный вход в Google Drive.'],
+        ['accessNotConfigured', GOOGLE_DRIVE_ERROR.API_NOT_ENABLED, 'Google Drive API не включён для проекта.'],
+        [
+            'insufficientPermissions',
+            GOOGLE_DRIVE_ERROR.INSUFFICIENT_PERMISSIONS,
+            'Недостаточно разрешений для доступа к резервной копии.',
+        ],
+        ['quotaExceeded', GOOGLE_DRIVE_ERROR.RATE_LIMIT, 'Google Drive временно ограничил запросы. Попробуйте позже.'],
+        [
+            'rateLimitExceeded',
+            GOOGLE_DRIVE_ERROR.RATE_LIMIT,
+            'Google Drive временно ограничил запросы. Попробуйте позже.',
+        ],
+        [
+            'userRateLimitExceeded',
+            GOOGLE_DRIVE_ERROR.RATE_LIMIT,
+            'Google Drive временно ограничил запросы. Попробуйте позже.',
+        ],
+    ])('классифицирует Google 403 reason=%s', async (reason, expectedCode, expectedMessage) => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(googleErrorResponse(403, reason)));
+
+        await expect(findDriveBackupFile('valid-token')).rejects.toThrow(expectedCode);
+        expect(describeGoogleDriveError(new Error(expectedCode))).toBe(expectedMessage);
+    });
+
+    test('неизвестный 403 получает нейтральный DRIVE_FORBIDDEN', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(googleErrorResponse(403, 'domainPolicy')));
+
+        await expect(findDriveBackupFile('valid-token')).rejects.toThrow(GOOGLE_DRIVE_ERROR.FORBIDDEN);
+        expect(describeGoogleDriveError(new Error(GOOGLE_DRIVE_ERROR.FORBIDDEN))).toBe(
+            'Google Drive отклонил запрос. Проверьте доступ к резервной копии.',
+        );
+    });
+
+    test('повреждённый JSON ошибки Google безопасно классифицируется как DRIVE_FORBIDDEN', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('<html>error</html>', { status: 403 })));
+
+        await expect(findDriveBackupFile('valid-token')).rejects.toThrow(GOOGLE_DRIVE_ERROR.FORBIDDEN);
+    });
+
+    test('сетевая ошибка Google Drive классифицируется отдельно', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+
+        await expect(findDriveBackupFile('valid-token')).rejects.toThrow(GOOGLE_DRIVE_ERROR.NETWORK);
+        expect(describeGoogleDriveError(new Error(GOOGLE_DRIVE_ERROR.NETWORK))).toBe(
+            'Сетевая ошибка при обращении к Google Drive. Проверьте соединение.',
+        );
+    });
+
+    test('зависший запрос Google Drive завершается контролируемым TIMEOUT', async () => {
+        vi.useFakeTimers();
+        vi.stubGlobal(
+            'fetch',
+            vi.fn((_url: string, init?: RequestInit) => {
+                return new Promise<Response>((_resolve, reject) => {
+                    init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+                });
+            }),
+        );
+
+        const expectation = expect(findDriveBackupFile('valid-token')).rejects.toThrow(GOOGLE_DRIVE_ERROR.TIMEOUT);
+        await vi.advanceTimersByTimeAsync(20_000);
+        await expectation;
+        expect(describeGoogleDriveError(new Error(GOOGLE_DRIVE_ERROR.TIMEOUT))).toBe(
+            'Google Drive не ответил вовремя. Попробуйте позже.',
+        );
     });
 
     test('downloadBackupFromGoogleDrive успешно загружает файл', async () => {

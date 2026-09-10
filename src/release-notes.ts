@@ -36,6 +36,31 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.6.4',
+        '2026-09-10',
+        'fixed',
+        'Надёжное резервное копирование Google Drive',
+        'Reliable Google Drive backup',
+        [
+            [
+                'Ошибки авторизации, отключённый Drive API, недостаточные разрешения и ограничения запросов теперь показываются отдельно.',
+                'Authorization errors, a disabled Drive API, insufficient permissions, and request limits are now shown separately.',
+            ],
+            [
+                'Ответы Google Drive 403 больше не вызывают повторный вход без необходимости.',
+                'Google Drive 403 responses no longer trigger unnecessary sign-in attempts.',
+            ],
+            [
+                'Зависший облачный запрос завершается контролируемым тайм-аутом с понятным сообщением.',
+                'A stalled cloud request now ends with a controlled timeout and a clear message.',
+            ],
+            [
+                'Firefox OAuth и восстановление зашифрованной копии подтверждены реальным runtime-тестом.',
+                'Firefox OAuth and encrypted backup restore were confirmed with a real runtime test.',
+            ],
+        ],
+    ),
+    note(
         '5.6.3',
         '2026-09-10',
         'improved',

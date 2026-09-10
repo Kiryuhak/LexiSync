@@ -2404,7 +2404,28 @@
         "message": "Сетевая ошибка при обращении к Google Drive. Проверьте соединение."
     },
     "backupUnauthorized": {
-        "message": "Не удалось войти в Google Drive. Повторите подключение."
+        "message": "Требуется повторный вход в Google Drive."
+    },
+    "googleDriveAuthError": {
+        "message": "Требуется повторный вход в Google Drive."
+    },
+    "googleDriveApiNotEnabled": {
+        "message": "Google Drive API не включён для проекта."
+    },
+    "googleDriveInsufficientPermissions": {
+        "message": "Недостаточно разрешений для доступа к резервной копии."
+    },
+    "googleDriveRateLimit": {
+        "message": "Google Drive временно ограничил запросы. Попробуйте позже."
+    },
+    "googleDriveForbidden": {
+        "message": "Google Drive отклонил запрос. Проверьте доступ к резервной копии."
+    },
+    "googleDriveTimeout": {
+        "message": "Google Drive не ответил вовремя. Попробуйте позже."
+    },
+    "googleDriveApiError": {
+        "message": "Google Drive временно недоступен. Попробуйте позже."
     },
     "cloudBackupSectionTitle": {
         "message": "Защищённая облачная синхронизация (Google Drive)"

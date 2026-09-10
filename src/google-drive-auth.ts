@@ -1,4 +1,5 @@
 import { getStoredGoogleDriveToken, setStoredGoogleDriveToken } from './secret-store';
+import { GOOGLE_DRIVE_ERROR } from './google-drive-errors';
 
 declare const __LEXISYNC_GOOGLE_DRIVE_FIREFOX_CLIENT_ID__: string;
 
@@ -161,7 +162,7 @@ export async function withGoogleDriveAuth<T>(operation: (token: string) => Promi
     try {
         return await operation(token);
     } catch (error) {
-        if (!(error instanceof Error) || error.message !== 'UNAUTHORIZED') throw error;
+        if (!(error instanceof Error) || error.message !== GOOGLE_DRIVE_ERROR.AUTH) throw error;
     }
 
     await Promise.all([removeChromeCachedToken(token), setStoredGoogleDriveToken('')]);

@@ -1,7 +1,9 @@
 import { logger } from './logger';
+import { GOOGLE_DRIVE_ERROR } from './google-drive-errors';
 
 const GOOGLE_DRIVE_BACKUP_FILENAME = 'lexisync_backup.enc';
 const STORAGE_KEY_DRIVE_LAST_SYNC = 'googleDriveLastSync';
+const GOOGLE_DRIVE_REQUEST_TIMEOUT_MS = 20_000;
 
 export interface GoogleDriveBackupInfo {
     exists: boolean;
@@ -16,6 +18,62 @@ export interface GoogleDriveSyncStatus {
     backupInfo?: GoogleDriveBackupInfo;
 }
 
+async function readGoogleDriveErrorReasons(response: Response): Promise<string[]> {
+    try {
+        const body = (await response.clone().json()) as {
+            error?:
+                | string
+                | {
+                      status?: string;
+                      errors?: Array<{ reason?: string }>;
+                  };
+        };
+        if (typeof body.error === 'string') return [body.error];
+        return [body.error?.status, ...(body.error?.errors?.map((entry) => entry.reason) || [])].filter(
+            (value): value is string => typeof value === 'string' && value.length > 0,
+        );
+    } catch {
+        return [];
+    }
+}
+
+async function throwGoogleDriveResponseError(response: Response): Promise<never> {
+    if (response.status === 401) throw new Error(GOOGLE_DRIVE_ERROR.AUTH);
+
+    const reasons = (await readGoogleDriveErrorReasons(response)).map((reason) => reason.toLowerCase());
+    if (
+        reasons.some((reason) =>
+            ['autherror', 'invalidcredentials', 'invalid_token', 'unauthenticated'].includes(reason),
+        )
+    ) {
+        throw new Error(GOOGLE_DRIVE_ERROR.AUTH);
+    }
+    if (reasons.includes('accessnotconfigured')) throw new Error(GOOGLE_DRIVE_ERROR.API_NOT_ENABLED);
+    if (reasons.includes('insufficientpermissions')) throw new Error(GOOGLE_DRIVE_ERROR.INSUFFICIENT_PERMISSIONS);
+    if (
+        response.status === 429 ||
+        reasons.some((reason) => ['quotaexceeded', 'ratelimitexceeded', 'userratelimitexceeded'].includes(reason))
+    ) {
+        throw new Error(GOOGLE_DRIVE_ERROR.RATE_LIMIT);
+    }
+    if (response.status === 403) throw new Error(GOOGLE_DRIVE_ERROR.FORBIDDEN);
+    throw new Error(`DRIVE_API_ERROR: ${response.status}`);
+}
+
+async function fetchGoogleDrive(url: string, init: RequestInit = {}): Promise<Response> {
+    const controller = new AbortController();
+    const timeout = globalThis.setTimeout(() => controller.abort(), GOOGLE_DRIVE_REQUEST_TIMEOUT_MS);
+    try {
+        return await fetch(url, { ...init, signal: controller.signal });
+    } catch (error) {
+        if (controller.signal.aborted) throw new Error(GOOGLE_DRIVE_ERROR.TIMEOUT, { cause: error });
+        logger.error('Сетевая ошибка при обращении к Google Drive API:', error);
+        throw new Error(GOOGLE_DRIVE_ERROR.NETWORK, { cause: error });
+    } finally {
+        globalThis.clearTimeout(timeout);
+    }
+}
+
 export async function findDriveBackupFile(token: string): Promise<GoogleDriveBackupInfo> {
     const cleanToken = token.trim();
     if (!cleanToken) {
@@ -25,23 +83,14 @@ export async function findDriveBackupFile(token: string): Promise<GoogleDriveBac
     const query = encodeURIComponent(`name = '${GOOGLE_DRIVE_BACKUP_FILENAME}' and trashed = false`);
     const url = `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${query}&fields=files(id,name,modifiedTime,size)`;
 
-    let response: Response;
-    try {
-        response = await fetch(url, {
-            headers: {
-                Authorization: `Bearer ${cleanToken}`,
-            },
-        });
-    } catch (err) {
-        logger.error('Сетевая ошибка при запросе к Google Drive API:', err);
-        throw new Error('NETWORK_ERROR', { cause: err });
-    }
+    const response = await fetchGoogleDrive(url, {
+        headers: {
+            Authorization: `Bearer ${cleanToken}`,
+        },
+    });
 
     if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
-            throw new Error('UNAUTHORIZED');
-        }
-        throw new Error(`DRIVE_API_ERROR: ${response.status}`);
+        await throwGoogleDriveResponseError(response);
     }
 
     const data = (await response.json()) as {
@@ -75,23 +124,14 @@ export async function downloadBackupFromGoogleDrive(
     }
 
     const url = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(info.fileId)}?alt=media`;
-    let response: Response;
-    try {
-        response = await fetch(url, {
-            headers: {
-                Authorization: `Bearer ${activeToken}`,
-            },
-        });
-    } catch (err) {
-        logger.error('Сетевая ошибка при скачивании из Google Drive:', err);
-        throw new Error('NETWORK_ERROR', { cause: err });
-    }
+    const response = await fetchGoogleDrive(url, {
+        headers: {
+            Authorization: `Bearer ${activeToken}`,
+        },
+    });
 
     if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
-            throw new Error('UNAUTHORIZED');
-        }
-        throw new Error(`DRIVE_API_ERROR: ${response.status}`);
+        await throwGoogleDriveResponseError(response);
     }
 
     const content = await response.text();
@@ -117,26 +157,17 @@ export async function uploadBackupToGoogleDrive(
     if (info.exists && info.fileId) {
         // Обновляем существующий файл через PATCH
         const url = `https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(info.fileId)}?uploadType=media`;
-        let response: Response;
-        try {
-            response = await fetch(url, {
-                method: 'PATCH',
-                headers: {
-                    Authorization: `Bearer ${activeToken}`,
-                    'Content-Type': 'application/json; charset=UTF-8',
-                },
-                body: encryptedJson,
-            });
-        } catch (err) {
-            logger.error('Сетевая ошибка при обновлении бэкапа в Google Drive:', err);
-            throw new Error('NETWORK_ERROR', { cause: err });
-        }
+        const response = await fetchGoogleDrive(url, {
+            method: 'PATCH',
+            headers: {
+                Authorization: `Bearer ${activeToken}`,
+                'Content-Type': 'application/json; charset=UTF-8',
+            },
+            body: encryptedJson,
+        });
 
         if (!response.ok) {
-            if (response.status === 401 || response.status === 403) {
-                throw new Error('UNAUTHORIZED');
-            }
-            throw new Error(`DRIVE_API_ERROR: ${response.status}`);
+            await throwGoogleDriveResponseError(response);
         }
 
         const data = (await response.json()) as { id: string; modifiedTime?: string };
@@ -165,26 +196,17 @@ export async function uploadBackupToGoogleDrive(
         closeDelimiter;
 
     const uploadUrl = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
-    let createResponse: Response;
-    try {
-        createResponse = await fetch(uploadUrl, {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${activeToken}`,
-                'Content-Type': `multipart/related; boundary=${boundary}`,
-            },
-            body: multipartBody,
-        });
-    } catch (err) {
-        logger.error('Сетевая ошибка при создании файла в Google Drive:', err);
-        throw new Error('NETWORK_ERROR', { cause: err });
-    }
+    const createResponse = await fetchGoogleDrive(uploadUrl, {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${activeToken}`,
+            'Content-Type': `multipart/related; boundary=${boundary}`,
+        },
+        body: multipartBody,
+    });
 
     if (!createResponse.ok) {
-        if (createResponse.status === 401 || createResponse.status === 403) {
-            throw new Error('UNAUTHORIZED');
-        }
-        throw new Error(`DRIVE_API_ERROR: ${createResponse.status}`);
+        await throwGoogleDriveResponseError(createResponse);
     }
 
     const createData = (await createResponse.json()) as { id: string; modifiedTime?: string };

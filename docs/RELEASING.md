@@ -22,7 +22,7 @@ npm run screenshots:store
 
 1. Настроить публичные repository variables `GOOGLE_DRIVE_CHROME_CLIENT_ID` и `GOOGLE_DRIVE_FIREFOX_CLIENT_ID` по [руководству Google Drive OAuth](GOOGLE-DRIVE-OAUTH.md).
 2. Выполнить локально `npm run test:all`.
-3. Создать и отправить тег, совпадающий с версией, например `v5.6.3`.
+3. Создать и отправить тег, совпадающий с версией, например `v5.6.4`.
 4. Workflow `Релиз LexiSync` повторно проверит проект, один раз соберёт архивы и создаст GitHub Release.
 
 Проверенные архивы сохраняются как внутренний artifact workflow. Задачи публикации скачивают именно эти файлы,

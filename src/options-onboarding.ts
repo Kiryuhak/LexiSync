@@ -3,6 +3,7 @@ import { validateApiKey, validateCloudflareCredentials } from './ai-settings-cli
 import { logger } from './logger';
 import { restoreEncryptedBackup } from './crypto-backup';
 import { downloadBackupFromGoogleDrive } from './google-drive-sync';
+import { describeGoogleDriveError } from './google-drive-errors';
 import { isGoogleDriveAuthConfigured, withGoogleDriveAuth } from './google-drive-auth';
 import { getStoredApiKey, getStoredCloudflareCredentials } from './secret-store';
 
@@ -161,33 +162,8 @@ export async function setupOnboarding(options: OnboardingOptions): Promise<void>
                     'backupFileNotFound',
                     'Резервная копия не найдена в Google Drive (папка приложения пуста).',
                 );
-            } else if (
-                msg === 'UNAUTHORIZED' ||
-                msg === 'NO_TOKEN' ||
-                msg === 'AUTH_FAILED' ||
-                msg === 'AUTH_STATE_MISMATCH'
-            ) {
-                syncStatus.textContent = t(
-                    'backupUnauthorized',
-                    'Не удалось войти в Google Drive. Повторите подключение.',
-                );
-            } else if (msg === 'OAUTH_NOT_CONFIGURED') {
-                syncStatus.textContent = t('googleDriveUnavailable', 'Вход Google не настроен в этой сборке');
-            } else if (msg === 'AUTH_CANCELLED') {
-                syncStatus.textContent = t(
-                    'googleDriveAuthCancelled',
-                    'Вход в Google Drive отменён. Попробуйте ещё раз.',
-                );
-            } else if (msg === 'NETWORK_ERROR') {
-                syncStatus.textContent = t(
-                    'backupNetworkError',
-                    'Сетевая ошибка при обращении к Google Drive. Проверьте соединение.',
-                );
             } else {
-                syncStatus.textContent = t(
-                    'backupCorrupted',
-                    'Файл резервной копии повреждён или имеет неизвестный формат.',
-                );
+                syncStatus.textContent = describeGoogleDriveError(error);
             }
             syncStatus.dataset.kind = 'error';
         } finally {

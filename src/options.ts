@@ -41,6 +41,7 @@ import { hasAllSitesAccess, requestAllSitesAccess, removeAllSitesAccess } from '
 import { setupOnboarding } from './options-onboarding';
 import { createEncryptedBackup, restoreEncryptedBackup } from './crypto-backup';
 import { downloadBackupFromGoogleDrive, uploadBackupToGoogleDrive } from './google-drive-sync';
+import { describeGoogleDriveError } from './google-drive-errors';
 import {
     disconnectGoogleDrive,
     getGoogleDriveAccessToken,
@@ -1457,28 +1458,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (restoreFromDriveBtn) restoreFromDriveBtn.disabled = unavailable;
     };
 
-    const describeDriveError = (error: unknown): string => {
-        const code = error instanceof Error ? error.message : '';
-        if (code === 'OAUTH_NOT_CONFIGURED') {
-            return t('googleDriveUnavailable', 'Вход Google не настроен в этой сборке');
-        }
-        if (code === 'AUTH_CANCELLED') {
-            return t('googleDriveAuthCancelled', 'Вход в Google Drive отменён. Попробуйте ещё раз.');
-        }
-        if (
-            code === 'AUTH_STATE_MISMATCH' ||
-            code === 'AUTH_FAILED' ||
-            code === 'UNAUTHORIZED' ||
-            code === 'NO_TOKEN'
-        ) {
-            return t('backupUnauthorized', 'Не удалось войти в Google Drive. Повторите подключение.');
-        }
-        if (code === 'NETWORK_ERROR') {
-            return t('backupNetworkError', 'Сетевая ошибка при обращении к Google Drive. Проверьте соединение.');
-        }
-        return t('backupCorrupted', 'Файл резервной копии повреждён или имеет неизвестный формат.');
-    };
-
     const authConfigured = isGoogleDriveAuthConfigured();
     setDriveConnectionState(false, !authConfigured);
     if (authConfigured) {
@@ -1501,7 +1480,7 @@ document.addEventListener('DOMContentLoaded', () => {
             );
         } catch (error) {
             logger.error('Ошибка подключения Google Drive:', error);
-            setDriveStatus(describeDriveError(error), 'error');
+            setDriveStatus(describeGoogleDriveError(error), 'error');
             setDriveConnectionState(false, error instanceof Error && error.message === 'OAUTH_NOT_CONFIGURED');
         } finally {
             connectGoogleDriveBtn.textContent = originalText;
@@ -1542,7 +1521,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setDriveStatus(t('backupUploadedSuccess', 'Резервная копия успешно сохранена в Google Drive!'), 'success');
         } catch (error) {
             logger.error('Ошибка сохранения бэкапа в Google Drive:', error);
-            setDriveStatus(describeDriveError(error), 'error');
+            setDriveStatus(describeGoogleDriveError(error), 'error');
         } finally {
             saveToDriveBtn.disabled = false;
             saveToDriveBtn.textContent = originalText;
@@ -1584,7 +1563,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     'error',
                 );
             } else {
-                setDriveStatus(describeDriveError(error), 'error');
+                setDriveStatus(describeGoogleDriveError(error), 'error');
             }
         } finally {
             restoreFromDriveBtn.disabled = false;
