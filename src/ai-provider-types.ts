@@ -21,7 +21,16 @@ export type AiErrorCode =
     | 'INVALID_REQUEST'
     | 'INVALID_CONFIG'
     | 'QUALITY_CHECK_FAILED'
+    | 'PROVIDERS_UNAVAILABLE'
     | 'UNKNOWN_ERROR';
+
+export interface AiErrorContext {
+    operation?: string;
+    model?: string;
+    attempt?: number;
+    fallbackProvider?: AiProviderType;
+    latencyMs?: number;
+}
 
 export class AiProviderError extends Error {
     constructor(
@@ -31,6 +40,7 @@ export class AiProviderError extends Error {
         readonly retryable: boolean,
         readonly status?: number,
         readonly retryAfterMs?: number,
+        readonly context: AiErrorContext = {},
     ) {
         super(message);
         this.name = 'AiProviderError';
@@ -94,6 +104,7 @@ export interface AIProvider {
         signal: AbortSignal,
         onChunk: (chunk: string) => void,
         model?: string,
+        onActivity?: () => void,
     ): Promise<AIResponse>;
 }
 
@@ -114,6 +125,8 @@ export interface AiRequestOptions {
     providerTimeoutMs?: number;
     /** Максимальная пауза между частями уже начавшегося потокового ответа. */
     providerStallTimeoutMs?: number;
+    /** Жёсткий предел одной попытки, независимый от активности потока. */
+    providerTotalTimeoutMs?: number;
 }
 
 export interface AiExecutionResult {
@@ -121,4 +134,7 @@ export interface AiExecutionResult {
     fallbackOccurred: boolean;
     fallbackReason?: string;
     fallbackNotification?: string;
+    usage?: AIResponse['usage'];
+    model?: string;
+    attempts: number;
 }

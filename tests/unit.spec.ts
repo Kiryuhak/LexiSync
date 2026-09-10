@@ -88,9 +88,9 @@ test('безопасно нормализует поисковик и повре
 });
 
 test('история обновлений содержит все выпуски и поддерживает поиск', () => {
-    expect(RELEASE_NOTES[0].version).toBe('5.6.2');
+    expect(RELEASE_NOTES[0].version).toBe('5.6.3');
     expect(RELEASE_NOTES.at(-1)?.version).toBe('2.5');
-    expect(RELEASE_NOTES).toHaveLength(62);
+    expect(RELEASE_NOTES).toHaveLength(63);
     expect(new Set(RELEASE_NOTES.map((release) => release.version)).size).toBe(RELEASE_NOTES.length);
     expect(filterReleaseNotes(RELEASE_NOTES, 'MagicOS', 'ru').map((release) => release.version)).toEqual([
         '5.3.4',
@@ -102,7 +102,10 @@ test('история обновлений содержит все выпуски
         '5.4.0',
         '5.2.3',
     ]);
-    expect(filterReleaseNotes(RELEASE_NOTES, 'streaming', 'en').map((release) => release.version)).toEqual(['2.15.0']);
+    expect(filterReleaseNotes(RELEASE_NOTES, 'streaming', 'en').map((release) => release.version)).toEqual([
+        '5.6.3',
+        '2.15.0',
+    ]);
     expect(resolveReleaseNotesLocale('ru-RU')).toBe('ru');
     expect(resolveReleaseNotesLocale('de-DE')).toBe('en');
 });
@@ -690,49 +693,31 @@ test('показывает точную причину 401, если срок д
     }
 });
 
-test('один раз повторяет потоковый запрос, когда новый ключ уже работает на endpoint моделей', async () => {
-    const encoder = new TextEncoder();
-    const stream = new ReadableStream({
-        start(controller) {
-            controller.enqueue(
-                encoder.encode('data: {"choices":[{"delta":{"content":"Новый ключ работает"}}]}\n\ndata: [DONE]\n\n'),
-            );
-            controller.close();
-        },
-    });
-    const fetchMock = vi
-        .fn()
-        .mockResolvedValueOnce(
-            new Response(JSON.stringify({ message: 'Unauthorized' }), {
-                status: 401,
-                headers: { 'content-type': 'application/json' },
-            }),
-        )
-        .mockResolvedValueOnce(new Response(JSON.stringify({ data: [] }), { status: 200 }))
-        .mockResolvedValueOnce(new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } }));
+test('не выполняет скрытый повтор потокового запроса после ошибки авторизации', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+        new Response(JSON.stringify({ message: 'Unauthorized' }), {
+            status: 401,
+            headers: { 'content-type': 'application/json' },
+        }),
+    );
     vi.stubGlobal('fetch', fetchMock);
-    const chunks: string[] = [];
     try {
-        await streamText(
-            { action: 'callMistral', text: 'Тест', mode: 'spellcheck' },
-            'new-key',
-            {
-                selectedTone: 'business',
-                sendPageContext: false,
-                personalDictionary: [],
-                glossary: [],
-                aiMode: 'quality',
-            },
-            new AbortController().signal,
-            (chunk) => chunks.push(chunk),
-        );
-        expect(chunks.join('')).toBe('Новый ключ работает');
-        expect(fetchMock).toHaveBeenCalledTimes(3);
-        expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([
-            'https://api.mistral.ai/v1/chat/completions',
-            'https://api.mistral.ai/v1/models',
-            'https://api.mistral.ai/v1/chat/completions',
-        ]);
+        await expect(
+            streamText(
+                { action: 'callMistral', text: 'Тест', mode: 'spellcheck' },
+                'new-key',
+                {
+                    selectedTone: 'business',
+                    sendPageContext: false,
+                    personalDictionary: [],
+                    glossary: [],
+                    aiMode: 'quality',
+                },
+                new AbortController().signal,
+                () => undefined,
+            ),
+        ).rejects.toMatchObject({ status: 401 });
+        expect(fetchMock).toHaveBeenCalledTimes(1);
     } finally {
         vi.unstubAllGlobals();
     }
@@ -2659,7 +2644,7 @@ test('Unit 9: Оба провайдера возвращают 429 Rate Limit �
             signal: new AbortController().signal,
             onChunk: () => undefined,
         }),
-    ).rejects.toThrow(/Лимиты всех доступных AI-провайдеров/i);
+    ).rejects.toThrow(/Оба AI-провайдера временно недоступны/i);
 
     mockFetch.mockRestore();
 });

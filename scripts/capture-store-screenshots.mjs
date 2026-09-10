@@ -94,9 +94,9 @@ const scenes = [
     {
         raw: 'privacy.png',
         output: 'lexisync-privacy-settings.png',
-        eyebrow: 'ПРИВАТНОСТЬ',
-        title: 'Ваши данные под вашим контролем',
-        description: 'Управляйте историей, контекстом страницы и исключениями для сайтов.',
+        eyebrow: 'БЕЗОПАСНАЯ СИНХРОНИЗАЦИЯ',
+        title: 'Google Drive без ручных токенов',
+        description: 'Войдите через Google и сохраните зашифрованную копию одним нажатием.',
         accent: '#087b68',
         glow: '#60c9ec',
     },
@@ -113,8 +113,8 @@ const scenes = [
         raw: 'onboarding.png',
         output: 'lexisync-quick-start.png',
         eyebrow: 'БЫСТРЫЙ СТАРТ',
-        title: 'Начните работу на русском языке',
-        description: 'Понятный мастер проведёт от первого запуска до первой команды.',
+        title: 'Восстановление без сложной настройки',
+        description: 'Войдите в Google Drive или выберите локальную резервную копию.',
         accent: '#6a50d7',
         glow: '#43c7bd',
     },
@@ -282,8 +282,10 @@ try {
             return networkFetch(input, init);
         };
     });
-    await background.evaluate(() =>
-        chrome.storage.local.set({
+    await background.evaluate(() => {
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        return chrome.storage.local.set({
             onboardingCompleted: true,
             selectedTheme: 'light',
             visualStyle: 'magicos-11',
@@ -294,8 +296,32 @@ try {
             quickActionBubbleEnabled: false,
             cloudflareModel: '@cf/zai-org/glm-4.7-flash',
             disabledSites: ['social.example', 'private.example'],
-        }),
-    );
+            usageStats: {
+                requests: 24,
+                cacheHits: 7,
+                failures: 1,
+                totalLatencyMs: 86400,
+                byMode: { spellcheck: 15, style: 6, translate: 3 },
+                estimatedInputTokens: 10320,
+                estimatedOutputTokens: 2840,
+                mistralTokens: 8220,
+                cloudflareTokens: 4940,
+                cloudflareNeurons: 31.84,
+                fallbackCount: 2,
+                daily: {
+                    [today]: {
+                        requests: 9,
+                        tokens: 4380,
+                        mistralTokens: 2730,
+                        cloudflareTokens: 1650,
+                        cloudflareNeurons: 10.72,
+                        fallbackCount: 1,
+                        failures: 1,
+                    },
+                },
+            },
+        });
+    });
 
     const initialPages = context.pages();
     for (const initialPage of initialPages) await initialPage.close();
@@ -326,13 +352,14 @@ try {
     const usage = await context.newPage();
     await usage.goto(optionsUrl);
     await usage.locator('[data-tab="ai"]').click();
-    await usage.locator('#cloudflareActiveModelDisplay').scrollIntoViewIfNeeded();
+    await usage.locator('#localUsageToday').evaluate((element) => element.scrollIntoView({ block: 'center' }));
     await captureRaw(usage, 'usage.png');
     await usage.close();
 
     const privacy = await context.newPage();
     await privacy.goto(optionsUrl);
     await privacy.locator('[data-tab="privacy"]').click();
+    await privacy.locator('#saveToDriveBtn').evaluate((element) => element.scrollIntoView({ block: 'center' }));
     await captureRaw(privacy, 'privacy.png');
     await privacy.close();
 
@@ -346,6 +373,8 @@ try {
     const onboarding = await context.newPage();
     await onboarding.goto(`${optionsUrl}?tutorial=1`);
     await onboarding.locator('[data-onboarding-step="0"].is-active').waitFor({ state: 'visible' });
+    await onboarding.locator('#onboardingNext').click();
+    await onboarding.locator('[data-onboarding-step="1"].is-active').waitFor({ state: 'visible' });
     await captureRaw(onboarding, 'onboarding.png');
     await onboarding.close();
 

@@ -1,12 +1,21 @@
 import { defineConfig } from 'wxt';
 
 const includeE2eHostAccess = process.env.LEXISYNC_E2E_HOST_ACCESS === '1';
+const googleDriveChromeClientId = process.env.LEXISYNC_GOOGLE_DRIVE_CHROME_CLIENT_ID?.trim() || '';
+const googleDriveFirefoxClientId = process.env.LEXISYNC_GOOGLE_DRIVE_FIREFOX_CLIENT_ID?.trim() || '';
 const WEB_ORIGINS = ['http://*/*', 'https://*/*'];
+
+if (process.env.LEXISYNC_REQUIRE_GOOGLE_OAUTH === '1' && (!googleDriveChromeClientId || !googleDriveFirefoxClientId)) {
+    throw new Error('Для релизной сборки требуются OAuth Client ID Google Drive для Chrome и Firefox.');
+}
 
 export default defineConfig({
     manifestVersion: 3,
     targetBrowsers: ['chrome', 'firefox'],
     vite: () => ({
+        define: {
+            __LEXISYNC_GOOGLE_DRIVE_FIREFOX_CLIENT_ID__: JSON.stringify(googleDriveFirefoxClientId),
+        },
         build: {
             // Chrome помечает preload общих чанков extension-страницы как cross-world mismatch.
             // Модули остаются разбитыми на чанки и загружаются штатными import без ложных ошибок.
@@ -17,7 +26,7 @@ export default defineConfig({
         name: '__MSG_extName__',
         description: '__MSG_extDesc__',
         default_locale: 'ru',
-        permissions: ['storage', 'activeTab', 'scripting', 'contextMenus'],
+        permissions: ['storage', 'activeTab', 'scripting', 'contextMenus', 'identity'],
         host_permissions: [
             'https://api.mistral.ai/*',
             'https://api.cloudflare.com/*',
@@ -56,6 +65,13 @@ export default defineConfig({
             },
             default_title: '__MSG_extName__',
         },
+        oauth2:
+            browser === 'chrome' && googleDriveChromeClientId
+                ? {
+                      client_id: googleDriveChromeClientId,
+                      scopes: ['https://www.googleapis.com/auth/drive.appdata'],
+                  }
+                : undefined,
         browser_specific_settings:
             browser === 'firefox'
                 ? {

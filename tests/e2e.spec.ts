@@ -1282,6 +1282,28 @@ test('Настройки сохраняют визуальный контрак�
     }
 });
 
+test('типографика отделена от справки, а Google Drive не требует ручного токена', async ({ page, context }) => {
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() => chrome.storage.local.set({ onboardingCompleted: true }));
+    const extensionId = new URL(background.url()).host;
+    await page.goto(`chrome-extension://${extensionId}/options.html`);
+
+    const spacing = await page.evaluate(() => {
+        const sandbox = document.querySelector<HTMLElement>('.typography-sandbox');
+        const instructions = document.querySelector<HTMLElement>('.instruction-box[data-settings-group="main"]');
+        if (!sandbox || !instructions) throw new Error('Блоки типографики и справки не найдены');
+        return instructions.getBoundingClientRect().top - sandbox.getBoundingClientRect().bottom;
+    });
+    expect(spacing).toBeGreaterThanOrEqual(20);
+
+    await page.locator('[data-tab="privacy"]').click();
+    await expect(page.locator('#driveTokenInput')).toHaveCount(0);
+    await expect(page.locator('.cloud-sync-auth-card')).toBeVisible();
+    await expect(page.locator('#connectGoogleDriveBtn')).toBeVisible();
+    await expect(page.locator('#saveToDriveBtn')).toContainText(/Синхронизировать|Sync/);
+});
+
 test('Компактный режим настраивается и показывает только готовый текст с основными действиями', async ({
     page,
     context,
@@ -2194,6 +2216,9 @@ test('обучение проводит нового пользователя ч
 
     await page.locator('#onboardingNext').click();
     await expect(page.locator('[data-onboarding-step="1"]')).toBeVisible();
+    await expect(page.locator('#onboardingDriveToken')).toHaveCount(0);
+    await expect(page.locator('.onboarding-sync-hint')).toBeVisible();
+    await expect(page.locator('#onboardingRestoreDrive')).toBeEnabled();
     await page.locator('#onboardingNext').click();
     const onboardingApiKey = page.locator('#onboardingApiKey');
     const onboardingSaveKey = page.locator('#onboardingSaveKey');

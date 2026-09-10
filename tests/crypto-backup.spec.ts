@@ -13,8 +13,6 @@ import {
 import {
     downloadBackupFromGoogleDrive,
     findDriveBackupFile,
-    getGoogleDriveToken,
-    setGoogleDriveToken,
     uploadBackupToGoogleDrive,
 } from '../src/google-drive-sync';
 
@@ -216,15 +214,6 @@ describe('google-drive-sync: Google Drive AppData клиент', () => {
                 },
             },
         });
-    });
-
-    test('setGoogleDriveToken и getGoogleDriveToken сохраняют и читают токен доступа', async () => {
-        expect(await getGoogleDriveToken()).toBe('');
-        await setGoogleDriveToken('ya29.test-token-12345');
-        expect(await getGoogleDriveToken()).toBe('ya29.test-token-12345');
-        expect(mockStorage).not.toHaveProperty('googleDriveToken');
-        await setGoogleDriveToken('');
-        expect(await getGoogleDriveToken()).toBe('');
     });
 
     test('findDriveBackupFile возвращает exists: false если файла в appDataFolder нет', async () => {

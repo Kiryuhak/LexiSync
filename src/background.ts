@@ -11,8 +11,8 @@ import { createSettingsFingerprint } from './request-cache';
 import { applySettingsMutation, type SettingsMutation } from './settings-store';
 import { initializeSettingsSync, restoreSyncedSettings } from './settings-transfer';
 import { formatMistralError, isRetryableMistralError, processOcr, type MistralRequest } from './mistral-client';
-import { executeAiStreamRequest } from './ai-client';
-import { AiProviderError } from './ai-provider-types';
+import { executeAiStreamRequest, getAiProviderCooldownRemaining } from './ai-client';
+import { AiProviderError, type AiExecutionResult } from './ai-provider-types';
 import { validateApiKey } from './mistral-client';
 import { validateCloudflareCredentials } from './cloudflare-client';
 import { checkProviderHealth } from './provider-health';
@@ -683,13 +683,8 @@ chrome.runtime.onConnect.addListener((port) => {
         let budgetReservationId = '';
         const inputTokens = estimateTokens(msg.text || msg.imageUrl || '');
         let outputText = '';
-        let execResult:
-            | {
-                  providerUsed?: 'mistral' | 'cloudflare';
-                  fallbackOccurred?: boolean;
-                  fallbackNotification?: string;
-              }
-            | undefined;
+        let execResult: Partial<AiExecutionResult> | undefined;
+        let failedProvider: 'mistral' | 'cloudflare' | undefined;
 
         try {
             await initializationPromise;
@@ -813,7 +808,7 @@ chrome.runtime.onConnect.addListener((port) => {
                         logger.error('Не удалось сохранить OCR-кэш:', error);
                     }
                 }
-                execResult = { providerUsed: 'mistral' };
+                execResult = { providerUsed: 'mistral', attempts: 1 };
                 if (isCurrentRequest()) safePostMessage({ status: 'done', provider: 'mistral' });
             } else {
                 const aiSettings = {
@@ -856,35 +851,7 @@ chrome.runtime.onConnect.addListener((port) => {
                         },
                     });
 
-                try {
-                    execResult = await runAiRequest(mistralApiKey, cloudflareCreds);
-                } catch (error) {
-                    if (
-                        !(error instanceof AiProviderError) ||
-                        (error.code !== 'AUTH_ERROR' && error.code !== 'ACCOUNT_ERROR')
-                    ) {
-                        throw error;
-                    }
-                    const [latestMistralKey, latestCfCreds] = await Promise.all([
-                        getStoredApiKey(),
-                        getStoredCloudflareCredentials(),
-                    ]);
-                    const keyChanged =
-                        error.provider === 'mistral'
-                            ? latestMistralKey !== mistralApiKey && Boolean(latestMistralKey)
-                            : (latestCfCreds.accountId !== cloudflareCreds.accountId ||
-                                  latestCfCreds.apiToken !== cloudflareCreds.apiToken) &&
-                              Boolean(latestCfCreds.accountId && latestCfCreds.apiToken);
-                    if (!keyChanged) throw error;
-
-                    // Сохранение ключа завершилось во время запроса. Сбрасываем возможный
-                    // незавершённый вывод и один раз повторяем команду с новым секретом.
-                    outputText = '';
-                    if (isCurrentRequest()) safePostMessage({ status: 'reset' });
-                    mistralApiKey = latestMistralKey;
-                    cloudflareCreds = latestCfCreds;
-                    execResult = await runAiRequest(mistralApiKey, cloudflareCreds);
-                }
+                execResult = await runAiRequest(mistralApiKey, cloudflareCreds);
                 if (isCurrentRequest()) {
                     safePostMessage({
                         status: 'done',
@@ -912,23 +879,51 @@ chrome.runtime.onConnect.addListener((port) => {
                     error && typeof error === 'object' && 'retryable' in error
                         ? Boolean((error as { retryable: boolean }).retryable)
                         : isRetryableMistralError(error);
+                if (error instanceof AiProviderError) failedProvider = error.provider;
                 safePostMessage({
                     status: 'error',
                     error: errorMessage,
                     retryable,
+                    provider: error instanceof AiProviderError ? error.provider : undefined,
+                    errorCode: error instanceof AiProviderError ? error.code : undefined,
+                    statusCode: error instanceof AiProviderError ? error.status : undefined,
+                    retryAfterMs: error instanceof AiProviderError ? error.retryAfterMs : undefined,
+                    cooldownMs:
+                        error instanceof AiProviderError ? getAiProviderCooldownRemaining(error.provider) : undefined,
                 });
             }
         } finally {
             clearTimeout(timeout);
             if (activeController === requestController) activeController = null;
             if (msg.mode && !budgetRejected && !servedFromCache && !cancelledBeforeReservation) {
+                const reportedUsage = execResult?.usage;
+                const hasReportedTokens =
+                    typeof reportedUsage?.promptTokens === 'number' ||
+                    typeof reportedUsage?.completionTokens === 'number' ||
+                    typeof reportedUsage?.totalTokens === 'number';
+                const canEstimateUsage = completedSuccessfully && !hasReportedTokens;
                 const usage = {
                     mode: msg.mode,
                     latencyMs: Date.now() - startedAt,
                     success: completedSuccessfully,
-                    inputTokens,
-                    outputTokens: estimateTokens(outputText),
-                    provider: execResult?.providerUsed,
+                    inputTokens:
+                        reportedUsage?.promptTokens ??
+                        (reportedUsage?.totalTokens !== undefined && reportedUsage?.completionTokens !== undefined
+                            ? Math.max(0, reportedUsage.totalTokens - reportedUsage.completionTokens)
+                            : canEstimateUsage
+                              ? inputTokens
+                              : 0),
+                    outputTokens:
+                        reportedUsage?.completionTokens ??
+                        (reportedUsage?.totalTokens !== undefined && reportedUsage?.promptTokens !== undefined
+                            ? Math.max(0, reportedUsage.totalTokens - reportedUsage.promptTokens)
+                            : reportedUsage?.totalTokens !== undefined
+                              ? reportedUsage.totalTokens
+                              : canEstimateUsage
+                                ? estimateTokens(outputText)
+                                : 0),
+                    provider: execResult?.providerUsed ?? failedProvider,
+                    neurons: reportedUsage?.neurons,
                     fallbackOccurred: execResult?.fallbackOccurred,
                 };
                 if (budgetReservationId) void finalizeBudgetReservation(budgetReservationId, usage);

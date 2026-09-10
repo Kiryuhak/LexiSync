@@ -760,8 +760,20 @@ export function executeRequest(
                 }
             } else if (response.status === 'error') {
                 requestStartedAt = null;
-                const errorMessage =
+                let errorMessage =
                     typeof response.error === 'string' ? response.error : t('unknownError', 'Неизвестная ошибка.');
+                if (
+                    typeof response.cooldownMs === 'number' &&
+                    response.cooldownMs > 0 &&
+                    !/через\s+\d|in\s+\d/iu.test(errorMessage)
+                ) {
+                    const seconds = Math.max(1, Math.ceil(response.cooldownMs / 1000));
+                    errorMessage += ` ${t(
+                        'retryAvailableIn',
+                        `Повторная попытка примерно через ${seconds} сек.`,
+                        String(seconds),
+                    )}`;
+                }
                 showRequestError(errorMessage, response.retryable === true);
             } else if (response.status === 'cancelled') {
                 requestStartedAt = null;

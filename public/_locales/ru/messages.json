@@ -201,13 +201,13 @@
         "message": "Быстрый отклик"
     },
     "aiModeFastDesc": {
-        "message": "Мгновенный ответ и минимальный расход токенов. Идеально для частой проверки ошибок."
+        "message": "До 1 536 токенов ответа, без скрытых повторов: один основной запрос и только при сбое одно резервное переключение."
     },
     "aiModeBalancedTitle": {
         "message": "Сбалансированный"
     },
     "aiModeBalancedDesc": {
-        "message": "Подбирает разумный объём ответа под задачу и сохраняет баланс качества, скорости и расхода."
+        "message": "До 3 072 токенов ответа для сложных задач; тот же безопасный предел — максимум одно резервное переключение."
     },
     "aiModeEconomyTokenCap": {
         "message": "до 1 536 токенов ответа"
@@ -227,6 +227,11 @@
     "userBudgetLimitsHint": {
         "message": "Эти пределы действуют суммарно для обоих провайдеров и защищают от случайного перерасхода."
     },
+    "providerMonthRequests": { "message": "Запросов за месяц:" },
+    "mistralTokensUsed": { "message": "Mistral, токены:" },
+    "cloudflareTokensUsed": { "message": "Cloudflare, токены:" },
+    "cloudflareNeuronsToday": { "message": "Cloudflare сегодня, нейроны:" },
+    "fallbackAndFailures": { "message": "Резерв / сбои сегодня:" },
     "budgetProfilesTitle": {
         "message": "Готовые профили:"
     },
@@ -1055,8 +1060,48 @@
     "ocrNoText": {
         "message": "Mistral OCR не обнаружил текст в выбранной области."
     },
-    "emptyStream": {
+    "mistralEmptyResponse": {
         "message": "Mistral вернул пустой поток данных."
+    },
+    "cloudflareEmptyResponse": {
+        "message": "Cloudflare Workers AI вернул пустой поток данных."
+    },
+    "mistralInvalidStream": {
+        "message": "Mistral вернул повреждённые потоковые данные."
+    },
+    "cloudflareInvalidStream": {
+        "message": "Cloudflare Workers AI вернул повреждённые потоковые данные."
+    },
+    "mistralIncompleteStream": {
+        "message": "Ответ Mistral прервался до завершения. Повторите запрос."
+    },
+    "cloudflareIncompleteStream": {
+        "message": "Ответ Cloudflare Workers AI прервался до завершения. Повторите запрос."
+    },
+    "providersTemporarilyUnavailable": {
+        "message": "AI-провайдер временно недоступен. Повторите запрос примерно через $1 сек.",
+        "placeholders": { "seconds": { "content": "$1" } }
+    },
+    "allProvidersUnavailableDetailed": {
+        "message": "Оба AI-провайдера временно недоступны. Mistral: $1. Cloudflare: $2. Повторите запрос примерно через $3 сек.",
+        "placeholders": {
+            "mistral_reason": { "content": "$1" },
+            "cloudflare_reason": { "content": "$2" },
+            "seconds": { "content": "$3" }
+        }
+    },
+    "providerReasonRateLimit": { "message": "лимит временно достигнут" },
+    "providerReasonTimeout": { "message": "сервис не ответил вовремя" },
+    "providerReasonNetwork": { "message": "ошибка сети" },
+    "providerReasonServer": { "message": "временный сбой сервера" },
+    "providerReasonInvalidResponse": { "message": "некорректный ответ сервиса" },
+    "providerReasonUnavailable": { "message": "временная недоступность" },
+    "retryAvailableIn": {
+        "message": "Повторная попытка примерно через $1 сек.",
+        "placeholders": { "seconds": { "content": "$1" } }
+    },
+    "aiRequestBudgetExceeded": {
+        "message": "Лимит обращений к AI для одного запроса исчерпан."
     },
     "modeMissing": {
         "message": "Режим обработки не указан."
@@ -1135,9 +1180,6 @@
     },
     "ocrLoadFailed": {
         "message": "Не удалось запустить распознавание текста."
-    },
-    "incompleteStream": {
-        "message": "Ответ Mistral прервался до завершения. Повторите запрос."
     },
     "unsavedChanges": {
         "message": "Есть несохранённые изменения"
@@ -1838,9 +1880,6 @@
     "ocrKeyRequired": {
         "message": "Для распознавания текста (OCR) требуется API-ключ Mistral."
     },
-    "allProvidersRateLimited": {
-        "message": "Лимиты всех доступных AI-провайдеров (Mistral и Cloudflare) исчерпаны. Попробуйте позже."
-    },
     "ocrMistralKeyRequired": {
         "message": "Для распознавания текста (OCR) требуется API-ключ Mistral."
     },
@@ -1852,6 +1891,10 @@
     },
     "serverStatusRateLimit": {
         "message": "Лимит запросов (Rate Limit)"
+    },
+    "serverStatusCooldown": {
+        "message": "Пауза после сбоя. Повторная проверка примерно через $1 сек.",
+        "placeholders": { "seconds": { "content": "$1" } }
     },
     "serverStatusAuthError": {
         "message": "Недействительный API-ключ"
@@ -1870,6 +1913,9 @@
     },
     "serverStatusUnconfigured": {
         "message": "Ключ не настроен"
+    },
+    "serverStatusNotChecked": {
+        "message": "Статус не проверен"
     },
     "serverStatusTitle": {
         "message": "Состояние AI-подключений"
@@ -2301,7 +2347,7 @@
         "message": "Применить"
     },
     "onboardingSyncChip": {
-        "message": "Google Drive · End-to-End шифрование"
+        "message": "Google Drive · Сквозное шифрование"
     },
     "onboardingSyncTitle": {
         "message": "Синхронизация и облачное восстановление"
@@ -2315,11 +2361,11 @@
     "masterPasswordPlaceholder": {
         "message": "Введите мастер-пароль…"
     },
-    "driveTokenPlaceholder": {
-        "message": "Google Drive Access Token (опционально)…"
-    },
     "onboardingRestoreDriveBtn": {
         "message": "Восстановить из облака"
+    },
+    "onboardingGoogleDriveHint": {
+        "message": "Нажмите кнопку — откроется вход Google. Копировать токены или искать специальные ссылки не нужно."
     },
     "onboardingRestoreFileBtn": {
         "message": "📁 Восстановить из файла (.lexibak)"
@@ -2342,6 +2388,9 @@
     "backupUploadedSuccess": {
         "message": "Резервная копия успешно сохранена в Google Drive!"
     },
+    "backupFileExportedSuccess": {
+        "message": "Зашифрованная резервная копия сохранена в файл."
+    },
     "backupFileNotFound": {
         "message": "Резервная копия не найдена в Google Drive (папка приложения пуста)."
     },
@@ -2355,16 +2404,52 @@
         "message": "Сетевая ошибка при обращении к Google Drive. Проверьте соединение."
     },
     "backupUnauthorized": {
-        "message": "Ошибка авторизации Google Drive. Проверьте токен доступа."
+        "message": "Не удалось войти в Google Drive. Повторите подключение."
     },
     "cloudBackupSectionTitle": {
         "message": "Защищённая облачная синхронизация (Google Drive)"
     },
     "cloudBackupSectionDesc": {
-        "message": "Сквозное шифрование AES-256-GCM по мастер-паролю. Настройки и ключи шифруются локально перед отправкой в скрытую папку Google Drive (appDataFolder)."
+        "message": "Сквозное шифрование AES-256-GCM по мастер-паролю. Войдите через Google один раз — токены копировать не нужно."
+    },
+    "googleDriveConnectionTitle": {
+        "message": "Подключение Google Drive"
+    },
+    "googleDriveConnectionHint": {
+        "message": "Токены вводить не нужно: LexiSync откроет безопасный вход Google при первой синхронизации."
+    },
+    "googleDriveConnectBtn": {
+        "message": "Подключить"
+    },
+    "googleDriveDisconnectBtn": {
+        "message": "Отключить"
+    },
+    "googleDriveConnecting": {
+        "message": "Подключение…"
+    },
+    "googleDriveConnected": {
+        "message": "Подключено"
+    },
+    "googleDriveNotConnected": {
+        "message": "Не подключено"
+    },
+    "googleDriveConnectedSuccess": {
+        "message": "Google Drive подключён. Теперь достаточно нажать «Синхронизировать»."
+    },
+    "googleDriveDisconnected": {
+        "message": "Google Drive отключён."
+    },
+    "googleDriveUnavailable": {
+        "message": "Вход Google не настроен в этой сборке"
+    },
+    "googleDriveAuthCancelled": {
+        "message": "Вход в Google Drive отменён. Попробуйте ещё раз."
+    },
+    "masterPasswordNotStoredHint": {
+        "message": "Пароль не сохраняется и нужен для шифрования резервной копии, а не для входа в Google."
     },
     "saveToDriveBtn": {
-        "message": "☁️ Сохранить в Google Drive"
+        "message": "☁️ Синхронизировать сейчас"
     },
     "restoreFromDriveBtn": {
         "message": "⬇️ Восстановить из Google Drive"
@@ -2374,9 +2459,6 @@
     },
     "importEncryptedFileBtn": {
         "message": "📂 Импорт из файла"
-    },
-    "driveTokenLabel": {
-        "message": "Google Drive Access Token"
     },
     "fallbackDueToQuality": {
         "message": "Ответ Cloudflare не прошёл проверку качества. Запрос выполнен через Mistral."

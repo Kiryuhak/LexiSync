@@ -112,6 +112,7 @@ function normalizeStats(value: unknown): UsageStats {
                                   cloudflareTokens?: unknown;
                                   cloudflareNeurons?: unknown;
                                   fallbackCount?: unknown;
+                                  failures?: unknown;
                               })
                             : {};
                     return [
@@ -123,6 +124,7 @@ function normalizeStats(value: unknown): UsageStats {
                             cloudflareTokens: Math.max(0, Math.trunc(Number(value.cloudflareTokens) || 0)),
                             cloudflareNeurons: Number(Math.max(0, Number(value.cloudflareNeurons) || 0).toFixed(4)),
                             fallbackCount: Math.max(0, Math.trunc(Number(value.fallbackCount) || 0)),
+                            failures: Math.max(0, Math.trunc(Number(value.failures) || 0)),
                         },
                     ];
                 }),
@@ -220,6 +222,7 @@ export async function applyUsageMutationNow(mutation: UsageMutation, payload: Us
             cloudflareTokens: (prevDay.cloudflareTokens || 0) + (payload.provider === 'cloudflare' ? reqTokens : 0),
             cloudflareNeurons: Number(((prevDay.cloudflareNeurons || 0) + reqNeurons).toFixed(4)),
             fallbackCount: (prevDay.fallbackCount || 0) + (payload.fallbackOccurred ? 1 : 0),
+            failures: (prevDay.failures || 0) + (payload.success === true ? 0 : 1),
         };
         stats.daily = Object.fromEntries(Object.entries(daily).sort().slice(-62));
     } else {

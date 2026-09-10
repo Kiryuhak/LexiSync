@@ -36,6 +36,43 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.6.3',
+        '2026-09-10',
+        'improved',
+        'Простая синхронизация с Google Drive',
+        'Simple Google Drive synchronization',
+        [
+            [
+                'Ручной ввод токена Google Drive заменён безопасным входом через окно браузера в Chrome и Firefox.',
+                'Manual Google Drive token entry was replaced with secure browser sign-in in Chrome and Firefox.',
+            ],
+            [
+                'Кнопки синхронизации и восстановления сами запрашивают доступ при первом использовании и обновляют истёкшую авторизацию.',
+                'Sync and restore buttons now request access on first use and refresh expired authorization automatically.',
+            ],
+            [
+                'Обновлены мастер первого запуска, руководство и русскоязычные материалы для магазинов.',
+                'Updated first-run onboarding, documentation, and Russian store artwork.',
+            ],
+            [
+                'Исправлен отступ после интерактивной проверки типографики в настройках.',
+                'Fixed spacing below the interactive typography check in Settings.',
+            ],
+            [
+                'Cooldown и circuit breaker запоминают временные сбои каждого AI-провайдера и сразу выбирают доступный резерв без повторного ожидания.',
+                'Cooldown and circuit breaker remember temporary provider failures and immediately select an available backup.',
+            ],
+            [
+                'Одна команда выполняет максимум один основной и один резервный AI-запрос; исправлены потоковые ответы и названия ошибок Cloudflare/Mistral.',
+                'Each command makes at most one primary and one fallback AI request; streaming and provider-specific errors were fixed.',
+            ],
+            [
+                'Локальная статистика раздельно показывает токены Mistral, токены и нейроны Cloudflare, fallback и сбои.',
+                'Local usage now separates Mistral tokens, Cloudflare tokens and neurons, fallbacks, and failures.',
+            ],
+        ],
+    ),
+    note(
         '5.6.2',
         '2026-09-09',
         'improved',

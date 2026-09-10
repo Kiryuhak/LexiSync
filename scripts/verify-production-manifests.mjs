@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 
-const BASE_PERMISSIONS = ['storage', 'activeTab', 'scripting', 'contextMenus'];
+const BASE_PERMISSIONS = ['storage', 'activeTab', 'scripting', 'contextMenus', 'identity'];
 const REQUIRED_ORIGINS = ['https://api.mistral.ai/*', 'https://api.cloudflare.com/*', 'https://www.googleapis.com/*'];
 const OPTIONAL_WEB_ORIGINS = ['http://*/*', 'https://*/*'];
 const EXTENSION_NAMES = {
@@ -51,6 +51,14 @@ for (const browser of ['chrome', 'firefox']) {
         throw new Error(`${browser}: изменён опциональный доступ к веб-сайтам`);
     if (browser === 'chrome' && typeof manifest.background?.service_worker !== 'string')
         throw new Error('chrome: фоновая логика MV3 должна запускаться в service worker');
+    if (browser === 'chrome' && process.env.LEXISYNC_GOOGLE_DRIVE_CHROME_CLIENT_ID) {
+        if (manifest.oauth2?.client_id !== process.env.LEXISYNC_GOOGLE_DRIVE_CHROME_CLIENT_ID)
+            throw new Error('chrome: OAuth Client ID Google Drive не попал в production-манифест');
+        if (!sameValues(manifest.oauth2?.scopes || [], ['https://www.googleapis.com/auth/drive.appdata']))
+            throw new Error('chrome: OAuth использует неверный scope Google Drive');
+    }
+    if (browser === 'firefox' && manifest.oauth2)
+        throw new Error('firefox: Chrome-специфичная секция oauth2 не должна присутствовать');
     if (browser === 'firefox' && !Array.isArray(manifest.background?.scripts))
         throw new Error('firefox: отсутствует фоновый сценарий MV3');
     const csp = String(manifest.content_security_policy?.extension_pages || '');

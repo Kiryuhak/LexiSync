@@ -24,6 +24,7 @@ import { clearAllSecrets } from './secret-store';
 import { validateApiKey, validateCloudflareCredentials, checkProviderHealth } from './ai-settings-client';
 import { AI_CONFIG, normalizeCloudflareModel } from './ai-models-config';
 import { loadCachedHealthStatus, saveCachedHealthStatus, type ProviderHealthStatus } from './provider-health';
+import { getProviderAvailability } from './provider-availability';
 import { logger } from './logger';
 import { normalizeAutoFallbackEnabled, normalizePrimaryAiProvider } from './runtime-settings-cache';
 import { setupSettingsTabs } from './options-tabs';
@@ -39,12 +40,14 @@ import {
 import { hasAllSitesAccess, requestAllSitesAccess, removeAllSitesAccess } from './site-access';
 import { setupOnboarding } from './options-onboarding';
 import { createEncryptedBackup, restoreEncryptedBackup } from './crypto-backup';
+import { downloadBackupFromGoogleDrive, uploadBackupToGoogleDrive } from './google-drive-sync';
 import {
-    downloadBackupFromGoogleDrive,
-    getGoogleDriveToken,
-    setGoogleDriveToken,
-    uploadBackupToGoogleDrive,
-} from './google-drive-sync';
+    disconnectGoogleDrive,
+    getGoogleDriveAccessToken,
+    isGoogleDriveAuthConfigured,
+    isGoogleDriveConnected,
+    withGoogleDriveAuth,
+} from './google-drive-auth';
 import { DEFAULT_TEXT_SNIPPETS } from './text-snippets';
 import { normalizeSearchEngine, SEARCH_ENGINE_IDS, type SearchEngine } from './search-url';
 import { getErrorLogs, clearErrorLogs, formatErrorLogsAsText, downloadErrorLogsText } from './error-log';
@@ -775,10 +778,46 @@ async function refreshServerHealthStatus(showChecking = true): Promise<void> {
 }
 
 async function initializeServerHealth(): Promise<void> {
-    const cached = await loadCachedHealthStatus();
-    if (cached.cloudflare) renderServerHealthCard('cloudflare', cached.cloudflare);
-    if (cached.mistral) renderServerHealthCard('mistral', cached.mistral);
-    await refreshServerHealthStatus(false);
+    const [cached, cloudflareAvailability, mistralAvailability] = await Promise.all([
+        loadCachedHealthStatus(),
+        getProviderAvailability('cloudflare'),
+        getProviderAvailability('mistral'),
+    ]);
+    const renderCooldown = (provider: 'cloudflare' | 'mistral', cooldownRemainingMs: number) => {
+        const seconds = Math.max(1, Math.ceil(cooldownRemainingMs / 1000));
+        renderServerHealthCard(provider, {
+            provider,
+            state: 'cooldown',
+            message: t(
+                'serverStatusCooldown',
+                `Пауза после сбоя. Повторная проверка примерно через ${seconds} сек.`,
+                String(seconds),
+            ),
+            cooldownRemainingMs,
+            checkedAt: Date.now(),
+        });
+    };
+    if (cloudflareAvailability.cooldownRemainingMs > 0)
+        renderCooldown('cloudflare', cloudflareAvailability.cooldownRemainingMs);
+    else if (cached.cloudflare) renderServerHealthCard('cloudflare', cached.cloudflare);
+    else if (restoredCloudflareAccountId && restoredCloudflareApiToken)
+        renderServerHealthCard('cloudflare', {
+            provider: 'cloudflare',
+            state: 'unconfigured',
+            message: t('serverStatusNotChecked', 'Статус не проверен'),
+            checkedAt: Date.now(),
+        });
+    if (mistralAvailability.cooldownRemainingMs > 0) renderCooldown('mistral', mistralAvailability.cooldownRemainingMs);
+    else if (cached.mistral) renderServerHealthCard('mistral', cached.mistral);
+    else if (restoredApiKey)
+        renderServerHealthCard('mistral', {
+            provider: 'mistral',
+            state: 'unconfigured',
+            message: t('serverStatusNotChecked', 'Статус не проверен'),
+            checkedAt: Date.now(),
+        });
+    // Проверка Cloudflare выполняет минимальный inference-запрос и расходует квоту,
+    // поэтому она запускается только по явному нажатию пользователя.
 }
 
 function setupPromptLibrary(): void {
@@ -1013,6 +1052,11 @@ async function refreshProviderQuotasUI(): Promise<void> {
     const localUsageTodayEl = document.getElementById('localUsageToday');
     const localUsageMonthEl = document.getElementById('localUsageMonth');
     const localUsageResetEl = document.getElementById('localUsageReset');
+    const localRequestsMonthEl = document.getElementById('localRequestsMonth');
+    const localMistralTokensEl = document.getElementById('localMistralTokens');
+    const localCloudflareTokensEl = document.getElementById('localCloudflareTokens');
+    const localCloudflareNeuronsEl = document.getElementById('localCloudflareNeurons');
+    const localFallbackFailuresEl = document.getElementById('localFallbackFailures');
     const mistralModelEl = document.getElementById('mistralActiveModelDisplay');
     const cloudflareModelEl = document.getElementById('cloudflareActiveModelDisplay');
     const cloudflareModelSelect = document.getElementById('cloudflareModel') as HTMLSelectElement | null;
@@ -1023,6 +1067,16 @@ async function refreshProviderQuotasUI(): Promise<void> {
 
     if (localUsageTodayEl) localUsageTodayEl.textContent = `${todayStats.requests} запросов`;
     if (localUsageMonthEl) localUsageMonthEl.textContent = `${monthUsage.tokens.toLocaleString('ru-RU')} токенов`;
+    if (localRequestsMonthEl) localRequestsMonthEl.textContent = monthUsage.requests.toLocaleString('ru-RU');
+    if (localMistralTokensEl) localMistralTokensEl.textContent = (stats.mistralTokens || 0).toLocaleString('ru-RU');
+    if (localCloudflareTokensEl)
+        localCloudflareTokensEl.textContent = (stats.cloudflareTokens || 0).toLocaleString('ru-RU');
+    if (localCloudflareNeuronsEl)
+        localCloudflareNeuronsEl.textContent = (todayStats.cloudflareNeurons || 0).toLocaleString('ru-RU', {
+            maximumFractionDigits: 4,
+        });
+    if (localFallbackFailuresEl)
+        localFallbackFailuresEl.textContent = `${todayStats.fallbackCount || 0} / ${todayStats.failures || 0}`;
     if (localUsageResetEl) localUsageResetEl.textContent = formatCountdownToLocalReset();
 
     if (mistralModelEl) {
@@ -1369,7 +1423,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const driveMasterPassword = document.getElementById('driveMasterPassword') as HTMLInputElement | null;
-    const driveTokenInput = document.getElementById('driveTokenInput') as HTMLInputElement | null;
+    const connectGoogleDriveBtn = document.getElementById('connectGoogleDriveBtn') as HTMLButtonElement | null;
+    const disconnectGoogleDriveBtn = document.getElementById('disconnectGoogleDriveBtn') as HTMLButtonElement | null;
+    const googleDriveConnectionStatus = document.getElementById('googleDriveConnectionStatus');
     const saveToDriveBtn = document.getElementById('saveToDriveBtn') as HTMLButtonElement | null;
     const restoreFromDriveBtn = document.getElementById('restoreFromDriveBtn') as HTMLButtonElement | null;
     const exportEncryptedFileBtn = document.getElementById('exportEncryptedFileBtn') as HTMLButtonElement | null;
@@ -1377,15 +1433,92 @@ document.addEventListener('DOMContentLoaded', () => {
     const importEncryptedFileInput = document.getElementById('importEncryptedFileInput') as HTMLInputElement | null;
     const driveBackupStatus = document.getElementById('driveBackupStatus');
 
-    void getGoogleDriveToken().then((token) => {
-        if (driveTokenInput && token) driveTokenInput.value = token;
-    });
-
     const setDriveStatus = (message: string, kind: 'success' | 'error' | 'info') => {
         if (!driveBackupStatus) return;
         driveBackupStatus.textContent = message;
         driveBackupStatus.dataset.kind = kind;
     };
+
+    const setDriveConnectionState = (connected: boolean, unavailable = false) => {
+        if (googleDriveConnectionStatus) {
+            googleDriveConnectionStatus.textContent = unavailable
+                ? t('googleDriveUnavailable', 'Вход Google не настроен в этой сборке')
+                : connected
+                  ? t('googleDriveConnected', 'Подключено')
+                  : t('googleDriveNotConnected', 'Не подключено');
+            googleDriveConnectionStatus.dataset.kind = unavailable ? 'error' : connected ? 'success' : 'info';
+        }
+        if (connectGoogleDriveBtn) {
+            connectGoogleDriveBtn.hidden = connected;
+            connectGoogleDriveBtn.disabled = unavailable;
+        }
+        if (disconnectGoogleDriveBtn) disconnectGoogleDriveBtn.hidden = !connected;
+        if (saveToDriveBtn) saveToDriveBtn.disabled = unavailable;
+        if (restoreFromDriveBtn) restoreFromDriveBtn.disabled = unavailable;
+    };
+
+    const describeDriveError = (error: unknown): string => {
+        const code = error instanceof Error ? error.message : '';
+        if (code === 'OAUTH_NOT_CONFIGURED') {
+            return t('googleDriveUnavailable', 'Вход Google не настроен в этой сборке');
+        }
+        if (code === 'AUTH_CANCELLED') {
+            return t('googleDriveAuthCancelled', 'Вход в Google Drive отменён. Попробуйте ещё раз.');
+        }
+        if (
+            code === 'AUTH_STATE_MISMATCH' ||
+            code === 'AUTH_FAILED' ||
+            code === 'UNAUTHORIZED' ||
+            code === 'NO_TOKEN'
+        ) {
+            return t('backupUnauthorized', 'Не удалось войти в Google Drive. Повторите подключение.');
+        }
+        if (code === 'NETWORK_ERROR') {
+            return t('backupNetworkError', 'Сетевая ошибка при обращении к Google Drive. Проверьте соединение.');
+        }
+        return t('backupCorrupted', 'Файл резервной копии повреждён или имеет неизвестный формат.');
+    };
+
+    const authConfigured = isGoogleDriveAuthConfigured();
+    setDriveConnectionState(false, !authConfigured);
+    if (authConfigured) {
+        void isGoogleDriveConnected().then((connected) => setDriveConnectionState(connected));
+    }
+
+    connectGoogleDriveBtn?.addEventListener('click', async () => {
+        const originalText = connectGoogleDriveBtn.textContent;
+        connectGoogleDriveBtn.disabled = true;
+        connectGoogleDriveBtn.textContent = t('googleDriveConnecting', 'Подключение…');
+        try {
+            await getGoogleDriveAccessToken(true);
+            setDriveConnectionState(true);
+            setDriveStatus(
+                t(
+                    'googleDriveConnectedSuccess',
+                    'Google Drive подключён. Теперь достаточно нажать «Синхронизировать».',
+                ),
+                'success',
+            );
+        } catch (error) {
+            logger.error('Ошибка подключения Google Drive:', error);
+            setDriveStatus(describeDriveError(error), 'error');
+            setDriveConnectionState(false, error instanceof Error && error.message === 'OAUTH_NOT_CONFIGURED');
+        } finally {
+            connectGoogleDriveBtn.textContent = originalText;
+            if (!connectGoogleDriveBtn.hidden && authConfigured) connectGoogleDriveBtn.disabled = false;
+        }
+    });
+
+    disconnectGoogleDriveBtn?.addEventListener('click', async () => {
+        disconnectGoogleDriveBtn.disabled = true;
+        try {
+            await disconnectGoogleDrive();
+            setDriveConnectionState(false);
+            setDriveStatus(t('googleDriveDisconnected', 'Google Drive отключён.'), 'info');
+        } finally {
+            disconnectGoogleDriveBtn.disabled = false;
+        }
+    });
 
     saveToDriveBtn?.addEventListener('click', async () => {
         const password = driveMasterPassword?.value.trim() || '';
@@ -1397,9 +1530,6 @@ document.addEventListener('DOMContentLoaded', () => {
             driveMasterPassword?.focus();
             return;
         }
-        const token = driveTokenInput?.value.trim() || '';
-        if (token) await setGoogleDriveToken(token);
-
         const originalText = saveToDriveBtn.textContent;
         saveToDriveBtn.disabled = true;
         saveToDriveBtn.textContent = t('backupUploading', 'Сохранение резервной копии в Google Drive…');
@@ -1407,27 +1537,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const encryptedJson = await createEncryptedBackup(password);
-            await uploadBackupToGoogleDrive(encryptedJson, token || undefined);
+            await withGoogleDriveAuth((token) => uploadBackupToGoogleDrive(encryptedJson, token));
+            setDriveConnectionState(true);
             setDriveStatus(t('backupUploadedSuccess', 'Резервная копия успешно сохранена в Google Drive!'), 'success');
         } catch (error) {
             logger.error('Ошибка сохранения бэкапа в Google Drive:', error);
-            const msg = error instanceof Error ? error.message : '';
-            if (msg === 'UNAUTHORIZED' || msg === 'NO_TOKEN') {
-                setDriveStatus(
-                    t('backupUnauthorized', 'Ошибка авторизации Google Drive. Проверьте токен доступа.'),
-                    'error',
-                );
-            } else if (msg === 'NETWORK_ERROR') {
-                setDriveStatus(
-                    t('backupNetworkError', 'Сетевая ошибка при обращении к Google Drive. Проверьте соединение.'),
-                    'error',
-                );
-            } else {
-                setDriveStatus(
-                    t('backupCorrupted', 'Файл резервной копии повреждён или имеет неизвестный формат.'),
-                    'error',
-                );
-            }
+            setDriveStatus(describeDriveError(error), 'error');
         } finally {
             saveToDriveBtn.disabled = false;
             saveToDriveBtn.textContent = originalText;
@@ -1444,16 +1559,14 @@ document.addEventListener('DOMContentLoaded', () => {
             driveMasterPassword?.focus();
             return;
         }
-        const token = driveTokenInput?.value.trim() || '';
-        if (token) await setGoogleDriveToken(token);
-
         const originalText = restoreFromDriveBtn.textContent;
         restoreFromDriveBtn.disabled = true;
         restoreFromDriveBtn.textContent = t('backupDownloading', 'Загрузка резервной копии из Google Drive…');
         setDriveStatus('', 'info');
 
         try {
-            const { content } = await downloadBackupFromGoogleDrive(token || undefined);
+            const { content } = await withGoogleDriveAuth((token) => downloadBackupFromGoogleDrive(token));
+            setDriveConnectionState(true);
             await restoreEncryptedBackup(content, password);
             await restoreOptions();
             setDriveStatus(t('backupRestoredSuccess', 'Настройки и ключи успешно восстановлены!'), 'success');
@@ -1470,21 +1583,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     t('backupFileNotFound', 'Резервная копия не найдена в Google Drive (папка приложения пуста).'),
                     'error',
                 );
-            } else if (msg === 'UNAUTHORIZED' || msg === 'NO_TOKEN') {
-                setDriveStatus(
-                    t('backupUnauthorized', 'Ошибка авторизации Google Drive. Проверьте токен доступа.'),
-                    'error',
-                );
-            } else if (msg === 'NETWORK_ERROR') {
-                setDriveStatus(
-                    t('backupNetworkError', 'Сетевая ошибка при обращении к Google Drive. Проверьте соединение.'),
-                    'error',
-                );
             } else {
-                setDriveStatus(
-                    t('backupCorrupted', 'Файл резервной копии повреждён или имеет неизвестный формат.'),
-                    'error',
-                );
+                setDriveStatus(describeDriveError(error), 'error');
             }
         } finally {
             restoreFromDriveBtn.disabled = false;
@@ -1511,7 +1611,10 @@ document.addEventListener('DOMContentLoaded', () => {
             a.download = `lexisync-backup-${new Date().toISOString().slice(0, 10)}.lexibak`;
             a.click();
             window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
-            setDriveStatus(t('backupUploadedSuccess', 'Резервная копия успешно сохранена в Google Drive!'), 'success');
+            setDriveStatus(
+                t('backupFileExportedSuccess', 'Зашифрованная резервная копия сохранена в файл.'),
+                'success',
+            );
         } catch (error) {
             logger.error('Ошибка экспорта зашифрованного файла:', error);
             setDriveStatus(

@@ -1,6 +1,9 @@
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+    define: {
+        __LEXISYNC_GOOGLE_DRIVE_FIREFOX_CLIENT_ID__: JSON.stringify('firefox-test-client-id'),
+    },
     test: {
         include: [
             'tests/ai-security.spec.ts',
@@ -10,7 +13,9 @@ export default defineConfig({
             'tests/content-lifecycle.spec.ts',
             'tests/site-access.spec.ts',
             'tests/crypto-backup.spec.ts',
+            'tests/google-drive-auth.spec.ts',
             'tests/ai-quality.spec.ts',
+            'tests/ai-resilience.spec.ts',
         ],
         coverage: {
             provider: 'v8',
@@ -58,6 +63,9 @@ export default defineConfig({
                 'src/popup-position.ts',
                 'src/crypto-backup.ts',
                 'src/google-drive-sync.ts',
+                'src/google-drive-auth.ts',
+                'src/provider-availability.ts',
+                'src/sse-parser.ts',
             ],
             thresholds: { lines: 68, functions: 58, statements: 62, branches: 53 },
         },

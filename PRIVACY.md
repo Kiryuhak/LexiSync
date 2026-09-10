@@ -64,7 +64,7 @@ LexiSync может обрабатывать следующие категори
 
 ### 2.5. Google Drive и зашифрованные резервные копии
 
-По желанию пользователь может предоставить токен доступа Google Drive и сохранить зашифрованную резервную копию в скрытой папке приложения (`appDataFolder`). Токен хранится локально в той же отдельной IndexedDB, что и AI-ключи, не включается в резервную копию и используется только для запросов к `https://www.googleapis.com/`. Перед отправкой в Google Drive настройки и выбранные секреты шифруются на устройстве с помощью AES-256-GCM и мастер-пароля; мастер-пароль не сохраняется. Без этой команды данные в Google Drive не передаются.
+По желанию пользователь может войти в Google через окно браузера и сохранить зашифрованную резервную копию в скрытой папке приложения (`appDataFolder`). Chrome управляет кэшем OAuth-токена через Identity API, а Firefox хранит краткоживущий токен в отдельной приватной IndexedDB расширения. Токен не включается в резервную копию и используется только для запросов к `https://www.googleapis.com/`. Перед отправкой в Google Drive настройки и выбранные секреты шифруются на устройстве с помощью AES-256-GCM и мастер-пароля; мастер-пароль не сохраняется. Без явной команды данные в Google Drive не передаются.
 
 ### 2.6. Локальные настройки и данные функций
 
@@ -153,6 +153,7 @@ LexiSync использует минимально необходимые раз
 - `activeTab` — временный доступ к активной вкладке после действия пользователя;
 - `scripting` — запуск упакованного с расширением интерфейса на разрешённой странице;
 - `contextMenus` — команды для выделенного текста и изображений;
+- `identity` — вход в Google Drive по явному действию пользователя без ручного копирования токенов;
 - `https://api.mistral.ai/*` — защищённые запросы к Mistral AI API;
 - `https://api.cloudflare.com/*` — защищённые запросы к Cloudflare Workers AI REST API;
 - `https://www.googleapis.com/*` — запросы к Google Drive API только для явно включённой зашифрованной резервной копии;
@@ -164,7 +165,7 @@ LexiSync использует минимально необходимые раз
 
 - Все запросы к Mistral AI и Cloudflare Workers AI выполняются по HTTPS.
 - Исполняемый код поставляется внутри пакета расширения в соответствии с Manifest V3.
-- API-ключи и токен Google Drive отделены от обычных настроек; токен Drive не включается в синхронизацию или резервную копию.
+- API-ключи и OAuth-токен Google Drive отделены от обычных настроек; токен Drive не включается в синхронизацию или резервную копию.
 - Резервные копии шифруются локально AES-256-GCM; параметры импортируемого файла проверяются до выполнения ресурсоёмкой операции расшифровки.
 - Постоянный доступ к сайтам запрашивается только по инициативе пользователя и может быть отозван.
 - Автоматическая проверка отключена по умолчанию и старается исключать чувствительные поля.
@@ -224,7 +225,7 @@ LexiSync may process:
 - an image of the user-selected page area when OCR is invoked (Mistral AI);
 - surrounding text, page title, and current domain when optional page context is enabled;
 - the user's Mistral AI and/or Cloudflare Workers AI credentials;
-- an optional Google Drive access token and an encrypted backup file when the user enables Drive backup;
+- a short-lived Google Drive OAuth token and an encrypted backup file when the user enables Drive backup;
 - local settings, per-site permissions and exclusions;
 - local text history, result cache, adaptive language data, and aggregate usage counters.
 
@@ -232,7 +233,7 @@ Selected text may contain user-generated content or personal communications. Lex
 
 ## 3. Local storage and browser sync
 
-API keys for Mistral AI, credentials for Cloudflare Workers AI (Account ID and API Token), and an optional Google Drive access token are stored locally in a separate private IndexedDB database. They are used only to authorize requests to `https://api.mistral.ai/`, `https://api.cloudflare.com/`, and `https://www.googleapis.com/`. AI credentials are included only in an encrypted backup explicitly created by the user; the Drive token is never included. Secrets are not synchronized through browser settings sync or sent to the LexiSync developer.
+API keys for Mistral AI and credentials for Cloudflare Workers AI (Account ID and API Token) are stored locally in a separate private IndexedDB database. Chrome manages the Google Drive OAuth token through its Identity API; Firefox stores the short-lived Drive token in the same private IndexedDB. These credentials are used only to authorize requests to `https://api.mistral.ai/`, `https://api.cloudflare.com/`, and `https://www.googleapis.com/`. AI credentials are included only in an encrypted backup explicitly created by the user; the Drive token is never included. Secrets are not synchronized through browser settings sync or sent to the LexiSync developer.
 
 When the user explicitly creates a Google Drive backup, settings and selected AI credentials are encrypted on the device with AES-256-GCM and a master password before upload to the hidden `appDataFolder`. The master password is not stored. No backup is sent to Google Drive unless the user enables and starts this feature.
 
@@ -303,6 +304,7 @@ LexiSync uses the minimum permissions required for its user-facing purpose:
 - `activeTab` for temporary access after a user gesture;
 - `scripting` to run packaged UI code on a user-authorized page;
 - `contextMenus` for selected-text and image commands;
+- `identity` for Google Drive sign-in initiated by the user without manually copying tokens;
 - `https://api.mistral.ai/*` for HTTPS requests to Mistral AI API;
 - `https://api.cloudflare.com/*` for HTTPS requests to Cloudflare Workers AI REST API;
 - `https://www.googleapis.com/*` for Google Drive API requests only when the user enables encrypted backup;
@@ -312,7 +314,7 @@ LexiSync does not request access to cookies, full browser history, geolocation, 
 
 ## 8. Security
 
-All Mistral AI, Cloudflare Workers AI, and Google Drive requests use HTTPS. Executable code is packaged with the extension under Manifest V3. API keys and the Drive token are separated from ordinary settings; the Drive token is excluded from sync and backup. Backup files are encrypted locally with AES-256-GCM, and untrusted cryptographic parameters are validated before decryption. Persistent website access is requested only after a user action and can be revoked. Automatic proofreading is disabled by default and attempts to exclude sensitive fields. Local personal-data masking is enabled by default for text AI commands.
+All Mistral AI, Cloudflare Workers AI, and Google Drive API requests use HTTPS. Executable code is packaged with the extension under Manifest V3. API keys and the Drive OAuth token are separated from ordinary settings; the Drive token is excluded from sync and backup. Backup files are encrypted locally with AES-256-GCM, and untrusted cryptographic parameters are validated before decryption. Persistent website access is requested only after a user action and can be revoked. Automatic proofreading is disabled by default and attempts to exclude sensitive fields. Local personal-data masking is enabled by default for text AI commands.
 
 No storage or transmission method is completely secure. Users are responsible for protecting their API keys and choosing which text or images to send to external services.
 

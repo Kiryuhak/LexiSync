@@ -1,5 +1,4 @@
 import { logger } from './logger';
-import { getStoredGoogleDriveToken, setStoredGoogleDriveToken } from './secret-store';
 
 const GOOGLE_DRIVE_BACKUP_FILENAME = 'lexisync_backup.enc';
 const STORAGE_KEY_DRIVE_LAST_SYNC = 'googleDriveLastSync';
@@ -15,22 +14,6 @@ export interface GoogleDriveSyncStatus {
     connected: boolean;
     lastSyncTime?: number;
     backupInfo?: GoogleDriveBackupInfo;
-}
-
-export async function getGoogleDriveToken(): Promise<string> {
-    try {
-        return await getStoredGoogleDriveToken();
-    } catch {
-        return '';
-    }
-}
-
-export async function setGoogleDriveToken(token: string): Promise<void> {
-    await setStoredGoogleDriveToken(token);
-}
-
-export async function disconnectGoogleDrive(): Promise<void> {
-    await Promise.all([setStoredGoogleDriveToken(''), chrome.storage.local.remove(STORAGE_KEY_DRIVE_LAST_SYNC)]);
 }
 
 export async function findDriveBackupFile(token: string): Promise<GoogleDriveBackupInfo> {
@@ -79,9 +62,9 @@ export async function findDriveBackupFile(token: string): Promise<GoogleDriveBac
 }
 
 export async function downloadBackupFromGoogleDrive(
-    token?: string,
+    token: string,
 ): Promise<{ content: string; modifiedTime?: string }> {
-    const activeToken = token || (await getGoogleDriveToken());
+    const activeToken = token.trim();
     if (!activeToken) {
         throw new Error('NO_TOKEN');
     }
@@ -122,9 +105,9 @@ export async function downloadBackupFromGoogleDrive(
 
 export async function uploadBackupToGoogleDrive(
     encryptedJson: string,
-    token?: string,
+    token: string,
 ): Promise<{ fileId: string; modifiedTime: string }> {
-    const activeToken = token || (await getGoogleDriveToken());
+    const activeToken = token.trim();
     if (!activeToken) {
         throw new Error('NO_TOKEN');
     }

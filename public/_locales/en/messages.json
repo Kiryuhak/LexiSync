@@ -201,13 +201,13 @@
         "message": "Fast Response"
     },
     "aiModeFastDesc": {
-        "message": "Instant response and minimal token usage. Perfect for fast spellcheck."
+        "message": "Up to 1,536 output tokens with no hidden retries: one primary request and at most one fallback."
     },
     "aiModeBalancedTitle": {
         "message": "Balanced"
     },
     "aiModeBalancedDesc": {
-        "message": "Adapts response size to the task while balancing quality, speed, and usage."
+        "message": "Up to 3,072 output tokens for complex tasks, with the same maximum of one fallback."
     },
     "aiModeEconomyTokenCap": {
         "message": "up to 1,536 output tokens"
@@ -227,6 +227,11 @@
     "userBudgetLimitsHint": {
         "message": "These limits apply to both providers together and protect against accidental overuse."
     },
+    "providerMonthRequests": { "message": "Requests this month:" },
+    "mistralTokensUsed": { "message": "Mistral tokens:" },
+    "cloudflareTokensUsed": { "message": "Cloudflare tokens:" },
+    "cloudflareNeuronsToday": { "message": "Cloudflare neurons today:" },
+    "fallbackAndFailures": { "message": "Fallbacks / failures today:" },
     "budgetProfilesTitle": {
         "message": "Ready profiles:"
     },
@@ -1055,8 +1060,48 @@
     "ocrNoText": {
         "message": "Mistral OCR found no text in the selected area."
     },
-    "emptyStream": {
+    "mistralEmptyResponse": {
         "message": "Mistral returned an empty response stream."
+    },
+    "cloudflareEmptyResponse": {
+        "message": "Cloudflare Workers AI returned an empty response stream."
+    },
+    "mistralInvalidStream": {
+        "message": "Mistral returned malformed streaming data."
+    },
+    "cloudflareInvalidStream": {
+        "message": "Cloudflare Workers AI returned malformed streaming data."
+    },
+    "mistralIncompleteStream": {
+        "message": "The Mistral response ended before completion. Try again."
+    },
+    "cloudflareIncompleteStream": {
+        "message": "The Cloudflare Workers AI response ended before completion. Try again."
+    },
+    "providersTemporarilyUnavailable": {
+        "message": "The AI provider is temporarily unavailable. Try again in about $1 seconds.",
+        "placeholders": { "seconds": { "content": "$1" } }
+    },
+    "allProvidersUnavailableDetailed": {
+        "message": "Both AI providers are temporarily unavailable. Mistral: $1. Cloudflare: $2. Try again in about $3 seconds.",
+        "placeholders": {
+            "mistral_reason": { "content": "$1" },
+            "cloudflare_reason": { "content": "$2" },
+            "seconds": { "content": "$3" }
+        }
+    },
+    "providerReasonRateLimit": { "message": "rate limit temporarily reached" },
+    "providerReasonTimeout": { "message": "service did not respond in time" },
+    "providerReasonNetwork": { "message": "network error" },
+    "providerReasonServer": { "message": "temporary server failure" },
+    "providerReasonInvalidResponse": { "message": "invalid service response" },
+    "providerReasonUnavailable": { "message": "temporarily unavailable" },
+    "retryAvailableIn": {
+        "message": "Retry in about $1 seconds.",
+        "placeholders": { "seconds": { "content": "$1" } }
+    },
+    "aiRequestBudgetExceeded": {
+        "message": "The AI call budget for this request has been exhausted."
     },
     "modeMissing": {
         "message": "No processing mode was specified."
@@ -1135,9 +1180,6 @@
     },
     "ocrLoadFailed": {
         "message": "Could not start text recognition."
-    },
-    "incompleteStream": {
-        "message": "The Mistral response ended early. Try the request again."
     },
     "unsavedChanges": {
         "message": "There are unsaved changes"
@@ -1838,9 +1880,6 @@
     "ocrKeyRequired": {
         "message": "Mistral API key is required for text recognition (OCR)."
     },
-    "allProvidersRateLimited": {
-        "message": "Rate limits for all available AI providers (Mistral and Cloudflare) are exhausted. Please try later."
-    },
     "ocrMistralKeyRequired": {
         "message": "Mistral API key is required for OCR text recognition."
     },
@@ -1852,6 +1891,10 @@
     },
     "serverStatusRateLimit": {
         "message": "Rate limit reached"
+    },
+    "serverStatusCooldown": {
+        "message": "Paused after a failure. Retry in about $1 seconds.",
+        "placeholders": { "seconds": { "content": "$1" } }
     },
     "serverStatusAuthError": {
         "message": "Invalid API key"
@@ -1870,6 +1913,9 @@
     },
     "serverStatusUnconfigured": {
         "message": "Not configured"
+    },
+    "serverStatusNotChecked": {
+        "message": "Status not checked"
     },
     "serverStatusTitle": {
         "message": "AI connection status"
@@ -2315,11 +2361,11 @@
     "masterPasswordPlaceholder": {
         "message": "Enter master password…"
     },
-    "driveTokenPlaceholder": {
-        "message": "Google Drive Access Token (optional)…"
-    },
     "onboardingRestoreDriveBtn": {
         "message": "Restore from cloud"
+    },
+    "onboardingGoogleDriveHint": {
+        "message": "Click the button to open Google sign-in. There are no tokens or special links to copy."
     },
     "onboardingRestoreFileBtn": {
         "message": "📁 Restore from file (.lexibak)"
@@ -2342,6 +2388,9 @@
     "backupUploadedSuccess": {
         "message": "Backup successfully saved to Google Drive!"
     },
+    "backupFileExportedSuccess": {
+        "message": "Encrypted backup saved to a file."
+    },
     "backupFileNotFound": {
         "message": "Backup not found in Google Drive (app data folder is empty)."
     },
@@ -2355,16 +2404,52 @@
         "message": "Network error connecting to Google Drive. Check your connection."
     },
     "backupUnauthorized": {
-        "message": "Google Drive authorization error. Check your access token."
+        "message": "Could not sign in to Google Drive. Try connecting again."
     },
     "cloudBackupSectionTitle": {
         "message": "Secure Cloud Sync (Google Drive)"
     },
     "cloudBackupSectionDesc": {
-        "message": "End-to-End AES-256-GCM encryption with master password. Settings and keys are encrypted locally before uploading to Google Drive (appDataFolder)."
+        "message": "End-to-End AES-256-GCM encryption with a master password. Sign in with Google once—there are no tokens to copy."
+    },
+    "googleDriveConnectionTitle": {
+        "message": "Google Drive connection"
+    },
+    "googleDriveConnectionHint": {
+        "message": "No tokens to enter: LexiSync opens secure Google sign-in on the first sync."
+    },
+    "googleDriveConnectBtn": {
+        "message": "Connect"
+    },
+    "googleDriveDisconnectBtn": {
+        "message": "Disconnect"
+    },
+    "googleDriveConnecting": {
+        "message": "Connecting…"
+    },
+    "googleDriveConnected": {
+        "message": "Connected"
+    },
+    "googleDriveNotConnected": {
+        "message": "Not connected"
+    },
+    "googleDriveConnectedSuccess": {
+        "message": "Google Drive is connected. Now just click “Sync now”."
+    },
+    "googleDriveDisconnected": {
+        "message": "Google Drive disconnected."
+    },
+    "googleDriveUnavailable": {
+        "message": "Google sign-in is not configured in this build"
+    },
+    "googleDriveAuthCancelled": {
+        "message": "Google Drive sign-in was cancelled. Try again."
+    },
+    "masterPasswordNotStoredHint": {
+        "message": "The password is not saved. It encrypts your backup and is not your Google password."
     },
     "saveToDriveBtn": {
-        "message": "☁️ Save to Google Drive"
+        "message": "☁️ Sync now"
     },
     "restoreFromDriveBtn": {
         "message": "⬇️ Restore from Google Drive"
@@ -2374,9 +2459,6 @@
     },
     "importEncryptedFileBtn": {
         "message": "📂 Import from file"
-    },
-    "driveTokenLabel": {
-        "message": "Google Drive Access Token"
     },
     "fallbackDueToQuality": {
         "message": "Cloudflare response failed quality check. Request completed via Mistral."

@@ -802,10 +802,10 @@
                         </label>
                     </div>
 
-                    <div style="margin-top: 14px; display: flex; flex-direction: column; gap: 8px">
+                    <div class="typography-sandbox">
                         <label
                             for="typographySandboxInput"
-                            style="font-size: 13px; font-weight: 600"
+                            class="typography-sandbox-label"
                             data-i18n="typographySandboxLabel"
                         >
                             Интерактивная проверка типографики:
@@ -813,18 +813,11 @@
                         <textarea
                             id="typographySandboxInput"
                             rows="2"
-                            style="
-                                width: 100%;
-                                border-radius: 8px;
-                                font-family: inherit;
-                                font-size: 13px;
-                                padding: 8px;
-                                box-sizing: border-box;
-                            "
+                            class="typography-sandbox-input"
                             placeholder='Например: ПРивет ,как дела ?Мы читали статью "Правда" в 2020-2026 гг.'
                             data-i18n-placeholder="typographySandboxPlaceholder"
                         ></textarea>
-                        <div style="display: flex; gap: 10px; align-items: center">
+                        <div class="typography-sandbox-actions">
                             <button
                                 type="button"
                                 id="typographySandboxBtn"
@@ -835,7 +828,7 @@
                             </button>
                             <span
                                 id="typographySandboxStatus"
-                                style="font-size: 12px; color: var(--primary)"
+                                class="typography-sandbox-status"
                                 aria-live="polite"
                             ></span>
                         </div>
@@ -989,7 +982,36 @@
                         Сквозное шифрование AES-256-GCM по мастер-паролю. Настройки и ключи шифруются локально перед
                         отправкой в скрытую папку Google Drive (appDataFolder).
                     </p>
-                    <div style="margin-top: 12px">
+                    <div class="cloud-sync-auth-card">
+                        <div class="cloud-sync-auth-copy">
+                            <strong data-i18n="googleDriveConnectionTitle">Подключение Google Drive</strong>
+                            <small data-i18n="googleDriveConnectionHint"
+                                >Токены вводить не нужно: LexiSync откроет безопасный вход Google при первой
+                                синхронизации.</small
+                            >
+                        </div>
+                        <div class="cloud-sync-auth-actions">
+                            <span id="googleDriveConnectionStatus" class="cloud-sync-connection-status"></span>
+                            <button
+                                type="button"
+                                id="connectGoogleDriveBtn"
+                                class="secondary-button"
+                                data-i18n="googleDriveConnectBtn"
+                            >
+                                Подключить
+                            </button>
+                            <button
+                                type="button"
+                                id="disconnectGoogleDriveBtn"
+                                class="secondary-button"
+                                data-i18n="googleDriveDisconnectBtn"
+                                hidden
+                            >
+                                Отключить
+                            </button>
+                        </div>
+                    </div>
+                    <div class="cloud-sync-password-field">
                         <label for="driveMasterPassword" data-i18n="onboardingMasterPasswordLabel"
                             >Мастер-пароль для шифрования</label
                         >
@@ -1003,23 +1025,14 @@
                                 placeholder="Введите мастер-пароль…"
                             />
                         </div>
+                        <small class="cloud-sync-password-hint" data-i18n="masterPasswordNotStoredHint"
+                            >Пароль не сохраняется и нужен для шифрования резервной копии, а не для входа в
+                            Google.</small
+                        >
                     </div>
-                    <div style="margin-top: 10px">
-                        <label for="driveTokenInput" data-i18n="driveTokenLabel">Google Drive Access Token</label>
-                        <div class="onboarding-key-row" style="max-width: 480px">
-                            <input
-                                id="driveTokenInput"
-                                type="password"
-                                autocomplete="off"
-                                spellcheck="false"
-                                data-i18n-placeholder="driveTokenPlaceholder"
-                                placeholder="Google Drive Access Token (опционально)…"
-                            />
-                        </div>
-                    </div>
-                    <div class="settings-row" style="margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px">
+                    <div class="settings-row cloud-sync-actions">
                         <button type="button" id="saveToDriveBtn" class="primary-button" data-i18n="saveToDriveBtn">
-                            ☁️ Сохранить в Google Drive
+                            ☁️ Синхронизировать сейчас
                         </button>
                         <button
                             type="button"
@@ -1426,6 +1439,34 @@
                             <div class="quota-stat-row">
                                 <span class="quota-stat-label" data-i18n="providerMonthlyUsage">Расход за месяц:</span>
                                 <span class="quota-stat-val" id="localUsageMonth">0 токенов</span>
+                            </div>
+                            <div class="quota-stat-row">
+                                <span class="quota-stat-label" data-i18n="providerMonthRequests"
+                                    >Запросов за месяц:</span
+                                >
+                                <span class="quota-stat-val" id="localRequestsMonth">0</span>
+                            </div>
+                            <div class="quota-stat-row">
+                                <span class="quota-stat-label" data-i18n="mistralTokensUsed">Mistral, токены:</span>
+                                <span class="quota-stat-val" id="localMistralTokens">0</span>
+                            </div>
+                            <div class="quota-stat-row">
+                                <span class="quota-stat-label" data-i18n="cloudflareTokensUsed"
+                                    >Cloudflare, токены:</span
+                                >
+                                <span class="quota-stat-val" id="localCloudflareTokens">0</span>
+                            </div>
+                            <div class="quota-stat-row">
+                                <span class="quota-stat-label" data-i18n="cloudflareNeuronsToday"
+                                    >Cloudflare сегодня, нейроны:</span
+                                >
+                                <span class="quota-stat-val" id="localCloudflareNeurons">0</span>
+                            </div>
+                            <div class="quota-stat-row">
+                                <span class="quota-stat-label" data-i18n="fallbackAndFailures"
+                                    >Fallback / сбои сегодня:</span
+                                >
+                                <span class="quota-stat-val" id="localFallbackFailures">0 / 0</span>
                             </div>
                             <div class="quota-stat-row quota-reset-row">
                                 <span class="quota-stat-label" data-i18n="providerResetTime"
@@ -1862,7 +1903,7 @@
                 <section class="onboarding-step" data-onboarding-step="1">
                     <div class="onboarding-provider-chip" aria-label="Google Drive Sync">
                         <span aria-hidden="true">☁️</span>
-                        <span data-i18n="onboardingSyncChip">Google Drive · End-to-End шифрование</span>
+                        <span data-i18n="onboardingSyncChip">Google Drive · Сквозное шифрование</span>
                     </div>
                     <h3 data-i18n="onboardingSyncTitle">Синхронизация и облачное восстановление</h3>
                     <p data-i18n="onboardingSyncDesc">
@@ -1885,22 +1926,11 @@
                             placeholder="Введите мастер-пароль…"
                         />
                     </div>
-                    <label
-                        class="onboarding-key-label"
-                        for="onboardingDriveToken"
-                        data-i18n="driveTokenLabel"
-                        style="margin-top: 8px"
-                        >Google Drive Access Token</label
+                    <small class="onboarding-sync-hint" data-i18n="onboardingGoogleDriveHint"
+                        >Нажмите кнопку — откроется вход Google. Копировать токены или искать специальные ссылки не
+                        нужно.</small
                     >
-                    <div class="onboarding-key-row">
-                        <input
-                            id="onboardingDriveToken"
-                            type="password"
-                            autocomplete="off"
-                            spellcheck="false"
-                            data-i18n-placeholder="driveTokenPlaceholder"
-                            placeholder="Google Drive Access Token (опционально)…"
-                        />
+                    <div class="onboarding-sync-action-row">
                         <button
                             id="onboardingRestoreDrive"
                             class="onboarding-button primary"
@@ -1910,16 +1940,7 @@
                             Восстановить из облака
                         </button>
                     </div>
-                    <div
-                        class="onboarding-sync-fallback-row"
-                        style="
-                            margin-top: 10px;
-                            display: flex;
-                            align-items: center;
-                            justify-content: space-between;
-                            gap: 8px;
-                        "
-                    >
+                    <div class="onboarding-sync-fallback-row">
                         <input
                             id="onboardingFileInput"
                             type="file"

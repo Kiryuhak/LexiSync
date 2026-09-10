@@ -4,10 +4,10 @@ import { buildPromptPayload } from './prompt-builder';
 import type { MistralRequest, MistralSettings } from './mistral-client';
 import { parseRetryAfterMs } from './mistral-client';
 import { AiProviderError, type AIResponse, type CloudflareCredentials } from './ai-provider-types';
-import { recordErrorLog } from './error-log';
 import { getAiOutputTokenLimit } from './ai-output-budget';
 import { AI_CONFIG, normalizeCloudflareModel } from './ai-models-config';
 import { validateAiOutput } from './ai-sanity-check';
+import { SseParser, type SseEvent } from './sse-parser';
 
 export const CLOUDFLARE_API_BASE_URL = AI_CONFIG.cloudflare.baseUrl;
 export const CLOUDFLARE_DEFAULT_MODEL = AI_CONFIG.cloudflare.defaultModel;
@@ -32,7 +32,10 @@ export function classifyCloudflareError(
         return { message: msg, error: new AiProviderError(msg, 'ACCOUNT_ERROR', 'cloudflare', false, status) };
     }
     if (status === 429) {
-        const msg = t('cloudflareRateLimit', 'Дневная квота Cloudflare Workers AI исчерпана. Попробуйте позже.');
+        const msg = t(
+            'cloudflareRateLimit',
+            'Cloudflare Workers AI временно ограничил запросы или исчерпал доступную квоту. Попробуйте позже.',
+        );
         return {
             message: msg,
             error: new AiProviderError(
@@ -111,7 +114,7 @@ export async function validateCloudflareCredentials(
     credentials: CloudflareCredentials,
     model: string = CLOUDFLARE_DEFAULT_MODEL,
     signal?: AbortSignal,
-): Promise<{ ok: boolean; message: string; latencyMs?: number; model?: string }> {
+): Promise<{ ok: boolean; message: string; latencyMs?: number; model?: string; status?: number; errorCode?: string }> {
     const accountId = (credentials.accountId || '').trim();
     const apiToken = (credentials.apiToken || '').trim();
 
@@ -160,14 +163,18 @@ export async function validateCloudflareCredentials(
             };
         }
 
-        const { message } = classifyCloudflareError(response.status, response.headers?.get('Retry-After'));
-        return { ok: false, message, latencyMs };
+        const { message, error } = classifyCloudflareError(response.status, response.headers?.get('Retry-After'));
+        return { ok: false, message, latencyMs, status: response.status, errorCode: error.code };
     } catch (err) {
         clearTimeout(timeoutTimer);
         if (controller.signal.aborted && !signal?.aborted) {
-            return { ok: false, message: t('cloudflareTimeout', 'Cloudflare Workers AI не ответил вовремя.') };
+            return {
+                ok: false,
+                message: t('cloudflareTimeout', 'Cloudflare Workers AI не ответил вовремя.'),
+                errorCode: 'TIMEOUT',
+            };
         }
-        return { ok: false, message: formatCloudflareError(err) };
+        return { ok: false, message: formatCloudflareError(err), errorCode: 'NETWORK_ERROR' };
     }
 }
 
@@ -184,6 +191,7 @@ export async function streamCloudflareText(
     signal: AbortSignal,
     onChunk: (text: string) => void,
     selectedModel: string = CLOUDFLARE_DEFAULT_MODEL,
+    onActivity?: () => void,
 ): Promise<AIResponse> {
     const accountId = (credentials.accountId || '').trim();
     const apiToken = (credentials.apiToken || '').trim();
@@ -237,31 +245,18 @@ export async function streamCloudflareText(
     } catch (err) {
         if (signal.aborted) throw err;
         const formatted = formatCloudflareError(err);
-        void recordErrorLog({
-            level: 'error',
-            source: 'cloudflare-client',
-            provider: 'cloudflare',
-            message: `Ошибка запроса к Cloudflare: ${formatted}`,
-        });
         throw new AiProviderError(formatted, 'NETWORK_ERROR', 'cloudflare', true);
     }
 
     if (!response.ok) {
-        const { message, error } = classifyCloudflareError(response.status, response.headers?.get('Retry-After'));
-        void recordErrorLog({
-            level: 'error',
-            source: 'cloudflare-client',
-            provider: 'cloudflare',
-            status: response.status,
-            message: `Cloudflare API вернул статус ${response.status}: ${message}`,
-        });
+        const { error } = classifyCloudflareError(response.status, response.headers?.get('Retry-After'));
         throw error;
     }
 
     const reader = response.body?.getReader();
     if (!reader) {
         throw new AiProviderError(
-            t('emptyStream', 'Cloudflare Workers AI вернул пустой поток данных.'),
+            t('cloudflareEmptyResponse', 'Cloudflare Workers AI вернул пустой поток данных.'),
             'INVALID_RESPONSE',
             'cloudflare',
             true,
@@ -269,7 +264,7 @@ export async function streamCloudflareText(
     }
 
     const decoder = new TextDecoder();
-    let buffer = '';
+    const parser = new SseParser();
     let bufferedMaskedContent = '';
     let receivedContent = false;
     const deferOutputUntilValidated = msg.mode === 'spellcheck';
@@ -292,13 +287,6 @@ export async function streamCloudflareText(
             targetLang: msg.targetLang,
         });
         if (!sanity.valid) {
-            void recordErrorLog({
-                level: 'warn',
-                source: 'cloudflare-client',
-                provider: 'cloudflare',
-                errorCode: 'QUALITY_CHECK_FAILED',
-                message: `Ответ Cloudflare не прошёл проверку качества: ${sanity.reason}`,
-            });
             throw new AiProviderError(
                 `${t('qualityCheckFailed', 'Ответ Cloudflare не прошёл проверку качества.')} (${sanity.reason})`,
                 'QUALITY_CHECK_FAILED',
@@ -310,12 +298,38 @@ export async function streamCloudflareText(
         if (deferOutputUntilValidated) onChunk(sanity.cleanedText);
     };
 
-    const processLine = (line: string): boolean => {
-        const parsed = readCloudflareSsePayload(line);
+    const processEvent = (event: SseEvent): boolean => {
+        if (event.data.trim() === '[DONE]') return true;
+        let parsed: { content: string; usage?: CloudflareUsage };
+        try {
+            const payload = JSON.parse(event.data) as {
+                response?: string;
+                result?: { response?: string; usage?: CloudflareUsage };
+                choices?: Array<{ delta?: { content?: string | Array<{ text?: string }> } }>;
+                usage?: CloudflareUsage;
+            };
+            const deltaContent = payload.choices?.[0]?.delta?.content;
+            const choiceContent =
+                typeof deltaContent === 'string'
+                    ? deltaContent
+                    : Array.isArray(deltaContent)
+                      ? deltaContent.map((part) => part.text || '').join('')
+                      : '';
+            parsed = {
+                content: payload.response ?? payload.result?.response ?? choiceContent,
+                usage: payload.usage ?? payload.result?.usage,
+            };
+        } catch {
+            throw new AiProviderError(
+                t('cloudflareInvalidStream', 'Cloudflare Workers AI вернул повреждённые потоковые данные.'),
+                'INVALID_RESPONSE',
+                'cloudflare',
+                true,
+            );
+        }
         if (parsed.usage) {
             usageData = { ...usageData, ...parsed.usage };
         }
-        if (parsed.done) return true;
         if (parsed.content) {
             receivedContent = true;
             if (shouldRestorePii) {
@@ -328,72 +342,57 @@ export async function streamCloudflareText(
         return false;
     };
 
+    const complete = (): AIResponse => {
+        if (!receivedContent) {
+            throw new AiProviderError(
+                t('cloudflareEmptyResponse', 'Cloudflare Workers AI вернул пустой поток данных.'),
+                'INVALID_RESPONSE',
+                'cloudflare',
+                true,
+            );
+        }
+        finalizeCompletedContent();
+        return {
+            text: fullCollectedText,
+            provider: 'cloudflare',
+            model: resolvedModel,
+            usage: usageData
+                ? {
+                      promptTokens: usageData.prompt_tokens,
+                      completionTokens: usageData.completion_tokens,
+                      totalTokens: usageData.total_tokens,
+                      neurons: usageData.neurons,
+                  }
+                : undefined,
+        };
+    };
+
     try {
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split(/\r?\n/);
-            buffer = lines.pop() || '';
-            for (const line of lines) {
-                if (!processLine(line)) continue;
-                if (!receivedContent) {
-                    throw new AiProviderError(
-                        t('emptyStream', 'Cloudflare Workers AI вернул пустой поток данных.'),
-                        'INVALID_RESPONSE',
-                        'cloudflare',
-                        true,
-                    );
-                }
-                finalizeCompletedContent();
+            onActivity?.();
+            for (const event of parser.push(decoder.decode(value, { stream: true }))) {
+                if (!processEvent(event)) continue;
+                const result = complete();
                 await reader.cancel();
-                return {
-                    text: fullCollectedText,
-                    provider: 'cloudflare',
-                    model: resolvedModel,
-                    usage: usageData
-                        ? {
-                              promptTokens: usageData.prompt_tokens,
-                              completionTokens: usageData.completion_tokens,
-                              totalTokens: usageData.total_tokens,
-                              neurons: usageData.neurons,
-                          }
-                        : undefined,
-                };
+                return result;
             }
         }
 
-        buffer += decoder.decode();
-        if (buffer && processLine(buffer)) {
-            if (!receivedContent) {
-                throw new AiProviderError(
-                    t('emptyStream', 'Cloudflare Workers AI вернул пустой поток данных.'),
-                    'INVALID_RESPONSE',
-                    'cloudflare',
-                    true,
-                );
-            }
-            finalizeCompletedContent();
+        const finalChunk = decoder.decode();
+        const finalEvents = [...parser.push(finalChunk), ...parser.finish()];
+        for (const event of finalEvents) {
+            if (!processEvent(event)) continue;
+            const result = complete();
             await reader.cancel();
-            return {
-                text: fullCollectedText,
-                provider: 'cloudflare',
-                model: resolvedModel,
-                usage: usageData
-                    ? {
-                          promptTokens: usageData.prompt_tokens,
-                          completionTokens: usageData.completion_tokens,
-                          totalTokens: usageData.total_tokens,
-                          neurons: usageData.neurons,
-                      }
-                    : undefined,
-            };
+            return result;
         }
 
         // Если поток завершился без явного [DONE], это незавершённый поток
         if (!receivedContent) {
             throw new AiProviderError(
-                t('emptyStream', 'Cloudflare Workers AI вернул пустой поток данных.'),
+                t('cloudflareEmptyResponse', 'Cloudflare Workers AI вернул пустой поток данных.'),
                 'INVALID_RESPONSE',
                 'cloudflare',
                 true,
@@ -401,7 +400,7 @@ export async function streamCloudflareText(
         }
 
         throw new AiProviderError(
-            t('incompleteStream', 'Ответ Cloudflare Workers AI прервался до завершения. Повторите запрос.'),
+            t('cloudflareIncompleteStream', 'Ответ Cloudflare Workers AI прервался до завершения. Повторите запрос.'),
             'INVALID_RESPONSE',
             'cloudflare',
             true,
@@ -410,7 +409,7 @@ export async function streamCloudflareText(
         if (signal.aborted) throw err;
         if (err instanceof AiProviderError) throw err;
         throw new AiProviderError(
-            t('incompleteStream', 'Ответ Cloudflare Workers AI прервался до завершения. Повторите запрос.'),
+            t('cloudflareIncompleteStream', 'Ответ Cloudflare Workers AI прервался до завершения. Повторите запрос.'),
             'NETWORK_ERROR',
             'cloudflare',
             true,

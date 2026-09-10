@@ -34,6 +34,7 @@ export class CloudflareWorkersAIProvider implements AIProvider {
         signal: AbortSignal,
         onChunk: (chunk: string) => void,
         model?: string,
+        onActivity?: () => void,
     ): Promise<AIResponse> {
         let creds: CloudflareCredentials;
         if (typeof credential === 'string') {
@@ -52,6 +53,7 @@ export class CloudflareWorkersAIProvider implements AIProvider {
             signal,
             onChunk,
             model || AI_CONFIG.cloudflare.defaultModel,
+            onActivity,
         );
     }
 }

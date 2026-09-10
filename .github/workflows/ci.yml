@@ -17,6 +17,9 @@ jobs:
     build-and-test:
         runs-on: ubuntu-latest
         timeout-minutes: 25
+        env:
+            LEXISYNC_GOOGLE_DRIVE_CHROME_CLIENT_ID: chrome-ci-client.apps.googleusercontent.com
+            LEXISYNC_GOOGLE_DRIVE_FIREFOX_CLIENT_ID: firefox-ci-client.apps.googleusercontent.com
         steps:
             - name: Получить код
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

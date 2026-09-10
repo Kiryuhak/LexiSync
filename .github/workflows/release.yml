@@ -25,6 +25,10 @@ jobs:
     verify-and-release:
         runs-on: ubuntu-latest
         timeout-minutes: 35
+        env:
+            LEXISYNC_GOOGLE_DRIVE_CHROME_CLIENT_ID: ${{ vars.GOOGLE_DRIVE_CHROME_CLIENT_ID }}
+            LEXISYNC_GOOGLE_DRIVE_FIREFOX_CLIENT_ID: ${{ vars.GOOGLE_DRIVE_FIREFOX_CLIENT_ID }}
+            LEXISYNC_REQUIRE_GOOGLE_OAUTH: '1'
         permissions:
             contents: write
         outputs:

@@ -9,11 +9,26 @@ export interface ErrorLogEntry {
     provider?: 'mistral' | 'cloudflare';
     errorCode?: string;
     status?: number;
+    httpStatus?: number;
+    operation?: string;
+    model?: string;
+    attempt?: number;
+    fallbackProvider?: 'mistral' | 'cloudflare';
+    fallbackUsed?: boolean;
+    retryAfterMs?: number;
+    latencyMs?: number;
     details?: Record<string, unknown>;
 }
 
 export const MAX_ERROR_LOGS = 50;
 const LOG_STORAGE_KEY = 'appErrorLogs';
+let logMutationQueue: Promise<void> = Promise.resolve();
+
+function enqueueLogMutation(mutation: () => Promise<void>): Promise<void> {
+    const result = logMutationQueue.then(mutation, mutation);
+    logMutationQueue = result.catch(() => undefined);
+    return result;
+}
 
 /**
  * Строго очищает любые API-ключи, заголовки авторизации, токены и персональные данные из строк лога.
@@ -96,31 +111,49 @@ export async function recordErrorLog(entry: {
     provider?: 'mistral' | 'cloudflare';
     errorCode?: string;
     status?: number;
+    httpStatus?: number;
+    operation?: string;
+    model?: string;
+    attempt?: number;
+    fallbackProvider?: 'mistral' | 'cloudflare';
+    fallbackUsed?: boolean;
+    retryAfterMs?: number;
+    latencyMs?: number;
     details?: Record<string, unknown>;
     knownKeys?: string[];
 }): Promise<void> {
     const api = getStorageApi();
     if (!api?.storage?.local) return;
     try {
-        const knownKeys = entry.knownKeys || [];
-        const sanitizedMsg = sanitizeLogMessage(entry.message, knownKeys);
-        if (!sanitizedMsg.trim()) return;
+        await enqueueLogMutation(async () => {
+            const knownKeys = entry.knownKeys || [];
+            const sanitizedMsg = sanitizeLogMessage(entry.message, knownKeys);
+            if (!sanitizedMsg.trim()) return;
 
-        const newLog: ErrorLogEntry = {
-            id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
-            timestamp: new Date().toISOString(),
-            level: entry.level || 'error',
-            source: entry.source || 'app',
-            message: sanitizedMsg,
-            provider: entry.provider,
-            errorCode: entry.errorCode,
-            status: entry.status,
-            details: sanitizeDetails(entry.details, knownKeys),
-        };
+            const newLog: ErrorLogEntry = {
+                id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+                timestamp: new Date().toISOString(),
+                level: entry.level || 'error',
+                source: entry.source || 'app',
+                message: sanitizedMsg,
+                provider: entry.provider,
+                errorCode: entry.errorCode,
+                status: entry.status,
+                httpStatus: entry.httpStatus ?? entry.status,
+                operation: entry.operation,
+                model: entry.model,
+                attempt: entry.attempt,
+                fallbackProvider: entry.fallbackProvider,
+                fallbackUsed: entry.fallbackUsed,
+                retryAfterMs: entry.retryAfterMs,
+                latencyMs: entry.latencyMs,
+                details: sanitizeDetails(entry.details, knownKeys),
+            };
 
-        const existing = await getErrorLogs();
-        const updated = [newLog, ...existing].slice(0, MAX_ERROR_LOGS);
-        await api.storage.local.set({ [LOG_STORAGE_KEY]: updated });
+            const existing = await getErrorLogs();
+            const updated = [newLog, ...existing].slice(0, MAX_ERROR_LOGS);
+            await api.storage.local.set({ [LOG_STORAGE_KEY]: updated });
+        });
     } catch (error) {
         console.error('[LexiSync ErrorLog] Failed to record error log:', error);
     }
@@ -130,7 +163,7 @@ export async function clearErrorLogs(): Promise<void> {
     const api = getStorageApi();
     if (!api?.storage?.local) return;
     try {
-        await api.storage.local.set({ [LOG_STORAGE_KEY]: [] });
+        await enqueueLogMutation(() => api.storage.local.set({ [LOG_STORAGE_KEY]: [] }));
     } catch (error) {
         console.error('[LexiSync ErrorLog] Failed to clear error logs:', error);
     }
@@ -154,7 +187,16 @@ export function formatErrorLogsAsText(logs: ErrorLogEntry[]): string {
             `#${index + 1} [${log.timestamp}] [${log.level.toUpperCase()}] [${log.source}]`,
             log.provider ? `  Провайдер: ${log.provider}` : null,
             log.errorCode ? `  Код ошибки: ${log.errorCode}` : null,
-            log.status ? `  HTTP статус: ${log.status}` : null,
+            log.httpStatus || log.status ? `  HTTP статус: ${log.httpStatus ?? log.status}` : null,
+            log.operation ? `  Операция: ${log.operation}` : null,
+            log.model ? `  Модель: ${log.model}` : null,
+            log.attempt ? `  Попытка: ${log.attempt}` : null,
+            log.fallbackProvider ? `  Резервный провайдер: ${log.fallbackProvider}` : null,
+            typeof log.fallbackUsed === 'boolean'
+                ? `  Резервное переключение: ${log.fallbackUsed ? 'да' : 'нет'}`
+                : null,
+            typeof log.retryAfterMs === 'number' ? `  Повтор через: ${log.retryAfterMs} мс` : null,
+            typeof log.latencyMs === 'number' ? `  Задержка: ${Math.round(log.latencyMs)} мс` : null,
             `  Сообщение: ${log.message}`,
             log.details ? `  Детали: ${JSON.stringify(log.details)}` : null,
             '----------------------------------------',

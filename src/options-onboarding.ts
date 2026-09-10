@@ -2,7 +2,8 @@ import { t } from './i18n';
 import { validateApiKey, validateCloudflareCredentials } from './ai-settings-client';
 import { logger } from './logger';
 import { restoreEncryptedBackup } from './crypto-backup';
-import { downloadBackupFromGoogleDrive, setGoogleDriveToken } from './google-drive-sync';
+import { downloadBackupFromGoogleDrive } from './google-drive-sync';
+import { isGoogleDriveAuthConfigured, withGoogleDriveAuth } from './google-drive-auth';
 import { getStoredApiKey, getStoredCloudflareCredentials } from './secret-store';
 
 export interface OnboardingOptions {
@@ -20,7 +21,6 @@ export async function setupOnboarding(options: OnboardingOptions): Promise<void>
 
     // Step 1 elements (Cloud sync and restore)
     const masterPasswordInput = document.getElementById('onboardingMasterPassword') as HTMLInputElement | null;
-    const driveTokenInput = document.getElementById('onboardingDriveToken') as HTMLInputElement | null;
     const restoreDriveButton = document.getElementById('onboardingRestoreDrive') as HTMLButtonElement | null;
     const restoreFileButton = document.getElementById('onboardingRestoreFile') as HTMLButtonElement | null;
     const fileInput = document.getElementById('onboardingFileInput') as HTMLInputElement | null;
@@ -45,6 +45,7 @@ export async function setupOnboarding(options: OnboardingOptions): Promise<void>
     const steps = [...document.querySelectorAll<HTMLElement>('[data-onboarding-step]')];
     if (!onboarding || !nextButton || !skipButton || !progress || steps.length === 0) return;
     const stored = await chrome.storage.local.get({ onboardingCompleted: false });
+    const googleDriveConfigured = isGoogleDriveAuthConfigured();
 
     let activeStep = 0;
     let previousFocus: HTMLElement | null = null;
@@ -59,11 +60,16 @@ export async function setupOnboarding(options: OnboardingOptions): Promise<void>
         previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         activeStep = 0;
         if (masterPasswordInput) masterPasswordInput.value = '';
-        if (driveTokenInput) driveTokenInput.value = '';
         if (syncStatus) {
-            syncStatus.textContent = '';
-            delete syncStatus.dataset.kind;
+            if (googleDriveConfigured) {
+                syncStatus.textContent = '';
+                delete syncStatus.dataset.kind;
+            } else {
+                syncStatus.textContent = t('googleDriveUnavailable', 'Вход Google не настроен в этой сборке');
+                syncStatus.dataset.kind = 'error';
+            }
         }
+        if (restoreDriveButton) restoreDriveButton.disabled = !googleDriveConfigured;
         if (keyInput) keyInput.value = options.getApiKey() || '';
         const creds = options.getCloudflareCredentials?.();
         if (cloudflareAccountIdInput) cloudflareAccountIdInput.value = creds?.accountId || '';
@@ -131,10 +137,6 @@ export async function setupOnboarding(options: OnboardingOptions): Promise<void>
             masterPasswordInput?.focus();
             return;
         }
-        const driveToken = driveTokenInput?.value.trim() || '';
-        if (driveToken) {
-            await setGoogleDriveToken(driveToken);
-        }
         const originalText = restoreDriveButton.textContent;
         restoreDriveButton.disabled = true;
         restoreDriveButton.textContent = t('backupDownloading', 'Загрузка резервной копии из Google Drive…');
@@ -142,7 +144,7 @@ export async function setupOnboarding(options: OnboardingOptions): Promise<void>
         delete syncStatus.dataset.kind;
 
         try {
-            const { content } = await downloadBackupFromGoogleDrive(driveToken || undefined);
+            const { content } = await withGoogleDriveAuth((token) => downloadBackupFromGoogleDrive(token));
             await handleRestoreData(content, masterPassword);
             syncStatus.textContent = t('backupRestoredSuccess', 'Настройки и ключи успешно восстановлены!');
             syncStatus.dataset.kind = 'success';
@@ -159,10 +161,22 @@ export async function setupOnboarding(options: OnboardingOptions): Promise<void>
                     'backupFileNotFound',
                     'Резервная копия не найдена в Google Drive (папка приложения пуста).',
                 );
-            } else if (msg === 'UNAUTHORIZED' || msg === 'NO_TOKEN') {
+            } else if (
+                msg === 'UNAUTHORIZED' ||
+                msg === 'NO_TOKEN' ||
+                msg === 'AUTH_FAILED' ||
+                msg === 'AUTH_STATE_MISMATCH'
+            ) {
                 syncStatus.textContent = t(
                     'backupUnauthorized',
-                    'Ошибка авторизации Google Drive. Проверьте токен доступа.',
+                    'Не удалось войти в Google Drive. Повторите подключение.',
+                );
+            } else if (msg === 'OAUTH_NOT_CONFIGURED') {
+                syncStatus.textContent = t('googleDriveUnavailable', 'Вход Google не настроен в этой сборке');
+            } else if (msg === 'AUTH_CANCELLED') {
+                syncStatus.textContent = t(
+                    'googleDriveAuthCancelled',
+                    'Вход в Google Drive отменён. Попробуйте ещё раз.',
                 );
             } else if (msg === 'NETWORK_ERROR') {
                 syncStatus.textContent = t(
@@ -177,7 +191,7 @@ export async function setupOnboarding(options: OnboardingOptions): Promise<void>
             }
             syncStatus.dataset.kind = 'error';
         } finally {
-            restoreDriveButton.disabled = false;
+            restoreDriveButton.disabled = !googleDriveConfigured;
             restoreDriveButton.textContent = originalText;
         }
     });

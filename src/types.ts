@@ -71,6 +71,7 @@ export interface UsageStats {
             cloudflareTokens?: number;
             cloudflareNeurons?: number;
             fallbackCount?: number;
+            failures?: number;
         }
     >;
 }
@@ -118,4 +119,8 @@ export interface StreamResponse {
     retryable?: boolean;
     provider?: 'mistral' | 'cloudflare';
     fallbackNotification?: string;
+    errorCode?: string;
+    statusCode?: number;
+    retryAfterMs?: number;
+    cooldownMs?: number;
 }

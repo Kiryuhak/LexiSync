@@ -20,18 +20,10 @@ export class MistralProvider implements AIProvider {
         settings: MistralSettings,
         signal: AbortSignal,
         onChunk: (chunk: string) => void,
+        _model?: string,
+        onActivity?: () => void,
     ): Promise<AIResponse> {
-        let fullText = '';
-        const collector = (chunk: string) => {
-            fullText += chunk;
-            onChunk(chunk);
-        };
-        await streamText(request, credential, settings, signal, collector);
-        return {
-            text: fullText,
-            provider: 'mistral',
-            model: AI_CONFIG.mistral.defaultModel,
-        };
+        return streamText(request, credential, settings, signal, onChunk, onActivity);
     }
 }
 

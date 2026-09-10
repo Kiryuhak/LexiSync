@@ -5,8 +5,9 @@ import { recordErrorLog } from './error-log';
 import type { AiMode, RequestMode, StyleProfile } from './types';
 import { getAiOutputTokenLimit } from './ai-output-budget';
 import { AI_CONFIG } from './ai-models-config';
-import { AiProviderError } from './ai-provider-types';
+import { AiProviderError, type AIResponse } from './ai-provider-types';
 import { validateAiOutput } from './ai-sanity-check';
+import { SseParser, type SseEvent } from './sse-parser';
 
 export interface MistralRequest {
     action: 'callMistral' | 'cancelMistral';
@@ -213,6 +214,10 @@ export async function validateApiKey(apiKey: string): Promise<{ ok: boolean; mes
     }
 }
 
+/**
+ * Совместимый разбор одного SSE-фрагмента для существующих потребителей.
+ * Потоковые клиенты используют SseParser, который корректно собирает границы событий.
+ */
 export function readSsePayload(line: string): string | null {
     const trimmed = line.trimEnd();
     if (!trimmed.startsWith('data:')) return null;
@@ -263,7 +268,8 @@ export async function streamText(
     settings: MistralSettings,
     signal: AbortSignal,
     onChunk: (text: string) => void,
-): Promise<void> {
+    onActivity?: () => void,
+): Promise<AIResponse> {
     const prompt = buildPromptPayload(msg, settings);
     const shouldRestorePii = Object.keys(prompt.piiMaskMap).length > 0;
     const requestInit: RequestInit = {
@@ -273,32 +279,24 @@ export async function streamText(
             model: AI_CONFIG.mistral.defaultModel,
             messages: prompt.messages,
             stream: true,
+            stream_options: { include_usage: true },
             max_tokens: getAiOutputTokenLimit(msg.mode, settings.aiMode, msg.text, msg.rawMessages),
             temperature: msg.mode === 'spellcheck' ? 0.0 : msg.mode === 'summary' ? 0.2 : 0.3,
         }),
     };
-    const requestCompletion = () => fetchWithRetry(`${API_BASE_URL}/chat/completions`, requestInit, signal);
-    let response = await requestCompletion();
-
-    // У нового ключа иногда раньше начинает работать /models, чем потоковый endpoint.
-    // На ошибке авторизации перепроверяем тот же ключ и выполняем только один повтор.
-    if (response.status === 401 || response.status === 403) {
-        const validation = await validateApiKey(apiKey);
-        if (validation.ok && !signal.aborted) {
-            await response.body?.cancel();
-            await wait(300, signal);
-            response = await requestCompletion();
-        }
-    }
+    // Повторные обращения выполняет только общий provider layer. Внутренние retry
+    // здесь запрещены, чтобы один пользовательский запрос не расходовал квоту скрыто.
+    const response = await fetch(`${API_BASE_URL}/chat/completions`, { ...requestInit, signal });
     if (!response.ok) throw await createApiError(response);
     const reader = response.body?.getReader();
-    if (!reader) throw new MistralRequestError(t('emptyStream', 'Mistral вернул пустой поток данных.'), true);
+    if (!reader) throw new MistralRequestError(t('mistralEmptyResponse', 'Mistral вернул пустой поток данных.'), true);
 
     const decoder = new TextDecoder();
-    let buffer = '';
+    const parser = new SseParser();
     let bufferedMaskedContent = '';
     let fullCollectedText = '';
     let receivedContent = false;
+    let usageData: AIResponse['usage'];
     const deferOutputUntilValidated = msg.mode === 'spellcheck';
     const emitCompletedContent = () => {
         if (shouldRestorePii && bufferedMaskedContent) {
@@ -316,13 +314,6 @@ export async function streamText(
             targetLang: msg.targetLang,
         });
         if (!sanity.valid) {
-            void recordErrorLog({
-                level: 'warn',
-                source: 'mistral-client',
-                provider: 'mistral',
-                errorCode: 'QUALITY_CHECK_FAILED',
-                message: `Ответ Mistral не прошёл проверку качества: ${sanity.reason}`,
-            });
             throw new AiProviderError(
                 `${t('qualityCheckFailed', 'Ответ ИИ не прошёл проверку качества.')} (${sanity.reason})`,
                 'QUALITY_CHECK_FAILED',
@@ -333,9 +324,36 @@ export async function streamText(
         fullCollectedText = sanity.cleanedText;
         if (deferOutputUntilValidated) onChunk(sanity.cleanedText);
     };
-    const processLine = (line: string): boolean => {
-        if (line.trim() === 'data: [DONE]') return true;
-        const content = readSsePayload(line);
+    const processEvent = (event: SseEvent): boolean => {
+        if (event.data.trim() === '[DONE]') return true;
+        let parsed: {
+            choices?: Array<{ delta?: { content?: string | Array<{ text?: string }> } }>;
+            usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+        };
+        try {
+            parsed = JSON.parse(event.data);
+        } catch {
+            throw new AiProviderError(
+                t('mistralInvalidStream', 'Mistral вернул повреждённые потоковые данные.'),
+                'INVALID_RESPONSE',
+                'mistral',
+                true,
+            );
+        }
+        if (parsed.usage) {
+            usageData = {
+                promptTokens: parsed.usage.prompt_tokens,
+                completionTokens: parsed.usage.completion_tokens,
+                totalTokens: parsed.usage.total_tokens,
+            };
+        }
+        const delta = parsed.choices?.[0]?.delta?.content;
+        const content =
+            typeof delta === 'string'
+                ? delta
+                : Array.isArray(delta)
+                  ? delta.map((part) => part.text || '').join('')
+                  : '';
         if (content) {
             receivedContent = true;
             if (shouldRestorePii) bufferedMaskedContent += content;
@@ -346,36 +364,42 @@ export async function streamText(
         }
         return false;
     };
+    const complete = (): AIResponse => {
+        if (!receivedContent)
+            throw new MistralRequestError(t('mistralEmptyResponse', 'Mistral вернул пустой поток данных.'), true);
+        emitCompletedContent();
+        validateCompletedContent();
+        return {
+            text: fullCollectedText,
+            provider: 'mistral',
+            model: AI_CONFIG.mistral.defaultModel,
+            usage: usageData,
+        };
+    };
     try {
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split(/\r?\n/);
-            buffer = lines.pop() || '';
-            for (const line of lines) {
-                if (!processLine(line)) continue;
-                if (!receivedContent)
-                    throw new MistralRequestError(t('emptyStream', 'Mistral вернул пустой поток данных.'), true);
-                emitCompletedContent();
-                validateCompletedContent();
+            onActivity?.();
+            for (const event of parser.push(decoder.decode(value, { stream: true }))) {
+                if (!processEvent(event)) continue;
+                const result = complete();
                 await reader.cancel();
-                return;
+                return result;
             }
         }
-        buffer += decoder.decode();
-        if (buffer && processLine(buffer)) {
-            if (!receivedContent)
-                throw new MistralRequestError(t('emptyStream', 'Mistral вернул пустой поток данных.'), true);
-            emitCompletedContent();
-            validateCompletedContent();
+        const finalChunk = decoder.decode();
+        const finalEvents = [...parser.push(finalChunk), ...parser.finish()];
+        for (const event of finalEvents) {
+            if (!processEvent(event)) continue;
+            const result = complete();
             await reader.cancel();
-            return;
+            return result;
         }
         if (!receivedContent)
-            throw new MistralRequestError(t('emptyStream', 'Mistral вернул пустой поток данных.'), true);
+            throw new MistralRequestError(t('mistralEmptyResponse', 'Mistral вернул пустой поток данных.'), true);
         throw new MistralRequestError(
-            t('incompleteStream', 'Ответ Mistral прервался до завершения. Повторите запрос.'),
+            t('mistralIncompleteStream', 'Ответ Mistral прервался до завершения. Повторите запрос.'),
             true,
         );
     } finally {

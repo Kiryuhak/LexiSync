@@ -8,6 +8,7 @@ import { applyFastTypographyAndTypoFixes } from './local-text-rules';
 import { logger } from './logger';
 import { loadCachedHealthStatus, type ProviderHealthStatus } from './provider-health';
 import { getHistory } from './history-store';
+import { getProviderAvailability } from './provider-availability';
 
 type Theme = 'auto' | 'light' | 'dark';
 
@@ -350,9 +351,35 @@ function renderPopupHealthDot(provider: 'cloudflare' | 'mistral', status: Provid
 }
 
 async function initializePopupServerStatus(): Promise<void> {
-    const cached = await loadCachedHealthStatus();
-    renderPopupHealthDot('cloudflare', cached.cloudflare);
-    renderPopupHealthDot('mistral', cached.mistral);
+    const [cached, cloudflareAvailability, mistralAvailability] = await Promise.all([
+        loadCachedHealthStatus(),
+        getProviderAvailability('cloudflare'),
+        getProviderAvailability('mistral'),
+    ]);
+    const withCooldown = (
+        provider: 'cloudflare' | 'mistral',
+        status: ProviderHealthStatus | null,
+        cooldownRemainingMs: number,
+    ): ProviderHealthStatus | null => {
+        if (cooldownRemainingMs <= 0) return status;
+        const seconds = Math.max(1, Math.ceil(cooldownRemainingMs / 1000));
+        return {
+            provider,
+            state: 'cooldown',
+            message: t(
+                'serverStatusCooldown',
+                `Пауза после сбоя. Повторная проверка примерно через ${seconds} сек.`,
+                String(seconds),
+            ),
+            checkedAt: Date.now(),
+            cooldownRemainingMs,
+        };
+    };
+    renderPopupHealthDot(
+        'cloudflare',
+        withCooldown('cloudflare', cached.cloudflare, cloudflareAvailability.cooldownRemainingMs),
+    );
+    renderPopupHealthDot('mistral', withCooldown('mistral', cached.mistral, mistralAvailability.cooldownRemainingMs));
 }
 
 async function initializeRecentResults(): Promise<void> {

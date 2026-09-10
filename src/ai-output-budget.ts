@@ -6,7 +6,12 @@ function getRequestInputTokens(text: string, rawMessages?: Array<{ content: stri
     return estimateTokens(source);
 }
 
-/** Ограничивает только ответ AI; исходный текст никогда не обрезается. */
+/**
+ * Ограничивает только ответ AI; исходный текст никогда не обрезается.
+ * fast: до 1536 токенов для минимального расхода и задержки.
+ * balanced/legacy quality: до 3072 токенов для сложных задач.
+ * Режим не добавляет повторных вызовов: request budget задаётся единым AI-клиентом.
+ */
 export function getAiOutputTokenLimit(
     mode: RequestMode | undefined,
     aiMode: AiMode,

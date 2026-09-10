@@ -2,8 +2,9 @@ import { t } from './i18n';
 import { AiProviderError, type AiProviderType, type CloudflareCredentials } from './ai-provider-types';
 import { validateCloudflareCredentials } from './cloudflare-client';
 import { AI_CONFIG, normalizeCloudflareModel } from './ai-models-config';
+import { getProviderAvailability } from './provider-availability';
 
-export type HealthState = 'healthy' | 'degraded' | 'outage' | 'unconfigured' | 'checking';
+export type HealthState = 'healthy' | 'degraded' | 'cooldown' | 'outage' | 'unconfigured' | 'checking';
 
 export interface ProviderHealthStatus {
     provider: AiProviderType;
@@ -12,6 +13,8 @@ export interface ProviderHealthStatus {
     message: string;
     checkedAt: number;
     model?: string;
+    cooldownRemainingMs?: number;
+    errorCode?: string;
 }
 
 const HEALTH_CACHE_KEY = 'lexisync_provider_health_cache';
@@ -23,6 +26,8 @@ export function getHealthStateColor(state: HealthState): string {
             return '#10b981'; // 🟢 зеленый
         case 'degraded':
             return '#f59e0b'; // 🟡 желтый
+        case 'cooldown':
+            return '#f97316';
         case 'outage':
             return '#ef4444'; // 🔴 красный
         case 'checking':
@@ -39,6 +44,8 @@ export function getHealthStateBadge(state: HealthState): string {
             return '🟢';
         case 'degraded':
             return '🟡';
+        case 'cooldown':
+            return '⏳';
         case 'outage':
             return '🔴';
         case 'checking':
@@ -60,6 +67,23 @@ export async function checkProviderHealth(
     timeoutMs = 7000,
     cloudflareModel: unknown = AI_CONFIG.cloudflare.defaultModel,
 ): Promise<ProviderHealthStatus> {
+    const cooldownStatus = async (resolvedProvider: AiProviderType): Promise<ProviderHealthStatus | null> => {
+        const availability = await getProviderAvailability(resolvedProvider);
+        if (availability.cooldownRemainingMs <= 0) return null;
+        const seconds = Math.max(1, Math.ceil(availability.cooldownRemainingMs / 1000));
+        return {
+            provider: resolvedProvider,
+            state: 'cooldown',
+            message: t(
+                'serverStatusCooldown',
+                `Пауза после сбоя. Повторная проверка примерно через ${seconds} сек.`,
+                String(seconds),
+            ),
+            checkedAt: Date.now(),
+            cooldownRemainingMs: availability.cooldownRemainingMs,
+            errorCode: availability.lastErrorCode,
+        };
+    };
     if (provider === 'cloudflare') {
         const resolvedModel = normalizeCloudflareModel(cloudflareModel);
         let creds: CloudflareCredentials;
@@ -81,6 +105,8 @@ export async function checkProviderHealth(
                 model: resolvedModel,
             };
         }
+        const runtimeCooldown = await cooldownStatus('cloudflare');
+        if (runtimeCooldown) return { ...runtimeCooldown, model: resolvedModel };
 
         const signal = AbortSignal.timeout(timeoutMs);
         const result = await validateCloudflareCredentials(creds, resolvedModel, signal);
@@ -100,8 +126,12 @@ export async function checkProviderHealth(
         }
 
         const isDegraded =
+            result.status === 429 ||
+            result.errorCode === 'RATE_LIMIT' ||
+            result.errorCode === 'TIMEOUT' ||
             result.message.includes('квота') ||
             result.message.includes('лимит') ||
+            /rate\s*limit/i.test(result.message) ||
             result.message.includes('вовремя') ||
             result.message.includes('timeout');
 
@@ -124,6 +154,8 @@ export async function checkProviderHealth(
             checkedAt: Date.now(),
         };
     }
+    const runtimeCooldown = await cooldownStatus('mistral');
+    if (runtimeCooldown) return runtimeCooldown;
 
     const startTime = performance.now();
     const url = `${AI_CONFIG.mistral.baseUrl}/models`;
@@ -242,7 +274,7 @@ export function evaluateHealthFromRuntimeResponse(
             latencyMs: durationMs,
             message:
                 provider === 'cloudflare'
-                    ? t('cloudflareRateLimit', 'Дневная квота Cloudflare Workers AI исчерпана. Попробуйте позже.')
+                    ? t('cloudflareRateLimit', 'Превышен лимит запросов Cloudflare Workers AI. Попробуйте позже.')
                     : t('serverStatusRateLimit', 'Лимит запросов (Rate Limit)'),
             checkedAt: Date.now(),
         };
