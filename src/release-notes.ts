@@ -37,11 +37,19 @@ const note = (
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
         '5.6.4',
-        '2026-09-10',
+        '2026-09-11',
         'fixed',
-        'Надёжное резервное копирование Google Drive',
-        'Reliable Google Drive backup',
+        'Стабильная проверка текста и Google Drive',
+        'Stable text correction and Google Drive',
         [
+            [
+                'Исправление текста через Cloudflare больше не завершается пустым ответом из-за скрытых рассуждений модели.',
+                'Cloudflare text correction no longer ends with an empty response caused by hidden model reasoning.',
+            ],
+            [
+                'После ограничения Mistral запрос безопасно переключается на Cloudflare, а во время паузы Mistral не вызывается повторно.',
+                'After a Mistral rate limit, the request safely switches to Cloudflare and does not call Mistral again during its cooldown.',
+            ],
             [
                 'Ошибки авторизации, отключённый Drive API, недостаточные разрешения и ограничения запросов теперь показываются отдельно.',
                 'Authorization errors, a disabled Drive API, insufficient permissions, and request limits are now shown separately.',

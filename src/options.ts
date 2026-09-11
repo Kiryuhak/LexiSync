@@ -541,7 +541,6 @@ async function saveOptions(): Promise<void> {
         const combinedStatus =
             apiKeyStatus || cloudflareKeyStatus || t('saveSuccess', '✓ Настройки успешно сохранены!');
         showOptionsStatus(combinedStatus, apiKeyStatus || cloudflareKeyStatus ? 'warning' : 'success');
-        void refreshServerHealthStatus(false);
         window.setTimeout(() => {
             const status = document.getElementById('status');
             if (status) status.style.display = 'none';

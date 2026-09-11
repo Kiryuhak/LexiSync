@@ -2444,7 +2444,25 @@ test('выключенный fallback не отправляет текст в Cl
 
 test('виджет статуса серверов отображается в настройках и обновляется по кнопке', async ({ page, context }) => {
     await setFakeApiKey(context);
+    const [background] = context.serviceWorkers();
+    const extensionId = new URL(background.url()).host;
+    const credentialsPage = await context.newPage();
+    await credentialsPage.goto(`chrome-extension://${extensionId}/options.html`);
+    await expect(
+        credentialsPage.evaluate(() =>
+            chrome.runtime.sendMessage({
+                action: 'setCloudflareCredentials',
+                accountId: 'test-cf-account-12345',
+                apiToken: 'test-cf-token-67890',
+            }),
+        ),
+    ).resolves.toMatchObject({ ok: true });
+    await credentialsPage.close();
+
+    let cloudflareHealthRequests = 0;
+    let mistralHealthRequests = 0;
     await context.route('https://api.cloudflare.com/**', async (route) => {
+        cloudflareHealthRequests++;
         await route.fulfill({
             status: 200,
             contentType: 'application/json',
@@ -2452,6 +2470,7 @@ test('виджет статуса серверов отображается в �
         });
     });
     await context.route('https://api.mistral.ai/v1/models', async (route) => {
+        mistralHealthRequests++;
         await route.fulfill({
             status: 200,
             contentType: 'application/json',
@@ -2459,9 +2478,7 @@ test('виджет статуса серверов отображается в �
         });
     });
 
-    const [background] = context.serviceWorkers();
     await background.evaluate(() => chrome.storage.local.set({ onboardingCompleted: true }));
-    const extensionId = new URL(background.url()).host;
     await page.goto(`chrome-extension://${extensionId}/options.html`);
 
     const cloudflareCard = page.locator('#cloudflareStatusCard');
@@ -2471,10 +2488,14 @@ test('виджет статуса серверов отображается в �
     await expect(cloudflareCard).toBeVisible();
     await expect(mistralCard).toBeVisible();
     await expect(refreshBtn).toBeVisible();
+    expect(cloudflareHealthRequests).toBe(0);
+    expect(mistralHealthRequests).toBe(0);
 
     await refreshBtn.click();
-    await expect(cloudflareCard.locator('.server-status-dot')).toBeVisible();
-    await expect(mistralCard.locator('.server-status-dot')).toBeVisible();
+    await expect.poll(() => cloudflareHealthRequests).toBe(1);
+    await expect.poll(() => mistralHealthRequests).toBe(1);
+    await expect(cloudflareCard).toHaveAttribute('data-status', 'healthy');
+    await expect(mistralCard).toHaveAttribute('data-status', 'healthy');
 });
 
 test('popup отображает компактный статус-бар серверов', async ({ page, context }) => {
