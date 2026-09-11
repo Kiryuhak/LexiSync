@@ -1064,7 +1064,10 @@
         "message": "Mistral вернул пустой поток данных."
     },
     "cloudflareEmptyResponse": {
-        "message": "Cloudflare Workers AI вернул пустой поток данных."
+        "message": "Cloudflare Workers AI не вернул текст."
+    },
+    "cloudflareInvalidResponse": {
+        "message": "Cloudflare Workers AI вернул некорректный ответ."
     },
     "mistralInvalidStream": {
         "message": "Mistral вернул повреждённые потоковые данные."

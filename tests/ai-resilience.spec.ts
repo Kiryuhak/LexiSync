@@ -7,7 +7,7 @@ import {
     recordProviderFailure,
     releaseProviderAttempt,
 } from '../src/provider-availability';
-import { streamCloudflareText } from '../src/cloudflare-client';
+import { readCloudflarePayload, streamCloudflareText } from '../src/cloudflare-client';
 import { streamText } from '../src/mistral-client';
 import { SseParser } from '../src/sse-parser';
 
@@ -31,6 +31,84 @@ test('SSE parser сохраняет UTF-8/JSON между chunks и объеди
     expect(parser.push('\n\r\n')).toEqual([
         { data: '{"response":\n"Привет"}', event: undefined, id: undefined, retry: undefined },
     ]);
+});
+
+test('SSE parser обрабатывает LF, CRLF, keepalive и несколько событий в одном chunk', () => {
+    const parser = new SseParser();
+    expect(
+        parser.push(
+            ': keepalive\r\n\r\ndata: {"response":"Первый"}\n\ndata: строка 1\ndata: строка 2\r\n\r\n' +
+                'data: [DONE]\n\n',
+        ),
+    ).toEqual([
+        { data: '{"response":"Первый"}', event: undefined, id: undefined, retry: undefined },
+        { data: 'строка 1\nстрока 2', event: undefined, id: undefined, retry: undefined },
+        { data: '[DONE]', event: undefined, id: undefined, retry: undefined },
+    ]);
+});
+
+test('SSE parser сохраняет UTF-8 символ, разделённый между байтовыми chunks', () => {
+    const bytes = new TextEncoder().encode('data: {"response":"Привет"}\n\n');
+    const decoder = new TextDecoder();
+    const parser = new SseParser();
+    const events = [];
+    for (const byte of bytes) events.push(...parser.push(decoder.decode(Uint8Array.of(byte), { stream: true })));
+    events.push(...parser.push(decoder.decode()), ...parser.finish());
+    expect(events).toEqual([{ data: '{"response":"Привет"}', event: undefined, id: undefined, retry: undefined }]);
+});
+
+test('SSE parser отдаёт последнее событие при EOF без пустой строки', () => {
+    const parser = new SseParser();
+    expect(parser.push('data: {"response":"Последний"}')).toEqual([]);
+    expect(parser.finish()).toEqual([
+        { data: '{"response":"Последний"}', event: undefined, id: undefined, retry: undefined },
+    ]);
+});
+
+test('Cloudflare payload parser понимает REST wrapper и потоковый choices delta', () => {
+    expect(
+        readCloudflarePayload({
+            success: true,
+            result: {
+                choices: [{ message: { content: 'Готовый текст' } }],
+                usage: { prompt_tokens: 10, completion_tokens: 3, total_tokens: 13, neurons: 0.1 },
+            },
+        }),
+    ).toEqual({
+        content: 'Готовый текст',
+        usage: { prompt_tokens: 10, completion_tokens: 3, total_tokens: 13, neurons: 0.1 },
+    });
+    expect(readCloudflarePayload({ choices: [{ delta: { content: 'Фрагмент' } }] })).toEqual({
+        content: 'Фрагмент',
+        usage: undefined,
+    });
+    expect(readCloudflarePayload({ result: { response: { text: 'Ответ Qwen' } } })).toEqual({
+        content: 'Ответ Qwen',
+        usage: undefined,
+    });
+});
+
+test('Cloudflare отклоняет malformed SSE event', async () => {
+    let requestBody: Record<string, unknown> = {};
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => {
+        requestBody = JSON.parse(String(init?.body || '{}')) as Record<string, unknown>;
+        return new Response('data: {not-json}\n\ndata: [DONE]\n\n', {
+            status: 200,
+            headers: { 'content-type': 'text/event-stream' },
+        });
+    });
+
+    await expect(
+        streamCloudflareText(
+            { action: 'callMistral', text: 'Тест', mode: 'style' },
+            { accountId: 'cf-account', apiToken: 'cf-token' },
+            settings,
+            new AbortController().signal,
+            () => undefined,
+        ),
+    ).rejects.toMatchObject({ provider: 'cloudflare', code: 'INVALID_RESPONSE' });
+    expect(requestBody.stream).toBe(true);
+    expect(requestBody.chat_template_kwargs).toBeUndefined();
 });
 
 test('Retry-After имеет приоритет, а fallback cooldown без заголовка ограничен', async () => {
@@ -198,15 +276,14 @@ test('корректор Cloudflare детерминирован и возвра
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => {
         requestBody = JSON.parse(String(init?.body || '{}')) as Record<string, unknown>;
         return new Response(
-            [
-                'data: {"response":"Исправленный текст"}',
-                '',
-                'data: {"usage":{"prompt_tokens":12,"completion_tokens":3,"total_tokens":15,"neurons":0.42}}',
-                '',
-                'data: [DONE]',
-                '',
-            ].join('\n'),
-            { status: 200, headers: { 'content-type': 'text/event-stream' } },
+            JSON.stringify({
+                success: true,
+                result: {
+                    choices: [{ message: { content: 'Исправленный текст' } }],
+                    usage: { prompt_tokens: 12, completion_tokens: 3, total_tokens: 15, neurons: 0.42 },
+                },
+            }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
         );
     });
 
@@ -219,7 +296,34 @@ test('корректор Cloudflare детерминирован и возвра
     );
 
     expect(requestBody.temperature).toBe(0);
+    expect(requestBody.stream).toBe(false);
+    expect(requestBody.chat_template_kwargs).toEqual({ enable_thinking: false });
     expect(response.usage).toEqual({ promptTokens: 12, completionTokens: 3, totalTokens: 15, neurons: 0.42 });
+});
+
+test('Cloudflare spellcheck отклоняет JSON без исправленного текста', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(
+            JSON.stringify({
+                success: true,
+                result: {
+                    choices: [{ finish_reason: 'length', message: { content: '', reasoning_content: '...' } }],
+                    usage: { completion_tokens: 512 },
+                },
+            }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+    );
+
+    await expect(
+        streamCloudflareText(
+            { action: 'callMistral', text: 'Исправленый текст', mode: 'spellcheck' },
+            { accountId: 'cf-account', apiToken: 'cf-token' },
+            settings,
+            new AbortController().signal,
+            () => undefined,
+        ),
+    ).rejects.toMatchObject({ provider: 'cloudflare', code: 'INVALID_RESPONSE' });
 });
 
 test('Mistral запрашивает usage в SSE и возвращает фактические токены', async () => {

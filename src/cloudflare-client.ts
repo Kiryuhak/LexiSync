@@ -19,6 +19,48 @@ export interface CloudflareUsage {
     neurons?: number;
 }
 
+interface CloudflareContentPart {
+    text?: string;
+}
+
+interface CloudflareChoice {
+    delta?: { content?: string | CloudflareContentPart | CloudflareContentPart[] };
+    message?: { content?: string | CloudflareContentPart | CloudflareContentPart[] };
+}
+
+interface CloudflarePayload {
+    response?: string | CloudflareContentPart | CloudflareContentPart[];
+    result?: {
+        response?: string | CloudflareContentPart | CloudflareContentPart[];
+        choices?: CloudflareChoice[];
+        usage?: CloudflareUsage;
+    };
+    choices?: CloudflareChoice[];
+    usage?: CloudflareUsage;
+}
+
+function readContent(value: string | CloudflareContentPart | CloudflareContentPart[] | undefined): string {
+    if (typeof value === 'string') return value;
+    if (Array.isArray(value)) return value.map((part) => part.text || '').join('');
+    if (value && typeof value.text === 'string') return value.text;
+    return '';
+}
+
+export function readCloudflarePayload(payload: unknown): { content: string; usage?: CloudflareUsage } {
+    if (!payload || typeof payload !== 'object') return { content: '' };
+    const parsed = payload as CloudflarePayload;
+    const choice = parsed.choices?.[0] ?? parsed.result?.choices?.[0];
+    const content =
+        readContent(parsed.response) ||
+        readContent(parsed.result?.response) ||
+        readContent(choice?.delta?.content) ||
+        readContent(choice?.message?.content);
+    return {
+        content,
+        usage: parsed.usage ?? parsed.result?.usage,
+    };
+}
+
 export function classifyCloudflareError(
     status: number,
     retryAfterHeader?: string | null,
@@ -85,22 +127,7 @@ export function readCloudflareSsePayload(line: string): { content: string; usage
     if (!raw) return { content: '' };
 
     try {
-        const parsed = JSON.parse(raw) as {
-            response?: string;
-            result?: { response?: string; usage?: CloudflareUsage };
-            choices?: Array<{ delta?: { content?: string | Array<{ text?: string }> } }>;
-            usage?: CloudflareUsage;
-        };
-        const deltaContent = parsed.choices?.[0]?.delta?.content;
-        const choiceContent =
-            typeof deltaContent === 'string'
-                ? deltaContent
-                : Array.isArray(deltaContent)
-                  ? deltaContent.map((part) => part.text || '').join('')
-                  : '';
-        const content = parsed.response ?? parsed.result?.response ?? choiceContent;
-        const usage = parsed.usage ?? parsed.result?.usage;
-        return { content, usage };
+        return readCloudflarePayload(JSON.parse(raw));
     } catch {
         return { content: '' };
     }
@@ -223,12 +250,16 @@ export async function streamCloudflareText(
     let usageData: CloudflareUsage | undefined;
 
     const url = `${CLOUDFLARE_API_BASE_URL}/accounts/${encodeURIComponent(accountId)}/ai/run/${resolvedModel}`;
-    const requestBody = {
+    const useSynchronousResponse = msg.mode === 'spellcheck';
+    const requestBody: Record<string, unknown> = {
         messages: prompt.messages,
-        stream: true,
+        stream: !useSynchronousResponse,
         max_tokens: maxTokens,
         temperature,
     };
+    if (msg.mode === 'spellcheck' && resolvedModel === '@cf/zai-org/glm-4.7-flash') {
+        requestBody.chat_template_kwargs = { enable_thinking: false };
+    }
 
     let response: Response;
     try {
@@ -251,6 +282,59 @@ export async function streamCloudflareText(
     if (!response.ok) {
         const { error } = classifyCloudflareError(response.status, response.headers?.get('Retry-After'));
         throw error;
+    }
+
+    if (useSynchronousResponse) {
+        onActivity?.();
+        let payload: unknown;
+        try {
+            payload = await response.json();
+        } catch {
+            throw new AiProviderError(
+                t('cloudflareInvalidResponse', 'Cloudflare Workers AI вернул некорректный ответ.'),
+                'INVALID_RESPONSE',
+                'cloudflare',
+                true,
+            );
+        }
+        const parsed = readCloudflarePayload(payload);
+        if (!parsed.content) {
+            throw new AiProviderError(
+                t('cloudflareEmptyResponse', 'Cloudflare Workers AI не вернул исправленный текст.'),
+                'INVALID_RESPONSE',
+                'cloudflare',
+                true,
+            );
+        }
+        const restoredText = shouldRestorePii ? unmaskPii(parsed.content, prompt.piiMaskMap) : parsed.content;
+        const sanity = validateAiOutput({
+            originalText: msg.text || '',
+            correctedText: restoredText,
+            mode: msg.mode,
+            targetLang: msg.targetLang,
+        });
+        if (!sanity.valid) {
+            throw new AiProviderError(
+                `${t('qualityCheckFailed', 'Ответ Cloudflare не прошёл проверку качества.')} (${sanity.reason})`,
+                'QUALITY_CHECK_FAILED',
+                'cloudflare',
+                true,
+            );
+        }
+        onChunk(sanity.cleanedText);
+        return {
+            text: sanity.cleanedText,
+            provider: 'cloudflare',
+            model: resolvedModel,
+            usage: parsed.usage
+                ? {
+                      promptTokens: parsed.usage.prompt_tokens,
+                      completionTokens: parsed.usage.completion_tokens,
+                      totalTokens: parsed.usage.total_tokens,
+                      neurons: parsed.usage.neurons,
+                  }
+                : undefined,
+        };
     }
 
     const reader = response.body?.getReader();
@@ -302,23 +386,7 @@ export async function streamCloudflareText(
         if (event.data.trim() === '[DONE]') return true;
         let parsed: { content: string; usage?: CloudflareUsage };
         try {
-            const payload = JSON.parse(event.data) as {
-                response?: string;
-                result?: { response?: string; usage?: CloudflareUsage };
-                choices?: Array<{ delta?: { content?: string | Array<{ text?: string }> } }>;
-                usage?: CloudflareUsage;
-            };
-            const deltaContent = payload.choices?.[0]?.delta?.content;
-            const choiceContent =
-                typeof deltaContent === 'string'
-                    ? deltaContent
-                    : Array.isArray(deltaContent)
-                      ? deltaContent.map((part) => part.text || '').join('')
-                      : '';
-            parsed = {
-                content: payload.response ?? payload.result?.response ?? choiceContent,
-                usage: payload.usage ?? payload.result?.usage,
-            };
+            parsed = readCloudflarePayload(JSON.parse(event.data));
         } catch {
             throw new AiProviderError(
                 t('cloudflareInvalidStream', 'Cloudflare Workers AI вернул повреждённые потоковые данные.'),

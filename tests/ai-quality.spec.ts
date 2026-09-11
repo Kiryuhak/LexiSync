@@ -362,17 +362,14 @@ describe('Sanity Check: validateAiOutput', () => {
 
 describe('Cloudflare Stream & Quality Fallback Integration', () => {
     test('когда Cloudflare возвращает брак (language drift), выбрасывается QUALITY_CHECK_FAILED', async () => {
-        const encoder = new TextEncoder();
-        const badStream = new ReadableStream({
-            start(controller) {
-                controller.enqueue(
-                    encoder.encode('data: {"response":"This is English text translating Russian"}\n\ndata: [DONE]\n\n'),
-                );
-                controller.close();
-            },
-        });
         vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-            new Response(badStream, { status: 200, headers: { 'content-type': 'text/event-stream' } }),
+            new Response(
+                JSON.stringify({
+                    success: true,
+                    result: { choices: [{ message: { content: 'This is English text translating Russian' } }] },
+                }),
+                { status: 200, headers: { 'content-type': 'application/json' } },
+            ),
         );
 
         let thrownError: unknown;
@@ -407,15 +404,6 @@ describe('Cloudflare Stream & Quality Fallback Integration', () => {
         let resetCount = 0;
 
         // Первый запрос (Cloudflare) возвращает брак
-        const badCfStream = new ReadableStream({
-            start(controller) {
-                controller.enqueue(
-                    encoder.encode('data: {"response":"Totally wrong english text"}\n\ndata: [DONE]\n\n'),
-                );
-                controller.close();
-            },
-        });
-
         // Второй запрос (Mistral) возвращает правильный русский ответ
         const goodMistralStream = new ReadableStream({
             start(controller) {
@@ -432,7 +420,13 @@ describe('Cloudflare Stream & Quality Fallback Integration', () => {
         vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url) => {
             callCount++;
             if (callCount === 1) {
-                return new Response(badCfStream, { status: 200, headers: { 'content-type': 'text/event-stream' } });
+                return new Response(
+                    JSON.stringify({
+                        success: true,
+                        result: { choices: [{ message: { content: 'Totally wrong english text' } }] },
+                    }),
+                    { status: 200, headers: { 'content-type': 'application/json' } },
+                );
             }
             return new Response(goodMistralStream, { status: 200, headers: { 'content-type': 'text/event-stream' } });
         });
@@ -485,20 +479,22 @@ describe('Cloudflare Stream & Quality Fallback Integration', () => {
                 controller.close();
             },
         });
-        const goodCloudflareStream = new ReadableStream({
-            start(controller) {
-                controller.enqueue(
-                    encoder.encode('data: {"response":"Он надеется встретиться завтра."}\n\ndata: [DONE]\n\n'),
-                );
-                controller.close();
-            },
-        });
-
         let callCount = 0;
         vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
             callCount++;
-            const stream = callCount === 1 ? badMistralStream : goodCloudflareStream;
-            return new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } });
+            if (callCount === 1) {
+                return new Response(badMistralStream, {
+                    status: 200,
+                    headers: { 'content-type': 'text/event-stream' },
+                });
+            }
+            return new Response(
+                JSON.stringify({
+                    success: true,
+                    result: { choices: [{ message: { content: 'Он надеется встретиться завтра.' } }] },
+                }),
+                { status: 200, headers: { 'content-type': 'application/json' } },
+            );
         });
 
         const res = await executeAiStreamRequest({

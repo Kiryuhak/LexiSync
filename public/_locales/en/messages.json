@@ -1064,7 +1064,10 @@
         "message": "Mistral returned an empty response stream."
     },
     "cloudflareEmptyResponse": {
-        "message": "Cloudflare Workers AI returned an empty response stream."
+        "message": "Cloudflare Workers AI did not return text."
+    },
+    "cloudflareInvalidResponse": {
+        "message": "Cloudflare Workers AI returned an invalid response."
     },
     "mistralInvalidStream": {
         "message": "Mistral returned malformed streaming data."
