@@ -2177,6 +2177,19 @@ test('локальные правила безопасно исправляют 
     expect(result.findings.every((finding) => finding.confidence === 'high')).toBe(true);
 });
 
+test('локальные правила не применяют типографические кавычки без подтверждения', () => {
+    const result = applyLocalTextRules('Он сказал "привет"');
+    expect(result.correctedText).toBe('Он сказал "привет"');
+    expect(result.findings).toContainEqual(
+        expect.objectContaining({
+            original: '"привет"',
+            suggestions: ['«привет»'],
+            confidence: 'medium',
+            applied: false,
+        }),
+    );
+});
+
 test('локальный корректор исправляет только однозначные опечатки и сохраняет технические слова', () => {
     const valid = new Set(['проверяю', 'текст', 'на', 'ошибки', 'пагода', 'для']);
     const suggestions: Record<string, string[]> = { непонятноеслово: ['непонятное'] };
@@ -2234,7 +2247,21 @@ test('скомпилированный русский словарь распо�
     expect(dictionary.has('хорошая')).toBe(true);
     expect(dictionary.has('проверяю')).toBe(true);
     expect(dictionary.has('пагода')).toBe(true);
+    expect(dictionary.has('превышен')).toBe(true);
+    expect(dictionary.has('пользовательский')).toBe(true);
     expect(dictionary.has('моёслужебноеслово')).toBe(true);
+    for (const technicalWord of [
+        'LexiSync',
+        'Cloudflare',
+        'Mistral',
+        'GitHub',
+        'OAuth',
+        'IndexedDB',
+        'Google',
+        'Drive',
+    ]) {
+        expect(dictionary.has(technicalWord)).toBe(true);
+    }
     expect(dictionary.has('тексст')).toBe(false);
     expect(dictionary.suggest('тексст')).toContain('текст');
     vi.unstubAllGlobals();
