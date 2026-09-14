@@ -21,6 +21,7 @@ export const RUNTIME_SETTING_KEYS = [
     'primaryAiProvider',
     'autoFallbackEnabled',
     'cloudflareModel',
+    'proofreadMode',
 ] as const;
 
 export type RuntimeSettingKey = (typeof RUNTIME_SETTING_KEYS)[number];
@@ -43,6 +44,10 @@ export function normalizeAutoFallbackEnabled(value: unknown, defaultValue = true
     if (value === 'false' || value === 0 || value === null) return false;
     if (value === 'true' || value === 1) return true;
     return defaultValue;
+}
+
+export function normalizeProofreadMode(value: unknown): 'hybrid' | 'local' | 'ai' {
+    return value === 'local' || value === 'ai' ? value : 'hybrid';
 }
 
 const RUNTIME_SETTING_KEY_SET = new Set<string>(RUNTIME_SETTING_KEYS);

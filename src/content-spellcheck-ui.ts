@@ -7,9 +7,17 @@ import {
 } from './spellcheck';
 import { addPersonalDictionaryWord } from './settings-store';
 import { GRAMMAR_CATEGORIES } from './grammar-analytics';
+import type { StreamResponse } from './types';
+
+type LocalFinding = NonNullable<StreamResponse['localFindings']>[number];
 
 export interface SpellcheckUiController {
-    setResult: (original: string, corrected: string, corrections?: WordCorrection[]) => void;
+    setResult: (
+        original: string,
+        corrected: string,
+        corrections?: WordCorrection[],
+        localFindings?: LocalFinding[],
+    ) => void;
     getResult: (fallback: string) => string;
 }
 
@@ -26,6 +34,7 @@ export function createSpellcheckUi(options: SpellcheckUiOptions): SpellcheckUiCo
     let original = '';
     let corrected = '';
     let corrections: WordCorrection[] = [];
+    let localFindings: LocalFinding[] = [];
     const rejected = new Set<number>();
 
     const getResult = (fallback: string) =>
@@ -51,12 +60,13 @@ export function createSpellcheckUi(options: SpellcheckUiOptions): SpellcheckUiCo
 
     const renderCorrectionRows = () => {
         options.correctionsContainer.replaceChildren();
+        const unresolvedLocal = localFindings.filter((finding) => !finding.applied);
         if (options.isCompact()) {
             options.correctionsContainer.style.display = 'none';
             return;
         }
-        options.correctionsContainer.style.display = corrections.length > 0 ? 'flex' : 'none';
-        if (corrections.length === 0) return;
+        options.correctionsContainer.style.display = corrections.length + unresolvedLocal.length > 0 ? 'flex' : 'none';
+        if (corrections.length + unresolvedLocal.length === 0) return;
 
         // Панель массовых действий и счётчика
         const header = document.createElement('div');
@@ -66,7 +76,7 @@ export function createSpellcheckUi(options: SpellcheckUiOptions): SpellcheckUiCo
 
         const summary = document.createElement('span');
         summary.style.cssText = 'font-weight:600; color:var(--text-secondary);';
-        summary.textContent = `${t('correctionsFound', 'Исправлений')}: ${corrections.length}`;
+        summary.textContent = `${t('correctionsFound', 'Исправлений')}: ${corrections.length}; ${t('needsReview', 'проверить')}: ${unresolvedLocal.length}`;
 
         const batchActions = document.createElement('div');
         batchActions.style.cssText = 'display:flex; gap:6px;';
@@ -96,7 +106,7 @@ export function createSpellcheckUi(options: SpellcheckUiOptions): SpellcheckUiCo
             options.onResultChange(getResult(corrected));
         };
 
-        batchActions.append(acceptAllBtn, rejectAllBtn);
+        if (corrections.length) batchActions.append(acceptAllBtn, rejectAllBtn);
         header.append(summary, batchActions);
         options.correctionsContainer.appendChild(header);
 
@@ -151,9 +161,56 @@ export function createSpellcheckUi(options: SpellcheckUiOptions): SpellcheckUiCo
             row.append(label, choice, dictionary);
             options.correctionsContainer.appendChild(row);
         }
+        for (const finding of unresolvedLocal) {
+            const row = document.createElement('div');
+            row.className = 'lexisync-correction-row';
+            row.style.cssText =
+                'display:flex; align-items:center; gap:7px; padding:7px 9px; border:1px solid var(--border-color); border-radius:8px; font-size:12px;';
+            const label = document.createElement('span');
+            label.style.cssText = 'flex:1;overflow-wrap:anywhere;';
+            label.textContent = finding.suggestions.length
+                ? `${finding.original} → ${finding.suggestions.join(', ')}`
+                : `${finding.original}: ${t('noSafeSuggestion', 'нет однозначной замены')}`;
+            const badge = document.createElement('span');
+            badge.className = 'lexisync-correction-cat';
+            badge.textContent = t('needsReview', 'Проверить');
+            badge.style.cssText =
+                'font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;white-space:nowrap;background:rgba(245,158,11,.14);color:var(--text-primary);';
+            const dictionary = document.createElement('button');
+            dictionary.type = 'button';
+            dictionary.textContent = t('addDictionary', '+ Словарь');
+            dictionary.title = t('dictionaryFuture', 'Не исправлять это слово в будущем');
+            dictionary.style.cssText =
+                'border:0;border-radius:6px;padding:5px 7px;cursor:pointer;background:var(--bg-secondary);color:var(--text-primary);flex-shrink:0;';
+            dictionary.hidden = !/^[\p{L}]+(?:[-‑'][\p{L}]+)*$/u.test(finding.original.trim());
+            dictionary.onclick = async () => {
+                await addPersonalDictionaryWord(finding.original.trim());
+                dictionary.textContent = t('added', 'Добавлено');
+                dictionary.disabled = true;
+            };
+            row.append(label, badge, dictionary);
+            options.correctionsContainer.appendChild(row);
+        }
     };
 
     const render = () => {
+        const unresolvedLocal = localFindings.filter((finding) => !finding.applied);
+        if (corrected.trim() && corrected.trim() === original.trim()) {
+            const state = document.createElement('div');
+            state.className = `lexisync-spellcheck-state lexisync-spellcheck-state--${unresolvedLocal.length ? 'warning' : 'success'}`;
+            state.setAttribute('role', 'status');
+            state.textContent = unresolvedLocal.length
+                ? `⚠ ${t('needsReview', 'Проверьте')}: ${unresolvedLocal
+                      .slice(0, 4)
+                      .map((finding) =>
+                          finding.suggestions[0] ? `${finding.original} → ${finding.suggestions[0]}` : finding.original,
+                      )
+                      .join(', ')}`
+                : `✓ ${t('noSpellingErrors', 'Текст уже корректен')}`;
+            options.contentPane.replaceChildren(state);
+            renderCorrectionRows();
+            return;
+        }
         options.contentPane.replaceChildren(
             renderSpellcheckDiffFragment(original, corrected, rejected, {
                 showDeletionMarkers: !options.isCompact(),
@@ -162,6 +219,15 @@ export function createSpellcheckUi(options: SpellcheckUiOptions): SpellcheckUiCo
         );
         decorateMarks();
         renderCorrectionRows();
+        if (options.isCompact() && unresolvedLocal.length) {
+            const warning = document.createElement('div');
+            warning.className = 'lexisync-spellcheck-state lexisync-spellcheck-state--warning';
+            warning.textContent = `⚠ ${t('needsReview', 'Проверьте')}: ${unresolvedLocal
+                .slice(0, 3)
+                .map((finding) => finding.original)
+                .join(', ')}`;
+            options.contentPane.appendChild(warning);
+        }
     };
 
     const toggleCorrection = (correction: WordCorrection) => {
@@ -236,10 +302,11 @@ export function createSpellcheckUi(options: SpellcheckUiOptions): SpellcheckUiCo
     });
 
     return {
-        setResult(nextOriginal, nextCorrected, nextCorrections) {
+        setResult(nextOriginal, nextCorrected, nextCorrections, nextLocalFindings = []) {
             original = nextOriginal;
             corrected = nextCorrected;
             corrections = nextCorrections ?? getWordCorrections(original, corrected);
+            localFindings = nextLocalFindings;
             rejected.clear();
             options.compactDetails.hidden = true;
             render();

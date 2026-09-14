@@ -244,21 +244,39 @@ export function executeRequest(
         }
     });
 
-    let activeProvider: 'mistral' | 'cloudflare' | null = mode === 'ocr' ? 'mistral' : null;
+    const headerLabelNode = [...headerTitleWrapper.childNodes].find(
+        (node) => node.nodeType === Node.TEXT_NODE && node.textContent === headerLabel,
+    );
+    let activeProvider: 'mistral' | 'cloudflare' | 'local' | null = mode === 'ocr' ? 'mistral' : null;
+    let localApplied = false;
+    let localFindings: NonNullable<StreamResponse['localFindings']> = [];
+    let proofreadMode: 'hybrid' | 'local' | 'ai' = 'hybrid';
+    let spellcheckHasChanges = mode !== 'spellcheck';
 
-    function createProviderBadge(provider: 'mistral' | 'cloudflare', isFallback = false): HTMLElement {
+    function createProviderBadge(provider: 'mistral' | 'cloudflare' | 'local', isFallback = false): HTMLElement {
         const badge = document.createElement('span');
         badge.className = `lexisync-provider-badge lexisync-provider-${provider}`;
         const dot = document.createElement('span');
         dot.className = `lexisync-provider-dot ${isFallback ? 'dot-degraded' : 'dot-healthy'}`;
         badge.appendChild(dot);
         const text = document.createElement('span');
-        if (provider === 'cloudflare') {
+        if (provider === 'local') {
+            text.textContent = '✓ Локально';
+            badge.title = t('localCheckCompleted', 'Локальная проверка завершена.');
+        } else if (provider === 'cloudflare') {
             text.textContent = '☁️ Cloudflare';
-            badge.title = isFallback ? 'Cloudflare Workers AI (резервный)' : 'Cloudflare Workers AI';
+            badge.title = localApplied
+                ? 'Локальная проверка + Cloudflare Workers AI'
+                : isFallback
+                  ? 'Cloudflare Workers AI (резервный)'
+                  : 'Cloudflare Workers AI';
         } else {
             text.textContent = '✦ Mistral';
-            badge.title = isFallback ? 'Mistral (резервный) • Mistral AI' : 'Mistral AI';
+            badge.title = localApplied
+                ? 'Локальная проверка + Mistral AI'
+                : isFallback
+                  ? 'Mistral (резервный) • Mistral AI'
+                  : 'Mistral AI';
         }
         badge.appendChild(text);
         return badge;
@@ -335,7 +353,7 @@ export function executeRequest(
         quickTabsBar?.remove();
         quickTabsBar = null;
         if (mode === 'spellcheck') {
-            spellcheckUi.setResult(originalText, fullResult);
+            spellcheckUi.setResult(originalText, fullResult, undefined, localFindings);
             correctionsContainer.style.display = 'flex';
             correctionsContainer.hidden = false;
         } else {
@@ -595,7 +613,7 @@ export function executeRequest(
         actionsContainer.style.display = 'none';
         renderLoadingControl();
 
-        if (!navigator.onLine && mode !== 'layout') {
+        if (!navigator.onLine && mode !== 'layout' && !(mode === 'spellcheck' && proofreadMode !== 'ai')) {
             contentPane.textContent = t(
                 'offlineError',
                 'Нет подключения к интернету. Проверьте сеть и попробуйте снова.',
@@ -657,6 +675,7 @@ export function executeRequest(
                 allowPageContext: usePageContext,
                 customPrompt: customCommand?.prompt,
                 imageUrl: currentSelection.imageUrl, // 🔥 НОВОЕ
+                offline: !navigator.onLine,
             });
         } catch (error) {
             const extensionContextInvalidated =
@@ -682,6 +701,8 @@ export function executeRequest(
                 if (response.provider) {
                     activeProvider = response.provider;
                 }
+                localApplied = response.localApplied === true;
+                localFindings = response.localFindings ?? [];
                 streamUiUpdater?.cancel();
                 fullResult = cleanMarkdownArtifacts(fullResult);
                 if (mode === 'summary') {
@@ -689,7 +710,19 @@ export function executeRequest(
                 }
                 if (mode === 'spellcheck') {
                     fullResult = normalizeSpellcheckResult(fullResult);
-                    spellcheckUi.setResult(currentSelection.text, fullResult);
+                    if (!fullResult.trim()) {
+                        showRequestError(
+                            t('emptySpellcheckResult', 'Сервис вернул пустой результат. Исходный текст не изменён.'),
+                        );
+                        return;
+                    }
+                    spellcheckHasChanges = fullResult.trim() !== currentSelection.text.trim();
+                    const hasUnresolvedLocal = localFindings.some((finding) => !finding.applied);
+                    if (!spellcheckHasChanges && headerLabelNode)
+                        headerLabelNode.textContent = hasUnresolvedLocal
+                            ? t('needsReview', 'Требуется проверка')
+                            : t('noSpellingErrors', 'Текст уже корректен');
+                    spellcheckUi.setResult(currentSelection.text, fullResult, undefined, localFindings);
                 } else if (
                     compactResultMode &&
                     originalText &&
@@ -749,9 +782,11 @@ export function executeRequest(
                               ? `custom:${customCommand?.id || 'unknown'}`
                               : mode;
                     const cacheModeKey = `v${REQUEST_CACHE_VERSION}:${baseCacheMode}:${cacheSettingsFingerprint}`;
-                    void getCacheHash(cacheModeKey, getCacheSource())
-                        .then((cacheKey) => setCachedText(cacheKey, fullResult))
-                        .catch((error) => logger.error('Ошибка сохранения кэша:', error));
+                    if (!localFindings.some((finding) => !finding.applied)) {
+                        void getCacheHash(cacheModeKey, getCacheSource())
+                            .then((cacheKey) => setCachedText(cacheKey, fullResult))
+                            .catch((error) => logger.error('Ошибка сохранения кэша:', error));
+                    }
                     void addHistoryItem(historyItem)
                         .then(() => {
                             savedHistoryId = historyItem.id;
@@ -854,7 +889,7 @@ export function executeRequest(
         closeBtn.onclick = closePopup;
         loaderOrClose.appendChild(closeBtn);
 
-        if (success && fullResult.trim().length > 0) {
+        if (success && fullResult.trim().length > 0 && (mode !== 'spellcheck' || spellcheckHasChanges)) {
             if (!compactResultMode && mode !== 'spellcheck') {
                 contentPane.contentEditable = 'true';
                 contentPane.setAttribute('aria-label', t('editableResult', 'Результат можно редактировать'));
@@ -1355,6 +1390,7 @@ export function executeRequest(
             cacheFingerprint?: string;
             resultDisplayMode?: unknown;
             compactResultMode?: boolean;
+            proofreadMode?: unknown;
         };
         if (res.ok === false)
             throw new Error(typeof res.error === 'string' ? res.error : 'RUNTIME_SETTINGS_UNAVAILABLE');
@@ -1363,13 +1399,14 @@ export function executeRequest(
             normalizeResultDisplayMode(res.resultDisplayMode, res.compactResultMode),
             mode,
         );
+        proofreadMode = res.proofreadMode === 'local' || res.proofreadMode === 'ai' ? res.proofreadMode : 'hybrid';
         if (compactResultMode) applyCompactResultLayout();
         usePageContext =
             res.sendPageContext === true &&
             !isSiteDisabled(location.hostname, normalizeDisabledSites(res.contextDisabledSites));
         cacheSettingsFingerprint = res.cacheFingerprint || 'default';
         storageAllowed = await shouldStoreOnCurrentPage();
-        if (!res.hasApiKey && mode !== 'layout') {
+        if (!res.hasApiKey && mode !== 'layout' && !(mode === 'spellcheck' && proofreadMode !== 'ai')) {
             const emptyState = document.createElement('div');
             emptyState.style.cssText = 'text-align:center;padding:24px 16px;';
             const keyIcon = document.createElement('span');
@@ -1444,6 +1481,15 @@ export function executeRequest(
                 fullResult = cleanedCached;
             }
             if (mode === 'spellcheck') {
+                if (!fullResult.trim()) {
+                    showRequestError(
+                        t('emptySpellcheckResult', 'Сервис вернул пустой результат. Исходный текст не изменён.'),
+                    );
+                    return;
+                }
+                spellcheckHasChanges = fullResult.trim() !== currentSelection.text.trim();
+                if (!spellcheckHasChanges && headerLabelNode)
+                    headerLabelNode.textContent = t('noSpellingErrors', 'Текст уже корректен');
                 spellcheckUi.setResult(currentSelection.text, fullResult);
             } else if (compactResultMode && originalText && fullResult && originalText.trim() !== fullResult.trim()) {
                 contentPane.replaceChildren(renderInlineDiffFragment(originalText, fullResult));

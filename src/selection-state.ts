@@ -38,16 +38,17 @@ export function captureSelection(fallbackText = ''): SelectionData {
     if (isTextInput(activeElement)) {
         result.isInput = true;
         result.activeElement = activeElement;
+        result.inputValueSnapshot = activeElement.value;
         try {
             result.start = activeElement.selectionStart;
             result.end = activeElement.selectionEnd;
-            result.text = activeElement.value.substring(result.start || 0, result.end || 0);
+            result.text = activeElement.value.substring(result.start ?? 0, result.end ?? 0);
         } catch {
             // Fall back to the supplied text for unsupported input types.
         }
         if (!result.text) result.text = fallbackText;
-        const start = result.start || 0;
-        const end = result.end || 0;
+        const start = result.start ?? 0;
+        const end = result.end ?? 0;
         result.context = activeElement.value.substring(
             Math.max(0, start - 1000),
             Math.min(activeElement.value.length, end + 1000),
@@ -57,6 +58,13 @@ export function captureSelection(fallbackText = ''): SelectionData {
 
     if (browserSelection?.rangeCount) {
         result.range = browserSelection.getRangeAt(0).cloneRange();
+        result.rangeSnapshot = {
+            startContainer: result.range.startContainer,
+            startOffset: result.range.startOffset,
+            endContainer: result.range.endContainer,
+            endOffset: result.range.endOffset,
+            expectedText: result.range.toString(),
+        };
         const container = document.createElement('div');
         container.appendChild(result.range.cloneContents());
         result.text = browserSelection.toString() || container.textContent || '';

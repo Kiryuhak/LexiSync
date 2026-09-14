@@ -18,6 +18,7 @@ export interface MistralRequest {
     pageTitle?: string;
     pageUrl?: string;
     imageUrl?: string;
+    offline?: boolean;
     allowPageContext?: boolean;
     customPrompt?: string;
     replyIntent?: 'agree' | 'decline' | 'clarify' | 'alternative';

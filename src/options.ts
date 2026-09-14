@@ -129,6 +129,7 @@ const SAVED_OPTION_IDS = [
     'cloudflareModel',
     'primaryAiProvider',
     'autoFallbackEnabled',
+    'proofreadMode',
     'toneSelect',
     'themeSelect',
     'visualStyleSelect',
@@ -376,6 +377,7 @@ async function saveOptions(): Promise<void> {
     const cloudflareModelSelect = document.getElementById('cloudflareModel') as HTMLSelectElement;
     const primaryAiProviderSelect = document.getElementById('primaryAiProvider') as HTMLSelectElement;
     const autoFallbackEnabledInput = document.getElementById('autoFallbackEnabled') as HTMLInputElement;
+    const proofreadModeSelect = document.getElementById('proofreadMode') as HTMLSelectElement;
     const toneSelect = document.getElementById('toneSelect') as HTMLSelectElement;
     const themeSelect = document.getElementById('themeSelect') as HTMLSelectElement;
     const visualStyleSelect = document.getElementById('visualStyleSelect') as HTMLSelectElement;
@@ -417,6 +419,10 @@ async function saveOptions(): Promise<void> {
         const updates: Record<string, unknown> = {};
         if (changed('primaryAiProvider')) updates.primaryAiProvider = primaryAiProviderSelect.value;
         if (changed('autoFallbackEnabled')) updates.autoFallbackEnabled = autoFallbackEnabledInput.checked;
+        if (changed('proofreadMode'))
+            updates.proofreadMode = ['local', 'ai'].includes(proofreadModeSelect.value)
+                ? proofreadModeSelect.value
+                : 'hybrid';
         if (changed('cloudflareModel')) updates.cloudflareModel = normalizeCloudflareModel(cloudflareModelSelect.value);
         if (changed('toneSelect')) updates.selectedTone = toneSelect.value;
         if (changed('themeSelect')) updates.selectedTheme = themeSelect.value;
@@ -563,6 +569,7 @@ async function restoreOptions(): Promise<void> {
     const cloudflareModelSelect = document.getElementById('cloudflareModel') as HTMLSelectElement;
     const primaryAiProviderSelect = document.getElementById('primaryAiProvider') as HTMLSelectElement;
     const autoFallbackEnabledInput = document.getElementById('autoFallbackEnabled') as HTMLInputElement;
+    const proofreadModeSelect = document.getElementById('proofreadMode') as HTMLSelectElement;
     const toneSelect = document.getElementById('toneSelect') as HTMLSelectElement;
     const themeSelect = document.getElementById('themeSelect') as HTMLSelectElement;
     const visualStyleSelect = document.getElementById('visualStyleSelect') as HTMLSelectElement;
@@ -585,6 +592,7 @@ async function restoreOptions(): Promise<void> {
         chrome.storage.local.get({
             primaryAiProvider: 'auto',
             autoFallbackEnabled: true,
+            proofreadMode: 'hybrid',
             cloudflareModel: AI_CONFIG.cloudflare.defaultModel,
             selectedTone: 'business',
             selectedTheme: 'auto',
@@ -635,6 +643,9 @@ async function restoreOptions(): Promise<void> {
     restoredCloudflareApiToken = cloudflareApiTokenInput.value;
     primaryAiProviderSelect.value = normalizePrimaryAiProvider(items.primaryAiProvider);
     autoFallbackEnabledInput.checked = normalizeAutoFallbackEnabled(items.autoFallbackEnabled);
+    proofreadModeSelect.value = ['local', 'ai'].includes(String(items.proofreadMode))
+        ? String(items.proofreadMode)
+        : 'hybrid';
     cloudflareModelSelect.value = normalizeCloudflareModel(items.cloudflareModel);
     toneSelect.value = items.selectedTone as string;
     themeSelect.value = items.selectedTheme as string;

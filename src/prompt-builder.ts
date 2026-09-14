@@ -95,8 +95,6 @@ export function buildPromptPayload(msg: PromptRequest, settings: PromptSettings)
             '4. Сохраняй без изменений ссылки, URL, email, числа, даты, имена собственные и технические идентификаторы. ' +
             '5. Если в тексте нет ошибок, верни его в исходном виде без изменений. ' +
             '6. Верни ТОЛЬКО готовый исправленный текст: без вступительных фраз («Вот исправленный текст:», «Результат:»), обрамляющих кавычек, комментариев, Markdown-разметки (без **) и блоков кода.';
-        const dictionary = serializeList(settings.personalDictionary, 200);
-        if (dictionary) systemPrompt += ` Не исправляй слова из личного словаря пользователя: ${dictionary}.`;
     } else if (msg.mode === 'style') {
         const toneMap: Record<string, string> = {
             business: 'в строгом, деловом и профессиональном стиле',

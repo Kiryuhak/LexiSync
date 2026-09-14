@@ -86,19 +86,45 @@ function sameMatches(original: string, corrected: string, pattern: RegExp): bool
     return JSON.stringify(extractMatches(original, pattern)) === JSON.stringify(extractMatches(corrected, pattern));
 }
 
+function wordEditDistance(left: string, right: string): number {
+    const row = Array.from({ length: right.length + 1 }, (_, index) => index);
+    for (let leftIndex = 1; leftIndex <= left.length; leftIndex++) {
+        let diagonal = row[0];
+        row[0] = leftIndex;
+        for (let rightIndex = 1; rightIndex <= right.length; rightIndex++) {
+            const previous = row[rightIndex];
+            row[rightIndex] = Math.min(
+                row[rightIndex] + 1,
+                row[rightIndex - 1] + 1,
+                diagonal + (left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1),
+            );
+            diagonal = previous;
+        }
+    }
+    return row[right.length];
+}
+
+function areLikelySpellingVariants(left: string, right: string): boolean {
+    const longest = Math.max(left.length, right.length);
+    if (longest < 3 || Math.abs(left.length - right.length) > 2) return false;
+    const allowedDistance = longest >= 8 ? 2 : 1;
+    return wordEditDistance(left, right) <= allowedDistance;
+}
+
 function getWordOverlapRatio(original: string, corrected: string): number {
     const originalWords = original.toLocaleLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
     const correctedWords = corrected.toLocaleLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
-    if (originalWords.length < 8 || correctedWords.length < 8) return 1;
+    if (originalWords.length < 3) return 1;
+    if (correctedWords.length === 0) return 0;
 
-    const remaining = new Map<string, number>();
-    for (const word of originalWords) remaining.set(word, (remaining.get(word) || 0) + 1);
+    const remaining = [...originalWords];
     let common = 0;
     for (const word of correctedWords) {
-        const count = remaining.get(word) || 0;
-        if (count <= 0) continue;
+        let index = remaining.indexOf(word);
+        if (index < 0) index = remaining.findIndex((candidate) => areLikelySpellingVariants(candidate, word));
+        if (index < 0) continue;
         common += 1;
-        remaining.set(word, count - 1);
+        remaining.splice(index, 1);
     }
     return (2 * common) / (originalWords.length + correctedWords.length);
 }
@@ -121,9 +147,9 @@ export function validateAiOutput(options: AiSanityCheckOptions): AiSanityResult 
         const cleanTrim = cleaned.trim();
         const origLen = origTrim.length;
 
-        if (origLen >= 15) {
-            // 2. Аномальное сокращение (более чем на 45% при исправлении орфографии недопустимо)
-            if (cleaned.length < origLen * 0.55) {
+        if (origLen >= 8) {
+            // 2. Корректор не должен возвращать обрезанный фрагмент даже для короткого выделения.
+            if (cleanTrim.length < origLen * 0.7) {
                 return {
                     valid: false,
                     reason: `AI_OUTPUT_TOO_SHORT: length decreased from ${origLen} to ${cleaned.length}`,
@@ -225,7 +251,18 @@ export function validateAiOutput(options: AiSanityCheckOptions): AiSanityResult 
             };
         }
 
-        // 9. Корректор не должен менять структуру абзацев или переписывать большую часть слов.
+        // 9. Мета-комментарий диагностируем раньше общей проверки переписывания.
+        for (const metaPattern of META_COMMENTARY_PATTERNS) {
+            if (metaPattern.test(cleaned)) {
+                return {
+                    valid: false,
+                    reason: 'AI_OUTPUT_META_COMMENTARY: model returned conversational comment',
+                    cleanedText: cleaned,
+                };
+            }
+        }
+
+        // 10. Корректор не должен менять структуру абзацев или переписывать большую часть слов.
         const originalLineBreaks = (originalText.match(/\r?\n/g) || []).length;
         const correctedLineBreaks = (cleaned.match(/\r?\n/g) || []).length;
         if (originalLineBreaks !== correctedLineBreaks) {
@@ -235,23 +272,12 @@ export function validateAiOutput(options: AiSanityCheckOptions): AiSanityResult 
                 cleanedText: cleaned,
             };
         }
-        if (getWordOverlapRatio(origTrim, cleanTrim) < 0.5) {
+        if (getWordOverlapRatio(origTrim, cleanTrim) < 0.6) {
             return {
                 valid: false,
                 reason: 'AI_OUTPUT_EXCESSIVE_REWRITE',
                 cleanedText: cleaned,
             };
-        }
-
-        // 10. Проверка на служебные мета-комментарии модели
-        for (const metaPattern of META_COMMENTARY_PATTERNS) {
-            if (metaPattern.test(cleaned)) {
-                return {
-                    valid: false,
-                    reason: 'AI_OUTPUT_META_COMMENTARY: model returned conversational comment',
-                    cleanedText: cleaned,
-                };
-            }
         }
     }
 

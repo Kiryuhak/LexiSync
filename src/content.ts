@@ -79,6 +79,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
     let currentQuickActionBubbleEnabled = true;
     let isPopupPinned = false;
     let currentPinnedToolbarActions: RequestMode[] = [];
+    let lastPageHotkey: { mode: RequestMode; at: number } | null = null;
 
     void chrome.storage.local
         .get({
@@ -255,6 +256,14 @@ if (!contentRuntime.__lexisyncContentInitialized) {
         }
 
         if (request.action === 'hotkeyTriggered') {
+            const recentPageHotkey = lastPageHotkey;
+            if (
+                recentPageHotkey !== null &&
+                recentPageHotkey.mode === request.mode &&
+                Date.now() - recentPageHotkey.at < 750
+            ) {
+                return;
+            }
             cancelPendingSelectionMenu();
             (async () => {
                 let text = getSelectedText();
@@ -424,6 +433,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
 
                 if (mode) {
                     e.preventDefault();
+                    lastPageHotkey = { mode, at: Date.now() };
                     cancelPendingSelectionMenu();
                     let text = getSelectedText();
                     if (!text || text.trim().length === 0) {

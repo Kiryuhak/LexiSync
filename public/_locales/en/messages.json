@@ -2492,5 +2492,47 @@
     },
     "qualityCheckFailed": {
         "message": "The AI response failed quality checks."
+    },
+    "selectionChanged": {
+        "message": "The original selection changed. Select the text again."
+    },
+    "replaceFailed": {
+        "message": "Could not replace the text."
+    },
+    "appendFailed": {
+        "message": "Could not insert the text."
+    },
+    "proofreadModeLabel": {
+        "message": "Text checking:"
+    },
+    "proofreadModeHybrid": {
+        "message": "Hybrid (recommended)"
+    },
+    "proofreadModeLocal": {
+        "message": "Local only"
+    },
+    "proofreadModeAi": {
+        "message": "AI only"
+    },
+    "proofreadModeHint": {
+        "message": "Local checking works offline. In hybrid mode, AI is used only for complex cases."
+    },
+    "localCheckCompleted": {
+        "message": "Local checking completed."
+    },
+    "localAiUnavailable": {
+        "message": "Advanced AI checking is temporarily unavailable."
+    },
+    "noSpellingErrors": {
+        "message": "The text is already correct"
+    },
+    "emptySpellcheckResult": {
+        "message": "The service returned an empty result. The original text was not changed."
+    },
+    "needsReview": {
+        "message": "Needs review"
+    },
+    "noSafeSuggestion": {
+        "message": "no unambiguous replacement"
     }
 }

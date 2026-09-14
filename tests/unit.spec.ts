@@ -1,5 +1,6 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, expect, test, vi } from 'vitest';
+import { readFile } from 'node:fs/promises';
 import { detectLayoutDirection, fixKeyboardLayout } from '../src/keyboard-layout';
 import { buildMessages, buildPromptPayload } from '../src/prompt-builder';
 import { escapeHTML, parseMarkdownToHTML, stripSummaryPrefix } from '../src/markdown';
@@ -57,6 +58,13 @@ import { isRuntimeSettingKey, pickRuntimeSettings, RUNTIME_SETTING_KEYS } from '
 import { isExtensionAllowedForUrl } from '../src/site-runtime-access';
 import { parsePortableSettingsJson } from '../src/settings-transfer';
 import { resetAiProviderHealth } from '../src/ai-client';
+import { applyLocalTextRules } from '../src/local-rule-engine';
+import {
+    checkRussianSpelling,
+    getRussianWordLookup,
+    resetLocalSpellCheckerCacheForTests,
+    type RussianWordLookup,
+} from '../src/local-spell-checker';
 
 beforeEach(() => {
     resetAiProviderHealth();
@@ -2161,6 +2169,146 @@ test('text-replacement возвращает локальную функцию о
 
     undoFn?.();
     expect(fakeInput.value).toBe('Исходный текст сообщения');
+});
+
+test('локальные правила безопасно исправляют пробелы, пунктуацию и частицу -нибудь', () => {
+    const result = applyLocalTextRules('Привет ,как дела  ? Текст.. Это - тест и какой нибудь пример.');
+    expect(result.correctedText).toBe('Привет, как дела? Текст… Это — тест и какой-нибудь пример.');
+    expect(result.findings.every((finding) => finding.confidence === 'high')).toBe(true);
+});
+
+test('локальный корректор исправляет только однозначные опечатки и сохраняет технические слова', () => {
+    const valid = new Set(['проверяю', 'текст', 'на', 'ошибки', 'пагода', 'для']);
+    const suggestions: Record<string, string[]> = { непонятноеслово: ['непонятное'] };
+    const dictionary: RussianWordLookup = {
+        has: (word) => valid.has(word) || ['lexisync', 'mistral', 'cloudflare'].includes(word),
+        suggest: (word) => suggestions[word] ?? [],
+    };
+    const result = checkRussianSpelling(
+        'Провиряю тексст на ашибки для LexiSync Mistral Cloudflare, а пагода — корректное слово.',
+        dictionary,
+    );
+    expect(result.correctedText).toBe(
+        'Проверяю текст на ошибки для LexiSync Mistral Cloudflare, а пагода — корректное слово.',
+    );
+    expect(result.findings.filter((finding) => finding.applied)).toHaveLength(3);
+    expect(result.findings.some((finding) => finding.original === 'пагода')).toBe(false);
+});
+
+test('локальный корректор показывает варианты с уверенностью medium, но не применяет их сам', () => {
+    const dictionary: RussianWordLookup = {
+        has: (word) => word === 'непонятное',
+        suggest: (word) => (word === 'непонятноеслово' ? ['непонятное'] : []),
+    };
+    const result = checkRussianSpelling('непонятноеслово', dictionary);
+    expect(result.correctedText).toBe('непонятноеслово');
+    expect(result.findings[0]).toMatchObject({ confidence: 'medium', applied: false });
+});
+
+test('локальный корректор исправляет только однозначные популярные русские ошибки', () => {
+    const dictionary: RussianWordLookup = { has: () => true, suggest: () => [] };
+    const result = checkRussianSpelling('Вообщем, врядли. Извените, пожалуйсто: будующее прийдёт.', dictionary);
+    expect(result.correctedText).toBe('В общем, вряд ли. Извините, пожалуйста: будущее придёт.');
+    expect(result.findings).toHaveLength(6);
+    expect(result.findings.every((finding) => finding.confidence === 'high' && finding.applied)).toBe(true);
+});
+
+test('скомпилированный русский словарь распознаёт словоформы без разворачивания Hunspell в памяти', async () => {
+    resetLocalSpellCheckerCacheForTests();
+    const [metadata, bloom] = await Promise.all([
+        readFile('public/dictionaries/ru/ru.bloom.json'),
+        readFile('public/dictionaries/ru/ru.bloom'),
+    ]);
+    const originalFetch = globalThis.fetch;
+    vi.stubGlobal(
+        'fetch',
+        vi.fn(async (input: string | URL | Request) => {
+            const url = String(input);
+            return url.endsWith('.json')
+                ? new Response(metadata, { status: 200, headers: { 'content-type': 'application/json' } })
+                : new Response(bloom, { status: 200 });
+        }),
+    );
+    const dictionary = await getRussianWordLookup(['моёслужебноеслово']);
+    expect(dictionary.has('ошибки')).toBe(true);
+    expect(dictionary.has('хорошая')).toBe(true);
+    expect(dictionary.has('проверяю')).toBe(true);
+    expect(dictionary.has('пагода')).toBe(true);
+    expect(dictionary.has('моёслужебноеслово')).toBe(true);
+    expect(dictionary.has('тексст')).toBe(false);
+    expect(dictionary.suggest('тексст')).toContain('текст');
+    vi.unstubAllGlobals();
+    expect(globalThis.fetch).toBe(originalFetch);
+    resetLocalSpellCheckerCacheForTests();
+});
+
+test('text-replacement блокирует устаревшие offsets и сохраняет UTF-16 позицию caret', async () => {
+    const { replaceSelectedText, SelectionChangedError } = await import('../src/text-replacement');
+    let nativeValue = '🙂 старый текст';
+    const fakeInput = {
+        tagName: 'INPUT',
+        get value() {
+            return nativeValue;
+        },
+        set value(value: string) {
+            nativeValue = value;
+        },
+        selectionStart: 3,
+        selectionEnd: 9,
+        dispatchEvent: vi.fn(),
+        focus: vi.fn(),
+    } as unknown as HTMLInputElement;
+    const selection = {
+        text: 'старый',
+        context: nativeValue,
+        range: null,
+        activeElement: fakeInput,
+        start: 3,
+        end: 9,
+        isInput: true,
+        inputValueSnapshot: nativeValue,
+    };
+    replaceSelectedText(selection, 'новый');
+    expect(fakeInput.value).toBe('🙂 новый текст');
+    expect(fakeInput.selectionStart).toBe(8);
+
+    nativeValue = '🙂 старый изменённый текст';
+    expect(() => replaceSelectedText(selection, 'опасная замена')).toThrow(SelectionChangedError);
+    expect(fakeInput.value).toBe('🙂 старый изменённый текст');
+});
+
+test('AI-корректор отклоняет обрезанный ответ для короткого выделения', async () => {
+    const { validateAiOutput } = await import('../src/ai-sanity-check');
+    const result = validateAiOutput({
+        originalText: 'какой-нибудь промт для VS CODE',
+        correctedText: 'какой-нибудь пр',
+        mode: 'spellcheck',
+    });
+    expect(result.valid).toBe(false);
+    expect(result.reason).toContain('AI_OUTPUT_TOO_SHORT');
+});
+
+test('AI-корректор принимает несколько близких исправлений в короткой фразе', async () => {
+    const { validateAiOutput } = await import('../src/ai-sanity-check');
+    const result = validateAiOutput({
+        originalText: 'Пишуу кот для провирки.',
+        correctedText: 'Пишу кот для проверки.',
+        mode: 'spellcheck',
+    });
+    expect(result.valid).toBe(true);
+});
+
+test('личный словарь не включается в AI-промпт', () => {
+    const messages = buildMessages(
+        { mode: 'spellcheck', text: 'СекретноеСлово' },
+        {
+            selectedTone: 'business',
+            sendPageContext: false,
+            personalDictionary: ['СловоКотороеНельзяПередавать'],
+            glossary: [],
+        },
+    );
+    expect(JSON.stringify(messages)).not.toContain('СловоКотороеНельзяПередавать');
 });
 
 test('CSV-экспорт истории защищает Excel от формул и добавляет UTF-8 BOM', async () => {

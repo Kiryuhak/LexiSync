@@ -2492,5 +2492,47 @@
     },
     "qualityCheckFailed": {
         "message": "Ответ ИИ не прошёл проверку качества."
+    },
+    "selectionChanged": {
+        "message": "Исходное выделение изменилось. Выделите текст повторно."
+    },
+    "replaceFailed": {
+        "message": "Не удалось заменить текст."
+    },
+    "appendFailed": {
+        "message": "Не удалось вставить текст."
+    },
+    "proofreadModeLabel": {
+        "message": "Проверка текста:"
+    },
+    "proofreadModeHybrid": {
+        "message": "Гибридная (рекомендуется)"
+    },
+    "proofreadModeLocal": {
+        "message": "Только локальная"
+    },
+    "proofreadModeAi": {
+        "message": "Только AI"
+    },
+    "proofreadModeHint": {
+        "message": "Локальная проверка работает без сети. В гибридном режиме AI подключается только для сложных случаев."
+    },
+    "localCheckCompleted": {
+        "message": "Локальная проверка завершена."
+    },
+    "localAiUnavailable": {
+        "message": "Расширенная AI-проверка временно недоступна."
+    },
+    "noSpellingErrors": {
+        "message": "Текст уже корректен"
+    },
+    "emptySpellcheckResult": {
+        "message": "Сервис вернул пустой результат. Исходный текст не изменён."
+    },
+    "needsReview": {
+        "message": "Требуется проверка"
+    },
+    "noSafeSuggestion": {
+        "message": "нет однозначной замены"
     }
 }

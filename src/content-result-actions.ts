@@ -3,7 +3,12 @@ import { appendIconAndText, setIcon } from './dom-rendering';
 import { ICONS } from './icons';
 import { t } from './i18n';
 import { parseMarkdownToHTML } from './markdown';
-import { appendBelowSelectedText, replaceSelectedText } from './text-replacement';
+import {
+    appendBelowSelectedText,
+    replaceSelectedText,
+    SelectionChangedError,
+    validateSelectionTarget,
+} from './text-replacement';
 import type { RequestMode, SelectionData } from './types';
 
 interface ResultActionsOptions {
@@ -34,6 +39,8 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
 
     const hasReplaceTarget =
         mode !== 'ocr' && Boolean((selection.isInput && selection.activeElement) || selection.range);
+    const hasValidReplaceTarget = hasReplaceTarget && validateSelectionTarget(selection);
+    const selectionChangedMessage = t('selectionChanged', 'Исходное выделение изменилось. Выделите текст повторно.');
 
     if (hasReplaceTarget) {
         const replaceButton = document.createElement('button');
@@ -43,13 +50,25 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
             : `${btnClass} lexisync-result-button lexisync-result-button--primary`;
         const replaceText = isCompact ? t('acceptApply', 'Применить') : t('replaceText', 'Заменить текст');
         appendIconAndText(replaceButton, replaceIcon, replaceText);
+        replaceButton.disabled = !hasValidReplaceTarget;
+        if (!hasValidReplaceTarget) replaceButton.title = selectionChangedMessage;
 
         replaceButton.onpointerdown = (e) => e.stopPropagation();
         replaceButton.onmousedown = (e) => e.stopPropagation();
         replaceButton.onclick = (event) => {
             event.preventDefault();
             event.stopPropagation();
-            const undo = replaceSelectedText(selection, getResult());
+            let undo: (() => void) | null;
+            try {
+                undo = replaceSelectedText(selection, getResult());
+            } catch (error) {
+                if (error instanceof SelectionChangedError) {
+                    replaceButton.disabled = true;
+                    showStatus(selectionChangedMessage, true);
+                    return;
+                }
+                throw error;
+            }
             if (undo) {
                 appendIconAndText(replaceButton, ICONS.check, t('replaced', 'Заменено!'));
                 replaceButton.classList.add('lexisync-result-button--success');
@@ -70,9 +89,7 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
                     appendIconAndText(replaceButton, replaceIcon, t('replaceText', 'Заменить текст'));
                 };
                 actionsContainer.appendChild(undoButton);
-            } else {
-                showStatus(t('copied', 'Текст скопирован!'));
-            }
+            } else showStatus(t('replaceFailed', 'Не удалось заменить текст.'), true);
         };
         actionsContainer.appendChild(replaceButton);
 
@@ -81,12 +98,24 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
         appendButton.className = `${btnClass} lexisync-result-button`;
         appendButton.title = t('appendBelowTextHint', 'Вставить результат с новой строки ниже выделенного фрагмента');
         appendIconAndText(appendButton, ICONS.continueText, t('appendBelowText', 'Вставить ниже'));
+        appendButton.disabled = !hasValidReplaceTarget;
+        if (!hasValidReplaceTarget) appendButton.title = selectionChangedMessage;
         appendButton.onpointerdown = (e) => e.stopPropagation();
         appendButton.onmousedown = (e) => e.stopPropagation();
         appendButton.onclick = (event) => {
             event.preventDefault();
             event.stopPropagation();
-            const undo = appendBelowSelectedText(selection, getResult());
+            let undo: (() => void) | null;
+            try {
+                undo = appendBelowSelectedText(selection, getResult());
+            } catch (error) {
+                if (error instanceof SelectionChangedError) {
+                    appendButton.disabled = true;
+                    showStatus(selectionChangedMessage, true);
+                    return;
+                }
+                throw error;
+            }
             if (undo) {
                 appendIconAndText(appendButton, ICONS.check, t('appended', 'Вставлено!'));
                 appendButton.classList.add('lexisync-result-button--success');
@@ -107,9 +136,7 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
                     appendIconAndText(appendButton, ICONS.continueText, t('appendBelowText', 'Вставить ниже'));
                 };
                 actionsContainer.appendChild(undoButton);
-            } else {
-                showStatus(t('copied', 'Текст скопирован!'));
-            }
+            } else showStatus(t('appendFailed', 'Не удалось вставить текст.'), true);
         };
         actionsContainer.appendChild(appendButton);
 

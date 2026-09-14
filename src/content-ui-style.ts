@@ -432,6 +432,16 @@ export const POPUP_STYLE_TEXT = `
                 color: #ff9238;
                 border-color: rgba(255, 112, 0, 0.4);
             }
+            .lexisync-provider-local {
+                background: rgba(5, 150, 105, 0.12);
+                color: #047857;
+                border: 1px solid rgba(5, 150, 105, 0.28);
+            }
+            #lexisync-extension-ui[data-theme="dark"] .lexisync-provider-local {
+                background: rgba(16, 185, 129, 0.2);
+                color: #6ee7b7;
+                border-color: rgba(52, 211, 153, 0.38);
+            }
             .lexisync-content-pane {
                 margin: 10px 10px 12px;
                 padding: 16px 17px !important;
@@ -448,6 +458,24 @@ export const POPUP_STYLE_TEXT = `
                 line-height: 1.65 !important;
                 overflow-wrap: anywhere;
                 white-space: pre-wrap;
+            }
+            .lexisync-spellcheck-state {
+                display: flex;
+                min-height: 36px;
+                align-items: center;
+                color: var(--text-primary);
+                font-weight: 600;
+            }
+            .lexisync-spellcheck-state--success {
+                color: var(--success-color, #047857);
+            }
+            .lexisync-spellcheck-state--warning {
+                margin-top: 8px;
+                color: var(--warning-color, #92400e);
+                font-size: 12px;
+            }
+            #lexisync-extension-ui[data-theme="dark"] .lexisync-spellcheck-state--warning {
+                color: #fcd34d;
             }
             .lexisync-actions {
                 display: none;

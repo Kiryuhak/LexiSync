@@ -38,7 +38,7 @@ const test = base.extend({
                     return settings.settingsSchemaVersion;
                 }),
             )
-            .toBe(15);
+            .toBe(16);
         await use(context);
         await context.close();
     },
@@ -62,6 +62,7 @@ async function setFakeApiKey(context: BrowserContext) {
             sendPageContext: false,
             compactResultMode: false,
             resultDisplayMode: 'detailed',
+            proofreadMode: 'ai',
         });
     });
 }
@@ -408,7 +409,7 @@ test('Telegram-подобная модалка с transform не смещает 
     await page.keyboard.press('Alt+r');
 
     const result = page.locator('#lexisync-extension-ui[data-surface="result"]');
-    await expect(result).toContainText('Текст внутри трансформированного окна Telegram для проверки координат.');
+    await expect(result.locator('.lexisync-spellcheck-state--success')).toHaveText(/Текст уже корректен/);
     const resultBox = await result.boundingBox();
     expect(resultBox).not.toBeNull();
     expect(Math.abs(resultBox!.x - selectionBox!.x)).toBeLessThan(70);
@@ -450,6 +451,9 @@ test('Повторная инъекция не дублирует content script
 
 test('Закрытие панели отменяет таймер перехода в настройки', async ({ page, context }) => {
     await clearApiKey(context);
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() => chrome.storage.local.set({ proofreadMode: 'ai' }));
     await page.goto('https://example.com');
     await grantSiteAccess(context, page);
     await selectTextOnPage(page, 'h1');
@@ -506,6 +510,319 @@ test('Проверка ошибок подсвечивает только исп
     await expect(page.locator('#spellcheck-input')).toHaveValue('Пишуу кот для провирки.');
 });
 
+test('локальная проверка работает без сети и API-ключа и безопасно заменяет textarea', async ({ page, context }) => {
+    await clearApiKey(context);
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() => chrome.storage.local.set({ proofreadMode: 'local' }));
+    await page.goto('https://example.com');
+    await grantSiteAccess(context, page);
+    await page.evaluate(() => {
+        const textarea = document.createElement('textarea');
+        textarea.id = 'offline-local-input';
+        textarea.value = 'Провиряю тексст на ашибки  .';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.setSelectionRange(0, textarea.value.length);
+    });
+    await context.setOffline(true);
+    await page.keyboard.press('Alt+r');
+    const panel = page.locator('#lexisync-extension-ui[data-surface="result"]');
+    await expect(panel).toContainText('Проверяю текст на ошибки.');
+    await expect(panel.locator('.lexisync-provider-local')).toBeVisible();
+    await panel.locator('.lexisync-result-button--accept, .lexisync-result-button--primary').click();
+    await expect(page.locator('#offline-local-input')).toHaveValue('Проверяю текст на ошибки.');
+    await context.setOffline(false);
+});
+
+test('неизменённый результат показывает явное состояние без пустой карточки', async ({ page, context }) => {
+    await setFakeApiKey(context);
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() => chrome.storage.local.set({ proofreadMode: 'ai' }));
+    await context.route('https://api.mistral.ai/v1/chat/completions', (route) =>
+        route.fulfill({
+            status: 200,
+            contentType: 'text/event-stream',
+            body: 'data: {"choices":[{"delta":{"content":"Текст уже корректен."}}]}\n\ndata: [DONE]\n\n',
+        }),
+    );
+    await page.goto('https://example.com');
+    await grantSiteAccess(context, page);
+    await page.evaluate(() => {
+        const textarea = document.createElement('textarea');
+        textarea.id = 'correct-input';
+        textarea.value = 'Текст уже корректен.';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.setSelectionRange(0, textarea.value.length);
+    });
+    await page.keyboard.press('Alt+r');
+    const panel = page.locator('#lexisync-extension-ui[data-surface="result"]');
+    await expect(panel.locator('.lexisync-spellcheck-state--success')).toHaveText(/Текст уже корректен/);
+    await expect(panel.locator('.lexisync-result-button')).toHaveCount(0);
+});
+
+test('устаревший snapshot textarea блокирует замену ответа A в изменённый текст B', async ({ page, context }) => {
+    await setFakeApiKey(context);
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() => chrome.storage.local.set({ proofreadMode: 'ai' }));
+    await context.route('https://api.mistral.ai/v1/chat/completions', async (route) => {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        await route.fulfill({
+            status: 200,
+            contentType: 'text/event-stream',
+            body: 'data: {"choices":[{"delta":{"content":"Исправленный исходный текст."}}]}\n\ndata: [DONE]\n\n',
+        });
+    });
+    await page.goto('https://example.com');
+    await grantSiteAccess(context, page);
+    await page.evaluate(() => {
+        const textarea = document.createElement('textarea');
+        textarea.id = 'stale-input';
+        textarea.value = 'Испровленный исходный текст.';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.setSelectionRange(0, textarea.value.length);
+    });
+    await page.keyboard.press('Alt+r');
+    await page.waitForTimeout(80);
+    await page.locator('#stale-input').fill('Пользователь уже ввёл другой текст.');
+    const panel = page.locator('#lexisync-extension-ui[data-surface="result"]');
+    await expect(panel).toContainText('Исправленный исходный текст.');
+    const replace = panel.locator('.lexisync-result-button--primary');
+    await expect(replace).toBeDisabled();
+    await expect(replace).toHaveAttribute('title', /выделение изменилось/i);
+    await expect(page.locator('#stale-input')).toHaveValue('Пользователь уже ввёл другой текст.');
+});
+
+test('Google Search сохраняет полное выделение и заменяет только выбранную фразу', async ({ page, context }) => {
+    await setFakeApiKey(context);
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() => chrome.storage.local.set({ proofreadMode: 'ai' }));
+    await context.route('https://www.google.com/**', (route) =>
+        route.fulfill({
+            status: 200,
+            contentType: 'text/html; charset=utf-8',
+            body: '<!doctype html><textarea id="google-query">До: какой нибудь промт для VS CODE :после</textarea>',
+        }),
+    );
+    await context.route('https://api.mistral.ai/v1/chat/completions', (route) =>
+        route.fulfill({
+            status: 200,
+            contentType: 'text/event-stream',
+            body: 'data: {"choices":[{"delta":{"content":"какой-нибудь промпт для VS CODE"}}]}\n\ndata: [DONE]\n\n',
+        }),
+    );
+    await page.goto('https://www.google.com/search?q=test');
+    await grantSiteAccess(context, page);
+    await page.locator('#google-query').evaluate((element: HTMLTextAreaElement) => {
+        const start = element.value.indexOf('какой');
+        const end = element.value.indexOf(' :после');
+        element.focus();
+        element.setSelectionRange(start, end);
+    });
+    await page.keyboard.press('Alt+r');
+    const panel = page.locator('#lexisync-extension-ui[data-surface="result"]');
+    await expect(panel).toContainText('какой-нибудь промпт для VS CODE');
+    await panel.locator('.lexisync-result-button--accept, .lexisync-result-button--primary').click();
+    await expect(page.locator('#google-query')).toHaveValue('До: какой-нибудь промпт для VS CODE :после');
+});
+
+test('Google Search точно обрабатывает частичное, обратное и клавиатурное выделение', async ({ page, context }) => {
+    await setFakeApiKey(context);
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    const source = 'До: какой нибудь промт для VS CODE :после';
+    const received: string[] = [];
+    await context.route('https://www.google.com/**', (route) =>
+        route.fulfill({
+            status: 200,
+            contentType: 'text/html; charset=utf-8',
+            body: `<!doctype html><textarea id="google-query">${source}</textarea>`,
+        }),
+    );
+    await context.route('https://api.mistral.ai/v1/chat/completions', (route) => {
+        const body = route.request().postDataJSON() as { messages: Array<{ content: string }> };
+        const encoded = body.messages[1].content.match(
+            /^<TEXT_TO_PROCESS_JSON>([\s\S]+)<\/TEXT_TO_PROCESS_JSON>$/u,
+        )?.[1];
+        const selected = encoded ? (JSON.parse(encoded) as string) : '';
+        received.push(selected);
+        const corrected = selected === 'какой нибудь' ? 'какой-нибудь' : selected === 'промт' ? 'промпт' : selected;
+        return route.fulfill({
+            status: 200,
+            contentType: 'text/event-stream',
+            body: `data: ${JSON.stringify({ choices: [{ delta: { content: corrected } }] })}\n\ndata: [DONE]\n\n`,
+        });
+    });
+
+    const cases = [
+        { selected: 'какой нибудь', direction: 'forward', expected: 'До: какой-нибудь промт для VS CODE :после' },
+        { selected: 'какой нибудь', direction: 'backward', expected: 'До: какой-нибудь промт для VS CODE :после' },
+        { selected: 'промт', direction: 'keyboard', expected: 'До: какой нибудь промпт для VS CODE :после' },
+    ] as const;
+
+    for (const scenario of cases) {
+        await background.evaluate(async () => {
+            const stored = await chrome.storage.local.get({ ai_cache_index: [] });
+            const keys = Array.isArray(stored.ai_cache_index)
+                ? stored.ai_cache_index
+                      .map((item: { key?: unknown }) => item?.key)
+                      .filter((key: unknown): key is string => typeof key === 'string')
+                : [];
+            await chrome.storage.local.remove([...keys, 'ai_cache_index']);
+        });
+        await page.goto('https://www.google.com/search?q=selection-test');
+        await grantSiteAccess(context, page);
+        const input = page.locator('#google-query');
+        const start = source.indexOf(scenario.selected);
+        await input.evaluate(
+            (element: HTMLTextAreaElement, data) => {
+                element.focus();
+                element.setSelectionRange(data.start, data.end, data.direction === 'backward' ? 'backward' : 'forward');
+            },
+            { start, end: start + scenario.selected.length, direction: scenario.direction },
+        );
+        if (scenario.direction === 'keyboard') {
+            await input.evaluate(
+                (element: HTMLTextAreaElement, offset) => element.setSelectionRange(offset, offset),
+                start,
+            );
+            for (let index = 0; index < scenario.selected.length; index++)
+                await page.keyboard.press('Shift+ArrowRight');
+        }
+        await page.keyboard.press('Alt+r');
+        const panel = page.locator('#lexisync-extension-ui[data-surface="result"]');
+        await expect(panel).toContainText(scenario.selected === 'промт' ? 'промпт' : 'какой-нибудь');
+        await panel.locator('.lexisync-result-button--accept, .lexisync-result-button--primary').click();
+        await expect(input).toHaveValue(scenario.expected);
+    }
+
+    expect(received).toEqual(['какой нибудь', 'какой нибудь', 'промт']);
+});
+
+test('ChatGPT-подобный contenteditable сохраняет соседний DOM при multi-node замене', async ({ page, context }) => {
+    await setFakeApiKey(context);
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() => chrome.storage.local.set({ proofreadMode: 'ai' }));
+    await context.route('https://chatgpt.com/**', (route) =>
+        route.fulfill({
+            status: 200,
+            contentType: 'text/html; charset=utf-8',
+            body: '<!doctype html><div id="composer" contenteditable="true"><span id="prefix">До: </span><strong id="first">Испровленный</strong> <em id="second">текст</em><a id="suffix" href="#ok"> :после</a></div>',
+        }),
+    );
+    await context.route('https://api.mistral.ai/v1/chat/completions', (route) =>
+        route.fulfill({
+            status: 200,
+            contentType: 'text/event-stream',
+            body: 'data: {"choices":[{"delta":{"content":"Исправленный текст"}}]}\n\ndata: [DONE]\n\n',
+        }),
+    );
+    await page.goto('https://chatgpt.com/');
+    await grantSiteAccess(context, page);
+    await page.evaluate(() => {
+        const first = document.querySelector('#first')!.firstChild!;
+        const second = document.querySelector('#second')!.firstChild!;
+        const range = document.createRange();
+        range.setStart(first, 0);
+        range.setEnd(second, second.textContent?.length ?? 0);
+        const selection = getSelection()!;
+        selection.removeAllRanges();
+        selection.addRange(range);
+    });
+    await page.keyboard.press('Alt+r');
+    const panel = page.locator('#lexisync-extension-ui[data-surface="result"]');
+    await expect(panel).toContainText('Исправленный текст');
+    await panel.locator('.lexisync-result-button--accept, .lexisync-result-button--primary').click();
+    await expect(page.locator('#composer')).toHaveText('До: Исправленный текст :после');
+    await expect(page.locator('#prefix')).toHaveCount(1);
+    await expect(page.locator('#suffix')).toHaveAttribute('href', '#ok');
+});
+
+test('ChatGPT-подобная страница передаёт только выбранный ответ или сообщение пользователя', async ({
+    page,
+    context,
+}) => {
+    await setFakeApiKey(context);
+    const received: string[] = [];
+    await context.route('https://chatgpt.com/**', (route) =>
+        route.fulfill({
+            status: 200,
+            contentType: 'text/html; charset=utf-8',
+            body: '<!doctype html><main><article id="assistant-response">Точный текст ответа</article><section id="user-message">Точное сообщение пользователя</section><button aria-label="Скопировать">Скрытая кнопка интерфейса</button></main>',
+        }),
+    );
+    await context.route('https://api.mistral.ai/v1/chat/completions', (route) => {
+        const body = route.request().postDataJSON() as { messages: Array<{ content: string }> };
+        const encoded = body.messages[1].content.match(
+            /^<TEXT_TO_PROCESS_JSON>([\s\S]+)<\/TEXT_TO_PROCESS_JSON>$/u,
+        )?.[1];
+        const selected = encoded ? (JSON.parse(encoded) as string) : '';
+        received.push(selected);
+        return route.fulfill({
+            status: 200,
+            contentType: 'text/event-stream',
+            body: `data: ${JSON.stringify({ choices: [{ delta: { content: selected } }] })}\n\ndata: [DONE]\n\n`,
+        });
+    });
+
+    await page.goto('https://chatgpt.com/c/mock');
+    await grantSiteAccess(context, page);
+    for (const selector of ['#assistant-response', '#user-message']) {
+        await selectTextOnPage(page, selector);
+        await page.keyboard.press('Alt+r');
+        await expect(page.locator('#lexisync-extension-ui .lexisync-spellcheck-state--success')).toBeVisible();
+        await page.keyboard.press('Escape');
+    }
+    expect(received).toEqual(['Точный текст ответа', 'Точное сообщение пользователя']);
+    expect(received.join(' ')).not.toContain('Скрытая кнопка интерфейса');
+    expect(received.join(' ')).not.toContain('Скопировать');
+});
+
+test('изменение DOM во время запроса блокирует замену сохранённого Range', async ({ page, context }) => {
+    await setFakeApiKey(context);
+    await context.route('https://chatgpt.com/**', (route) =>
+        route.fulfill({
+            status: 200,
+            contentType: 'text/html; charset=utf-8',
+            body: '<!doctype html><div id="composer" contenteditable="true"><span id="target">Испровленный текст</span><span> рядом</span></div>',
+        }),
+    );
+    await context.route('https://api.mistral.ai/v1/chat/completions', async (route) => {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        await route.fulfill({
+            status: 200,
+            contentType: 'text/event-stream',
+            body: 'data: {"choices":[{"delta":{"content":"Исправленный текст"}}]}\n\ndata: [DONE]\n\n',
+        });
+    });
+    await page.goto('https://chatgpt.com/');
+    await grantSiteAccess(context, page);
+    await page.locator('#target').evaluate((element) => {
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        const selection = getSelection()!;
+        selection.removeAllRanges();
+        selection.addRange(range);
+    });
+    await page.keyboard.press('Alt+r');
+    await page.waitForTimeout(80);
+    await page.locator('#target').evaluate((element) => {
+        element.textContent = 'Пользователь изменил DOM';
+    });
+    const panel = page.locator('#lexisync-extension-ui[data-surface="result"]');
+    await expect(panel).toContainText('Исправленный текст');
+    const replace = panel.locator('.lexisync-result-button--primary');
+    await expect(replace).toBeDisabled();
+    await expect(replace).toHaveAttribute('title', /выделение изменилось/i);
+    await expect(page.locator('#composer')).toHaveText('Пользователь изменил DOM рядом');
+});
+
 test('Контекст страницы не отправляется без явного разрешения', async ({ page, context }) => {
     await setFakeApiKey(context);
     await page.goto('https://example.com');
@@ -520,7 +837,7 @@ test('Контекст страницы не отправляется без я�
 
     await selectTextOnPage(page, 'h1');
     await page.keyboard.press('Alt+r');
-    await expect(page.locator('#lexisync-extension-ui')).toContainText('Example Domain', { timeout: 5000 });
+    await expect(page.locator('#lexisync-extension-ui .lexisync-spellcheck-state--success')).toBeVisible();
 
     expect(requestBody).not.toBeNull();
     const capturedRequest = requestBody as unknown as { messages: Array<{ content: string }> };
@@ -528,7 +845,7 @@ test('Контекст страницы не отправляется без я�
     expect(JSON.stringify(capturedRequest.messages)).not.toContain('example.com');
 });
 
-test('Личный словарь передаётся в инструкцию проверки', async ({ page, context }) => {
+test('Личный словарь остаётся локальным и не передаётся в AI-инструкцию', async ({ page, context }) => {
     await setFakeApiKey(context);
     let [background] = context.serviceWorkers();
     if (!background) background = await context.waitForEvent('serviceworker');
@@ -555,8 +872,8 @@ test('Личный словарь передаётся в инструкцию �
     await page.locator('#context-input').focus();
     await page.keyboard.press('Control+A');
     await page.keyboard.press('Alt+r');
-    await expect(page.locator('#lexisync-extension-ui')).toContainText('LexiSync');
-    expect(systemPrompt).toContain('LexiSync');
+    await expect(page.locator('#lexisync-extension-ui .lexisync-spellcheck-state--success')).toBeVisible();
+    expect(systemPrompt).not.toContain('LexiSync');
 });
 
 test('На исключённом сайте история и кэш не сохраняются', async ({ page, context }) => {
@@ -578,7 +895,7 @@ test('На исключённом сайте история и кэш не со�
     });
     await selectTextOnPage(page, 'h1');
     await page.keyboard.press('Alt+r');
-    await expect(page.locator('#lexisync-extension-ui')).toContainText('Example Domain');
+    await expect(page.locator('#lexisync-extension-ui .lexisync-spellcheck-state--success')).toBeVisible();
     await page.waitForTimeout(100);
     const stored = await background.evaluate(() => chrome.storage.local.get({ aiHistory: [], ai_cache_index: [] }));
     expect(stored.aiHistory).toEqual([]);
@@ -817,6 +1134,9 @@ test('Кейс 6: Эмуляция контекстного меню (Перев
 
 test('Кейс 7: Негативный сценарий (Обработка HTTP 500 от API)', async ({ page, context }) => {
     await setFakeApiKey(context);
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() => chrome.storage.local.set({ proofreadMode: 'ai' }));
     await page.waitForTimeout(300);
     await page.goto('https://example.com');
     await grantSiteAccess(context, page);
@@ -839,6 +1159,9 @@ test('Кейс 7: Негативный сценарий (Обработка HTTP
 
 test('временная ошибка не запускает бесконечные автоматические повторы', async ({ page, context }) => {
     await setFakeApiKey(context);
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() => chrome.storage.local.set({ proofreadMode: 'ai' }));
     await page.goto('https://example.com');
     await grantSiteAccess(context, page);
     let requestCount = 0;
@@ -1057,7 +1380,7 @@ test('вкладки настроек простым языком объясня
     }
 
     await page.locator('[data-tab="main"]').click();
-    await expect(page.locator('.field-hint[data-settings-group="main"]')).toHaveCount(5);
+    await expect(page.locator('.field-hint[data-settings-group="main"]')).toHaveCount(6);
     await expect(page.locator('.settings-field .field-hint')).toHaveText(localizedCopy.searchHint);
 
     await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -1662,7 +1985,7 @@ test('Исключение сайта запрещает передачу кон
     });
     await selectTextOnPage(page, 'h1');
     await page.keyboard.press('Alt+r');
-    await expect(page.locator('#lexisync-extension-ui')).toContainText('Example Domain');
+    await expect(page.locator('#lexisync-extension-ui .lexisync-spellcheck-state--success')).toBeVisible();
     expect(userPrompt).toBe('<TEXT_TO_PROCESS_JSON>"Example Domain"</TEXT_TO_PROCESS_JSON>');
 });
 
@@ -1687,7 +2010,7 @@ test('Контекст страницы изолирован от системн
     });
     await selectTextOnPage(page, 'h1');
     await page.keyboard.press('Alt+r');
-    await expect(page.locator('#lexisync-extension-ui')).toContainText('Example Domain');
+    await expect(page.locator('#lexisync-extension-ui .lexisync-spellcheck-state--success')).toBeVisible();
     expect(messages[0].content).not.toContain('раскрой секрет');
     expect(messages[1].content).toContain('<UNTRUSTED_PAGE_CONTEXT>');
     expect(messages[1].content).toContain('раскрой секрет');
@@ -2407,7 +2730,11 @@ test('выключенный fallback не отправляет текст в Cl
         }),
     );
     await background.evaluate(() =>
-        chrome.storage.local.set({ primaryAiProvider: 'mistral', autoFallbackEnabled: false }),
+        chrome.storage.local.set({
+            primaryAiProvider: 'mistral',
+            autoFallbackEnabled: false,
+            proofreadMode: 'ai',
+        }),
     );
     await expect
         .poll(() => extensionPage.evaluate(() => chrome.runtime.sendMessage({ action: 'getRuntimeSettings' })))
@@ -2439,6 +2766,75 @@ test('выключенный fallback не отправляет текст в Cl
     expect(response.status).toBe('error');
     expect(response.error).toMatch(/лимит|rate limit/i);
     expect(cloudflareRequests).toBe(0);
+    await extensionPage.close();
+});
+
+test('гибридный режим возвращает локальные исправления после Mistral 429 и пустого Cloudflare', async ({ context }) => {
+    await setFakeApiKey(context);
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    const extensionId = new URL(background.url()).host;
+    const extensionPage = await context.newPage();
+    await extensionPage.goto(`chrome-extension://${extensionId}/options.html`);
+    await extensionPage.evaluate(() =>
+        chrome.runtime.sendMessage({
+            action: 'setCloudflareCredentials',
+            accountId: 'test-cf-account-12345',
+            apiToken: 'test-cf-token-67890',
+        }),
+    );
+    await background.evaluate(() =>
+        chrome.storage.local.set({
+            primaryAiProvider: 'mistral',
+            autoFallbackEnabled: true,
+            proofreadMode: 'hybrid',
+        }),
+    );
+
+    let mistralRequests = 0;
+    let cloudflareRequests = 0;
+    await context.route('https://api.mistral.ai/v1/chat/completions', (route) => {
+        mistralRequests += 1;
+        return route.fulfill({ status: 429, contentType: 'application/json', body: '{"message":"rate limit"}' });
+    });
+    await context.route('https://api.cloudflare.com/**', (route) => {
+        cloudflareRequests += 1;
+        return route.fulfill({
+            status: 200,
+            contentType: 'text/event-stream',
+            body: 'data: [DONE]\n\n',
+        });
+    });
+
+    const messages = await extensionPage.evaluate(
+        () =>
+            new Promise<Array<Record<string, unknown>>>((resolve) => {
+                const received: Array<Record<string, unknown>> = [];
+                const port = chrome.runtime.connect({ name: 'mistralStream' });
+                port.onMessage.addListener((message: Record<string, unknown>) => {
+                    received.push(message);
+                    if (message.status === 'error' || message.status === 'done') {
+                        resolve(received);
+                        port.disconnect();
+                    }
+                });
+                port.postMessage({
+                    action: 'callMistral',
+                    mode: 'spellcheck',
+                    text: 'Провиряю абракадабрекс.',
+                });
+            }),
+    );
+
+    expect(mistralRequests).toBe(1);
+    expect(cloudflareRequests).toBe(1);
+    expect(messages.some((message) => message.status === 'error')).toBe(false);
+    expect(messages.some((message) => message.status === 'reset')).toBe(true);
+    expect(messages.find((message) => message.status === 'chunk')).toMatchObject({
+        text: 'Проверяю абракадабрекс.',
+    });
+    expect(messages.at(-1)).toMatchObject({ status: 'done', provider: 'local', localApplied: true });
+    expect(String(messages.at(-1)?.fallbackNotification)).toMatch(/локальная проверка|local check/i);
     await extensionPage.close();
 });
 

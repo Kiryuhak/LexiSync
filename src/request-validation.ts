@@ -51,6 +51,8 @@ export function validateMistralRequest(value: unknown): asserts value is Mistral
     assertOptionalString(request.pageUrl, 2_048, 'requestPageDataTooLong');
     if (request.targetLang !== undefined && (typeof request.targetLang !== 'string' || request.targetLang.length > 50))
         throw new Error(t('requestInvalid', 'Некорректный запрос.'));
+    if (request.offline !== undefined && typeof request.offline !== 'boolean')
+        throw new Error(t('requestInvalid', 'Некорректный запрос.'));
 
     if (request.mode !== 'ocr' && (typeof request.text !== 'string' || !request.text.trim()))
         throw new Error(t('requestTextMissing', 'Текст для обработки не получен.'));

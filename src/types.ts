@@ -17,6 +17,7 @@ export type TextMode =
 export type RequestMode = TextMode | 'ocr' | 'custom';
 export type AiMode = 'fast' | 'balanced' | 'quality';
 export type PrimaryAiProvider = 'auto' | 'mistral' | 'cloudflare';
+export type ProofreadMode = 'hybrid' | 'local' | 'ai';
 
 export interface TextSnippet {
     id: string;
@@ -109,6 +110,16 @@ export interface SelectionData {
     start: number | null;
     end: number | null;
     isInput: boolean;
+    /** Полное значение поля на момент выделения. Не передаётся за пределы content script. */
+    inputValueSnapshot?: string;
+    /** Неизменяемые границы DOM-выделения для защиты от устаревшего Range. */
+    rangeSnapshot?: {
+        startContainer: Node;
+        startOffset: number;
+        endContainer: Node;
+        endOffset: number;
+        expectedText: string;
+    };
     imageUrl?: string;
 }
 
@@ -117,7 +128,14 @@ export interface StreamResponse {
     text?: string;
     error?: string;
     retryable?: boolean;
-    provider?: 'mistral' | 'cloudflare';
+    provider?: 'mistral' | 'cloudflare' | 'local';
+    localApplied?: boolean;
+    localFindings?: Array<{
+        original: string;
+        suggestions: string[];
+        confidence: 'high' | 'medium' | 'low';
+        applied: boolean;
+    }>;
     fallbackNotification?: string;
     errorCode?: string;
     statusCode?: number;

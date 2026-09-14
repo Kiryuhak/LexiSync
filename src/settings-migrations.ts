@@ -5,7 +5,7 @@ import { DEFAULT_THEME_CUSTOMIZATION } from './theme-customization';
 import { DEFAULT_TEXT_SNIPPETS } from './text-snippets';
 import { normalizeCloudflareModel } from './ai-models-config';
 
-const CURRENT_SETTINGS_SCHEMA = 15;
+const CURRENT_SETTINGS_SCHEMA = 16;
 const MIGRATION_SETTING_KEYS = [
     'settingsSchemaVersion',
     'disabledSites',
@@ -37,6 +37,7 @@ const MIGRATION_SETTING_KEYS = [
     'enablePiiMasking',
     'textSnippets',
     'cloudflareModel',
+    'proofreadMode',
 ] as const;
 
 function getSchemaVersion(value: unknown): number {
@@ -153,6 +154,9 @@ export async function migrateSettings(): Promise<void> {
     }
     if (currentVersion < 15) {
         updates.cloudflareModel = normalizeCloudflareModel(stored.cloudflareModel);
+    }
+    if (currentVersion < 16 && !['hybrid', 'local', 'ai'].includes(String(stored.proofreadMode))) {
+        updates.proofreadMode = 'hybrid';
     }
     updates.settingsSchemaVersion = CURRENT_SETTINGS_SCHEMA;
     const migratedKeys = Object.keys(updates).filter((key) => key !== 'settingsSchemaVersion');

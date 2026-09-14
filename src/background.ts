@@ -48,10 +48,12 @@ import {
     isRuntimeSettingKey,
     normalizeAutoFallbackEnabled,
     normalizePrimaryAiProvider,
+    normalizeProofreadMode,
     pickRuntimeSettings,
     RUNTIME_SETTING_KEYS,
 } from './runtime-settings-cache';
 import { isExtensionAllowedForUrl } from './site-runtime-access';
+import { proofreadRussianLocally, type LocalProofreadResult } from './local-spell-checker';
 
 const REQUEST_TIMEOUT_MS = 45_000;
 
@@ -417,6 +419,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         compactResultMode: null,
                         resultDisplayMode: '',
                         enablePiiMasking: true,
+                        proofreadMode: 'hybrid',
                         ...AI_PROVIDER_RUNTIME_DEFAULTS,
                     }),
                     getStoredApiKey(),
@@ -443,6 +446,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         cloudflareCredentials.accountId.length > 0 && cloudflareCredentials.apiToken.length > 0,
                     primaryAiProvider: normalizePrimaryAiProvider(settings.primaryAiProvider),
                     autoFallbackEnabled: normalizeAutoFallbackEnabled(settings.autoFallbackEnabled),
+                    proofreadMode: normalizeProofreadMode(settings.proofreadMode),
                     sendPageContext: settings.sendPageContext === true,
                     contextDisabledSites: settings.contextDisabledSites,
                     compactResultMode: settings.compactResultMode === true,
@@ -458,6 +462,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         aiMode: settings.aiMode,
                         selectedTone: settings.selectedTone,
                         personalDictionary: settings.personalDictionary,
+                        proofreadMode: normalizeProofreadMode(settings.proofreadMode),
                         glossary: [],
                         activeStyleProfile: profile,
                         enablePiiMasking: settings.enablePiiMasking !== false,
@@ -685,6 +690,31 @@ chrome.runtime.onConnect.addListener((port) => {
         let outputText = '';
         let execResult: Partial<AiExecutionResult> | undefined;
         let failedProvider: 'mistral' | 'cloudflare' | undefined;
+        let localFallback: LocalProofreadResult | null = null;
+        let localApplied = false;
+        let servedLocally = false;
+        const completeWithLocalResult = (notification?: string): boolean => {
+            if (!localFallback || !isCurrentRequest()) return false;
+            safePostMessage({ status: 'reset' });
+            outputText = localFallback.correctedText;
+            localApplied = outputText !== (msg.text || '');
+            servedLocally = true;
+            completedSuccessfully = true;
+            safePostMessage({ status: 'chunk', text: outputText });
+            safePostMessage({
+                status: 'done',
+                provider: 'local',
+                localApplied,
+                localFindings: localFallback.findings.map(({ original, suggestions, confidence, applied }) => ({
+                    original,
+                    suggestions,
+                    confidence,
+                    applied,
+                })),
+                fallbackNotification: notification,
+            });
+            return true;
+        };
 
         try {
             await initializationPromise;
@@ -700,6 +730,7 @@ chrome.runtime.onConnect.addListener((port) => {
                 ...AI_PROVIDER_RUNTIME_DEFAULTS,
                 ...DEFAULT_BUDGET_SETTINGS,
                 enablePiiMasking: true,
+                proofreadMode: 'hybrid',
             });
             if (!msg.mode) throw new Error(t('modeMissing', 'Режим обработки не указан.'));
             if (msg.mode === 'layout') {
@@ -710,6 +741,34 @@ chrome.runtime.onConnect.addListener((port) => {
                 }
                 completedSuccessfully = true;
                 return;
+            }
+
+            const proofreadMode = normalizeProofreadMode(settings.proofreadMode);
+            if (msg.mode === 'spellcheck' && proofreadMode !== 'ai') {
+                try {
+                    localFallback = await proofreadRussianLocally(
+                        msg.text || '',
+                        Array.isArray(settings.personalDictionary) ? settings.personalDictionary.map(String) : [],
+                    );
+                } catch (error) {
+                    if (proofreadMode === 'local') throw error;
+                    logger.error(
+                        'Локальный словарь недоступен, запрос продолжен через AI:',
+                        error instanceof Error ? error.message : String(error),
+                    );
+                }
+            }
+            if (localFallback) {
+                localApplied = localFallback.correctedText !== (msg.text || '');
+                const resolvedLocally = localApplied && localFallback.unresolvedCount === 0;
+                if (proofreadMode === 'local' || resolvedLocally || msg.offline === true) {
+                    completeWithLocalResult(
+                        proofreadMode === 'hybrid' && msg.offline === true
+                            ? `${t('localCheckCompleted', 'Локальная проверка завершена.')} ${t('localAiUnavailable', 'Расширенная AI-проверка временно недоступна.')}`
+                            : undefined,
+                    );
+                    return;
+                }
             }
 
             let ocrCacheKey = '';
@@ -740,6 +799,12 @@ chrome.runtime.onConnect.addListener((port) => {
                 getStoredCloudflareCredentials(),
             ]);
             if (!mistralApiKey && (!cloudflareCreds.accountId || !cloudflareCreds.apiToken)) {
+                if (
+                    completeWithLocalResult(
+                        `${t('localCheckCompleted', 'Локальная проверка завершена.')} ${t('localAiUnavailable', 'Расширенная AI-проверка временно недоступна.')}`,
+                    )
+                )
+                    return;
                 throw new Error(t('apiKeyMissing', 'API-ключ не настроен'));
             }
 
@@ -815,9 +880,8 @@ chrome.runtime.onConnect.addListener((port) => {
                     selectedTone: settings.selectedTone as string,
                     sendPageContext:
                         settings.sendPageContext === true && msg.allowPageContext !== false && contextAllowedOnSite,
-                    personalDictionary: Array.isArray(settings.personalDictionary)
-                        ? settings.personalDictionary.map(String)
-                        : [],
+                    // Личный словарь используется только локально и не включается в AI-промпт.
+                    personalDictionary: [] as string[],
                     glossary: [] as string[],
                     activeStyleProfile,
                     aiMode:
@@ -831,7 +895,7 @@ chrome.runtime.onConnect.addListener((port) => {
                     currentCfCreds: { accountId: string; apiToken: string },
                 ) =>
                     executeAiStreamRequest({
-                        request: msg,
+                        request: localFallback && localApplied ? { ...msg, text: localFallback.correctedText } : msg,
                         settings: aiSettings,
                         primaryProvider: normalizePrimaryAiProvider(settings.primaryAiProvider),
                         autoFallback: normalizeAutoFallbackEnabled(settings.autoFallbackEnabled),
@@ -857,6 +921,15 @@ chrome.runtime.onConnect.addListener((port) => {
                         status: 'done',
                         provider: execResult.providerUsed,
                         fallbackNotification: execResult.fallbackNotification,
+                        localApplied,
+                        localFindings: localFallback?.findings.map(
+                            ({ original, suggestions, confidence, applied }) => ({
+                                original,
+                                suggestions,
+                                confidence,
+                                applied,
+                            }),
+                        ),
                     });
                 }
             }
@@ -864,6 +937,16 @@ chrome.runtime.onConnect.addListener((port) => {
         } catch (error) {
             if (!isCurrentRequest()) return;
             const isAbort = error instanceof DOMException && error.name === 'AbortError';
+            if (
+                !isAbort &&
+                msg.mode === 'spellcheck' &&
+                localFallback &&
+                completeWithLocalResult(
+                    `${t('localCheckCompleted', 'Локальная проверка завершена.')} ${t('localAiUnavailable', 'Расширенная AI-проверка временно недоступна.')}`,
+                )
+            ) {
+                return;
+            }
             if (isAbort) {
                 const cancelledByUser = cancelledControllers.has(requestController);
                 safePostMessage({
@@ -901,7 +984,7 @@ chrome.runtime.onConnect.addListener((port) => {
                     typeof reportedUsage?.promptTokens === 'number' ||
                     typeof reportedUsage?.completionTokens === 'number' ||
                     typeof reportedUsage?.totalTokens === 'number';
-                const canEstimateUsage = completedSuccessfully && !hasReportedTokens;
+                const canEstimateUsage = completedSuccessfully && !hasReportedTokens && !servedLocally;
                 const usage = {
                     mode: msg.mode,
                     latencyMs: Date.now() - startedAt,

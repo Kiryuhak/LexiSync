@@ -180,6 +180,18 @@
                     <input type="checkbox" id="autoFallbackEnabled" aria-describedby="autoFallbackHint" checked />
                 </div>
 
+                <label for="proofreadMode" data-settings-group="main" data-i18n="proofreadModeLabel"
+                    >Проверка текста:</label
+                >
+                <select id="proofreadMode" data-settings-group="main" aria-describedby="proofreadModeHint">
+                    <option value="hybrid" data-i18n="proofreadModeHybrid">Гибридная (рекомендуется)</option>
+                    <option value="local" data-i18n="proofreadModeLocal">Только локальная</option>
+                    <option value="ai" data-i18n="proofreadModeAi">Только AI</option>
+                </select>
+                <p id="proofreadModeHint" class="field-hint" data-settings-group="main" data-i18n="proofreadModeHint">
+                    Локальная проверка работает без сети. В гибридном режиме AI подключается только для сложных случаев.
+                </p>
+
                 <!-- Виджет статуса серверов Mistral и Cloudflare -->
                 <div class="server-status-container" data-settings-group="main">
                     <div class="server-status-header">

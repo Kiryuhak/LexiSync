@@ -46,6 +46,7 @@ const PORTABLE_SETTING_KEYS = [
     'cloudflareModel',
     'glossary',
     'pinnedToolbarActions',
+    'proofreadMode',
 ] as const;
 
 const SYNC_SETTING_KEYS = [
@@ -73,6 +74,7 @@ const SYNC_SETTING_KEYS = [
     'primaryAiProvider',
     'autoFallbackEnabled',
     'cloudflareModel',
+    'proofreadMode',
 ] as const;
 
 export interface SettingsSyncStatus {
@@ -150,6 +152,7 @@ export function sanitizePortableSetting(key: (typeof PORTABLE_SETTING_KEYS)[numb
         return value !== false;
     if (key === 'primaryAiProvider') return ['auto', 'mistral', 'cloudflare'].includes(String(value)) ? value : 'auto';
     if (key === 'cloudflareModel') return normalizeCloudflareModel(value);
+    if (key === 'proofreadMode') return ['hybrid', 'local', 'ai'].includes(String(value)) ? value : 'hybrid';
     if (key === 'selectedTone')
         return ['business', 'friendly', 'persuasive', 'creative'].includes(String(value)) ? value : 'business';
     if (key === 'selectedTheme') return ['auto', 'light', 'dark'].includes(String(value)) ? value : 'auto';

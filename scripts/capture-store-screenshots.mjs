@@ -134,7 +134,7 @@ async function waitForBackground(context) {
     await background.evaluate(async () => {
         for (let attempt = 0; attempt < 100; attempt++) {
             const { settingsSchemaVersion } = await chrome.storage.local.get('settingsSchemaVersion');
-            if (settingsSchemaVersion === 15) return;
+            if (settingsSchemaVersion === 16) return;
             await new Promise((resolve) => setTimeout(resolve, 25));
         }
         throw new Error('Настройки расширения не инициализированы.');
