@@ -409,7 +409,9 @@ test('Telegram-подобная модалка с transform не смещает 
     await page.keyboard.press('Alt+r');
 
     const result = page.locator('#lexisync-extension-ui[data-surface="result"]');
-    await expect(result.locator('.lexisync-spellcheck-state--success')).toHaveText(/Текст уже корректен/);
+    await expect(result.locator('.lexisync-spellcheck-state--success')).toHaveText(
+        /(?:Текст уже корректен|The text is already correct)/,
+    );
     const resultBox = await result.boundingBox();
     expect(resultBox).not.toBeNull();
     expect(Math.abs(resultBox!.x - selectionBox!.x)).toBeLessThan(70);
@@ -559,7 +561,9 @@ test('неизменённый результат показывает явно�
     });
     await page.keyboard.press('Alt+r');
     const panel = page.locator('#lexisync-extension-ui[data-surface="result"]');
-    await expect(panel.locator('.lexisync-spellcheck-state--success')).toHaveText(/Текст уже корректен/);
+    await expect(panel.locator('.lexisync-spellcheck-state--success')).toHaveText(
+        /(?:Текст уже корректен|The text is already correct)/,
+    );
     await expect(panel.locator('.lexisync-result-button')).toHaveCount(0);
 });
 
@@ -593,7 +597,7 @@ test('устаревший snapshot textarea блокирует замену о�
     await expect(panel).toContainText('Исправленный исходный текст.');
     const replace = panel.locator('.lexisync-result-button--primary');
     await expect(replace).toBeDisabled();
-    await expect(replace).toHaveAttribute('title', /выделение изменилось/i);
+    await expect(replace).toHaveAttribute('title', /(?:выделение изменилось|selection changed)/i);
     await expect(page.locator('#stale-input')).toHaveValue('Пользователь уже ввёл другой текст.');
 });
 
@@ -819,7 +823,7 @@ test('изменение DOM во время запроса блокирует �
     await expect(panel).toContainText('Исправленный текст');
     const replace = panel.locator('.lexisync-result-button--primary');
     await expect(replace).toBeDisabled();
-    await expect(replace).toHaveAttribute('title', /выделение изменилось/i);
+    await expect(replace).toHaveAttribute('title', /(?:выделение изменилось|selection changed)/i);
     await expect(page.locator('#composer')).toHaveText('Пользователь изменил DOM рядом');
 });
 
