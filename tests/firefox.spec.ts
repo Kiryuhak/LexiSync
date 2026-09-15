@@ -51,7 +51,7 @@ async function stopWebExt(runner: ChildProcessWithoutNullStreams): Promise<void>
     if (runner.exitCode === null) runner.kill('SIGKILL');
 }
 
-test('Firefox временно устанавливает собранное расширение', async () => {
+test('Firefox временно устанавливает собранное расширение', async ({ headless }) => {
     const root = path.resolve(__dirname, '..');
     const sourceDirectory = path.join(root, '.output', 'firefox-mv3');
     const [manifestSource, packageSource] = await Promise.all([
@@ -67,26 +67,24 @@ test('Firefox временно устанавливает собранное р�
     await expect(fs.access(path.join(sourceDirectory, 'options.html'))).resolves.toBeUndefined();
 
     const webExtCli = path.resolve(__dirname, '../node_modules/web-ext/bin/web-ext.js');
-    const runner = spawn(
-        process.execPath,
-        [
-            webExtCli,
-            'run',
-            '--source-dir',
-            sourceDirectory,
-            '--firefox',
-            firefox.executablePath(),
-            '--no-input',
-            '--no-reload',
-            '--arg=-headless',
-            '--start-url=https://example.com',
-            '--verbose',
-        ],
-        {
-            cwd: root,
-            windowsHide: true,
-        },
-    );
+    const firefoxArguments = [
+        webExtCli,
+        'run',
+        '--source-dir',
+        sourceDirectory,
+        '--firefox',
+        firefox.executablePath(),
+        '--no-input',
+        '--no-reload',
+        '--start-url=https://example.com',
+        '--verbose',
+    ];
+    if (headless) firefoxArguments.splice(-2, 0, '--arg=-headless');
+
+    const runner = spawn(process.execPath, firefoxArguments, {
+        cwd: root,
+        windowsHide: true,
+    });
 
     try {
         const output = await waitForTemporaryInstall(runner);

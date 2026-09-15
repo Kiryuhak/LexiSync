@@ -10,11 +10,11 @@ import { APPEARANCE_STYLES } from '../src/appearance-style';
 // ==========================================
 const test = base.extend({
     // Playwright requires an object destructuring pattern for fixture dependencies.
-    // eslint-disable-next-line no-empty-pattern
-    context: async ({}, use) => {
+    context: async ({ headless }, use) => {
         const pathToExtension = path.resolve(__dirname, '../.output/chrome-mv3');
         const context = await chromium.launchPersistentContext('', {
-            headless: false,
+            channel: 'chromium',
+            headless,
             locale: 'ru-RU',
             permissions: ['clipboard-read', 'clipboard-write'],
             args: [

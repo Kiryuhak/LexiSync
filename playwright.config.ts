@@ -1,5 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
+const headed = process.env.PW_HEADED === '1' || process.env.PLAYWRIGHT_HEADED === '1';
+
 export default defineConfig({
     testDir: './tests',
     // Не подхватывать случайные скомпилированные тесты из других каталогов.
@@ -11,6 +13,7 @@ export default defineConfig({
     retries: process.env.CI ? 1 : 0,
     reporter: process.env.CI ? [['github'], ['list']] : 'list',
     use: {
+        headless: !headed,
         screenshot: 'only-on-failure',
         trace: 'retain-on-failure',
     },

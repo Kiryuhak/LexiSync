@@ -96,9 +96,9 @@ test('безопасно нормализует поисковик и повре
 });
 
 test('история обновлений содержит все выпуски и поддерживает поиск', () => {
-    expect(RELEASE_NOTES[0].version).toBe('5.6.4');
+    expect(RELEASE_NOTES[0].version).toBe('5.6.5');
     expect(RELEASE_NOTES.at(-1)?.version).toBe('2.5');
-    expect(RELEASE_NOTES).toHaveLength(64);
+    expect(RELEASE_NOTES).toHaveLength(65);
     expect(new Set(RELEASE_NOTES.map((release) => release.version)).size).toBe(RELEASE_NOTES.length);
     expect(filterReleaseNotes(RELEASE_NOTES, 'MagicOS', 'ru').map((release) => release.version)).toEqual([
         '5.3.4',
@@ -2206,6 +2206,44 @@ test('локальный корректор исправляет только о
     );
     expect(result.findings.filter((finding) => finding.applied)).toHaveLength(3);
     expect(result.findings.some((finding) => finding.original === 'пагода')).toBe(false);
+});
+
+test('локальный корректор исправляет обязательные примеры и сохраняет технические идентификаторы и пагоду', () => {
+    const valid = new Set([
+        'текст',
+        'ошибка',
+        'хорошая',
+        'промпт',
+        'орфография',
+        'проверяю',
+        'синхронизация',
+        'пагода',
+        'для',
+        'в',
+        'и',
+        'пиши',
+        'остаётся',
+        'пагодой',
+        'на',
+        'это',
+    ]);
+    const dictionary: RussianWordLookup = {
+        has: (word) =>
+            valid.has(word) ||
+            ['lexisync', 'mistral', 'cloudflare', 'github', 'oauth', 'indexeddb', 'google', 'drive', 'промпт'].includes(
+                word,
+            ),
+        suggest: () => [],
+    };
+    const input =
+        'Харошая орфаграфия, провиряю тексст и ашибка: синхранизация в LexiSync для Cloudflare Mistral GitHub VS Code OAuth IndexedDB Google Drive GLM-4.7-Flash. Пиши промт, а пагода — это пагода.';
+    const result = checkRussianSpelling(input, dictionary);
+    expect(result.correctedText).toBe(
+        'Хорошая орфография, проверяю текст и ошибка: синхронизация в LexiSync для Cloudflare Mistral GitHub VS Code OAuth IndexedDB Google Drive GLM-4.7-Flash. Пиши промпт, а пагода — это пагода.',
+    );
+    expect(result.findings.some((finding) => finding.original === 'пагода')).toBe(false);
+    expect(result.findings.some((finding) => finding.original === 'LexiSync')).toBe(false);
+    expect(result.findings.some((finding) => finding.original === 'Cloudflare')).toBe(false);
 });
 
 test('локальный корректор показывает варианты с уверенностью medium, но не применяет их сам', () => {

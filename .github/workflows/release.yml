@@ -64,7 +64,7 @@ jobs:
               run: npx playwright install --with-deps chromium firefox
 
             - name: Полностью проверить релиз
-              run: xvfb-run -a npm run test:all
+              run: npm run test:all
 
             - name: Сохранить проверенные архивы релиза
               uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

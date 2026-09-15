@@ -12,6 +12,7 @@ const outputDir = path.join(rootDir, 'docs', 'store-assets', 'firefox');
 const chromeOutputDir = path.join(rootDir, 'docs', 'store-assets', 'chrome', 'ru');
 const carouselPath = path.join(rootDir, 'docs', 'assets', 'lexisync-showcase-color.gif');
 const profileDir = await fs.mkdtemp(path.join(os.tmpdir(), 'lexisync-showcase-'));
+const headed = process.env.PW_HEADED === '1' || process.env.PLAYWRIGHT_HEADED === '1';
 
 const demoHtml = `<!doctype html>
 <html lang="ru">
@@ -255,7 +256,8 @@ await fs.mkdir(outputDir, { recursive: true });
 await fs.mkdir(chromeOutputDir, { recursive: true });
 
 const context = await chromium.launchPersistentContext(profileDir, {
-    headless: false,
+    channel: 'chromium',
+    headless: !headed,
     locale: 'ru-RU',
     viewport: { width: 1000, height: 1000 },
     args: ['--lang=ru', `--disable-extensions-except=${extensionDir}`, `--load-extension=${extensionDir}`],

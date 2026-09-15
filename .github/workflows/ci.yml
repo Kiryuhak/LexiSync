@@ -61,7 +61,7 @@ jobs:
               run: npm run build:e2e
 
             - name: Проверить Chrome
-              run: xvfb-run -a npm run test:e2e:only
+              run: npm run test:e2e:only
 
             - name: Проверить Firefox
               run: npm run test:firefox:only

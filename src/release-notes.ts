@@ -36,6 +36,35 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.6.5',
+        '2026-09-15',
+        'new',
+        'Локальная проверка орфографии и надёжное выделение',
+        'Local spellcheck and reliable text selection',
+        [
+            [
+                'Однозначные опечатки, пробелы и базовая пунктуация исправляются локально через встроенный словарь даже без подключения к сети.',
+                'Obvious typos, spacing, and basic punctuation are corrected on-device via the built-in dictionary even without a network connection.',
+            ],
+            [
+                'В гибридном режиме очевидные опечатки устраняются локально, а AI подключается только для сложного анализа.',
+                'In hybrid mode, obvious typos are resolved locally, engaging AI models only when deeper analysis is required.',
+            ],
+            [
+                'Снимок выделения и проверка DOM перед заменой предотвращают случайную порчу текста на динамических сайтах.',
+                'Selection snapshot and DOM validation before replacement prevent accidental text corruption on dynamic websites.',
+            ],
+            [
+                'Если в тексте нет ошибок, вместо пустой карточки отображается понятный статус «Текст уже корректен».',
+                'When text contains no errors, a clear "Text is already correct" status is shown instead of an empty card.',
+            ],
+            [
+                'Отмена устаревших запросов гарантирует, что ответ на предыдущее выделение не повредит новый текст.',
+                'Stale request cancellation guarantees older responses are never applied to newly selected text fragments.',
+            ],
+        ],
+    ),
+    note(
         '5.6.4',
         '2026-09-11',
         'fixed',
