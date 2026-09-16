@@ -36,6 +36,27 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.6.6',
+        '2026-09-16',
+        'fixed',
+        'Исправление кнопки «Заменить» и надёжность интерфейса',
+        'Replace button fix and UI stability',
+        [
+            [
+                'Исправлено отображение кнопки «Заменить» в панели результатов: гарантирована видимость и контрастность действий во всех темах и режимах.',
+                'Fixed display of the "Replace" button in the result panel: guaranteed action visibility and contrast across all themes and modes.',
+            ],
+            [
+                'Унифицированы действия компактной панели результатов для локальной и нейросетевой проверки текста.',
+                'Unified compact result panel actions for local and AI-powered text checks.',
+            ],
+            [
+                'Добавлены автоматические тесты защиты интерфейса, предотвращающие появление пустых кнопок действий.',
+                'Added automated UI guard tests preventing empty action buttons from appearing in the panel.',
+            ],
+        ],
+    ),
+    note(
         '5.6.5',
         '2026-09-15',
         'new',
@@ -57,10 +78,6 @@ export const RELEASE_NOTES: ReleaseNote[] = [
             [
                 'Если в тексте нет ошибок, вместо пустой карточки отображается понятный статус «Текст уже корректен».',
                 'When text contains no errors, a clear "Text is already correct" status is shown instead of an empty card.',
-            ],
-            [
-                'Исправлено отображение кнопки «Заменить» в панели результатов: гарантирована видимость и контрастность действий во всех темах и режимах.',
-                'Fixed display of the "Replace" button in the result panel: guaranteed action visibility and contrast across all themes and modes.',
             ],
             [
                 'Отмена устаревших запросов гарантирует, что ответ на предыдущее выделение не повредит новый текст.',

@@ -1,6 +1,6 @@
 {
     "name": "lexisync-extension",
-    "version": "5.6.5",
+    "version": "5.6.6",
     "description": "LexiSync - Smart Text AI Assistant with Mistral API and Cloudflare Workers AI",
     "scripts": {
         "dev": "wxt",
