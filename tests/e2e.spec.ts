@@ -3200,16 +3200,16 @@ test('Test 69: Локальное исправление «Проверяю те
     await expect(replaceBtn).toBeVisible();
     await expect(replaceBtn).toBeEnabled();
 
-    // Проверяем, что текст кнопки не пустой и строго содержит «Заменить»
+    // Проверяем, что текст кнопки не пустой и содержит «Заменить» или «Replace» в зависимости от локали браузера
     const btnText = (await replaceBtn.textContent())?.trim() ?? '';
-    expect(btnText).toContain('Заменить');
+    expect(btnText).toMatch(/(?:Заменить|Replace)/);
     expect(btnText.length).toBeGreaterThan(0);
 
     // Проверяем наличие лейбла
     const labelSpan = replaceBtn.locator('.lexisync-btn-label');
     if ((await labelSpan.count()) > 0) {
         await expect(labelSpan).toBeVisible();
-        await expect(labelSpan).toHaveText('Заменить');
+        await expect(labelSpan).toHaveText(/(?:Заменить|Replace)/);
     }
 
     // Выполняем замену кликом по кнопке
