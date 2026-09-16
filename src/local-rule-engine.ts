@@ -46,6 +46,11 @@ const RULES: Rule[] = [
         replacement: 'что-нибудь',
     },
     {
+        kind: 'spelling',
+        pattern: /(?<![А-Яа-яЁё])на ошибка(?![А-Яа-яЁё])/giu,
+        replacement: 'на ошибку',
+    },
+    {
         kind: 'typography',
         pattern: /"([^"\r\n]{1,200})"/gu,
         replacement: '«$1»',

@@ -796,6 +796,9 @@ interface MockElement {
     addEventListener: (event: string, fn: unknown) => void;
     querySelectorAll: (selector: string) => MockElement[];
     textContent: string;
+    disabled?: boolean;
+    onclick?: ((event: unknown) => void) | null;
+    click?: () => void;
 }
 
 function createMockElement(tagName = 'div'): MockElement {
@@ -803,11 +806,26 @@ function createMockElement(tagName = 'div'): MockElement {
     const classList = new Set<string>();
     const attributes = new Map<string, string>();
     const dataset: Record<string, string> = {};
+    const listeners: Record<string, Array<(...args: unknown[]) => unknown>> = {};
     const element: MockElement = {
         tagName: tagName.toUpperCase(),
         style: {},
         dataset,
-        addEventListener: () => {},
+        disabled: false,
+        onclick: null,
+        addEventListener: (event: string, fn: unknown) => {
+            if (typeof fn === 'function') {
+                if (!listeners[event]) listeners[event] = [];
+                listeners[event].push(fn as (...args: unknown[]) => unknown);
+            }
+        },
+        click: () => {
+            const evt = { preventDefault: () => {}, stopPropagation: () => {} };
+            if (typeof element.onclick === 'function') {
+                element.onclick(evt);
+            }
+            listeners['click']?.forEach((fn) => fn(evt));
+        },
         get className() {
             return Array.from(classList).join(' ');
         },
@@ -928,10 +946,79 @@ test('renderPrimaryResultActions отображает только кнопку 
 
         const inputButtons = inputActionsContainer.querySelectorAll('button');
         expect(inputButtons).toHaveLength(4);
-        expect(inputButtons[0].textContent).toContain('Заменить текст');
+        expect(inputButtons[0].textContent).toContain('Заменить');
         expect(inputButtons[1].textContent).toContain('Вставить ниже');
         expect(inputButtons[2].getAttribute('aria-label')).toBe('Копировать');
         expect(inputButtons[3].getAttribute('aria-label')).toContain('Скачать');
+    } finally {
+        vi.stubGlobal('document', originalDocument);
+        vi.stubGlobal('DOMParser', originalDOMParser);
+    }
+});
+
+test('Unit 16b: renderPrimaryResultActions в компактном режиме отображает видимую кнопку «Заменить»', () => {
+    const originalDocument = globalThis.document;
+    const originalDOMParser = globalThis.DOMParser;
+    vi.stubGlobal('DOMParser', MockDOMParser);
+    vi.stubGlobal('document', {
+        createElement: (tag: string) => createMockElement(tag),
+        createTextNode: (text: string) => ({ textContent: text }),
+        importNode: (node: unknown) => node,
+    });
+
+    try {
+        const input = createMockElement('input');
+        (input as unknown as { value: string }).value = 'текст';
+        const actionsContainer = createMockElement('div');
+        const headerTitle = createMockElement('div');
+        const showStatus = vi.fn();
+        const setTimeoutFn = vi.fn();
+        let dismissed = false;
+
+        renderPrimaryResultActions({
+            mode: 'spellcheck',
+            selection: {
+                text: 'текст',
+                context: 'исходный текст',
+                range: null,
+                activeElement: input as unknown as HTMLInputElement,
+                start: 0,
+                end: 5,
+                isInput: true,
+            },
+            actionsContainer: actionsContainer as unknown as HTMLElement,
+            headerTitle: headerTitle as unknown as HTMLElement,
+            getResult: () => 'исправленный текст',
+            showStatus,
+            setTimeout: setTimeoutFn,
+            isCompact: () => true,
+            onDismiss: () => {
+                dismissed = true;
+            },
+        });
+
+        const buttons = actionsContainer.querySelectorAll('button');
+        expect(buttons).toHaveLength(3);
+
+        const replaceBtn = buttons[0];
+        expect(replaceBtn.classList.contains('lexisync-result-button--primary')).toBe(true);
+        expect(replaceBtn.classList.contains('lexisync-result-button--accept')).toBe(true);
+        expect(replaceBtn.textContent).toContain('Заменить');
+        expect(replaceBtn.textContent.trim()).not.toBe('');
+        expect(replaceBtn.getAttribute('aria-label')).toBe('Заменить');
+        expect(replaceBtn.disabled).toBe(false);
+
+        const appendBtn = buttons[1];
+        expect(appendBtn.textContent).toContain('Вставить ниже');
+        expect(appendBtn.textContent.trim()).not.toBe('');
+
+        const dismissBtn = buttons[2];
+        expect(dismissBtn.classList.contains('lexisync-result-button--dismiss')).toBe(true);
+        expect(dismissBtn.textContent).toContain('Отклонить');
+        expect(dismissBtn.textContent.trim()).not.toBe('');
+
+        dismissBtn.click?.();
+        expect(dismissed).toBe(true);
     } finally {
         vi.stubGlobal('document', originalDocument);
         vi.stubGlobal('DOMParser', originalDOMParser);
@@ -4252,7 +4339,7 @@ test('renderCompactResultPreview корректно отображает кар�
                 before: 'Готовый текст ',
                 correction: 'без ошибок',
                 after: '.',
-                replace: 'Применить',
+                replace: 'Заменить',
                 beforeAfter: 'До / После',
                 repeat: 'Повторить',
                 shorter: 'Короче',
@@ -4275,7 +4362,7 @@ test('renderCompactResultPreview корректно отображает кар�
 
         const acceptBtn = container.querySelector('.lexisync-result-button--accept');
         expect(acceptBtn).not.toBeNull();
-        expect(acceptBtn!.textContent).toContain('Применить');
+        expect(acceptBtn!.textContent).toContain('Заменить');
 
         const dismissBtn = container.querySelector('.lexisync-result-button--dismiss');
         expect(dismissBtn).not.toBeNull();

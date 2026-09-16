@@ -143,6 +143,9 @@
     "fixLayout": {
         "message": "Исправить раскладку"
     },
+    "replace": {
+        "message": "Заменить"
+    },
     "replaceText": {
         "message": "Заменить текст"
     },

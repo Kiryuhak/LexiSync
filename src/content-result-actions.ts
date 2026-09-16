@@ -46,10 +46,11 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
         const replaceButton = document.createElement('button');
         replaceButton.type = 'button';
         replaceButton.className = isCompact
-            ? `${btnClass} lexisync-result-button lexisync-result-button--accept`
+            ? `${btnClass} lexisync-result-button lexisync-result-button--primary lexisync-result-button--accept`
             : `${btnClass} lexisync-result-button lexisync-result-button--primary`;
-        const replaceText = isCompact ? t('acceptApply', 'Применить') : t('replaceText', 'Заменить текст');
+        const replaceText = t('replace', 'Заменить');
         appendIconAndText(replaceButton, replaceIcon, replaceText);
+        replaceButton.setAttribute('aria-label', replaceText);
         replaceButton.disabled = !hasValidReplaceTarget;
         if (!hasValidReplaceTarget) replaceButton.title = selectionChangedMessage;
 
@@ -86,7 +87,7 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
                     undoButton.remove();
                     replaceButton.disabled = false;
                     replaceButton.classList.remove('lexisync-result-button--success');
-                    appendIconAndText(replaceButton, replaceIcon, t('replaceText', 'Заменить текст'));
+                    appendIconAndText(replaceButton, replaceIcon, replaceText);
                 };
                 actionsContainer.appendChild(undoButton);
             } else showStatus(t('replaceFailed', 'Не удалось заменить текст.'), true);
@@ -176,7 +177,7 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
         setIcon(copyButton, copyIcon);
     } else {
         copyButton.className = isCompact
-            ? `${btnClass} lexisync-result-button lexisync-result-button--accept`
+            ? `${btnClass} lexisync-result-button lexisync-result-button--primary lexisync-result-button--accept`
             : `${btnClass} lexisync-result-button lexisync-result-button--primary`;
         appendIconAndText(copyButton, copyIcon, t('copy', 'Копировать'));
     }

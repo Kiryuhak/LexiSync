@@ -42,7 +42,10 @@ export function setIcon(element: Element, markup: string): void {
 }
 
 export function appendIconAndText(element: Element, markup: string, text: string): void {
-    element.replaceChildren(createSvgIcon(markup), document.createTextNode(` ${text}`));
+    const label = document.createElement('span');
+    label.className = 'lexisync-btn-label';
+    label.textContent = text;
+    element.replaceChildren(createSvgIcon(markup), label);
 }
 
 function appendInlineMarkup(parent: Node, value: string): void {

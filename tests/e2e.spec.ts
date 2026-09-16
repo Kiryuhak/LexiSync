@@ -3167,3 +3167,102 @@ test('Test 68: Дашборд аналитики грамотности в Ис�
     await expect(page.locator('#historyListView')).toBeVisible();
     await expect(page.locator('#grammarAnalyticsView')).toBeHidden();
 });
+
+test('Test 69: Локальное исправление «Проверяю текст на ошибка» отображает видимую кнопку «Заменить» и заменяет текст в DOM', async ({
+    page,
+    context,
+}) => {
+    await clearApiKey(context);
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() => chrome.storage.local.set({ proofreadMode: 'local' }));
+
+    await page.goto('https://example.com');
+    await grantSiteAccess(context, page);
+
+    await page.evaluate(() => {
+        const textarea = document.createElement('textarea');
+        textarea.id = 'regression-replace-input';
+        textarea.value = 'Проверяю текст на ошибка';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.setSelectionRange(0, textarea.value.length);
+    });
+
+    await page.keyboard.press('Alt+r');
+    const panel = page.locator('#lexisync-extension-ui[data-surface="result"]');
+    await expect(panel).toBeVisible();
+    await expect(panel).toContainText('Проверяю текст на ошибку');
+    await expect(panel.locator('.lexisync-provider-local')).toBeVisible();
+
+    // Проверяем кнопку «Заменить»
+    const replaceBtn = panel.locator('.lexisync-result-button--accept, .lexisync-result-button--primary').first();
+    await expect(replaceBtn).toBeVisible();
+    await expect(replaceBtn).toBeEnabled();
+
+    // Проверяем, что текст кнопки не пустой и строго содержит «Заменить»
+    const btnText = (await replaceBtn.textContent())?.trim() ?? '';
+    expect(btnText).toContain('Заменить');
+    expect(btnText.length).toBeGreaterThan(0);
+
+    // Проверяем наличие лейбла
+    const labelSpan = replaceBtn.locator('.lexisync-btn-label');
+    if ((await labelSpan.count()) > 0) {
+        await expect(labelSpan).toBeVisible();
+        await expect(labelSpan).toHaveText('Заменить');
+    }
+
+    // Выполняем замену кликом по кнопке
+    await replaceBtn.click();
+
+    // Проверяем, что в DOM поле textarea получило исправленный текст
+    await expect(page.locator('#regression-replace-input')).toHaveValue('Проверяю текст на ошибку');
+});
+
+test('Test 70: Универсальный UI-страж: все видимые кнопки действий в панели результатов имеют непустой текст или aria-label', async ({
+    page,
+    context,
+}) => {
+    await clearApiKey(context);
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() => chrome.storage.local.set({ proofreadMode: 'local' }));
+
+    await page.goto('https://example.com');
+    await grantSiteAccess(context, page);
+
+    await page.evaluate(() => {
+        const textarea = document.createElement('textarea');
+        textarea.id = 'guard-input';
+        textarea.value = 'Провиряю тексст на ашибки .';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.setSelectionRange(0, textarea.value.length);
+    });
+
+    await page.keyboard.press('Alt+r');
+    const panel = page.locator('#lexisync-extension-ui[data-surface="result"]');
+    await expect(panel).toBeVisible();
+
+    // Проверяем все видимые кнопки действий в футере панели
+    const buttons = panel.locator('.lexisync-result-button');
+    const buttonCount = await buttons.count();
+    expect(buttonCount).toBeGreaterThanOrEqual(2);
+
+    for (let index = 0; index < buttonCount; index++) {
+        const btn = buttons.nth(index);
+        if (await btn.isVisible()) {
+            const isIconOnly = await btn.evaluate(
+                (el) => el.classList.contains('icon-only') || el.classList.contains('lexisync-btn-icon-only'),
+            );
+            const textContent = (await btn.textContent())?.trim() ?? '';
+            const ariaLabel = (await btn.getAttribute('aria-label'))?.trim() ?? '';
+
+            if (isIconOnly) {
+                expect(ariaLabel.length).toBeGreaterThan(0);
+            } else {
+                expect(textContent.length).toBeGreaterThan(0);
+            }
+        }
+    }
+});

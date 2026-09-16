@@ -82,7 +82,7 @@ export function updateAppearancePreview(): void {
             before: t('compactResultPreviewBefore', 'Готовый текст '),
             correction: t('compactResultPreviewCorrection', 'без ошибок'),
             after: t('compactResultPreviewAfter', '.'),
-            replace: t('acceptApply', 'Применить'),
+            replace: t('replace', 'Заменить'),
             beforeAfter: t('beforeAfter', 'До / После'),
             repeat: t('repeat', 'Повторить'),
             shorter: t('shorter', 'Короче'),

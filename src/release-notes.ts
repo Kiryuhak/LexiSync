@@ -59,6 +59,10 @@ export const RELEASE_NOTES: ReleaseNote[] = [
                 'When text contains no errors, a clear "Text is already correct" status is shown instead of an empty card.',
             ],
             [
+                'Исправлено отображение кнопки «Заменить» в панели результатов: гарантирована видимость и контрастность действий во всех темах и режимах.',
+                'Fixed display of the "Replace" button in the result panel: guaranteed action visibility and contrast across all themes and modes.',
+            ],
+            [
                 'Отмена устаревших запросов гарантирует, что ответ на предыдущее выделение не повредит новый текст.',
                 'Stale request cancellation guarantees older responses are never applied to newly selected text fragments.',
             ],

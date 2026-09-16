@@ -644,7 +644,7 @@ export const POPUP_STYLE_TEXT = `
                 box-sizing: border-box !important;
                 max-width: 100% !important;
             }
-            #lexisync-extension-ui[data-compact-result="true"][data-surface="result"] .lexisync-result-button {
+            #lexisync-extension-ui[data-compact-result="true"][data-surface="result"] .lexisync-result-button:not(.lexisync-result-button--accept) {
                 min-height: 36px;
                 padding: 0 12px !important;
                 border: 0 !important;
@@ -654,7 +654,7 @@ export const POPUP_STYLE_TEXT = `
                 box-sizing: border-box !important;
                 max-width: 100% !important;
             }
-            #lexisync-extension-ui[data-compact-result="true"][data-surface="result"] .lexisync-result-button--primary {
+            #lexisync-extension-ui[data-compact-result="true"][data-surface="result"] .lexisync-result-button--primary:not(.lexisync-result-button--accept) {
                 color: var(--text-primary) !important;
                 background: var(--hover-bg) !important;
             }
@@ -666,6 +666,61 @@ export const POPUP_STYLE_TEXT = `
             #lexisync-extension-ui[data-compact-result="true"] .lexisync-result-button:hover:not(.lexisync-result-button--accept) {
                 background: var(--primary-soft) !important;
                 transform: none;
+            }
+            #lexisync-extension-ui[data-compact-result="true"] .lexisync-result-button--accept,
+            #lexisync-extension-ui[data-compact-result="true"][data-surface="result"] .lexisync-result-button--accept {
+                background: #10b981 !important;
+                color: #ffffff !important;
+                border-radius: 10px !important;
+                padding: 0 16px !important;
+                min-height: 36px !important;
+                font-weight: 600 !important;
+                font-size: 13px !important;
+                border: 0 !important;
+                box-shadow: 0 2px 8px rgba(16, 185, 129, 0.28) !important;
+                cursor: pointer !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                gap: 6px !important;
+                white-space: nowrap !important;
+                flex-shrink: 0 !important;
+                transition: transform 0.15s, background 0.15s !important;
+            }
+            #lexisync-extension-ui[data-compact-result="true"] .lexisync-result-button--accept:hover,
+            #lexisync-extension-ui[data-compact-result="true"][data-surface="result"] .lexisync-result-button--accept:hover {
+                background: #059669 !important;
+                transform: translateY(-1px) !important;
+            }
+            #lexisync-extension-ui .lexisync-result-button--accept svg {
+                stroke: #ffffff !important;
+            }
+            #lexisync-extension-ui[data-theme="dark"][data-compact-result="true"] .lexisync-result-button--accept,
+            #lexisync-extension-ui[data-theme="dark"] .lexisync-result-button--accept {
+                background: #059669 !important;
+                color: #ffffff !important;
+            }
+            #lexisync-extension-ui[data-theme="dark"][data-compact-result="true"] .lexisync-result-button--accept:hover,
+            #lexisync-extension-ui[data-theme="dark"] .lexisync-result-button--accept:hover {
+                background: #047857 !important;
+            }
+            #lexisync-extension-ui .lexisync-result-button:disabled,
+            #lexisync-extension-ui .lexisync-result-button--accept:disabled,
+            #lexisync-extension-ui .lexisync-result-button--primary:disabled {
+                opacity: 0.55 !important;
+                cursor: not-allowed !important;
+                transform: none !important;
+                box-shadow: none !important;
+                pointer-events: auto !important;
+            }
+            .lexisync-btn-label {
+                display: inline-block !important;
+                white-space: nowrap !important;
+                font-size: inherit !important;
+                font-weight: inherit !important;
+                color: inherit !important;
+                opacity: 1 !important;
+                visibility: visible !important;
             }
             .lexisync-diff-del {
                 text-decoration: line-through;
