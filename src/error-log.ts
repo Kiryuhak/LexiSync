@@ -17,6 +17,20 @@ export interface ErrorLogEntry {
     fallbackUsed?: boolean;
     retryAfterMs?: number;
     latencyMs?: number;
+    cooldownSource?: 'server-retry-after' | 'server-ratelimit-header' | 'local-backoff';
+    cooldownSeconds?: number;
+    consecutiveFailures?: number;
+    providerSkippedDueToCooldown?: boolean;
+    rateLimitType?: string;
+    requestId?: string;
+    finishReason?: string;
+    responseShape?: string;
+    contentLength?: number;
+    reasoningLength?: number;
+    hasChoices?: boolean;
+    choicesCount?: number;
+    hasContent?: boolean;
+    hasReasoningContent?: boolean;
     details?: Record<string, unknown>;
 }
 
@@ -119,6 +133,20 @@ export async function recordErrorLog(entry: {
     fallbackUsed?: boolean;
     retryAfterMs?: number;
     latencyMs?: number;
+    cooldownSource?: 'server-retry-after' | 'server-ratelimit-header' | 'local-backoff';
+    cooldownSeconds?: number;
+    consecutiveFailures?: number;
+    providerSkippedDueToCooldown?: boolean;
+    rateLimitType?: string;
+    requestId?: string;
+    finishReason?: string;
+    responseShape?: string;
+    contentLength?: number;
+    reasoningLength?: number;
+    hasChoices?: boolean;
+    choicesCount?: number;
+    hasContent?: boolean;
+    hasReasoningContent?: boolean;
     details?: Record<string, unknown>;
     knownKeys?: string[];
 }): Promise<void> {
@@ -147,6 +175,20 @@ export async function recordErrorLog(entry: {
                 fallbackUsed: entry.fallbackUsed,
                 retryAfterMs: entry.retryAfterMs,
                 latencyMs: entry.latencyMs,
+                cooldownSource: entry.cooldownSource,
+                cooldownSeconds: entry.cooldownSeconds,
+                consecutiveFailures: entry.consecutiveFailures,
+                providerSkippedDueToCooldown: entry.providerSkippedDueToCooldown,
+                rateLimitType: entry.rateLimitType,
+                requestId: entry.requestId,
+                finishReason: entry.finishReason,
+                responseShape: entry.responseShape,
+                contentLength: entry.contentLength,
+                reasoningLength: entry.reasoningLength,
+                hasChoices: entry.hasChoices,
+                choicesCount: entry.choicesCount,
+                hasContent: entry.hasContent,
+                hasReasoningContent: entry.hasReasoningContent,
                 details: sanitizeDetails(entry.details, knownKeys),
             };
 
@@ -196,6 +238,14 @@ export function formatErrorLogsAsText(logs: ErrorLogEntry[]): string {
                 ? `  Резервное переключение: ${log.fallbackUsed ? 'да' : 'нет'}`
                 : null,
             typeof log.retryAfterMs === 'number' ? `  Повтор через: ${log.retryAfterMs} мс` : null,
+            typeof log.cooldownSeconds === 'number' ? `  Кулдаун: ${log.cooldownSeconds} сек.` : null,
+            log.cooldownSource ? `  Источник кулдауна: ${log.cooldownSource}` : null,
+            typeof log.consecutiveFailures === 'number' ? `  Последовательных сбоев: ${log.consecutiveFailures}` : null,
+            log.rateLimitType ? `  Классификация лимита: ${log.rateLimitType}` : null,
+            log.finishReason ? `  Finish Reason: ${log.finishReason}` : null,
+            log.responseShape ? `  Форма ответа: ${log.responseShape}` : null,
+            typeof log.contentLength === 'number' ? `  Длина content: ${log.contentLength}` : null,
+            typeof log.reasoningLength === 'number' ? `  Длина reasoning: ${log.reasoningLength}` : null,
             typeof log.latencyMs === 'number' ? `  Задержка: ${Math.round(log.latencyMs)} мс` : null,
             `  Сообщение: ${log.message}`,
             log.details ? `  Детали: ${JSON.stringify(log.details)}` : null,

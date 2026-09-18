@@ -37,8 +37,9 @@ const states: Record<AiProviderType, ProviderAvailabilityState> = {
 const halfOpenProbes = new Set<AiProviderType>();
 let loadPromise: Promise<void> | null = null;
 
-function storageApi(): typeof chrome.storage.local | null {
-    return typeof chrome !== 'undefined' && chrome.storage?.local ? chrome.storage.local : null;
+function storageApi(): typeof chrome.storage.local | typeof chrome.storage.session | null {
+    if (typeof chrome === 'undefined' || !chrome.storage) return null;
+    return chrome.storage.session || chrome.storage.local || null;
 }
 
 function normalizeStoredState(value: unknown): ProviderAvailabilityState {
@@ -90,6 +91,9 @@ function cooldownFor(error: AiProviderError, failureCount: number): number {
     }
     const exponent = Math.max(0, Math.min(5, failureCount - 1));
     if (error.code === 'RATE_LIMIT' || error.code === 'QUOTA_EXCEEDED') {
+        if (error.context?.rateLimitType === 'rate_limit_quota_exhausted') {
+            return Math.min(30 * 60_000, 5 * 60_000 * 2 ** Math.min(3, failureCount - 1));
+        }
         return Math.min(10 * 60_000, 30_000 * 2 ** exponent);
     }
     if (error.code === 'TIMEOUT' || error.code === 'NETWORK_ERROR') {
@@ -191,3 +195,5 @@ export function resetProviderAvailability(): void {
     loadPromise = Promise.resolve();
     void persist().catch(() => undefined);
 }
+
+void ensureLoaded();

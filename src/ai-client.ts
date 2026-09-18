@@ -3,6 +3,7 @@ import { recordErrorLog } from './error-log';
 import {
     AiProviderError,
     type AiErrorCode,
+    type AiErrorContext,
     type AiExecutionResult,
     type AiProviderType,
     type AiRequestOptions,
@@ -59,6 +60,16 @@ async function writeProviderFailureLog(
         fallbackUsed,
         retryAfterMs: error.retryAfterMs,
         latencyMs: error.context.latencyMs,
+        finishReason: error.context.finishReason,
+        responseShape: error.context.responseShape,
+        contentLength: error.context.contentLength,
+        reasoningLength: error.context.reasoningLength,
+        hasChoices: error.context.hasChoices,
+        choicesCount: error.context.choicesCount,
+        hasContent: error.context.hasContent,
+        hasReasoningContent: error.context.hasReasoningContent,
+        rateLimitType: error.context.rateLimitType,
+        requestId: error.context.requestId,
     });
 }
 
@@ -147,15 +158,31 @@ export function normalizeAiError(error: unknown, provider: AiProviderType): AiPr
         typeof (error as { retryAfterMs: unknown }).retryAfterMs === 'number'
             ? (error as { retryAfterMs: number }).retryAfterMs
             : undefined;
+    const rateLimitType =
+        error && typeof error === 'object' && 'rateLimitType' in error
+            ? (error as { rateLimitType: AiErrorContext['rateLimitType'] }).rateLimitType
+            : undefined;
+    const requestId =
+        error && typeof error === 'object' && 'requestId' in error
+            ? (error as { requestId: string }).requestId
+            : undefined;
+    const errorContext =
+        error && typeof error === 'object' && 'context' in error && error.context && typeof error.context === 'object'
+            ? (error.context as AiErrorContext)
+            : {};
 
     if (sourceStatus === 401 || sourceStatus === 403) {
-        return new AiProviderError(message, 'AUTH_ERROR', provider, false, sourceStatus);
+        return new AiProviderError(message, 'AUTH_ERROR', provider, false, sourceStatus, undefined, errorContext);
     }
     if (sourceStatus === 404) {
-        return new AiProviderError(message, 'ACCOUNT_ERROR', provider, false, sourceStatus);
+        return new AiProviderError(message, 'ACCOUNT_ERROR', provider, false, sourceStatus, undefined, errorContext);
     }
     if (sourceStatus === 429) {
-        return new AiProviderError(message, 'RATE_LIMIT', provider, sourceRetryable ?? true, 429, retryAfterMs);
+        return new AiProviderError(message, 'RATE_LIMIT', provider, sourceRetryable ?? true, 429, retryAfterMs, {
+            ...errorContext,
+            rateLimitType: rateLimitType ?? errorContext.rateLimitType,
+            requestId: requestId ?? errorContext.requestId,
+        });
     }
     if (sourceStatus && sourceStatus >= 500 && sourceStatus <= 599) {
         return new AiProviderError(message, 'SERVER_ERROR', provider, sourceRetryable ?? true, sourceStatus);

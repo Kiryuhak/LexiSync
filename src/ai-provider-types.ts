@@ -30,6 +30,22 @@ export interface AiErrorContext {
     attempt?: number;
     fallbackProvider?: AiProviderType;
     latencyMs?: number;
+    finishReason?: string;
+    hasChoices?: boolean;
+    choicesCount?: number;
+    hasContent?: boolean;
+    contentLength?: number;
+    hasReasoningContent?: boolean;
+    reasoningLength?: number;
+    responseShape?: string;
+    elapsedMs?: number;
+    rateLimitType?:
+        | 'rate_limit_temporary'
+        | 'rate_limit_quota_exhausted'
+        | 'rate_limit_model'
+        | 'rate_limit_account'
+        | 'rate_limit_unknown';
+    requestId?: string;
 }
 
 export class AiProviderError extends Error {

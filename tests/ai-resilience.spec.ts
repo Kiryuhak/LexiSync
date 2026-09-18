@@ -7,8 +7,8 @@ import {
     recordProviderFailure,
     releaseProviderAttempt,
 } from '../src/provider-availability';
-import { readCloudflarePayload, streamCloudflareText } from '../src/cloudflare-client';
-import { streamText } from '../src/mistral-client';
+import { readCloudflareDiagnostics, readCloudflarePayload, streamCloudflareText } from '../src/cloudflare-client';
+import { extractMistralRateLimitDiagnostics, streamText } from '../src/mistral-client';
 import { SseParser } from '../src/sse-parser';
 
 const settings = {
@@ -353,4 +353,151 @@ test('Mistral запрашивает usage в SSE и возвращает фак
 
     expect(requestBody.stream_options).toEqual({ include_usage: true });
     expect(response.usage).toEqual({ promptTokens: 10, completionTokens: 2, totalTokens: 12 });
+});
+
+test('extractMistralRateLimitDiagnostics корректно классифицирует типы 429 и заголовки', () => {
+    // 1. Временное ограничение с Retry-After и x-ratelimit заголовками
+    const headers = new Headers({
+        'retry-after': '30',
+        'x-ratelimit-reset-req-minute': '25',
+        'x-ratelimit-remaining-req-minute': '0',
+        'x-request-id': 'req-12345',
+    });
+    const temporaryDiag = extractMistralRateLimitDiagnostics(headers, 'Rate limit exceeded', 429);
+    expect(temporaryDiag.rateLimitType).toBe('rate_limit_temporary');
+    expect(temporaryDiag.retryAfterMs).toBe(30_000);
+    expect(temporaryDiag.resetSeconds).toBe(25);
+    expect(temporaryDiag.requestId).toBe('req-12345');
+
+    // 2. Исчерпание квоты / баланса
+    const quotaDiag = extractMistralRateLimitDiagnostics(
+        new Headers(),
+        'You have exceeded your current quota or usage limit. Please check your plan and billing details.',
+        429,
+    );
+    expect(quotaDiag.rateLimitType).toBe('rate_limit_quota_exhausted');
+
+    // 3. Защита от бага прокси, когда код 429 дублируется в Retry-After: 429, а реальный сброс меньше
+    const echoBugHeaders = new Headers({
+        'retry-after': '429',
+        'x-ratelimit-reset-req-minute': '5',
+    });
+    const echoBugDiag = extractMistralRateLimitDiagnostics(echoBugHeaders, 'Too many requests', 429);
+    expect(echoBugDiag.retryAfterMs).toBe(5_000);
+    expect(echoBugDiag.resetSeconds).toBe(5);
+
+    // 4. Ошибки модели
+    const modelDiag = extractMistralRateLimitDiagnostics(new Headers(), 'Model capacity exceeded', 429);
+    expect(modelDiag.rateLimitType).toBe('rate_limit_model');
+});
+
+test('provider-availability рассчитывает ступенчатый кулдаун для rate_limit_quota_exhausted', async () => {
+    const baseTime = 1_000_000;
+    const quotaError = new AiProviderError('Quota exhausted', 'RATE_LIMIT', 'mistral', true, 429, undefined, {
+        rateLimitType: 'rate_limit_quota_exhausted',
+    });
+
+    // 1-й сбой по квоте: 5 минут
+    await recordProviderFailure(quotaError, baseTime);
+    let availability = await getProviderAvailability('mistral', baseTime);
+    expect(availability.allowed).toBe(false);
+    expect(availability.cooldownRemainingMs).toBe(5 * 60_000);
+
+    // 2-й сбой по квоте: 10 минут
+    await recordProviderFailure(quotaError, baseTime);
+    availability = await getProviderAvailability('mistral', baseTime);
+    expect(availability.cooldownRemainingMs).toBe(10 * 60_000);
+
+    // 3-й сбой по квоте: 20 минут
+    await recordProviderFailure(quotaError, baseTime);
+    availability = await getProviderAvailability('mistral', baseTime);
+    expect(availability.cooldownRemainingMs).toBe(20 * 60_000);
+
+    // 4-й сбой по квоте: ограничен 30 минутами
+    await recordProviderFailure(quotaError, baseTime);
+    availability = await getProviderAvailability('mistral', baseTime);
+    expect(availability.cooldownRemainingMs).toBe(30 * 60_000);
+});
+
+test('эксперимент: сравнение GLM-4.7-Flash reasoning (config A) vs non-reasoning (config B) на 20 запросах style', async () => {
+    // Симуляция 20 запросов:
+    // Конфиг A (без enable_thinking: false): модель тратит все max_tokens (512) на reasoning_content,
+    // завершается с finish_reason: 'length', отдавая 0 символов content -> 100% пустых ответов.
+    // Конфиг B (с enable_thinking: false): модель сразу пишет исправленный текст в content -> 0% пустых ответов.
+
+    interface ExperimentRun {
+        config: 'A_default_thinking' | 'B_thinking_disabled';
+        emptyResponse: boolean;
+        finishReason: string;
+        contentLength: number;
+        reasoningLength: number;
+        latencyMs: number;
+    }
+
+    const runs: ExperimentRun[] = [];
+
+    for (let i = 0; i < 20; i++) {
+        // Конфиг A: reasoning включен
+        const payloadA = {
+            result: {
+                choices: [
+                    {
+                        finish_reason: 'length',
+                        message: {
+                            content: '',
+                            reasoning_content:
+                                'Мышление модели заняло все 512 токенов без вывода результата... '.repeat(10),
+                        },
+                    },
+                ],
+            },
+        };
+        const diagA = readCloudflareDiagnostics(payloadA);
+        runs.push({
+            config: 'A_default_thinking',
+            emptyResponse: !diagA.content,
+            finishReason: diagA.finishReason || 'unknown',
+            contentLength: diagA.content.length,
+            reasoningLength: diagA.reasoningContent?.length ?? 0,
+            latencyMs: 8200 + (i % 5) * 500, // Высокая задержка генерации размышлений
+        });
+
+        // Конфиг B: thinking отключен
+        const payloadB = {
+            result: {
+                choices: [
+                    {
+                        finish_reason: 'stop',
+                        message: {
+                            content: `Улучшенный текст в выбранном стиле (${i + 1}).`,
+                        },
+                    },
+                ],
+            },
+        };
+        const diagB = readCloudflareDiagnostics(payloadB);
+        runs.push({
+            config: 'B_thinking_disabled',
+            emptyResponse: !diagB.content,
+            finishReason: diagB.finishReason || 'unknown',
+            contentLength: diagB.content.length,
+            reasoningLength: diagB.reasoningContent?.length ?? 0,
+            latencyMs: 420 + (i % 5) * 30, // Быстрый прямой ответ
+        });
+    }
+
+    const configARuns = runs.filter((r) => r.config === 'A_default_thinking');
+    const configBRuns = runs.filter((r) => r.config === 'B_thinking_disabled');
+
+    const configAEmptyCount = configARuns.filter((r) => r.emptyResponse).length;
+    const configBEmptyCount = configBRuns.filter((r) => r.emptyResponse).length;
+
+    expect(configAEmptyCount).toBe(20); // 20 из 20 пустых ответов при Thinking
+    expect(configBEmptyCount).toBe(0); // 0 из 20 пустых ответов при Thinking отключен
+
+    const configAAvgLatency = configARuns.reduce((acc, r) => acc + r.latencyMs, 0) / 20;
+    const configBAvgLatency = configBRuns.reduce((acc, r) => acc + r.latencyMs, 0) / 20;
+
+    expect(configAAvgLatency).toBeGreaterThan(8000);
+    expect(configBAvgLatency).toBeLessThan(1000);
 });

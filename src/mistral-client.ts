@@ -23,6 +23,8 @@ export interface MistralRequest {
     customPrompt?: string;
     replyIntent?: 'agree' | 'decline' | 'clarify' | 'alternative';
     rawMessages?: Array<{ role: 'system' | 'user'; content: string }>;
+    enableThinking?: boolean;
+    forceAi?: boolean;
 }
 
 export interface MistralSettings {
@@ -38,12 +40,32 @@ export interface MistralSettings {
 const API_BASE_URL = AI_CONFIG.mistral.baseUrl;
 const RETRYABLE_SERVER_STATUSES = new Set([500, 502, 503, 504]);
 
+export type MistralRateLimitType =
+    | 'rate_limit_temporary'
+    | 'rate_limit_quota_exhausted'
+    | 'rate_limit_model'
+    | 'rate_limit_account'
+    | 'rate_limit_unknown';
+
+export interface MistralRateLimitInfo {
+    rateLimitType?: MistralRateLimitType;
+    retryAfterMs?: number;
+    resetSeconds?: number;
+    limitReqMinute?: number;
+    remainingReqMinute?: number;
+    limitTokensMinute?: number;
+    remainingTokensMinute?: number;
+    requestId?: string;
+}
+
 export class MistralRequestError extends Error {
     constructor(
         message: string,
         readonly retryable: boolean,
         readonly status?: number,
         readonly retryAfterMs?: number,
+        readonly rateLimitType?: MistralRateLimitType,
+        readonly requestId?: string,
     ) {
         super(message);
         this.name = 'MistralRequestError';
@@ -166,14 +188,92 @@ export function getApiError(status: number, providerMessage = ''): string {
     return `${t('mistralApiError', 'Ошибка Mistral API')} (${status}).`;
 }
 
+export function extractMistralRateLimitDiagnostics(
+    headers?: Headers | null,
+    providerMessage = '',
+    statusCode = 429,
+): MistralRateLimitInfo {
+    if (statusCode !== 429) return {};
+
+    const retryAfterHeader = headers?.get('retry-after') ?? headers?.get('Retry-After');
+    const reqReset = headers?.get('x-ratelimit-reset-req-minute') ?? headers?.get('x-ratelimit-reset');
+    const tokReset = headers?.get('x-ratelimit-reset-tokens-minute');
+    const remReq = headers?.get('x-ratelimit-remaining-req-minute');
+    const limReq = headers?.get('x-ratelimit-limit-req-minute');
+    const remTok = headers?.get('x-ratelimit-remaining-tokens-minute');
+    const limTok = headers?.get('x-ratelimit-limit-tokens-minute');
+    const reqId = headers?.get('x-request-id') ?? headers?.get('request-id');
+
+    let resetSec: number | undefined;
+    if (reqReset) {
+        const n = Number(reqReset);
+        if (Number.isFinite(n) && n >= 0) resetSec = n;
+    }
+    if (resetSec === undefined && tokReset) {
+        const n = Number(tokReset);
+        if (Number.isFinite(n) && n >= 0) resetSec = n;
+    }
+
+    let parsedRetryMs = parseRetryAfterMs(retryAfterHeader ?? null) ?? undefined;
+
+    // Защита от прокси-бага, когда код 429 дублируется в Retry-After, а реальный сброс меньше:
+    if (retryAfterHeader?.trim() === '429' && typeof resetSec === 'number' && resetSec < 429) {
+        parsedRetryMs = resetSec * 1000;
+    }
+
+    const lowerMsg = providerMessage.toLowerCase();
+    let rateLimitType: MistralRateLimitType = 'rate_limit_unknown';
+
+    if (
+        lowerMsg.includes('quota') ||
+        lowerMsg.includes('credit') ||
+        lowerMsg.includes('balance') ||
+        lowerMsg.includes('usage limit') ||
+        lowerMsg.includes('billing') ||
+        lowerMsg.includes('plan')
+    ) {
+        rateLimitType = 'rate_limit_quota_exhausted';
+    } else if (lowerMsg.includes('capacity') || lowerMsg.includes('overload') || lowerMsg.includes('model')) {
+        rateLimitType = 'rate_limit_model';
+    } else if (lowerMsg.includes('tier') || lowerMsg.includes('free tier') || lowerMsg.includes('account')) {
+        rateLimitType = 'rate_limit_account';
+    } else if (
+        parsedRetryMs !== undefined ||
+        resetSec !== undefined ||
+        lowerMsg.includes('rate limit') ||
+        lowerMsg.includes('too many requests') ||
+        lowerMsg.includes('requests per minute') ||
+        lowerMsg.includes('tokens per minute')
+    ) {
+        rateLimitType = 'rate_limit_temporary';
+    }
+
+    return {
+        rateLimitType,
+        retryAfterMs: parsedRetryMs ?? (resetSec !== undefined ? resetSec * 1000 : undefined),
+        resetSeconds: resetSec,
+        limitReqMinute: limReq ? Number(limReq) : undefined,
+        remainingReqMinute: remReq ? Number(remReq) : undefined,
+        limitTokensMinute: limTok ? Number(limTok) : undefined,
+        remainingTokensMinute: remTok ? Number(remTok) : undefined,
+        requestId: reqId ?? undefined,
+    };
+}
+
 async function createApiError(response: Response): Promise<MistralRequestError> {
     const providerMessage = await readResponseErrorMessage(response);
+    const diag = extractMistralRateLimitDiagnostics(response.headers, providerMessage, response.status);
     const retryAfterHeader = response.headers?.get('Retry-After');
+    const retryAfterMs =
+        diag.retryAfterMs ??
+        (response.status === 429 ? (parseRetryAfterMs(retryAfterHeader ?? null) ?? undefined) : undefined);
     return new MistralRequestError(
         getApiError(response.status, providerMessage),
         response.status === 429 || RETRYABLE_SERVER_STATUSES.has(response.status),
         response.status,
-        response.status === 429 ? (parseRetryAfterMs(retryAfterHeader ?? null) ?? undefined) : undefined,
+        retryAfterMs,
+        diag.rateLimitType,
+        diag.requestId,
     );
 }
 
