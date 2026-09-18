@@ -36,6 +36,31 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.6.7',
+        '2026-09-18',
+        'improved',
+        'Стабилизация AI-провайдеров и кнопка проверки через AI',
+        'AI stability improvements and Check with AI button',
+        [
+            [
+                'Добавлена кнопка «Проверить через AI» в панели Local Proofreader: удобный переход к облачному анализу без потери локального результата.',
+                'Added "Check with AI" button in Local Proofreader panel: seamless transition to cloud analysis without losing local results.',
+            ],
+            [
+                'Устранена потеря кулдауна Mistral при перезапуске Service Worker MV3 и улучшена диагностика лимитов 429.',
+                'Fixed Mistral cooldown loss across MV3 Service Worker restarts and improved 429 rate limit diagnostics.',
+            ],
+            [
+                'Устранены периодические пустые ответы Cloudflare Workers AI в режиме стиля за счёт оптимизации reasoning-параметров.',
+                'Eliminated intermittent empty Cloudflare Workers AI responses in style mode via reasoning parameter optimization.',
+            ],
+            [
+                'Улучшена валидация чисел и структуры строк, предотвращающая ложные отказы на валидной типографике.',
+                'Improved numbers and line structure validation, preventing false rejections on valid typography.',
+            ],
+        ],
+    ),
+    note(
         '5.6.6',
         '2026-09-16',
         'fixed',
