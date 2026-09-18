@@ -11,7 +11,7 @@ LexiSync — браузерное расширение для проверки, 
 
 При запуске AI-команды выбранный пользователем текст или выбранная область изображения передаются напрямую из браузера к выбранному **AI-провайдеру (Mistral AI API или Cloudflare Workers AI API)** по защищённому HTTPS-соединению с использованием собственного API-ключа пользователя. Это необходимо для исправления, переписывания, перевода, добавления эмодзи и OCR.
 
-Локальная проверка русской орфографии и базовой пунктуации выполняется полностью на устройстве. В режиме «Только локальная» текст не передаётся AI. В гибридном режиме текст передаётся AI только тогда, когда локального слоя недостаточно для сложной проверки. Личный словарь пользователя никогда не включается в AI-промпт.
+Локальная проверка русской орфографии и базовой пунктуации выполняется полностью на устройстве (Local Proofreader). В режиме «Только локальная» текст никогда не передаётся AI и не покидает браузер. В гибридном режиме текст передаётся AI только тогда, когда локального слоя недостаточно для сложной проверки. Опциональная кнопка «Проверить через AI» в окне результата является осознанным действием пользователя (opt-in cloud check) для отправки локально скорректированного фрагмента в настроенный AI-сервис (Mistral / Cloudflare) для глубокого анализа пунктуации, стиля и сложных языковых конструкций. Личный словарь пользователя никогда не включается в AI-промпт.
 
 Передача окружающего текста, заголовка и домена страницы **отключена по умолчанию**. Она выполняется только после включения пользователем соответствующей настройки и может быть отдельно запрещена для выбранных сайтов.
 
@@ -206,7 +206,7 @@ LexiSync is a browser extension for checking, correcting, rewriting, translating
 
 When a user starts an AI command, the selected text or selected image area is sent directly from the browser to the chosen **AI provider API (Mistral AI API or Cloudflare Workers AI API)** over HTTPS using the user's own API key. This transfer is necessary for correction, rewriting, translation, emoji suggestions, and OCR.
 
-Local Russian spelling and basic punctuation checks run entirely on the device. In Local-only mode, text is not sent to AI. In Hybrid mode, text is sent only when the local layer cannot resolve a complex case. The user's personal dictionary is never included in an AI prompt.
+Local Russian spelling and basic punctuation checks run entirely on the device (Local Proofreader). In Local-only mode, text is never sent to AI and never leaves the browser. In Hybrid mode, text is sent only when the local layer cannot resolve a complex case. The optional "Check with AI" button in the result panel is an explicit opt-in action by the user to send the locally corrected text to the configured AI service (Mistral / Cloudflare) for deep punctuation, style, and grammar analysis. The user's personal dictionary is never included in an AI prompt.
 
 The transfer of surrounding text, page title, and current domain is **disabled by default**. It occurs only after the user enables the setting and can be disabled for individual websites.
 
