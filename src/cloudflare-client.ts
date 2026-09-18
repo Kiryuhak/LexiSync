@@ -24,8 +24,15 @@ interface CloudflareContentPart {
 }
 
 interface CloudflareChoice {
-    delta?: { content?: string | CloudflareContentPart | CloudflareContentPart[] };
-    message?: { content?: string | CloudflareContentPart | CloudflareContentPart[] };
+    delta?: {
+        content?: string | CloudflareContentPart | CloudflareContentPart[];
+        reasoning_content?: string;
+    };
+    message?: {
+        content?: string | CloudflareContentPart | CloudflareContentPart[];
+        reasoning_content?: string;
+    };
+    finish_reason?: string;
 }
 
 interface CloudflarePayload {
@@ -46,18 +53,58 @@ function readContent(value: string | CloudflareContentPart | CloudflareContentPa
     return '';
 }
 
-export function readCloudflarePayload(payload: unknown): { content: string; usage?: CloudflareUsage } {
-    if (!payload || typeof payload !== 'object') return { content: '' };
+export interface CloudflarePayloadDiagnostics {
+    content: string;
+    usage?: CloudflareUsage;
+    reasoningContent?: string;
+    finishReason?: string;
+    hasChoices?: boolean;
+    choicesCount?: number;
+    responseShape?: string;
+}
+
+export function readCloudflareDiagnostics(payload: unknown): CloudflarePayloadDiagnostics {
+    if (!payload || typeof payload !== 'object') return { content: '', responseShape: 'invalid_type' };
     const parsed = payload as CloudflarePayload;
-    const choice = parsed.choices?.[0] ?? parsed.result?.choices?.[0];
+    const choices = parsed.choices ?? parsed.result?.choices;
+    const hasChoices = Array.isArray(choices) && choices.length > 0;
+    const choicesCount = Array.isArray(choices) ? choices.length : 0;
+    const choice = choices?.[0];
+
+    let responseShape = 'unknown_shape';
+    if (parsed.result?.choices) responseShape = 'result_choices';
+    else if (parsed.choices) responseShape = 'root_choices';
+    else if (typeof parsed.result?.response === 'string') responseShape = 'result_response';
+    else if (typeof parsed.response === 'string') responseShape = 'root_response';
+
+    const reasoning =
+        (typeof choice?.delta?.reasoning_content === 'string' ? choice.delta.reasoning_content : '') ||
+        (typeof choice?.message?.reasoning_content === 'string' ? choice.message.reasoning_content : '');
+
+    const finishReason = choice?.finish_reason;
+
     const content =
         readContent(parsed.response) ||
         readContent(parsed.result?.response) ||
         readContent(choice?.delta?.content) ||
         readContent(choice?.message?.content);
+
     return {
         content,
         usage: parsed.usage ?? parsed.result?.usage,
+        reasoningContent: reasoning || undefined,
+        finishReason,
+        hasChoices,
+        choicesCount,
+        responseShape,
+    };
+}
+
+export function readCloudflarePayload(payload: unknown): { content: string; usage?: CloudflareUsage } {
+    const diag = readCloudflareDiagnostics(payload);
+    return {
+        content: diag.content,
+        usage: diag.usage,
     };
 }
 
@@ -248,6 +295,7 @@ export async function streamCloudflareText(
 
     let fullCollectedText = '';
     let usageData: CloudflareUsage | undefined;
+    const requestStartTime = Date.now();
 
     const url = `${CLOUDFLARE_API_BASE_URL}/accounts/${encodeURIComponent(accountId)}/ai/run/${resolvedModel}`;
     const useSynchronousResponse = msg.mode === 'spellcheck';
@@ -257,7 +305,9 @@ export async function streamCloudflareText(
         max_tokens: maxTokens,
         temperature,
     };
-    if (msg.mode === 'spellcheck' && resolvedModel === '@cf/zai-org/glm-4.7-flash') {
+    if (typeof msg.enableThinking === 'boolean') {
+        requestBody.chat_template_kwargs = { enable_thinking: msg.enableThinking };
+    } else if (msg.mode === 'spellcheck' && resolvedModel === '@cf/zai-org/glm-4.7-flash') {
         requestBody.chat_template_kwargs = { enable_thinking: false };
     }
 
@@ -297,13 +347,29 @@ export async function streamCloudflareText(
                 true,
             );
         }
-        const parsed = readCloudflarePayload(payload);
+        const parsed = readCloudflareDiagnostics(payload);
         if (!parsed.content) {
+            const elapsedMs = Date.now() - requestStartTime;
             throw new AiProviderError(
                 t('cloudflareEmptyResponse', 'Cloudflare Workers AI не вернул исправленный текст.'),
                 'INVALID_RESPONSE',
                 'cloudflare',
                 true,
+                response.status,
+                undefined,
+                {
+                    operation: msg.mode || 'unknown',
+                    model: resolvedModel,
+                    elapsedMs,
+                    finishReason: parsed.finishReason || 'unknown',
+                    hasChoices: parsed.hasChoices ?? false,
+                    choicesCount: parsed.choicesCount ?? 0,
+                    hasContent: false,
+                    contentLength: 0,
+                    hasReasoningContent: Boolean(parsed.reasoningContent),
+                    reasoningLength: parsed.reasoningContent?.length ?? 0,
+                    responseShape: parsed.responseShape || 'unknown',
+                },
             );
         }
         const restoredText = shouldRestorePii ? unmaskPii(parsed.content, prompt.piiMaskMap) : parsed.content;
@@ -352,6 +418,36 @@ export async function streamCloudflareText(
     let bufferedMaskedContent = '';
     let receivedContent = false;
     const deferOutputUntilValidated = msg.mode === 'spellcheck';
+    let totalReasoningLength = 0;
+    let lastFinishReason: string | undefined;
+    let observedShape: string | undefined;
+    let hasChoices = false;
+    let choicesCount = 0;
+
+    const createEmptyStreamError = (): AiProviderError => {
+        const elapsedMs = Date.now() - requestStartTime;
+        return new AiProviderError(
+            t('cloudflareEmptyResponse', 'Cloudflare Workers AI вернул пустой поток данных.'),
+            'INVALID_RESPONSE',
+            'cloudflare',
+            true,
+            response.status,
+            undefined,
+            {
+                operation: msg.mode || 'unknown',
+                model: resolvedModel,
+                elapsedMs,
+                finishReason: lastFinishReason || 'unknown',
+                hasChoices,
+                choicesCount,
+                hasContent: false,
+                contentLength: 0,
+                hasReasoningContent: totalReasoningLength > 0,
+                reasoningLength: totalReasoningLength,
+                responseShape: observedShape || 'empty_stream',
+            },
+        );
+    };
 
     const emitCompletedContent = () => {
         if (shouldRestorePii && bufferedMaskedContent) {
@@ -384,9 +480,9 @@ export async function streamCloudflareText(
 
     const processEvent = (event: SseEvent): boolean => {
         if (event.data.trim() === '[DONE]') return true;
-        let parsed: { content: string; usage?: CloudflareUsage };
+        let parsed: ReturnType<typeof readCloudflareDiagnostics>;
         try {
-            parsed = readCloudflarePayload(JSON.parse(event.data));
+            parsed = readCloudflareDiagnostics(JSON.parse(event.data));
         } catch {
             throw new AiProviderError(
                 t('cloudflareInvalidStream', 'Cloudflare Workers AI вернул повреждённые потоковые данные.'),
@@ -394,6 +490,13 @@ export async function streamCloudflareText(
                 'cloudflare',
                 true,
             );
+        }
+        if (parsed.hasChoices) hasChoices = true;
+        if (parsed.choicesCount) choicesCount = parsed.choicesCount;
+        if (parsed.responseShape) observedShape = parsed.responseShape;
+        if (parsed.finishReason) lastFinishReason = parsed.finishReason;
+        if (parsed.reasoningContent) {
+            totalReasoningLength += parsed.reasoningContent.length;
         }
         if (parsed.usage) {
             usageData = { ...usageData, ...parsed.usage };
@@ -412,12 +515,7 @@ export async function streamCloudflareText(
 
     const complete = (): AIResponse => {
         if (!receivedContent) {
-            throw new AiProviderError(
-                t('cloudflareEmptyResponse', 'Cloudflare Workers AI вернул пустой поток данных.'),
-                'INVALID_RESPONSE',
-                'cloudflare',
-                true,
-            );
+            throw createEmptyStreamError();
         }
         finalizeCompletedContent();
         return {
@@ -459,12 +557,7 @@ export async function streamCloudflareText(
 
         // Если поток завершился без явного [DONE], это незавершённый поток
         if (!receivedContent) {
-            throw new AiProviderError(
-                t('cloudflareEmptyResponse', 'Cloudflare Workers AI вернул пустой поток данных.'),
-                'INVALID_RESPONSE',
-                'cloudflare',
-                true,
-            );
+            throw createEmptyStreamError();
         }
 
         throw new AiProviderError(
