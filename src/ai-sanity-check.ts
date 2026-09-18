@@ -227,8 +227,17 @@ export function validateAiOutput(options: AiSanityCheckOptions): AiSanityResult 
         }
 
         // 7. Любые числа, даты, версии и временные значения должны совпадать как мультимножество.
+        // Безопасная нормализация: обычные пробелы, NBSP (\u00A0) и узкие NBSP (\u202F) в разрядах тысяч (12 500 <-> 12500),
+        // а также десятичная запятая и точка (1,5 <-> 1.5), без разрешения менять сами цифры (12500 -> 15000 запрещено).
+        const normalizeNumbers = (str: string): string => {
+            let res = str.replace(/(?<=\b\d{1,3})[ \u00A0\u202F\u2009](?=\d{3}\b)/gu, '');
+            res = res.replace(/(?<=\b\d{1,6})[ \u00A0\u202F\u2009](?=\d{3}\b)/gu, '');
+            return res.replace(/(?<!\d,)(?<=\b\d+),(?=\d+\b)(?!,\d)/gu, '.');
+        };
         const numberRegex = /(?<![\p{L}\p{N}_])[-+]?\d+(?:[.,:/-]\d+)*(?![\p{L}\p{N}_])/gu;
-        if (!sameMatches(origTrim, cleanTrim, numberRegex)) {
+        const normOrigForNumbers = normalizeNumbers(origTrim);
+        const normCleanForNumbers = normalizeNumbers(cleanTrim);
+        if (!sameMatches(normOrigForNumbers, normCleanForNumbers, numberRegex)) {
             return {
                 valid: false,
                 reason: 'AI_OUTPUT_CHANGED_NUMBERS',
@@ -263,8 +272,11 @@ export function validateAiOutput(options: AiSanityCheckOptions): AiSanityResult 
         }
 
         // 10. Корректор не должен менять структуру абзацев или переписывать большую часть слов.
-        const originalLineBreaks = (originalText.match(/\r?\n/g) || []).length;
-        const correctedLineBreaks = (cleaned.match(/\r?\n/g) || []).length;
+        // Нормализуем CRLF и CR к LF, чтобы различия переносов Windows/Unix не давали ложных сбоев.
+        const normOrigLines = originalText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        const normCleanLines = cleaned.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        const originalLineBreaks = (normOrigLines.trimEnd().match(/\n/g) || []).length;
+        const correctedLineBreaks = (normCleanLines.trimEnd().match(/\n/g) || []).length;
         if (originalLineBreaks !== correctedLineBreaks) {
             return {
                 valid: false,

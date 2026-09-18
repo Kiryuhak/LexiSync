@@ -351,12 +351,62 @@ describe('Sanity Check: validateAiOutput', () => {
         expect(res.reason).toContain('AI_OUTPUT_META_COMMENTARY');
     });
 
-    test('успешно валидирует качественное корректное исправление', () => {
-        const original = 'Он надеется встретится завтра в 15:00.';
-        const corrected = 'Он надеется встретиться завтра в 15:00.';
+    test('успешно валидирует нормализацию пробелов и неразрывных пробелов в числах (12 500, NBSP, narrow NBSP)', () => {
+        const original = 'Стоимость составила 12 500 рублей за 1,5 кг.';
+        // Модель заменила обычный пробел на неразрывный пробел (NBSP) и запятую на точку
+        const corrected = 'Стоимость составила 12\u00A0500 рублей за 1.5 кг.';
         const res = validateAiOutput({ originalText: original, correctedText: corrected, mode: 'spellcheck' });
         expect(res.valid).toBe(true);
-        expect(res.cleanedText).toBe('Он надеется встретиться завтра в 15:00.');
+
+        // Также узкий неразрывный пробел (narrow NBSP \u202F)
+        const correctedNarrow = 'Стоимость составила 12\u202F500 рублей за 1,5 кг.';
+        const resNarrow = validateAiOutput({
+            originalText: original,
+            correctedText: correctedNarrow,
+            mode: 'spellcheck',
+        });
+        expect(resNarrow.valid).toBe(true);
+
+        // И слитное написание числа 12500
+        const correctedJoined = 'Стоимость составила 12500 рублей за 1,5 кг.';
+        const resJoined = validateAiOutput({
+            originalText: original,
+            correctedText: correctedJoined,
+            mode: 'spellcheck',
+        });
+        expect(resJoined.valid).toBe(true);
+    });
+
+    test('строго бракует изменение числовых значений (12500 -> 15000 или 12 -> 21)', () => {
+        const original = 'Стоимость составила 12 500 рублей.';
+        const changedValue = 'Стоимость составила 15 000 рублей.';
+        const resValue = validateAiOutput({ originalText: original, correctedText: changedValue, mode: 'spellcheck' });
+        expect(resValue.valid).toBe(false);
+        expect(resValue.reason).toBe('AI_OUTPUT_CHANGED_NUMBERS');
+
+        const swappedDigits = 'Стоимость составила 21 500 рублей.';
+        const resSwapped = validateAiOutput({
+            originalText: original,
+            correctedText: swappedDigits,
+            mode: 'spellcheck',
+        });
+        expect(resSwapped.valid).toBe(false);
+        expect(resSwapped.reason).toBe('AI_OUTPUT_CHANGED_NUMBERS');
+    });
+
+    test('успешно валидирует текст с CRLF (Windows) и LF (Unix) без ложного сбоя структуры', () => {
+        const original = 'Первая строка.\r\nВторая строка.\r\nТретья строка.';
+        const corrected = 'Первая строка.\nВторая строка.\nТретья строка.';
+        const res = validateAiOutput({ originalText: original, correctedText: corrected, mode: 'spellcheck' });
+        expect(res.valid).toBe(true);
+    });
+
+    test('бракует склеивание нескольких абзацев в один', () => {
+        const original = 'Абзац 1.\n\nАбзац 2.\n\nАбзац 3.\n\nАбзац 4.\n\nАбзац 5.';
+        const collapsed = 'Абзац 1. Абзац 2. Абзац 3. Абзац 4. Абзац 5.';
+        const res = validateAiOutput({ originalText: original, correctedText: collapsed, mode: 'spellcheck' });
+        expect(res.valid).toBe(false);
+        expect(res.reason).toBe('AI_OUTPUT_CHANGED_LINE_STRUCTURE');
     });
 });
 
