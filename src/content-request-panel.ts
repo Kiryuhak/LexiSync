@@ -93,7 +93,9 @@ export function executeRequest(
         }
     }
 
+    let activeAiCheckController: AbortController | null = null;
     const lifecycle = createRequestLifecycle(() => {
+        activeAiCheckController?.abort();
         streamUiUpdater?.cancel();
         deactivateDialogKeyboard?.();
         popupResizeObserver?.disconnect();
@@ -1391,12 +1393,13 @@ export function executeRequest(
         renderPrimaryActions();
 
         const aiCheckController = new AbortController();
-        registerRequestCleanup(() => aiCheckController.abort());
+        activeAiCheckController = aiCheckController;
 
         let aiStreamPort: chrome.runtime.Port | null = null;
         try {
             aiStreamPort = chrome.runtime.connect({ name: 'mistralStream' });
         } catch {
+            activeAiCheckController = null;
             checkingAi = false;
             showActionStatus(
                 t(
@@ -1417,6 +1420,9 @@ export function executeRequest(
             const finish = () => {
                 if (finished) return;
                 finished = true;
+                if (activeAiCheckController === aiCheckController) {
+                    activeAiCheckController = null;
+                }
                 try {
                     aiStreamPort?.disconnect();
                 } catch {

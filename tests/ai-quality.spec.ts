@@ -377,14 +377,14 @@ describe('Sanity Check: validateAiOutput', () => {
         expect(resJoined.valid).toBe(true);
     });
 
-    test('строго бракует изменение числовых значений (12500 -> 15000 или 12 -> 21)', () => {
-        const original = 'Стоимость составила 12 500 рублей.';
-        const changedValue = 'Стоимость составила 15 000 рублей.';
+    test('строго бракует изменение числовых значений (12500 -> 15000 или 12 -> 21, 2025 -> 2026)', () => {
+        const original = 'Стоимость составила 12 500 рублей в 2025 году.';
+        const changedValue = 'Стоимость составила 15 000 рублей в 2025 году.';
         const resValue = validateAiOutput({ originalText: original, correctedText: changedValue, mode: 'spellcheck' });
         expect(resValue.valid).toBe(false);
         expect(resValue.reason).toBe('AI_OUTPUT_CHANGED_NUMBERS');
 
-        const swappedDigits = 'Стоимость составила 21 500 рублей.';
+        const swappedDigits = 'Стоимость составила 21 500 рублей в 2025 году.';
         const resSwapped = validateAiOutput({
             originalText: original,
             correctedText: swappedDigits,
@@ -392,18 +392,23 @@ describe('Sanity Check: validateAiOutput', () => {
         });
         expect(resSwapped.valid).toBe(false);
         expect(resSwapped.reason).toBe('AI_OUTPUT_CHANGED_NUMBERS');
+
+        const changedYear = 'Стоимость составила 12 500 рублей в 2026 году.';
+        const resYear = validateAiOutput({ originalText: original, correctedText: changedYear, mode: 'spellcheck' });
+        expect(resYear.valid).toBe(false);
+        expect(resYear.reason).toBe('AI_OUTPUT_CHANGED_NUMBERS');
     });
 
-    test('успешно валидирует текст с CRLF (Windows) и LF (Unix) без ложного сбоя структуры', () => {
-        const original = 'Первая строка.\r\nВторая строка.\r\nТретья строка.';
+    test('успешно валидирует эквивалентные технические различия (CRLF, LF, CR, trailing spaces)', () => {
+        const original = 'Первая строка.   \r\nВторая строка. \rТретья строка. ';
         const corrected = 'Первая строка.\nВторая строка.\nТретья строка.';
         const res = validateAiOutput({ originalText: original, correctedText: corrected, mode: 'spellcheck' });
         expect(res.valid).toBe(true);
     });
 
-    test('бракует склеивание нескольких абзацев в один', () => {
-        const original = 'Абзац 1.\n\nАбзац 2.\n\nАбзац 3.\n\nАбзац 4.\n\nАбзац 5.';
-        const collapsed = 'Абзац 1. Абзац 2. Абзац 3. Абзац 4. Абзац 5.';
+    test('бракует склеивание 3 абзацев в 1 абзац', () => {
+        const original = 'Первый абзац текста.\n\nВторой абзац текста.\n\nТретий абзац текста.';
+        const collapsed = 'Первый абзац текста. Второй абзац текста. Третий абзац текста.';
         const res = validateAiOutput({ originalText: original, correctedText: collapsed, mode: 'spellcheck' });
         expect(res.valid).toBe(false);
         expect(res.reason).toBe('AI_OUTPUT_CHANGED_LINE_STRUCTURE');

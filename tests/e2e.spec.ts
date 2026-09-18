@@ -3266,3 +3266,210 @@ test('Test 70: Универсальный UI-страж: все видимые �
         }
     }
 });
+
+test('Test 71: «Проверить через AI» выполняет ровно один AI-запрос, сохраняет локальный результат до ответа и заменяет DOM', async ({
+    page,
+    context,
+}) => {
+    await setFakeApiKey(context);
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() => chrome.storage.local.set({ proofreadMode: 'local' }));
+
+    let aiCalls = 0;
+    await context.route('https://api.mistral.ai/v1/chat/completions', (route) => {
+        aiCalls += 1;
+        return route.fulfill({
+            status: 200,
+            headers: {
+                'content-type': 'text/event-stream; charset=utf-8',
+            },
+            body: Buffer.from(
+                'data: {"choices":[{"delta":{"content":"Проверяю текст на ошибку и пунктуацию."}}]}\n\ndata: [DONE]\n\n',
+                'utf-8',
+            ),
+        });
+    });
+
+    await page.goto('https://example.com');
+    await grantSiteAccess(context, page);
+
+    await page.evaluate(() => {
+        const textarea = document.createElement('textarea');
+        textarea.id = 'test71-input';
+        textarea.value = 'Проверяю текст на ошибка';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.setSelectionRange(0, textarea.value.length);
+    });
+
+    await page.keyboard.press('Alt+r');
+    const panel = page.locator('#lexisync-extension-ui[data-surface="result"]');
+    await expect(panel).toBeVisible();
+    await expect(panel).toContainText('Проверяю текст на ошибку');
+    await expect(panel.locator('.lexisync-provider-local')).toBeVisible();
+
+    // 1. Убеждаемся, что до нажатия кнопки сетевых обращений к AI не было вообще
+    expect(aiCalls).toBe(0);
+
+    // 2. Кнопка «Проверить через AI» видна и доступна
+    const checkAiBtn = panel.locator('.lexisync-btn-check-ai, .lexisync-action-check-ai').first();
+    await expect(checkAiBtn).toBeVisible();
+    await expect(checkAiBtn).toBeEnabled();
+
+    // 3. Нажимаем кнопку «Проверить через AI»
+    await checkAiBtn.click();
+
+    // 4. Должен быть выполнен ровно один AI-запрос
+    await expect.poll(() => aiCalls).toBe(1);
+
+    // 5. Результат обновляется до улучшенного AI варианта
+    await expect(panel).toContainText('Проверяю текст на ошибку и пунктуацию.');
+
+    // 6. Кнопка «Заменить» вставляет улучшенный результат в исходное поле
+    const replaceBtn = panel.locator('.lexisync-result-button--accept, .lexisync-result-button--primary').first();
+    await expect(replaceBtn).toBeVisible();
+    await replaceBtn.click();
+
+    await expect(page.locator('#test71-input')).toHaveValue('Проверяю текст на ошибку и пунктуацию.');
+});
+
+test('Test 72: «Проверить через AI» при сбое AI сохраняет локальный результат и оставляет кнопку «Заменить»', async ({
+    page,
+    context,
+}) => {
+    await setFakeApiKey(context);
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() => chrome.storage.local.set({ proofreadMode: 'local', autoFallbackEnabled: false }));
+
+    await context.route('https://api.mistral.ai/v1/chat/completions', (route) => {
+        return route.fulfill({
+            status: 429,
+            contentType: 'application/json',
+            body: JSON.stringify({ message: 'Rate limit exceeded' }),
+        });
+    });
+
+    await page.goto('https://example.com');
+    await grantSiteAccess(context, page);
+
+    await page.evaluate(() => {
+        const textarea = document.createElement('textarea');
+        textarea.id = 'test72-input';
+        textarea.value = 'Проверяю текст на ошибка';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.setSelectionRange(0, textarea.value.length);
+    });
+
+    await page.keyboard.press('Alt+r');
+    const panel = page.locator('#lexisync-extension-ui[data-surface="result"]');
+    await expect(panel).toBeVisible();
+    await expect(panel).toContainText('Проверяю текст на ошибку');
+
+    const checkAiBtn = panel.locator('.lexisync-btn-check-ai, .lexisync-action-check-ai').first();
+    await expect(checkAiBtn).toBeVisible();
+    await checkAiBtn.click();
+
+    // Панель остаётся видимой, локальный результат не исчезает
+    await expect(panel).toBeVisible();
+    await expect(panel).toContainText('Проверяю текст на ошибку');
+
+    // Кнопка Заменить остаётся доступной и применяет локальный результат
+    const replaceBtn = panel.locator('.lexisync-result-button--accept, .lexisync-result-button--primary').first();
+    await expect(replaceBtn).toBeVisible();
+    await expect(replaceBtn).toBeEnabled();
+    await replaceBtn.click();
+
+    await expect(page.locator('#test72-input')).toHaveValue('Проверяю текст на ошибку');
+});
+
+test('Test 73: MV3 cooldown persistence: Mistral 429 сохраняется в storage.session и предотвращает повторный вызов', async ({
+    context,
+}) => {
+    await setFakeApiKey(context);
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+
+    const extensionId = new URL(background.url()).host;
+    const extensionPage = await context.newPage();
+    await extensionPage.goto(`chrome-extension://${extensionId}/options.html`);
+    await extensionPage.evaluate(() =>
+        chrome.runtime.sendMessage({
+            action: 'setCloudflareCredentials',
+            accountId: 'test-cf-account-73',
+            apiToken: 'test-cf-token-73',
+        }),
+    );
+    await background.evaluate(() =>
+        chrome.storage.local.set({
+            primaryAiProvider: 'mistral',
+            autoFallbackEnabled: true,
+            proofreadMode: 'ai',
+        }),
+    );
+
+    let mistralCalls = 0;
+    let cloudflareCalls = 0;
+    await context.route('https://api.mistral.ai/v1/chat/completions', (route) => {
+        mistralCalls += 1;
+        return route.fulfill({ status: 429, contentType: 'application/json', body: '{"message":"rate limit"}' });
+    });
+    await context.route('https://api.cloudflare.com/**', (route) => {
+        cloudflareCalls += 1;
+        return route.fulfill({
+            status: 200,
+            contentType: 'text/event-stream',
+            body: 'data: {"choices":[{"delta":{"content":"Исправлено через Cloudflare."}}]}\n\ndata: [DONE]\n\n',
+        });
+    });
+
+    // Запрос #1: Mistral получает 429, срабатывает fallback на Cloudflare
+    await extensionPage.evaluate(
+        () =>
+            new Promise<void>((resolve) => {
+                const port = chrome.runtime.connect({ name: 'mistralStream' });
+                port.onMessage.addListener((message: Record<string, unknown>) => {
+                    if (message.status === 'done' || message.status === 'error') {
+                        resolve();
+                        port.disconnect();
+                    }
+                });
+                port.postMessage({ action: 'callMistral', mode: 'spellcheck', text: 'Тестовый текст 1.' });
+            }),
+    );
+
+    expect(mistralCalls).toBe(1);
+    expect(cloudflareCalls).toBe(1);
+
+    const storedAvailability = (await background.evaluate(async () => {
+        const storage = chrome.storage.session || chrome.storage.local;
+        return storage.get('lexisync_provider_availability_v1');
+    })) as Record<string, Record<string, { state?: string; cooldownUntil?: number }>>;
+    const mistralRecord = storedAvailability?.lexisync_provider_availability_v1?.mistral;
+    expect(mistralRecord?.state).toBe('OPEN');
+    expect(mistralRecord?.cooldownUntil).toBeGreaterThan(Date.now());
+
+    // Запрос #2: Mistral в cooldown, должен вызываться Cloudflare напрямую без обращения к Mistral
+    await extensionPage.evaluate(
+        () =>
+            new Promise<void>((resolve) => {
+                const port = chrome.runtime.connect({ name: 'mistralStream' });
+                port.onMessage.addListener((message: Record<string, unknown>) => {
+                    if (message.status === 'done' || message.status === 'error') {
+                        resolve();
+                        port.disconnect();
+                    }
+                });
+                port.postMessage({ action: 'callMistral', mode: 'spellcheck', text: 'Тестовый текст 2.' });
+            }),
+    );
+
+    // Mistral не должен был вызываться повторно (счётчик остался 1)
+    expect(mistralCalls).toBe(1);
+    // Cloudflare принял второй запрос напрямую
+    expect(cloudflareCalls).toBe(2);
+
+    await extensionPage.close();
+});

@@ -46,7 +46,7 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
         if (!options.canCheckAi || !options.onCheckAi) return;
         const checkAiButton = document.createElement('button');
         checkAiButton.type = 'button';
-        checkAiButton.className = `${btnClass} lexisync-result-button lexisync-btn-check-ai`;
+        checkAiButton.className = `${btnClass} lexisync-result-button lexisync-btn-check-ai lexisync-action-check-ai`;
         checkAiButton.title = t(
             'checkWithAiHint',
             'Отправить текст в AI для глубокого анализа стиля, пунктуации и сложных ошибок',

@@ -386,6 +386,13 @@ test('extractMistralRateLimitDiagnostics корректно классифици
     expect(echoBugDiag.retryAfterMs).toBe(5_000);
     expect(echoBugDiag.resetSeconds).toBe(5);
 
+    // 3b. Доказательство: валидный Retry-After 429 сек без меньших заголовков сохраняется
+    const genuine429Headers = new Headers({
+        'retry-after': '429',
+    });
+    const genuineDiag = extractMistralRateLimitDiagnostics(genuine429Headers, 'Too many requests', 429);
+    expect(genuineDiag.retryAfterMs).toBe(429_000);
+
     // 4. Ошибки модели
     const modelDiag = extractMistralRateLimitDiagnostics(new Headers(), 'Model capacity exceeded', 429);
     expect(modelDiag.rateLimitType).toBe('rate_limit_model');
