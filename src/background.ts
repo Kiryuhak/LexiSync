@@ -744,7 +744,7 @@ chrome.runtime.onConnect.addListener((port) => {
             }
 
             const proofreadMode = normalizeProofreadMode(settings.proofreadMode);
-            if (msg.mode === 'spellcheck' && proofreadMode !== 'ai') {
+            if (msg.mode === 'spellcheck' && proofreadMode !== 'ai' && !msg.forceAi) {
                 try {
                     localFallback = await proofreadRussianLocally(
                         msg.text || '',

@@ -2537,5 +2537,26 @@
     },
     "noSafeSuggestion": {
         "message": "no unambiguous replacement"
+    },
+    "checkWithAi": {
+        "message": "Check with AI"
+    },
+    "checkWithAiHint": {
+        "message": "Perform a deeper spelling, grammar, and punctuation check with AI"
+    },
+    "checkingWithAi": {
+        "message": "Checking with AI…"
+    },
+    "aiNoExtraCorrections": {
+        "message": "AI found no additional corrections"
+    },
+    "localResultPreservedAiFailed": {
+        "message": "Local check completed. Extended AI check is temporarily unavailable."
+    },
+    "localPlusAi": {
+        "message": "Local + AI"
+    },
+    "serverStatusLimitedByProvider": {
+        "message": "Temporarily rate-limited by provider"
     }
 }

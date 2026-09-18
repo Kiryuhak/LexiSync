@@ -15,8 +15,8 @@ const MAX_UNCOMPRESSED_BYTES = 100 * 1024 * 1024;
 const MAX_INITIAL_SCRIPT_BYTES = {
     // Бюджеты учитывают AI-провайдеры, локальный spellcheck и текущий полный inline-интерфейс.
     // Запас от проверенной production-сборки оставлен небольшим, чтобы рост по-прежнему был явным.
-    'background.js': 120 * 1024,
-    'inject.js': 190 * 1024,
+    'background.js': 130 * 1024,
+    'inject.js': 200 * 1024,
 };
 
 const licenseOwner = licenseText.match(/^Copyright \(c\) \d{4}(?:-\d{4})? (.+)$/m)?.[1];

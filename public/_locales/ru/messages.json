@@ -2537,5 +2537,26 @@
     },
     "noSafeSuggestion": {
         "message": "нет однозначной замены"
+    },
+    "checkWithAi": {
+        "message": "Проверить через AI"
+    },
+    "checkWithAiHint": {
+        "message": "Выполнить более глубокую проверку орфографии, грамматики и пунктуации через AI"
+    },
+    "checkingWithAi": {
+        "message": "Проверяем через AI…"
+    },
+    "aiNoExtraCorrections": {
+        "message": "AI не нашёл дополнительных исправлений"
+    },
+    "localResultPreservedAiFailed": {
+        "message": "Локальная проверка завершена. Расширенная AI-проверка временно недоступна."
+    },
+    "localPlusAi": {
+        "message": "Локально + AI"
+    },
+    "serverStatusLimitedByProvider": {
+        "message": "Временно ограничен API-провайдером"
     }
 }

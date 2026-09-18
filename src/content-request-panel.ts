@@ -252,6 +252,8 @@ export function executeRequest(
     let localFindings: NonNullable<StreamResponse['localFindings']> = [];
     let proofreadMode: 'hybrid' | 'local' | 'ai' = 'hybrid';
     let spellcheckHasChanges = mode !== 'spellcheck';
+    let aiCheckPerformed = false;
+    let checkingAi = false;
 
     function createProviderBadge(provider: 'mistral' | 'cloudflare' | 'local', isFallback = false): HTMLElement {
         const badge = document.createElement('span');
@@ -367,17 +369,7 @@ export function executeRequest(
         statsBar.hidden = false;
         updateTextStats();
         finishStream(true);
-        renderPrimaryResultActions({
-            mode,
-            selection: currentSelection,
-            actionsContainer,
-            headerTitle: headerTitleWrapper,
-            getResult: getEffectiveResult,
-            showStatus: showActionStatus,
-            setTimeout: (callback, delay) => lifecycle.setTimeout(callback, delay),
-            isCompact: () => false,
-            onDismiss: () => closePopup(),
-        });
+        renderPrimaryActions();
         adjustPopupPosition();
     }
 
@@ -1362,20 +1354,158 @@ export function executeRequest(
                 }
                 resultTools.replaceChildren(...tools);
             }
-            renderPrimaryResultActions({
-                mode,
-                selection: currentSelection,
-                actionsContainer,
-                headerTitle: headerTitleWrapper,
-                getResult: getEffectiveResult,
-                showStatus: showActionStatus,
-                setTimeout: (callback, delay) => lifecycle.setTimeout(callback, delay),
-                isCompact: () => compactResultMode,
-                onDismiss: () => closePopup(),
-            });
-
+            renderPrimaryActions();
             updateTextStats();
         }
+        adjustPopupPosition();
+    }
+
+    function renderPrimaryActions(): void {
+        renderPrimaryResultActions({
+            mode,
+            selection: currentSelection,
+            actionsContainer,
+            headerTitle: headerTitleWrapper,
+            getResult: getEffectiveResult,
+            showStatus: showActionStatus,
+            setTimeout: (callback, delay) => lifecycle.setTimeout(callback, delay),
+            isCompact: () => compactResultMode,
+            onDismiss: () => closePopup(),
+            canCheckAi: activeProvider === 'local' && mode === 'spellcheck' && !aiCheckPerformed && !checkingAi,
+            onCheckAi: handleCheckWithAi,
+        });
+    }
+
+    async function handleCheckWithAi(): Promise<void> {
+        if (checkingAi || aiCheckPerformed || lifecycle.disposed) return;
+        if (!navigator.onLine) {
+            showActionStatus(
+                t('offlineError', 'Нет подключения к интернету. Проверьте сеть и попробуйте снова.'),
+                true,
+            );
+            return;
+        }
+
+        checkingAi = true;
+        showActionStatus(t('checkingWithAi', 'Проверяем через AI…'));
+        renderPrimaryActions();
+
+        const aiCheckController = new AbortController();
+        registerRequestCleanup(() => aiCheckController.abort());
+
+        let aiStreamPort: chrome.runtime.Port | null = null;
+        try {
+            aiStreamPort = chrome.runtime.connect({ name: 'mistralStream' });
+        } catch {
+            checkingAi = false;
+            showActionStatus(
+                t(
+                    'localResultPreservedAiFailed',
+                    'Локальная проверка завершена. Расширенная AI-проверка временно недоступна.',
+                ),
+                true,
+            );
+            renderPrimaryActions();
+            return;
+        }
+
+        const currentLocalResult = getEffectiveResult();
+        let aiCollectedText = '';
+
+        await new Promise<void>((resolve) => {
+            let finished = false;
+            const finish = () => {
+                if (finished) return;
+                finished = true;
+                try {
+                    aiStreamPort?.disconnect();
+                } catch {
+                    // Игнорируем ошибку отключения уже закрытого порта
+                }
+                resolve();
+            };
+
+            aiCheckController.signal.addEventListener('abort', () => {
+                finish();
+            });
+
+            aiStreamPort.onDisconnect.addListener(() => {
+                finish();
+            });
+
+            aiStreamPort.onMessage.addListener((response: StreamResponse) => {
+                if (aiCheckController.signal.aborted || lifecycle.disposed) {
+                    finish();
+                    return;
+                }
+                if (response.status === 'chunk') {
+                    aiCollectedText += response.text;
+                } else if (response.status === 'reset') {
+                    aiCollectedText = '';
+                } else if (response.status === 'done') {
+                    const cleanedAiResult = normalizeSpellcheckResult(cleanMarkdownArtifacts(aiCollectedText));
+                    if (
+                        cleanedAiResult &&
+                        cleanedAiResult.trim() &&
+                        cleanedAiResult.trim() !== currentLocalResult.trim()
+                    ) {
+                        fullResult = cleanedAiResult;
+                        aiCheckPerformed = true;
+                        activeProvider = response.provider || 'mistral';
+                        localApplied = true;
+                        spellcheckHasChanges = true;
+                        if (mode === 'spellcheck') {
+                            spellcheckUi.setResult(currentSelection.text, fullResult);
+                        } else {
+                            renderMarkdown(contentPane, fullResult);
+                        }
+                        if (headerLabelNode) {
+                            headerLabelNode.textContent = t('localPlusAi', 'Локально + AI');
+                        }
+                        finishStream(true, Boolean(response.fallbackNotification));
+                        showActionStatus(
+                            response.fallbackNotification
+                                ? `⚡ ${response.fallbackNotification}`
+                                : t('localPlusAi', 'Локально + AI'),
+                        );
+                    } else {
+                        aiCheckPerformed = true;
+                        showActionStatus(t('aiNoExtraCorrections', 'AI не нашёл дополнительных исправлений'));
+                        renderPrimaryActions();
+                    }
+                    finish();
+                } else if (response.status === 'error') {
+                    showActionStatus(
+                        t(
+                            'localResultPreservedAiFailed',
+                            'Локальная проверка завершена. Расширенная AI-проверка временно недоступна.',
+                        ),
+                        true,
+                    );
+                    renderPrimaryActions();
+                    finish();
+                }
+            });
+
+            try {
+                aiStreamPort.postMessage({
+                    action: 'callMistral',
+                    text: currentLocalResult,
+                    context: currentSelection.context,
+                    mode: 'spellcheck',
+                    targetLang: currentTargetLang,
+                    pageTitle: document.title,
+                    pageUrl: window.location.hostname,
+                    allowPageContext: usePageContext,
+                    forceAi: true,
+                });
+            } catch {
+                finish();
+            }
+        });
+
+        checkingAi = false;
+        renderPrimaryActions();
         adjustPopupPosition();
     }
 

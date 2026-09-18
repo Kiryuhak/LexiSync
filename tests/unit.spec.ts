@@ -797,6 +797,8 @@ interface MockElement {
     querySelectorAll: (selector: string) => MockElement[];
     textContent: string;
     disabled?: boolean;
+    title?: string;
+    type?: string;
     onclick?: ((event: unknown) => void) | null;
     click?: () => void;
 }
@@ -950,6 +952,62 @@ test('renderPrimaryResultActions отображает только кнопку 
         expect(inputButtons[1].textContent).toContain('Вставить ниже');
         expect(inputButtons[2].getAttribute('aria-label')).toBe('Копировать');
         expect(inputButtons[3].getAttribute('aria-label')).toContain('Скачать');
+    } finally {
+        vi.stubGlobal('document', originalDocument);
+        vi.stubGlobal('DOMParser', originalDOMParser);
+    }
+});
+
+test('Unit 16c: renderPrimaryResultActions отображает кнопку «Проверить через AI» при canCheckAi: true', () => {
+    const originalDocument = globalThis.document;
+    const originalDOMParser = globalThis.DOMParser;
+    vi.stubGlobal('DOMParser', MockDOMParser);
+    vi.stubGlobal('document', {
+        createElement: (tag: string) => createMockElement(tag),
+        createTextNode: (text: string) => ({ textContent: text }),
+        importNode: (node: unknown) => node,
+    });
+
+    try {
+        const input = createMockElement('input');
+        (input as unknown as { value: string }).value = 'текст с опечаткой';
+        const actionsContainer = createMockElement('div');
+        const headerTitle = createMockElement('div');
+        const showStatus = vi.fn();
+        const setTimeoutFn = vi.fn();
+        let checkedAi = false;
+
+        renderPrimaryResultActions({
+            mode: 'spellcheck',
+            selection: {
+                text: 'текст с опечаткой',
+                context: 'текст с опечаткой',
+                range: null,
+                activeElement: input as unknown as HTMLInputElement,
+                start: 0,
+                end: 17,
+                isInput: true,
+            },
+            actionsContainer: actionsContainer as unknown as HTMLElement,
+            headerTitle: headerTitle as unknown as HTMLElement,
+            getResult: () => 'текст с опечаткой',
+            showStatus,
+            setTimeout: setTimeoutFn,
+            canCheckAi: true,
+            onCheckAi: () => {
+                checkedAi = true;
+            },
+        });
+
+        const buttons = actionsContainer.querySelectorAll('button');
+        const checkAiBtn = [...buttons].find((b) => b.classList.contains('lexisync-btn-check-ai'));
+        expect(checkAiBtn).toBeDefined();
+        expect(checkAiBtn?.textContent).toContain('Проверить через AI');
+        expect(checkAiBtn?.getAttribute('aria-label')).toBe('Проверить через AI');
+        expect(checkAiBtn?.title).toContain('AI');
+
+        checkAiBtn?.click?.();
+        expect(checkedAi).toBe(true);
     } finally {
         vi.stubGlobal('document', originalDocument);
         vi.stubGlobal('DOMParser', originalDOMParser);

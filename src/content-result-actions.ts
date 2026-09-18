@@ -21,6 +21,8 @@ interface ResultActionsOptions {
     setTimeout: (callback: () => void, delay: number) => unknown;
     isCompact?: () => boolean;
     onDismiss?: () => void;
+    canCheckAi?: boolean;
+    onCheckAi?: () => Promise<void> | void;
 }
 
 export function renderPrimaryResultActions(options: ResultActionsOptions): void {
@@ -40,6 +42,32 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
     const hasReplaceTarget =
         mode !== 'ocr' && Boolean((selection.isInput && selection.activeElement) || selection.range);
     const hasValidReplaceTarget = hasReplaceTarget && validateSelectionTarget(selection);
+    const renderCheckAiButton = () => {
+        if (!options.canCheckAi || !options.onCheckAi) return;
+        const checkAiButton = document.createElement('button');
+        checkAiButton.type = 'button';
+        checkAiButton.className = `${btnClass} lexisync-result-button lexisync-btn-check-ai`;
+        checkAiButton.title = t(
+            'checkWithAiHint',
+            'Отправить текст в AI для глубокого анализа стиля, пунктуации и сложных ошибок',
+        );
+        checkAiButton.setAttribute('aria-label', t('checkWithAi', 'Проверить через AI'));
+        appendIconAndText(checkAiButton, ICONS.sparkles, t('checkWithAi', 'Проверить через AI'));
+        checkAiButton.onpointerdown = (e) => e.stopPropagation();
+        checkAiButton.onmousedown = (e) => e.stopPropagation();
+        checkAiButton.onclick = async (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            checkAiButton.disabled = true;
+            try {
+                await options.onCheckAi?.();
+            } finally {
+                checkAiButton.disabled = false;
+            }
+        };
+        actionsContainer.appendChild(checkAiButton);
+    };
+
     const selectionChangedMessage = t('selectionChanged', 'Исходное выделение изменилось. Выделите текст повторно.');
 
     if (hasReplaceTarget) {
@@ -141,6 +169,8 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
         };
         actionsContainer.appendChild(appendButton);
 
+        renderCheckAiButton();
+
         if (isCompact && options.onDismiss) {
             const dismissButton = document.createElement('button');
             dismissButton.type = 'button';
@@ -156,6 +186,8 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
             actionsContainer.appendChild(dismissButton);
             return;
         }
+    } else {
+        renderCheckAiButton();
     }
 
     if (mode === 'ocr') {
