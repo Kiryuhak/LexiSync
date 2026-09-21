@@ -36,6 +36,31 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.6.8',
+        '2026-09-21',
+        'improved',
+        'Интеграция Яндекс.Спеллера и оптимизация гибридной проверки',
+        'Yandex.Speller integration and hybrid proofreading optimization',
+        [
+            [
+                'Интегрирован официальный API Яндекс.Спеллера для быстрой проверки орфографии на русском и английском языках с сохранением точных позиций и подсветки.',
+                'Integrated official Yandex.Speller API for fast Russian and English spellchecking with exact position tracking and highlighting.',
+            ],
+            [
+                'Реализован гибридный режим: последовательная проверка орфографии через Яндекс.Спеллер с передачей в Mistral AI и Cloudflare Workers AI для углублённого анализа грамматики и стиля.',
+                'Implemented hybrid mode: sequential spellchecking via Yandex.Speller followed by Mistral AI and Cloudflare Workers AI for comprehensive grammar and style analysis.',
+            ],
+            [
+                'Добавлено действие «Проверить через AI» в окне результата с сохранением предварительных исправлений Спеллера и надёжной заменой в DOM.',
+                'Added "Check with AI" action in the result view preserving intermediate Speller corrections and ensuring reliable DOM replacement.',
+            ],
+            [
+                'Оптимизирована работа резервного провайдера Cloudflare Workers AI и обеспечена надёжная персистентность кулдауна провайдеров при усыплении Service Worker Manifest V3.',
+                'Optimized Cloudflare Workers AI fallback and ensured reliable provider cooldown persistence across Manifest V3 Service Worker sleep cycles.',
+            ],
+        ],
+    ),
+    note(
         '5.6.7',
         '2026-09-18',
         'improved',

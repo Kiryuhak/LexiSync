@@ -15,7 +15,7 @@ describe('google-drive-auth: авторизация без ручных токе
     const chromeManifest = {
         manifest_version: 3 as const,
         name: 'LexiSync',
-        version: '5.6.7',
+        version: '5.6.8',
         oauth2: { client_id: 'chrome-client-id', scopes: [] },
     };
 
