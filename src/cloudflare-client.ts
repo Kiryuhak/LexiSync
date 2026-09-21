@@ -307,7 +307,7 @@ export async function streamCloudflareText(
     };
     if (typeof msg.enableThinking === 'boolean') {
         requestBody.chat_template_kwargs = { enable_thinking: msg.enableThinking };
-    } else if (msg.mode === 'spellcheck' && resolvedModel === '@cf/zai-org/glm-4.7-flash') {
+    } else if ((msg.mode === 'spellcheck' || msg.mode === 'style') && resolvedModel === '@cf/zai-org/glm-4.7-flash') {
         requestBody.chat_template_kwargs = { enable_thinking: false };
     }
 

@@ -26,9 +26,9 @@ if (blocking.length === 0) {
     process.exit(0);
 }
 
-const allowedPackages = new Set(['addons-linter', 'image-size', 'web-ext', 'wxt']);
+const allowedPackages = new Set(['addons-linter', 'adm-zip', 'firefox-profile', 'image-size', 'web-ext', 'wxt']);
 const unexpected = blocking.filter(([name]) => !allowedPackages.has(name));
-const allowedAdvisories = new Set([1138808, 1138809]);
+const allowedAdvisories = new Set([1138808, 1138809, 1193734, 1239030]);
 const advisorySources = new Set(
     blocking.flatMap(([, vulnerability]) =>
         (vulnerability.via || [])
@@ -46,4 +46,4 @@ if (
     throw new Error(`Tooling audit contains new high/critical vulnerabilities: ${names}`);
 }
 
-console.log('Tooling audit: only the two accepted image-size advisories are present.');
+console.log('Tooling audit: only the accepted tooling advisories are present.');

@@ -192,6 +192,21 @@ export function createSpellcheckUi(options: SpellcheckUiOptions): SpellcheckUiCo
             row.append(label, badge, dictionary);
             options.correctionsContainer.appendChild(row);
         }
+
+        if (spellerFindings.length > 0) {
+            const footer = document.createElement('div');
+            footer.className = 'lexisync-corrections-footer';
+            footer.style.cssText = 'margin-top: 6px; text-align: right; font-size: 11px;';
+            const attribution = document.createElement('a');
+            attribution.href = 'http://api.yandex.ru/speller/';
+            attribution.target = '_blank';
+            attribution.rel = 'noopener noreferrer';
+            attribution.className = 'lexisync-speller-attribution-link';
+            attribution.style.cssText = 'color: var(--text-secondary); text-decoration: underline;';
+            attribution.textContent = t('yandexSpellerAttribution', 'Проверка правописания: Яндекс.Спеллер');
+            footer.appendChild(attribution);
+            options.correctionsContainer.appendChild(footer);
+        }
     };
 
     const render = () => {

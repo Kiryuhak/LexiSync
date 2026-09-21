@@ -2290,7 +2290,10 @@ test('настройки сохраняют лимиты, автопроверк
     await expect(page.locator('#themeAccent')).toHaveValue('#006c4c');
 });
 
-test.skip('проверка при вводе показывает зелёные исправления и применяет результат', async ({ page, context }) => {
+test('проверка при вводе включает spellcheck без облачных запросов и заменяет текст по команде', async ({
+    page,
+    context,
+}) => {
     await setFakeApiKey(context);
     let [background] = context.serviceWorkers();
     if (!background) background = await context.waitForEvent('serviceworker');
@@ -2310,6 +2313,16 @@ test.skip('проверка при вводе показывает зелёны�
             body: 'data: {"choices":[{"delta":{"content":"Это исправленный длинный текст."}}]}\n\ndata: [DONE]\n\n',
         });
     });
+    await context.route('https://speller.yandex.net/**', async (route) => {
+        apiRequests++;
+        await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify([
+                { code: 1, pos: 4, row: 0, col: 4, len: 12, word: 'неправельный', s: ['неправильный'] },
+            ]),
+        });
+    });
     await page.goto('https://example.com');
     await grantSiteAccess(context, page);
     await page.evaluate(() => {
@@ -2318,26 +2331,41 @@ test.skip('проверка при вводе показывает зелёны�
         document.body.append(textarea);
     });
     await page.locator('#live-editor').fill('Это неправельный длинный текст.');
-    const suggestion = page.locator('[data-lexisync-live-proof]');
-    await expect(suggestion).toBeVisible();
-    await expect(suggestion.locator('mark')).toBeVisible();
-    await suggestion.locator('button.apply').click();
+    await page.waitForTimeout(700);
+    expect(apiRequests).toBe(0);
+    await expect(page.locator('#live-editor')).toHaveAttribute('spellcheck', 'true');
+
+    await page.evaluate(() => {
+        const textarea = document.querySelector<HTMLTextAreaElement>('#live-editor');
+        if (textarea) {
+            textarea.focus();
+            textarea.setSelectionRange(0, textarea.value.length);
+        }
+    });
+    await page.keyboard.press('Alt+r');
+
+    const result = page.locator('#lexisync-extension-ui[data-surface="result"]');
+    await expect(result).toBeVisible();
+    const replaceBtn = result.locator('.lexisync-result-button--primary');
+    await expect(replaceBtn).toBeVisible();
+    await replaceBtn.click();
     await expect(page.locator('#live-editor')).toHaveValue('Это исправленный длинный текст.');
-    await page.waitForTimeout(900);
-    expect(apiRequests).toBe(1);
+    expect(apiRequests).toBeGreaterThanOrEqual(1);
 });
 
-test.skip('панель автопроверки остаётся в границах узкого экрана', async ({ page, context }) => {
+test('панель результата остаётся в границах узкого экрана', async ({ page, context }) => {
     await setFakeApiKey(context);
     await page.setViewportSize({ width: 320, height: 500 });
     let [background] = context.serviceWorkers();
     if (!background) background = await context.waitForEvent('serviceworker');
     await background.evaluate(() => chrome.storage.local.set({ liveProofreadEnabled: true, liveProofreadDelay: 600 }));
-    await context.route('https://api.mistral.ai/v1/chat/completions', async (route) => {
+    await context.route('https://speller.yandex.net/**', async (route) => {
         await route.fulfill({
             status: 200,
-            contentType: 'text/event-stream',
-            body: 'data: {"choices":[{"delta":{"content":"Это исправленный длинный текст."}}]}\n\ndata: [DONE]\n\n',
+            contentType: 'application/json',
+            body: JSON.stringify([
+                { code: 1, pos: 4, row: 0, col: 4, len: 12, word: 'неправельный', s: ['неправильный'] },
+            ]),
         });
     });
     await page.goto('https://example.com');
@@ -2345,14 +2373,22 @@ test.skip('панель автопроверки остаётся в грани�
     await page.evaluate(() => {
         const textarea = document.createElement('textarea');
         textarea.id = 'narrow-live-editor';
-        textarea.style.cssText = 'position:fixed;left:220px;top:180px;width:80px;height:60px;';
+        textarea.style.cssText = 'position:fixed;left:20px;top:80px;width:260px;height:60px;';
         document.body.append(textarea);
     });
     await page.locator('#narrow-live-editor').fill('Это неправельный длинный текст.');
+    await page.evaluate(() => {
+        const textarea = document.querySelector<HTMLTextAreaElement>('#narrow-live-editor');
+        if (textarea) {
+            textarea.focus();
+            textarea.setSelectionRange(0, textarea.value.length);
+        }
+    });
+    await page.keyboard.press('Alt+r');
 
-    const suggestion = page.locator('[data-lexisync-live-proof]');
-    await expect(suggestion).toBeVisible();
-    const box = await suggestion.boundingBox();
+    const result = page.locator('#lexisync-extension-ui[data-surface="result"]');
+    await expect(result).toBeVisible();
+    const box = await result.boundingBox();
     expect(box).not.toBeNull();
     expect(box!.x).toBeGreaterThanOrEqual(0);
     expect(box!.x + box!.width).toBeLessThanOrEqual(320);
@@ -2632,16 +2668,24 @@ test('обучение проводит нового пользователя ч
     await expect(page.locator('#onboardingProgress')).toHaveText(/1.*7/);
 });
 
-test.skip('автопроверка позволяет отклонить отдельное исправление', async ({ page, context }) => {
+test('панель проверки орфографии позволяет отклонить исправление', async ({ page, context }) => {
     await setFakeApiKey(context);
     let [background] = context.serviceWorkers();
     if (!background) background = await context.waitForEvent('serviceworker');
-    await background.evaluate(() => chrome.storage.local.set({ liveProofreadEnabled: true, liveProofreadDelay: 600 }));
-    await context.route('https://api.mistral.ai/v1/chat/completions', async (route) => {
+    await background.evaluate(() =>
+        chrome.storage.local.set({
+            proofreadMode: 'speller',
+            compactResultMode: false,
+            resultDisplayMode: 'detailed',
+        }),
+    );
+    await context.route('https://speller.yandex.net/**', async (route) => {
         await route.fulfill({
             status: 200,
-            contentType: 'text/event-stream',
-            body: 'data: {"choices":[{"delta":{"content":"Это исправленный длинный текст."}}]}\n\ndata: [DONE]\n\n',
+            contentType: 'application/json',
+            body: JSON.stringify([
+                { code: 1, pos: 4, row: 0, col: 4, len: 12, word: 'неправельный', s: ['неправильный'] },
+            ]),
         });
     });
     await page.goto('https://example.com');
@@ -2653,31 +2697,37 @@ test.skip('автопроверка позволяет отклонить отд
     });
     const original = 'Это неправельный длинный текст.';
     await page.locator('#reject-editor').fill(original);
-    const suggestion = page.locator('[data-lexisync-live-proof]');
-    await expect(suggestion.locator('mark')).toBeVisible();
-    await suggestion.locator('mark').click();
-    await suggestion.locator('button.apply').click();
+    await page.evaluate(() => {
+        const textarea = document.querySelector<HTMLTextAreaElement>('#reject-editor');
+        if (textarea) {
+            textarea.focus();
+            textarea.setSelectionRange(0, textarea.value.length);
+        }
+    });
+    await page.keyboard.press('Alt+r');
+
+    const result = page.locator('#lexisync-extension-ui[data-surface="result"]');
+    await expect(result).toBeVisible();
+    const mark = result.locator('mark[data-token-index]');
+    await expect(mark).toBeVisible();
+    await mark.click();
+
+    const replaceBtn = result.locator('.lexisync-result-button--primary');
+    await expect(replaceBtn).toBeVisible();
+    await replaceBtn.click();
     await expect(page.locator('#reject-editor')).toHaveValue(original);
 });
 
-test.skip('автопроверку можно отключить для текущего сайта из подсказки', async ({ page, context }) => {
+test('автопроверку можно отключить для текущего сайта из настроек исключений', async ({ page, context }) => {
     await setFakeApiKey(context);
     let [background] = context.serviceWorkers();
     if (!background) background = await context.waitForEvent('serviceworker');
     await background.evaluate(() =>
         chrome.storage.local.set({
             liveProofreadEnabled: true,
-            liveProofreadDelay: 600,
-            liveProofreadDisabledSites: [],
+            liveProofreadDisabledSites: ['example.com'],
         }),
     );
-    await context.route('https://api.mistral.ai/v1/chat/completions', async (route) => {
-        await route.fulfill({
-            status: 200,
-            contentType: 'text/event-stream',
-            body: 'data: {"choices":[{"delta":{"content":"Исправленный достаточно длинный текст."}}]}\n\ndata: [DONE]\n\n',
-        });
-    });
     await page.goto('https://example.com');
     await grantSiteAccess(context, page);
     await page.evaluate(() => {
@@ -2686,13 +2736,9 @@ test.skip('автопроверку можно отключить для тек�
         document.body.append(textarea);
     });
     await page.locator('#excluded-editor').fill('Неправельный достаточно длинный текст.');
-    const suggestion = page.locator('[data-lexisync-live-proof]');
-    await expect(suggestion).toBeVisible();
-    await suggestion.locator('button.exclude').click();
-    await expect(suggestion).toHaveCount(0);
-    await expect
-        .poll(() => background.evaluate(() => chrome.storage.local.get('liveProofreadDisabledSites')))
-        .toMatchObject({ liveProofreadDisabledSites: ['example.com'] });
+    await page.waitForTimeout(500);
+    const spellcheckAttr = await page.locator('#excluded-editor').getAttribute('spellcheck');
+    expect(spellcheckAttr).not.toBe('true');
 });
 
 test('кнопка 3 точек открывает полноразмерное меню дополнительных инструментов', async ({ page, context }) => {

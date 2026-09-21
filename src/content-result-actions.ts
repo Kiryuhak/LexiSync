@@ -122,6 +122,8 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
         };
         actionsContainer.appendChild(replaceButton);
 
+        renderCheckAiButton();
+
         const appendButton = document.createElement('button');
         appendButton.type = 'button';
         appendButton.className = `${btnClass} lexisync-result-button`;
@@ -168,8 +170,6 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
             } else showStatus(t('appendFailed', 'Не удалось вставить текст.'), true);
         };
         actionsContainer.appendChild(appendButton);
-
-        renderCheckAiButton();
 
         if (isCompact && options.onDismiss) {
             const dismissButton = document.createElement('button');

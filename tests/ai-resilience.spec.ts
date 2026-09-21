@@ -108,7 +108,7 @@ test('Cloudflare отклоняет malformed SSE event', async () => {
         ),
     ).rejects.toMatchObject({ provider: 'cloudflare', code: 'INVALID_RESPONSE' });
     expect(requestBody.stream).toBe(true);
-    expect(requestBody.chat_template_kwargs).toBeUndefined();
+    expect(requestBody.chat_template_kwargs).toEqual({ enable_thinking: false });
 });
 
 test('Retry-After имеет приоритет, а fallback cooldown без заголовка ограничен', async () => {
