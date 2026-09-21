@@ -4,7 +4,6 @@ import { setSitePreference, type SitePreference } from './settings-store';
 import { applyAppearanceStyle, normalizeAppearanceStyle, type AppearanceStyle } from './appearance-style';
 import { applyThemeCustomization } from './theme-customization';
 import { hasAllSitesAccess, requestAllSitesAccess, removeAllSitesAccess, detectTabFrameOrigins } from './site-access';
-import { applyFastTypographyAndTypoFixes } from './local-text-rules';
 import { logger } from './logger';
 import { loadCachedHealthStatus, type ProviderHealthStatus } from './provider-health';
 import { getHistory } from './history-store';
@@ -65,42 +64,6 @@ document.getElementById('btn-options')!.addEventListener('click', () => {
     chrome.runtime.openOptionsPage();
     window.close();
 });
-
-const btnClipboardFix = document.getElementById('btn-clipboard-fix') as HTMLButtonElement | null;
-const clipboardFixStatus = document.getElementById('clipboard-fix-status');
-if (btnClipboardFix) {
-    btnClipboardFix.addEventListener('click', async () => {
-        try {
-            btnClipboardFix.disabled = true;
-            const text = await navigator.clipboard.readText();
-            if (!text || !text.trim()) {
-                if (clipboardFixStatus) clipboardFixStatus.textContent = t('clipboardEmpty', 'Буфер обмена пуст');
-                setTimeout(() => {
-                    if (clipboardFixStatus)
-                        clipboardFixStatus.textContent = t('clipboardFixNote', 'Проверить скопированный текст (0 мс)');
-                    btnClipboardFix.disabled = false;
-                }, 2000);
-                return;
-            }
-            const localFixed = applyFastTypographyAndTypoFixes(text);
-            await navigator.clipboard.writeText(localFixed.text);
-            if (clipboardFixStatus) {
-                clipboardFixStatus.textContent = t('clipboardSuccess', '✓ Исправлено и скопировано!');
-                clipboardFixStatus.style.color = '#1b7340';
-            }
-            setTimeout(() => {
-                if (clipboardFixStatus) {
-                    clipboardFixStatus.textContent = t('clipboardFixNote', 'Проверить скопированный текст (0 мс)');
-                    clipboardFixStatus.style.color = '';
-                }
-                btnClipboardFix.disabled = false;
-            }, 2500);
-        } catch {
-            if (clipboardFixStatus) clipboardFixStatus.textContent = t('clipboardError', 'Нет доступа к буферу');
-            btnClipboardFix.disabled = false;
-        }
-    });
-}
 
 async function initializeSiteControls(): Promise<void> {
     const [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true });

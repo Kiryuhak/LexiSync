@@ -30,9 +30,7 @@ import {
     normalizeThemeCustomization,
     DEFAULT_THEME_CUSTOMIZATION,
 } from './theme-customization';
-import { applyFastTypographyAndTypoFixes } from './local-text-rules';
-import { fixKeyboardLayout } from './keyboard-layout';
-import { dispatchValueEvents, replaceSelectedText, setNativeValue } from './text-replacement';
+import { dispatchValueEvents, setNativeValue } from './text-replacement';
 import { shouldUseAutomaticTextFeatures } from './live-proofread-privacy';
 import type { ThemeCustomization } from './types';
 import { logger } from './logger';
@@ -228,31 +226,6 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             const y = lastMouseY || window.innerHeight / 2;
             showAIMenu(x, y, y);
             handleActionClick(request.mode);
-        }
-
-        if (
-            request.action === 'quickFixInPlace' ||
-            (request.action === 'hotkeyTriggered' && request.mode === 'quick_fix_inplace')
-        ) {
-            cancelPendingSelectionMenu();
-            let text = getSelectedText();
-            const selection = captureSelection();
-            if (!text && selection.isInput && selection.activeElement) {
-                text = selection.activeElement.value;
-                selection.start = 0;
-                selection.end = text.length;
-            }
-            if (text && text.trim().length > 0) {
-                const fixed = applyFastTypographyAndTypoFixes(text);
-                const resultText = fixed.changed ? fixed.text : fixKeyboardLayout(text);
-                if (resultText !== text) {
-                    replaceSelectedText(selection, resultText);
-                    showToast(t('quickFixDone', '✨ Исправлено на месте (0 мс)'));
-                } else {
-                    showToast(t('quickFixNoChanges', 'Ошибок не найдено'));
-                }
-            }
-            return;
         }
 
         if (request.action === 'hotkeyTriggered') {

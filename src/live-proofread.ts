@@ -1,17 +1,5 @@
-import { normalizeDisabledSites, isSiteDisabled } from './privacy';
-import { getWordCorrections, renderSpellcheckDiffFragment, resolveCorrections } from './spellcheck';
-import { startTextRequest, type CancellableTextRequest } from './stream-request-client';
-import { dispatchValueEvents, setNativeValue } from './text-replacement';
-import { t } from './i18n';
+import { isSiteDisabled, normalizeDisabledSites } from './privacy';
 import { shouldAutoProofreadField } from './live-proofread-privacy';
-import { calculatePopupPosition } from './popup-position';
-import { normalizeAppearanceStyle, applyAppearanceStyle, type AppearanceStyle } from './appearance-style';
-import {
-    normalizeThemeCustomization,
-    applyThemeCustomization,
-    DEFAULT_THEME_CUSTOMIZATION,
-} from './theme-customization';
-import type { ThemeCustomization } from './types';
 
 type EditableElement = HTMLInputElement | HTMLTextAreaElement | HTMLElement;
 
@@ -20,738 +8,76 @@ function isSafeEditor(value: EventTarget | null): value is EditableElement {
     const isInput = value instanceof HTMLInputElement || value instanceof HTMLTextAreaElement;
     const isContentEditable = value.isContentEditable || value.getAttribute('contenteditable') === 'true';
     if (!isInput && !isContentEditable) return false;
-
     const inputType = value instanceof HTMLInputElement ? value.type : null;
-    const autocomplete =
-        value instanceof HTMLInputElement || value instanceof HTMLTextAreaElement ? value.autocomplete : '';
-    const placeholder =
-        value instanceof HTMLInputElement || value instanceof HTMLTextAreaElement
-            ? value.placeholder
-            : value.getAttribute('placeholder') || '';
-    const fieldIdentity = [
+    const autocomplete = isInput ? value.autocomplete : '';
+    const identity = [
         value.getAttribute('name'),
         value.id,
         value.getAttribute('aria-label'),
         value.getAttribute('aria-labelledby'),
-        placeholder,
+        isInput ? value.placeholder : value.getAttribute('placeholder'),
         value.title,
         value.className,
     ]
         .filter(Boolean)
         .join(' ');
-    if (!shouldAutoProofreadField(inputType, autocomplete, fieldIdentity)) return false;
-    if (
-        (value instanceof HTMLInputElement || value instanceof HTMLTextAreaElement) &&
-        (value.readOnly || value.disabled)
-    )
-        return false;
-    if (value.closest('[data-lexisync-ignore]')) return false;
-    return true;
-}
-
-function getEditorText(editor: EditableElement): string {
-    if (editor instanceof HTMLInputElement || editor instanceof HTMLTextAreaElement) {
-        return editor.value;
-    }
-    return editor.innerText || editor.textContent || '';
-}
-
-function setEditorText(editor: EditableElement, text: string): void {
-    if (editor instanceof HTMLInputElement || editor instanceof HTMLTextAreaElement) {
-        setNativeValue(editor, text);
-        dispatchValueEvents(editor);
-        return;
-    }
-    editor.focus();
-    const selection = window.getSelection();
-    let handled = false;
-    if (selection) {
-        const range = document.createRange();
-        range.selectNodeContents(editor);
-        selection.removeAllRanges();
-        selection.addRange(range);
-        try {
-            handled = document.execCommand('insertText', false, text);
-        } catch {
-            handled = false;
-        }
-    }
-    if (!handled) {
-        editor.innerText = text;
-    }
-    editor.dispatchEvent(new Event('input', { bubbles: true }));
-    editor.dispatchEvent(new Event('change', { bubbles: true }));
+    if (!shouldAutoProofreadField(inputType, autocomplete, identity)) return false;
+    if (isInput && (value.readOnly || value.disabled)) return false;
+    return !value.closest('[data-lexisync-ignore]');
 }
 
 function enableNativeSpellcheck(editor: EditableElement): void {
-    if (editor.getAttribute('spellcheck') !== 'true') {
-        editor.spellcheck = true;
-        editor.setAttribute('spellcheck', 'true');
-    }
+    editor.spellcheck = true;
+    editor.setAttribute('spellcheck', 'true');
 }
 
+/**
+ * Включает только встроенную проверку браузера. События ввода никогда не
+ * запускают Яндекс.Спеллер или AI: облачные запросы требуют явной команды.
+ */
 export function startLiveProofread(): () => void {
     let enabled = false;
-    let delay = 900;
-    let timer = 0;
-    let host: HTMLElement | null = null;
-    let requestVersion = 0;
-    let activeRequest: CancellableTextRequest | null = null;
-    let proofreadDisabledSites: string[] = [];
+    let disabledSites: string[] = [];
     let blockedSites: string[] = [];
-    let dismissListeners: (() => void) | null = null;
-    let currentTheme = 'auto';
-    let currentVisualStyle: AppearanceStyle = 'liquid-glass';
-    let currentThemeCustomization: ThemeCustomization = { ...DEFAULT_THEME_CUSTOMIZATION };
-    const ignoredInputEvents = new WeakSet<HTMLElement>();
 
-    const close = () => {
-        dismissListeners?.();
-        dismissListeners = null;
-        host?.remove();
-        host = null;
-    };
-
-    const cancelPendingProofread = () => {
-        window.clearTimeout(timer);
-        timer = 0;
-        requestVersion++;
-        activeRequest?.cancel();
-        activeRequest = null;
-        close();
-    };
-
-    const isProofreadAllowed = () =>
+    const isAllowed = () =>
         enabled &&
         !isSiteDisabled(location.hostname, blockedSites) &&
-        !isSiteDisabled(location.hostname, proofreadDisabledSites);
+        !isSiteDisabled(location.hostname, disabledSites);
 
-    const showSuggestion = (editor: EditableElement, original: string, corrected: string) => {
-        close();
-        if (!isProofreadAllowed()) return;
-        const corrections = getWordCorrections(original, corrected);
-        if (!corrections.length || getEditorText(editor) !== original) return;
-        const rejected = new Set<number>();
-        host = document.createElement('div');
-        host.dataset.lexisyncLiveProof = '';
-        host.style.cssText = 'all:initial;position:fixed;z-index:2147483646;';
-        const shadow = host.attachShadow({ mode: 'open' });
-        const style = document.createElement('style');
-        style.textContent = `
-            :host { all: initial; }
-            .card {
-                --bg-primary: rgba(248, 250, 255, 0.95);
-                --bg-solid: #f8faff;
-                --bg-elevated: rgba(255, 255, 255, 0.98);
-                --bg-secondary: rgba(240, 244, 255, 0.92);
-                --text-primary: #1c2438;
-                --text-secondary: #69738d;
-                --primary: #6d5ce7;
-                --primary-strong: #5947d2;
-                --primary-soft: rgba(109, 92, 231, 0.12);
-                --cyan-soft: rgba(31, 174, 190, 0.12);
-                --border-color: rgba(255, 255, 255, 0.85);
-                --inner-border: rgba(83, 91, 126, 0.14);
-                --hover-bg: rgba(255, 255, 255, 0.95);
-                --shadow-color: rgba(41, 43, 77, 0.22);
-                --lexisync-radius: 18px;
-                box-sizing: border-box;
-                width: min(390px, calc(100vw - 24px));
-                padding: 13px 15px;
-                border: 1px solid var(--border-color);
-                border-radius: var(--lexisync-radius, 18px);
-                background: var(--bg-primary);
-                color: var(--text-primary);
-                box-shadow: 0 20px 52px var(--shadow-color), 0 3px 10px rgba(38, 40, 72, 0.08);
-                backdrop-filter: blur(28px) saturate(160%);
-                -webkit-backdrop-filter: blur(28px) saturate(160%);
-                font: 13px/1.45 system-ui, -apple-system, sans-serif;
-                animation: lexiSyncFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-            }
-            @keyframes lexiSyncFadeIn {
-                from { opacity: 0; transform: translateY(6px) scale(0.98); }
-                to { opacity: 1; transform: translateY(0) scale(1); }
-            }
-            .card[data-theme="dark"] {
-                --bg-primary: rgba(23, 26, 42, 0.96);
-                --bg-solid: #1b1e31;
-                --bg-elevated: rgba(30, 34, 56, 0.98);
-                --bg-secondary: rgba(42, 47, 74, 0.92);
-                --text-primary: #f5f6fc;
-                --text-secondary: #abb4ce;
-                --primary: #b7a8ff;
-                --primary-strong: #9c89ff;
-                --primary-soft: rgba(183, 168, 255, 0.16);
-                --border-color: rgba(255, 255, 255, 0.18);
-                --inner-border: rgba(255, 255, 255, 0.1);
-                --hover-bg: rgba(64, 70, 104, 0.9);
-                --shadow-color: rgba(0, 0, 0, 0.55);
-            }
-            .card[data-ui-style="magicos-11"] {
-                --bg-primary: rgba(246, 250, 255, 0.95);
-                --bg-solid: #f4f8ff;
-                --bg-elevated: rgba(255, 255, 255, 0.98);
-                --bg-secondary: rgba(235, 242, 255, 0.92);
-                --text-primary: #19233b;
-                --text-secondary: #5b6881;
-                --primary: #4267f5;
-                --primary-strong: #624fe5;
-                --primary-soft: rgba(72, 108, 246, 0.16);
-                --border-color: rgba(255, 255, 255, 0.92);
-                --inner-border: rgba(78, 103, 161, 0.16);
-                --hover-bg: rgba(255, 255, 255, 0.9);
-                --shadow-color: rgba(31, 56, 118, 0.28);
-                --lexisync-radius: 28px;
-                border-radius: 28px;
-                box-shadow: 0 26px 68px var(--shadow-color), 0 4px 14px rgba(38, 54, 96, 0.14);
-                backdrop-filter: blur(36px) saturate(185%);
-                -webkit-backdrop-filter: blur(36px) saturate(185%);
-            }
-            .card[data-ui-style="magicos-11"][data-theme="dark"] {
-                --bg-primary: rgba(22, 29, 48, 0.96);
-                --bg-solid: #192239;
-                --bg-elevated: rgba(36, 46, 74, 0.98);
-                --bg-secondary: rgba(46, 58, 90, 0.92);
-                --text-primary: #f6f8ff;
-                --text-secondary: #bac5dc;
-                --primary: #a6baff;
-                --primary-strong: #b29cff;
-                --primary-soft: rgba(145, 171, 255, 0.22);
-                --border-color: rgba(255, 255, 255, 0.22);
-                --inner-border: rgba(255, 255, 255, 0.12);
-                --hover-bg: rgba(80, 96, 140, 0.8);
-                --shadow-color: rgba(0, 0, 0, 0.58);
-            }
-            .card[data-ui-style="material-3"] {
-                --bg-primary: #ffffff;
-                --bg-solid: #ffffff;
-                --bg-elevated: #f7f8fa;
-                --bg-secondary: #f1f3f6;
-                --text-primary: #1d1b20;
-                --text-secondary: #49454f;
-                --primary: #6750a4;
-                --primary-strong: #4f378b;
-                --primary-soft: #eee9ff;
-                --border-color: #c8cdd4;
-                --inner-border: #d9dde3;
-                --hover-bg: #e9edf2;
-                --shadow-color: rgba(29, 35, 43, 0.2);
-                border-radius: 28px;
-                backdrop-filter: none;
-                -webkit-backdrop-filter: none;
-            }
-            .card[data-ui-style="material-3"][data-theme="dark"] {
-                --bg-primary: #1d2024;
-                --bg-solid: #1d2024;
-                --bg-elevated: #272b30;
-                --bg-secondary: #272b30;
-                --text-primary: #f2f4f7;
-                --text-secondary: #c5cad1;
-                --primary: #c7b8ff;
-                --primary-strong: #ad99ff;
-                --primary-soft: #493b78;
-                --border-color: #454b54;
-                --inner-border: #3b4149;
-                --hover-bg: #31363c;
-                --shadow-color: rgba(0, 0, 0, 0.55);
-            }
-            .card[data-ui-style="flutter"] {
-                --bg-primary: #ffffff;
-                --bg-solid: #ffffff;
-                --bg-elevated: #ffffff;
-                --bg-secondary: #f1f6fb;
-                --text-primary: #17212b;
-                --text-secondary: #607080;
-                --primary: #1976d2;
-                --primary-strong: #0d5ca8;
-                --primary-soft: #e3f2fd;
-                --border-color: #d7e0e8;
-                --inner-border: #dfe7ee;
-                --hover-bg: #eaf3fb;
-                --shadow-color: rgba(32, 73, 105, 0.2);
-                --lexisync-radius: 14px;
-                border-radius: 14px;
-                box-shadow: 0 8px 22px var(--shadow-color), 0 2px 5px rgba(32, 73, 105, 0.12);
-                backdrop-filter: none;
-                -webkit-backdrop-filter: none;
-            }
-            .card[data-ui-style="flutter"][data-theme="dark"] {
-                --bg-primary: #20252b;
-                --bg-solid: #20252b;
-                --bg-elevated: #272d34;
-                --bg-secondary: #2b333b;
-                --text-primary: #f3f6f9;
-                --text-secondary: #aebbc7;
-                --primary: #64b5f6;
-                --primary-strong: #42a5f5;
-                --primary-soft: #163b58;
-                --border-color: #43505c;
-                --inner-border: #3b4650;
-                --hover-bg: #35414c;
-                --shadow-color: rgba(0, 0, 0, 0.44);
-            }
-            .card[data-ui-style="aurora-glass"] {
-                --bg-primary: rgba(247, 255, 253, 0.95);
-                --bg-solid: #f4fffb;
-                --bg-elevated: rgba(255, 255, 255, 0.98);
-                --bg-secondary: rgba(233, 250, 245, 0.92);
-                --text-primary: #183d39;
-                --text-secondary: #58746f;
-                --primary: #0d9d8a;
-                --primary-strong: #087466;
-                --primary-soft: rgba(41, 190, 161, 0.15);
-                --border-color: rgba(255, 255, 255, 0.9);
-                --inner-border: rgba(42, 129, 117, 0.16);
-                --hover-bg: rgba(255, 255, 255, 0.92);
-                --shadow-color: rgba(23, 108, 98, 0.22);
-                --lexisync-radius: 24px;
-                border-radius: 24px;
-                box-shadow: 0 20px 48px var(--shadow-color), inset 0 1px 0 rgba(255, 255, 255, 0.85);
-                backdrop-filter: blur(30px) saturate(155%);
-                -webkit-backdrop-filter: blur(30px) saturate(155%);
-            }
-            .card[data-ui-style="aurora-glass"][data-theme="dark"] {
-                --bg-primary: rgba(16, 38, 42, 0.96);
-                --bg-solid: #123034;
-                --bg-elevated: rgba(25, 54, 58, 0.98);
-                --bg-secondary: rgba(34, 68, 70, 0.92);
-                --text-primary: #e9fffa;
-                --text-secondary: #b5d2cc;
-                --primary: #65dfc8;
-                --primary-strong: #43c5b1;
-                --primary-soft: rgba(101, 223, 200, 0.18);
-                --border-color: rgba(196, 255, 245, 0.22);
-                --inner-border: rgba(209, 255, 245, 0.12);
-                --hover-bg: rgba(63, 115, 113, 0.8);
-                --shadow-color: rgba(0, 0, 0, 0.55);
-            }
-            .card[data-ui-style="vision-aurora"] {
-                --bg-primary: rgba(246, 250, 255, 0.95);
-                --bg-solid: #f4f8ff;
-                --bg-elevated: rgba(255, 255, 255, 0.98);
-                --bg-secondary: rgba(230, 240, 255, 0.92);
-                --text-primary: #0f172a;
-                --text-secondary: #475569;
-                --primary: #0d9488;
-                --primary-strong: #4f46e5;
-                --primary-soft: rgba(13, 148, 136, 0.14);
-                --border-color: rgba(255, 255, 255, 0.94);
-                --inner-border: rgba(79, 70, 229, 0.12);
-                --hover-bg: rgba(255, 255, 255, 0.92);
-                --shadow-color: rgba(15, 23, 42, 0.22);
-                --lexisync-radius: 24px;
-                border-radius: 24px;
-                box-shadow: 0 24px 60px var(--shadow-color), inset 0 1px 2px rgba(255, 255, 255, 0.95);
-                backdrop-filter: blur(32px) saturate(190%);
-                -webkit-backdrop-filter: blur(32px) saturate(190%);
-            }
-            .card[data-ui-style="vision-aurora"][data-theme="dark"] {
-                --bg-primary: rgba(13, 17, 26, 0.96);
-                --bg-solid: #0f141e;
-                --bg-elevated: rgba(20, 27, 40, 0.98);
-                --bg-secondary: rgba(28, 38, 56, 0.92);
-                --text-primary: #f8fafc;
-                --text-secondary: #94a3b8;
-                --primary: #2dd4bf;
-                --primary-strong: #6366f1;
-                --primary-soft: rgba(45, 212, 191, 0.16);
-                --border-color: rgba(255, 255, 255, 0.2);
-                --inner-border: rgba(255, 255, 255, 0.1);
-                --hover-bg: rgba(45, 212, 191, 0.15);
-                --shadow-color: rgba(0, 0, 0, 0.65);
-                --lexisync-radius: 24px;
-                border-radius: 24px;
-                box-shadow: 0 24px 64px var(--shadow-color), inset 0 1px 1.5px rgba(255, 255, 255, 0.3);
-                backdrop-filter: blur(32px) saturate(190%);
-                -webkit-backdrop-filter: blur(32px) saturate(190%);
-            }
-            .card[data-ui-style="silk-obsidian"] {
-                --bg-primary: #ffffff;
-                --bg-solid: #ffffff;
-                --bg-elevated: #f8fafc;
-                --bg-secondary: #f1f5f9;
-                --text-primary: #0f172a;
-                --text-secondary: #64748b;
-                --primary: #4f46e5;
-                --primary-strong: #4338ca;
-                --primary-soft: rgba(79, 70, 229, 0.1);
-                --border-color: #e2e8f0;
-                --inner-border: #edf2f7;
-                --hover-bg: #f1f5f9;
-                --shadow-color: rgba(15, 23, 42, 0.18);
-                --lexisync-radius: 22px;
-                border-radius: 22px;
-                box-shadow: 0 20px 44px var(--shadow-color), 0 4px 12px rgba(15, 23, 42, 0.06);
-                backdrop-filter: none;
-                -webkit-backdrop-filter: none;
-            }
-            .card[data-ui-style="silk-obsidian"][data-theme="dark"] {
-                --bg-primary: #0c0e14;
-                --bg-solid: #0c0e14;
-                --bg-elevated: #151821;
-                --bg-secondary: #1c202c;
-                --text-primary: #f8fafc;
-                --text-secondary: #8a96a8;
-                --primary: #6366f1;
-                --primary-strong: #4f46e5;
-                --primary-soft: rgba(99, 102, 241, 0.15);
-                --border-color: rgba(255, 255, 255, 0.12);
-                --inner-border: rgba(255, 255, 255, 0.08);
-                --hover-bg: #232837;
-                --shadow-color: rgba(0, 0, 0, 0.55);
-                --lexisync-radius: 22px;
-                border-radius: 22px;
-                box-shadow: 0 20px 48px var(--shadow-color), 0 4px 12px rgba(0, 0, 0, 0.3);
-                backdrop-filter: none;
-                -webkit-backdrop-filter: none;
-            }
-            .head {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                gap: 8px;
-                margin-bottom: 6px;
-            }
-            .head strong {
-                color: var(--primary-strong, var(--primary, #4267f5));
-                font-size: 13px;
-                font-weight: 600;
-            }
-            .preview {
-                max-height: 120px;
-                overflow-y: auto;
-                margin: 8px 0 12px;
-                padding: 10px 12px;
-                border-radius: calc(var(--lexisync-radius, 18px) * 0.55);
-                background: var(--bg-secondary);
-                border: 1px solid var(--inner-border);
-                color: var(--text-primary);
-                white-space: pre-wrap;
-                word-break: break-word;
-                line-height: 1.55;
-                font-size: 13px;
-            }
-            .preview mark {
-                display: inline;
-                padding: 2px 5px;
-                margin: 0 1px;
-                border-radius: 5px;
-                color: var(--primary-strong, var(--primary, #4267f5));
-                background: var(--primary-soft, rgba(66, 103, 245, 0.16));
-                font-weight: 600;
-                cursor: pointer;
-                text-decoration: none;
-                transition: background 0.15s;
-            }
-            .preview mark:hover {
-                filter: brightness(0.92);
-            }
-            .preview mark:focus {
-                outline: 2px solid var(--primary);
-            }
-            button {
-                border: 0;
-                font: inherit;
-                cursor: pointer;
-            }
-            .close {
-                width: 24px;
-                height: 24px;
-                border-radius: 8px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color: var(--text-secondary);
-                background: var(--bg-secondary);
-                border: 1px solid var(--inner-border);
-                font-size: 14px;
-                line-height: 1;
-                transition: background 0.15s, color 0.15s;
-            }
-            .close:hover {
-                background: var(--hover-bg);
-                color: var(--text-primary);
-            }
-            .actions {
-                display: flex;
-                align-items: flex-end;
-                justify-content: space-between;
-                gap: 12px;
-            }
-            .note {
-                display: flex;
-                flex-direction: column;
-                gap: 3px;
-                min-width: 0;
-            }
-            .note-text {
-                font-size: 11px;
-                color: var(--text-secondary);
-                line-height: 1.25;
-            }
-            .exclude {
-                align-self: flex-start;
-                padding: 2px 6px;
-                border-radius: 6px;
-                background: transparent;
-                color: var(--text-secondary);
-                font-size: 11px;
-                text-decoration: underline;
-                text-underline-offset: 2px;
-                transition: color 0.15s, background 0.15s;
-            }
-            .exclude:hover {
-                color: var(--text-primary);
-                background: var(--hover-bg);
-            }
-            .apply {
-                color: #ffffff;
-                background: var(--primary, #4267f5);
-                display: inline-flex;
-                align-items: center;
-                gap: 6px;
-                font-weight: 600;
-                font-size: 13px;
-                padding: 8px 14px;
-                border-radius: calc(var(--lexisync-radius, 18px) * 0.55);
-                flex-shrink: 0;
-                box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
-                transition: transform 0.1s, filter 0.15s;
-            }
-            .apply:hover {
-                filter: brightness(1.08);
-            }
-            .apply:active {
-                transform: scale(0.97);
-            }
-            .apply kbd {
-                font-size: 10px;
-                opacity: 0.9;
-                padding: 1px 5px;
-                border-radius: 4px;
-                background: rgba(255, 255, 255, 0.28);
-                font-family: inherit;
-            }
-        `;
-        const card = document.createElement('div');
-        card.className = 'card';
-        applyAppearanceStyle(card, currentVisualStyle);
-        applyThemeCustomization(card, currentThemeCustomization);
-        const isDark =
-            currentTheme === 'dark' ||
-            (currentTheme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-        if (isDark) card.setAttribute('data-theme', 'dark');
-
-        const head = document.createElement('div');
-        head.className = 'head';
-        const title = document.createElement('strong');
-        title.textContent = `${t('liveProofCorrectionsFound', 'Найдено исправлений:')} ${corrections.length}`;
-        const dismiss = document.createElement('button');
-        dismiss.className = 'close';
-        dismiss.type = 'button';
-        dismiss.textContent = '×';
-        dismiss.setAttribute('aria-label', t('closePanel', 'Закрыть панель'));
-        dismiss.onclick = close;
-        head.append(title, dismiss);
-        const preview = document.createElement('div');
-        preview.className = 'preview';
-        const renderPreview = () => {
-            preview.replaceChildren(
-                renderSpellcheckDiffFragment(original, corrected, rejected, {
-                    corrections,
-                    showDeletionMarkers: false,
-                }),
-            );
-            for (const mark of preview.querySelectorAll<HTMLElement>('mark[data-token-index]')) {
-                const tokenIndex = Number(mark.dataset.tokenIndex);
-                mark.tabIndex = 0;
-                mark.setAttribute('role', 'button');
-                mark.setAttribute('aria-label', t('keepOriginal', 'Оставить исходное слово'));
-                const toggle = () => {
-                    rejected.add(tokenIndex);
-                    renderPreview();
-                };
-                mark.onclick = toggle;
-                mark.onkeydown = (event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        toggle();
-                    }
-                };
-            }
-        };
-        renderPreview();
-        const actions = document.createElement('div');
-        actions.className = 'actions';
-        const note = document.createElement('div');
-        note.className = 'note';
-        const noteText = document.createElement('span');
-        noteText.className = 'note-text';
-        noteText.textContent = t('liveProofDismissHint', 'Нажмите на зелёное, чтобы отклонить');
-        const exclude = document.createElement('button');
-        exclude.className = 'exclude';
-        exclude.type = 'button';
-        exclude.textContent = t('liveProofExcludeSite', 'Не проверять сайт');
-        exclude.onclick = () => {
-            proofreadDisabledSites = [...new Set([...proofreadDisabledSites, location.hostname])].sort();
-            void chrome.storage.local.set({ liveProofreadDisabledSites: proofreadDisabledSites });
-            close();
-        };
-        note.append(noteText, exclude);
-        const apply = document.createElement('button');
-        apply.className = 'apply';
-        apply.type = 'button';
-        const applyText = document.createTextNode(t('applyResult', 'Применить') + ' ');
-        const kbd = document.createElement('kbd');
-        kbd.textContent = 'Ctrl+↵';
-        apply.append(applyText, kbd);
-        apply.onclick = () => {
-            if (getEditorText(editor) !== original) return close();
-            const resolved = resolveCorrections(corrected, corrections, rejected);
-            ignoredInputEvents.add(editor);
-            setEditorText(editor, resolved);
-            close();
-        };
-        actions.append(note, apply);
-        card.append(head, preview, actions);
-        shadow.append(style, card);
-        document.documentElement.append(host);
-        const editorRect = editor.getBoundingClientRect();
-        const cardRect = card.getBoundingClientRect();
-        const position = calculatePopupPosition({
-            anchorX: editorRect.left,
-            anchorY: editorRect.bottom,
-            anchorTop: editorRect.top,
-            popupWidth: cardRect.width,
-            popupHeight: cardRect.height,
-            viewportWidth: window.innerWidth,
-            viewportHeight: window.innerHeight,
-            gap: 8,
-            margin: 12,
-        });
-        host.style.left = `${position.x}px`;
-        host.style.top = `${position.y}px`;
-
-        const currentHost = host;
-        const onPointerDown = (event: PointerEvent) => {
-            if (currentHost && !event.composedPath().includes(currentHost)) {
-                close();
-            }
-        };
-        const onKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') {
-                event.preventDefault();
-                event.stopPropagation();
-                event.stopImmediatePropagation();
-                close();
-                return;
-            }
-            if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-                event.preventDefault();
-                event.stopPropagation();
-                apply.click();
-                return;
-            }
-        };
-        document.addEventListener('pointerdown', onPointerDown, true);
-        document.addEventListener('keydown', onKeyDown, true);
-        dismissListeners = () => {
-            document.removeEventListener('pointerdown', onPointerDown, true);
-            document.removeEventListener('keydown', onKeyDown, true);
-        };
-    };
-
-    const onFocusIn = (event: FocusEvent) => {
-        if (isProofreadAllowed() && isSafeEditor(event.target)) {
-            enableNativeSpellcheck(event.target);
-        }
-    };
-
-    const onInput = (event: Event) => {
-        if (event.target instanceof HTMLElement) {
-            if (ignoredInputEvents.delete(event.target)) return;
-        }
-        if (!isSafeEditor(event.target)) return;
-        if (!isProofreadAllowed()) return;
-        enableNativeSpellcheck(event.target);
-        const editor = event.target;
-        const original = getEditorText(editor);
-        cancelPendingProofread();
-        if (original.trim().length < 4 || original.length > 5000) return;
-        const version = requestVersion;
-        timer = window.setTimeout(async () => {
-            timer = 0;
-            if (!isProofreadAllowed() || getEditorText(editor) !== original) return;
-            let request: CancellableTextRequest | null = null;
-            try {
-                request = startTextRequest({
-                    mode: 'spellcheck',
-                    text: original,
-                    allowPageContext: false,
-                });
-                activeRequest = request;
-                const corrected = await request.promise;
-                if (version === requestVersion) showSuggestion(editor, original, corrected);
-            } catch (error) {
-                if (!(error instanceof DOMException && error.name === 'AbortError')) {
-                    // Фоновая проверка не должна мешать вводу.
-                }
-            } finally {
-                if (activeRequest === request) activeRequest = null;
-            }
-        }, delay);
+    const enableForTarget = (target: EventTarget | null) => {
+        if (isAllowed() && isSafeEditor(target)) enableNativeSpellcheck(target);
     };
 
     const updateSettings = async () => {
         const stored = await chrome.storage.local.get({
             liveProofreadEnabled: false,
-            liveProofreadDelay: 900,
             liveProofreadDisabledSites: [],
             blockedSites: [],
-            selectedTheme: 'auto',
-            visualStyle: 'liquid-glass',
-            themeCustomization: DEFAULT_THEME_CUSTOMIZATION,
         });
         enabled = stored.liveProofreadEnabled === true;
-        proofreadDisabledSites = normalizeDisabledSites(stored.liveProofreadDisabledSites);
+        disabledSites = normalizeDisabledSites(stored.liveProofreadDisabledSites);
         blockedSites = normalizeDisabledSites(stored.blockedSites);
-        delay = [600, 900, 1500, 2500].includes(Number(stored.liveProofreadDelay))
-            ? Number(stored.liveProofreadDelay)
-            : 900;
-        if (stored.selectedTheme) currentTheme = String(stored.selectedTheme);
-        currentVisualStyle = normalizeAppearanceStyle(stored.visualStyle);
-        currentThemeCustomization = normalizeThemeCustomization(stored.themeCustomization);
-        if (!isProofreadAllowed()) {
-            cancelPendingProofread();
-        }
     };
+
     const onStorage = (changes: Record<string, chrome.storage.StorageChange>, areaName: chrome.storage.AreaName) => {
-        if (areaName === 'local') {
-            if (changes.selectedTheme) currentTheme = String(changes.selectedTheme.newValue || 'auto');
-            if (changes.visualStyle) currentVisualStyle = normalizeAppearanceStyle(changes.visualStyle.newValue);
-            if (changes.themeCustomization)
-                currentThemeCustomization = normalizeThemeCustomization(changes.themeCustomization.newValue);
-            if (
-                changes.liveProofreadEnabled ||
-                changes.liveProofreadDelay ||
-                changes.liveProofreadDisabledSites ||
-                changes.blockedSites
-            ) {
-                void updateSettings();
-            }
+        if (
+            areaName === 'local' &&
+            (changes.liveProofreadEnabled || changes.liveProofreadDisabledSites || changes.blockedSites)
+        ) {
+            void updateSettings();
         }
     };
-    const onPageHide = cancelPendingProofread;
+
+    const onFocusIn = (event: FocusEvent) => enableForTarget(event.target);
+    const onInput = (event: Event) => enableForTarget(event.target);
     void updateSettings();
     document.addEventListener('focusin', onFocusIn, true);
     document.addEventListener('input', onInput, true);
-    window.addEventListener('pagehide', onPageHide);
     chrome.storage.onChanged.addListener(onStorage);
     return () => {
         document.removeEventListener('focusin', onFocusIn, true);
         document.removeEventListener('input', onInput, true);
         chrome.storage.onChanged.removeListener(onStorage);
-        window.removeEventListener('pagehide', onPageHide);
-        cancelPendingProofread();
     };
 }
