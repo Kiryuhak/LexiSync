@@ -33,7 +33,6 @@ const PORTABLE_SETTING_KEYS = [
     'activeStyleProfileId',
     'themeCustomization',
     'liveProofreadEnabled',
-    'liveProofreadDelay',
     'dailyRequestLimit',
     'monthlyTokenLimit',
     'budgetProfile',
@@ -65,7 +64,6 @@ const SYNC_SETTING_KEYS = [
     'aiMode',
     'themeCustomization',
     'liveProofreadEnabled',
-    'liveProofreadDelay',
     'dailyRequestLimit',
     'monthlyTokenLimit',
     'budgetProfile',
@@ -152,7 +150,10 @@ export function sanitizePortableSetting(key: (typeof PORTABLE_SETTING_KEYS)[numb
         return value !== false;
     if (key === 'primaryAiProvider') return ['auto', 'mistral', 'cloudflare'].includes(String(value)) ? value : 'auto';
     if (key === 'cloudflareModel') return normalizeCloudflareModel(value);
-    if (key === 'proofreadMode') return ['hybrid', 'local', 'ai'].includes(String(value)) ? value : 'hybrid';
+    if (key === 'proofreadMode') {
+        if (value === 'local') return 'speller';
+        return ['hybrid', 'speller', 'ai'].includes(String(value)) ? value : 'hybrid';
+    }
     if (key === 'selectedTone')
         return ['business', 'friendly', 'persuasive', 'creative'].includes(String(value)) ? value : 'business';
     if (key === 'selectedTheme') return ['auto', 'light', 'dark'].includes(String(value)) ? value : 'auto';
@@ -162,7 +163,6 @@ export function sanitizePortableSetting(key: (typeof PORTABLE_SETTING_KEYS)[numb
     if (key === 'aiMode') return ['fast', 'balanced', 'quality'].includes(String(value)) ? value : 'quality';
     if (key === 'interfaceScale') return Math.min(110, Math.max(75, Number(value) || 90));
     if (key === 'historyRetentionDays') return [1, 7, 30].includes(Number(value)) ? Number(value) : 30;
-    if (key === 'liveProofreadDelay') return [600, 900, 1500, 2500].includes(Number(value)) ? Number(value) : 900;
     if (key === 'dailyRequestLimit') return Math.min(50_000, Math.max(0, Math.trunc(Number(value) || 0)));
     if (key === 'monthlyTokenLimit') return Math.min(100_000_000, Math.max(0, Math.trunc(Number(value) || 0)));
     if (key === 'budgetProfile') return normalizeBudgetProfile(value);

@@ -1,7 +1,12 @@
 import fs from 'node:fs/promises';
 
 const BASE_PERMISSIONS = ['storage', 'activeTab', 'scripting', 'contextMenus', 'identity'];
-const REQUIRED_ORIGINS = ['https://api.mistral.ai/*', 'https://api.cloudflare.com/*', 'https://www.googleapis.com/*'];
+const REQUIRED_ORIGINS = [
+    'https://api.mistral.ai/*',
+    'https://api.cloudflare.com/*',
+    'https://speller.yandex.net/*',
+    'https://www.googleapis.com/*',
+];
 const OPTIONAL_WEB_ORIGINS = ['http://*/*', 'https://*/*'];
 const EXTENSION_NAMES = {
     ru: 'Корректор грамматики и орфографии - LexiSync',
@@ -45,7 +50,9 @@ for (const browser of ['chrome', 'firefox']) {
         throw new Error(`${browser}: удалённая рабочая панель не должна присутствовать в манифесте`);
     if (manifest.action?.default_popup !== 'popup.html') throw new Error(`${browser}: toolbar popup is not configured`);
     if (!sameValues(requiredOrigins, REQUIRED_ORIGINS))
-        throw new Error(`${browser}: изменён точечный доступ к Mistral, Cloudflare или Google Drive API`);
+        throw new Error(
+            `${browser}: изменён точечный доступ к Яндекс.Спеллеру, Mistral, Cloudflare или Google Drive API`,
+        );
     if (manifest.content_scripts) throw new Error(`${browser}: content script не должен быть статическим`);
     if (!sameValues(optionalOrigins, OPTIONAL_WEB_ORIGINS))
         throw new Error(`${browser}: изменён опциональный доступ к веб-сайтам`);

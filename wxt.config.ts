@@ -30,6 +30,7 @@ export default defineConfig({
         host_permissions: [
             'https://api.mistral.ai/*',
             'https://api.cloudflare.com/*',
+            'https://speller.yandex.net/*',
             'https://www.googleapis.com/*',
             ...(includeE2eHostAccess ? WEB_ORIGINS : []),
         ],

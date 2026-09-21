@@ -396,6 +396,13 @@ export const POPUP_STYLE_TEXT = `
                     border-color 0.15s ease;
                 white-space: nowrap;
             }
+            .lexisync-provider-yandex-speller {
+                color: var(--text-primary);
+                font-size: inherit;
+                cursor: pointer;
+                text-decoration: underline;
+                text-underline-offset: 2px;
+            }
             .lexisync-provider-dot {
                 width: 5px;
                 height: 5px;
@@ -431,16 +438,6 @@ export const POPUP_STYLE_TEXT = `
                 background: rgba(255, 112, 0, 0.22);
                 color: #ff9238;
                 border-color: rgba(255, 112, 0, 0.4);
-            }
-            .lexisync-provider-local {
-                background: rgba(5, 150, 105, 0.12);
-                color: #047857;
-                border: 1px solid rgba(5, 150, 105, 0.28);
-            }
-            #lexisync-extension-ui[data-theme="dark"] .lexisync-provider-local {
-                background: rgba(16, 185, 129, 0.2);
-                color: #6ee7b7;
-                border-color: rgba(52, 211, 153, 0.38);
             }
             .lexisync-content-pane {
                 margin: 10px 10px 12px;

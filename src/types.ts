@@ -17,7 +17,7 @@ export type TextMode =
 export type RequestMode = TextMode | 'ocr' | 'custom';
 export type AiMode = 'fast' | 'balanced' | 'quality';
 export type PrimaryAiProvider = 'auto' | 'mistral' | 'cloudflare';
-export type ProofreadMode = 'hybrid' | 'local' | 'ai';
+export type ProofreadMode = 'hybrid' | 'speller' | 'ai';
 
 export interface TextSnippet {
     id: string;
@@ -128,9 +128,9 @@ export interface StreamResponse {
     text?: string;
     error?: string;
     retryable?: boolean;
-    provider?: 'mistral' | 'cloudflare' | 'local';
-    localApplied?: boolean;
-    localFindings?: Array<{
+    provider?: 'mistral' | 'cloudflare' | 'yandex-speller';
+    spellerApplied?: boolean;
+    spellerFindings?: Array<{
         original: string;
         suggestions: string[];
         confidence: 'high' | 'medium' | 'low';

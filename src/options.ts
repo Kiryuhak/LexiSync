@@ -420,7 +420,7 @@ async function saveOptions(): Promise<void> {
         if (changed('primaryAiProvider')) updates.primaryAiProvider = primaryAiProviderSelect.value;
         if (changed('autoFallbackEnabled')) updates.autoFallbackEnabled = autoFallbackEnabledInput.checked;
         if (changed('proofreadMode'))
-            updates.proofreadMode = ['local', 'ai'].includes(proofreadModeSelect.value)
+            updates.proofreadMode = ['speller', 'ai'].includes(proofreadModeSelect.value)
                 ? proofreadModeSelect.value
                 : 'hybrid';
         if (changed('cloudflareModel')) updates.cloudflareModel = normalizeCloudflareModel(cloudflareModelSelect.value);
@@ -619,7 +619,6 @@ async function restoreOptions(): Promise<void> {
             activeStyleProfileId: '',
             themeCustomization: DEFAULT_THEME_CUSTOMIZATION,
             liveProofreadEnabled: false,
-            liveProofreadDelay: 900,
             liveProofreadDisabledSites: [],
             ...DEFAULT_BUDGET_SETTINGS,
             usageStats: EMPTY_USAGE_STATS,
@@ -643,7 +642,7 @@ async function restoreOptions(): Promise<void> {
     restoredCloudflareApiToken = cloudflareApiTokenInput.value;
     primaryAiProviderSelect.value = normalizePrimaryAiProvider(items.primaryAiProvider);
     autoFallbackEnabledInput.checked = normalizeAutoFallbackEnabled(items.autoFallbackEnabled);
-    proofreadModeSelect.value = ['local', 'ai'].includes(String(items.proofreadMode))
+    proofreadModeSelect.value = ['speller', 'ai'].includes(String(items.proofreadMode))
         ? String(items.proofreadMode)
         : 'hybrid';
     cloudflareModelSelect.value = normalizeCloudflareModel(items.cloudflareModel);

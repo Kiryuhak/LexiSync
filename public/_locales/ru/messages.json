@@ -1421,21 +1421,6 @@
     "summaryShort": {
         "message": "Выжимка"
     },
-    "clipboardFixTitle": {
-        "message": "Исправить из буфера"
-    },
-    "clipboardFixNote": {
-        "message": "Проверить скопированный текст (0 мс)"
-    },
-    "clipboardEmpty": {
-        "message": "Буфер обмена пуст"
-    },
-    "clipboardSuccess": {
-        "message": "✓ Исправлено и скопировано!"
-    },
-    "clipboardError": {
-        "message": "Нет доступа к буферу"
-    },
     "clipboardHub": {
         "message": "Быстрые действия с буфером"
     },
@@ -1699,12 +1684,6 @@
     },
     "factoryResetConfirmAction": {
         "message": "Да, сбросить всё"
-    },
-    "quickFixDone": {
-        "message": "✨ Исправлено на месте (0 мс)"
-    },
-    "quickFixNoChanges": {
-        "message": "Ошибок не найдено"
     },
     "statsMinutesShort": {
         "message": "мин"
@@ -2511,20 +2490,17 @@
     "proofreadModeHybrid": {
         "message": "Гибридная (рекомендуется)"
     },
-    "proofreadModeLocal": {
-        "message": "Только локальная"
+    "proofreadModeSpeller": {
+        "message": "Только Яндекс.Спеллер"
     },
     "proofreadModeAi": {
         "message": "Только AI"
     },
     "proofreadModeHint": {
-        "message": "Локальная проверка работает без сети. В гибридном режиме AI подключается только для сложных случаев."
+        "message": "Яндекс.Спеллер проверяет орфографию в облаке. В гибридном режиме AI подключается для сложных случаев."
     },
-    "localCheckCompleted": {
-        "message": "Локальная проверка завершена."
-    },
-    "localAiUnavailable": {
-        "message": "Расширенная AI-проверка временно недоступна."
+    "yandexSpellerAttribution": {
+        "message": "Проверка правописания: Яндекс.Спеллер"
     },
     "noSpellingErrors": {
         "message": "Текст уже корректен"
@@ -2550,11 +2526,11 @@
     "aiNoExtraCorrections": {
         "message": "AI не нашёл дополнительных исправлений"
     },
-    "localResultPreservedAiFailed": {
-        "message": "Локальная проверка завершена. Расширенная AI-проверка временно недоступна."
+    "spellerResultPreservedAiFailed": {
+        "message": "Проверка орфографии завершена. Дополнительная AI-проверка временно недоступна."
     },
-    "localPlusAi": {
-        "message": "Локально + AI"
+    "spellerPlusAi": {
+        "message": "Спеллер + AI"
     },
     "serverStatusLimitedByProvider": {
         "message": "Временно ограничен API-провайдером"

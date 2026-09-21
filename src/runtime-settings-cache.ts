@@ -46,8 +46,9 @@ export function normalizeAutoFallbackEnabled(value: unknown, defaultValue = true
     return defaultValue;
 }
 
-export function normalizeProofreadMode(value: unknown): 'hybrid' | 'local' | 'ai' {
-    return value === 'local' || value === 'ai' ? value : 'hybrid';
+export function normalizeProofreadMode(value: unknown): 'hybrid' | 'speller' | 'ai' {
+    if (value === 'local') return 'speller';
+    return value === 'speller' || value === 'ai' ? value : 'hybrid';
 }
 
 const RUNTIME_SETTING_KEY_SET = new Set<string>(RUNTIME_SETTING_KEYS);

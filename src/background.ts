@@ -53,7 +53,7 @@ import {
     RUNTIME_SETTING_KEYS,
 } from './runtime-settings-cache';
 import { isExtensionAllowedForUrl } from './site-runtime-access';
-import { proofreadRussianLocally, type LocalProofreadResult } from './local-spell-checker';
+import { checkYandexSpelling, type YandexSpellerResult } from './yandex-speller-client';
 
 const REQUEST_TIMEOUT_MS = 45_000;
 
@@ -690,25 +690,26 @@ chrome.runtime.onConnect.addListener((port) => {
         let outputText = '';
         let execResult: Partial<AiExecutionResult> | undefined;
         let failedProvider: 'mistral' | 'cloudflare' | undefined;
-        let localFallback: LocalProofreadResult | null = null;
-        let localApplied = false;
-        let servedLocally = false;
-        const completeWithLocalResult = (notification?: string): boolean => {
-            if (!localFallback || !isCurrentRequest()) return false;
+        let spellerResult: YandexSpellerResult | null = null;
+        let spellerFailure: Error | null = null;
+        let spellerApplied = false;
+        let servedBySpeller = false;
+        const completeWithSpellerResult = (notification?: string): boolean => {
+            if (!spellerResult || !isCurrentRequest()) return false;
             safePostMessage({ status: 'reset' });
-            outputText = localFallback.correctedText;
-            localApplied = outputText !== (msg.text || '');
-            servedLocally = true;
+            outputText = spellerResult.correctedText;
+            spellerApplied = outputText !== (msg.text || '');
+            servedBySpeller = true;
             completedSuccessfully = true;
             safePostMessage({ status: 'chunk', text: outputText });
             safePostMessage({
                 status: 'done',
-                provider: 'local',
-                localApplied,
-                localFindings: localFallback.findings.map(({ original, suggestions, confidence, applied }) => ({
+                provider: 'yandex-speller',
+                spellerApplied,
+                spellerFindings: spellerResult.findings.map(({ original, suggestions, applied }) => ({
                     original,
                     suggestions,
-                    confidence,
+                    confidence: suggestions.length === 1 ? 'high' : suggestions.length ? 'medium' : 'low',
                     applied,
                 })),
                 fallbackNotification: notification,
@@ -746,27 +747,27 @@ chrome.runtime.onConnect.addListener((port) => {
             const proofreadMode = normalizeProofreadMode(settings.proofreadMode);
             if (msg.mode === 'spellcheck' && proofreadMode !== 'ai' && !msg.forceAi) {
                 try {
-                    localFallback = await proofreadRussianLocally(
-                        msg.text || '',
-                        Array.isArray(settings.personalDictionary) ? settings.personalDictionary.map(String) : [],
-                    );
+                    spellerResult = await checkYandexSpelling(msg.text || '', {
+                        lang: /[A-Za-z]/u.test(msg.text || '') ? 'ru,en' : 'ru',
+                        options: 4,
+                        signal: requestController.signal,
+                        ignoredWords: Array.isArray(settings.personalDictionary)
+                            ? settings.personalDictionary.map(String)
+                            : [],
+                    });
                 } catch (error) {
-                    if (proofreadMode === 'local') throw error;
+                    spellerFailure = error instanceof Error ? error : new Error(String(error));
                     logger.error(
                         'Локальный словарь недоступен, запрос продолжен через AI:',
                         error instanceof Error ? error.message : String(error),
                     );
                 }
             }
-            if (localFallback) {
-                localApplied = localFallback.correctedText !== (msg.text || '');
-                const resolvedLocally = localApplied && localFallback.unresolvedCount === 0;
-                if (proofreadMode === 'local' || resolvedLocally || msg.offline === true) {
-                    completeWithLocalResult(
-                        proofreadMode === 'hybrid' && msg.offline === true
-                            ? `${t('localCheckCompleted', 'Локальная проверка завершена.')} ${t('localAiUnavailable', 'Расширенная AI-проверка временно недоступна.')}`
-                            : undefined,
-                    );
+            if (spellerResult) {
+                spellerApplied = spellerResult.correctedText !== (msg.text || '');
+                const resolvedBySpeller = spellerResult.unresolvedCount === 0;
+                if (proofreadMode === 'speller' || resolvedBySpeller || msg.offline === true) {
+                    completeWithSpellerResult(undefined);
                     return;
                 }
             }
@@ -800,11 +801,15 @@ chrome.runtime.onConnect.addListener((port) => {
             ]);
             if (!mistralApiKey && (!cloudflareCreds.accountId || !cloudflareCreds.apiToken)) {
                 if (
-                    completeWithLocalResult(
-                        `${t('localCheckCompleted', 'Локальная проверка завершена.')} ${t('localAiUnavailable', 'Расширенная AI-проверка временно недоступна.')}`,
+                    completeWithSpellerResult(
+                        t(
+                            'spellerResultPreservedAiFailed',
+                            'Проверка орфографии завершена. Дополнительная AI-проверка временно недоступна.',
+                        ),
                     )
                 )
                     return;
+                if (spellerFailure) throw spellerFailure;
                 throw new Error(t('apiKeyMissing', 'API-ключ не настроен'));
             }
 
@@ -880,7 +885,7 @@ chrome.runtime.onConnect.addListener((port) => {
                     selectedTone: settings.selectedTone as string,
                     sendPageContext:
                         settings.sendPageContext === true && msg.allowPageContext !== false && contextAllowedOnSite,
-                    // Личный словарь используется только локально и не включается в AI-промпт.
+                    // Личный словарь применяется как локальный список исключений и не включается в AI-промпт.
                     personalDictionary: [] as string[],
                     glossary: [] as string[],
                     activeStyleProfile,
@@ -895,7 +900,7 @@ chrome.runtime.onConnect.addListener((port) => {
                     currentCfCreds: { accountId: string; apiToken: string },
                 ) =>
                     executeAiStreamRequest({
-                        request: localFallback && localApplied ? { ...msg, text: localFallback.correctedText } : msg,
+                        request: spellerResult ? { ...msg, text: spellerResult.correctedText } : msg,
                         settings: aiSettings,
                         primaryProvider: normalizePrimaryAiProvider(settings.primaryAiProvider),
                         autoFallback: normalizeAutoFallbackEnabled(settings.autoFallbackEnabled),
@@ -921,15 +926,13 @@ chrome.runtime.onConnect.addListener((port) => {
                         status: 'done',
                         provider: execResult.providerUsed,
                         fallbackNotification: execResult.fallbackNotification,
-                        localApplied,
-                        localFindings: localFallback?.findings.map(
-                            ({ original, suggestions, confidence, applied }) => ({
-                                original,
-                                suggestions,
-                                confidence,
-                                applied,
-                            }),
-                        ),
+                        spellerApplied,
+                        spellerFindings: spellerResult?.findings.map(({ original, suggestions, applied }) => ({
+                            original,
+                            suggestions,
+                            confidence: suggestions.length === 1 ? 'high' : suggestions.length ? 'medium' : 'low',
+                            applied,
+                        })),
                     });
                 }
             }
@@ -940,9 +943,12 @@ chrome.runtime.onConnect.addListener((port) => {
             if (
                 !isAbort &&
                 msg.mode === 'spellcheck' &&
-                localFallback &&
-                completeWithLocalResult(
-                    `${t('localCheckCompleted', 'Локальная проверка завершена.')} ${t('localAiUnavailable', 'Расширенная AI-проверка временно недоступна.')}`,
+                spellerResult &&
+                completeWithSpellerResult(
+                    t(
+                        'spellerResultPreservedAiFailed',
+                        'Проверка орфографии завершена. Дополнительная AI-проверка временно недоступна.',
+                    ),
                 )
             ) {
                 return;
@@ -984,7 +990,7 @@ chrome.runtime.onConnect.addListener((port) => {
                     typeof reportedUsage?.promptTokens === 'number' ||
                     typeof reportedUsage?.completionTokens === 'number' ||
                     typeof reportedUsage?.totalTokens === 'number';
-                const canEstimateUsage = completedSuccessfully && !hasReportedTokens && !servedLocally;
+                const canEstimateUsage = completedSuccessfully && !hasReportedTokens && !servedBySpeller;
                 const usage = {
                     mode: msg.mode,
                     latencyMs: Date.now() - startedAt,

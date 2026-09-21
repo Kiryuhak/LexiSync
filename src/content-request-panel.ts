@@ -249,35 +249,43 @@ export function executeRequest(
     const headerLabelNode = [...headerTitleWrapper.childNodes].find(
         (node) => node.nodeType === Node.TEXT_NODE && node.textContent === headerLabel,
     );
-    let activeProvider: 'mistral' | 'cloudflare' | 'local' | null = mode === 'ocr' ? 'mistral' : null;
-    let localApplied = false;
-    let localFindings: NonNullable<StreamResponse['localFindings']> = [];
-    let proofreadMode: 'hybrid' | 'local' | 'ai' = 'hybrid';
+    let activeProvider: 'mistral' | 'cloudflare' | 'yandex-speller' | null = mode === 'ocr' ? 'mistral' : null;
+    let spellerApplied = false;
+    let spellerFindings: NonNullable<StreamResponse['spellerFindings']> = [];
+    let proofreadMode: 'hybrid' | 'speller' | 'ai' = 'hybrid';
     let spellcheckHasChanges = mode !== 'spellcheck';
     let aiCheckPerformed = false;
     let checkingAi = false;
 
-    function createProviderBadge(provider: 'mistral' | 'cloudflare' | 'local', isFallback = false): HTMLElement {
-        const badge = document.createElement('span');
+    function createProviderBadge(
+        provider: 'mistral' | 'cloudflare' | 'yandex-speller',
+        isFallback = false,
+    ): HTMLElement {
+        const badge = document.createElement(provider === 'yandex-speller' ? 'a' : 'span');
         badge.className = `lexisync-provider-badge lexisync-provider-${provider}`;
+        if (badge instanceof HTMLAnchorElement) {
+            badge.href = 'http://api.yandex.ru/speller/';
+            badge.target = '_blank';
+            badge.rel = 'noopener noreferrer';
+        }
         const dot = document.createElement('span');
         dot.className = `lexisync-provider-dot ${isFallback ? 'dot-degraded' : 'dot-healthy'}`;
         badge.appendChild(dot);
         const text = document.createElement('span');
-        if (provider === 'local') {
-            text.textContent = '✓ Локально';
-            badge.title = t('localCheckCompleted', 'Локальная проверка завершена.');
+        if (provider === 'yandex-speller') {
+            text.textContent = t('yandexSpellerAttribution', 'Проверка правописания: Яндекс.Спеллер');
+            badge.title = t('yandexSpellerAttribution', 'Проверка правописания: Яндекс.Спеллер');
         } else if (provider === 'cloudflare') {
             text.textContent = '☁️ Cloudflare';
-            badge.title = localApplied
-                ? 'Локальная проверка + Cloudflare Workers AI'
+            badge.title = spellerApplied
+                ? 'Яндекс.Спеллер + Cloudflare Workers AI'
                 : isFallback
                   ? 'Cloudflare Workers AI (резервный)'
                   : 'Cloudflare Workers AI';
         } else {
             text.textContent = '✦ Mistral';
-            badge.title = localApplied
-                ? 'Локальная проверка + Mistral AI'
+            badge.title = spellerApplied
+                ? 'Яндекс.Спеллер + Mistral AI'
                 : isFallback
                   ? 'Mistral (резервный) • Mistral AI'
                   : 'Mistral AI';
@@ -357,7 +365,7 @@ export function executeRequest(
         quickTabsBar?.remove();
         quickTabsBar = null;
         if (mode === 'spellcheck') {
-            spellcheckUi.setResult(originalText, fullResult, undefined, localFindings);
+            spellcheckUi.setResult(originalText, fullResult, undefined, spellerFindings);
             correctionsContainer.style.display = 'flex';
             correctionsContainer.hidden = false;
         } else {
@@ -607,7 +615,7 @@ export function executeRequest(
         actionsContainer.style.display = 'none';
         renderLoadingControl();
 
-        if (!navigator.onLine && mode !== 'layout' && !(mode === 'spellcheck' && proofreadMode !== 'ai')) {
+        if (!navigator.onLine && mode !== 'layout') {
             contentPane.textContent = t(
                 'offlineError',
                 'Нет подключения к интернету. Проверьте сеть и попробуйте снова.',
@@ -695,8 +703,8 @@ export function executeRequest(
                 if (response.provider) {
                     activeProvider = response.provider;
                 }
-                localApplied = response.localApplied === true;
-                localFindings = response.localFindings ?? [];
+                spellerApplied = response.spellerApplied === true;
+                spellerFindings = response.spellerFindings ?? [];
                 streamUiUpdater?.cancel();
                 fullResult = cleanMarkdownArtifacts(fullResult);
                 if (mode === 'summary') {
@@ -711,12 +719,12 @@ export function executeRequest(
                         return;
                     }
                     spellcheckHasChanges = fullResult.trim() !== currentSelection.text.trim();
-                    const hasUnresolvedLocal = localFindings.some((finding) => !finding.applied);
+                    const hasUnresolvedSpeller = spellerFindings.some((finding) => !finding.applied);
                     if (!spellcheckHasChanges && headerLabelNode)
-                        headerLabelNode.textContent = hasUnresolvedLocal
+                        headerLabelNode.textContent = hasUnresolvedSpeller
                             ? t('needsReview', 'Требуется проверка')
                             : t('noSpellingErrors', 'Текст уже корректен');
-                    spellcheckUi.setResult(currentSelection.text, fullResult, undefined, localFindings);
+                    spellcheckUi.setResult(currentSelection.text, fullResult, undefined, spellerFindings);
                 } else if (
                     compactResultMode &&
                     originalText &&
@@ -776,7 +784,7 @@ export function executeRequest(
                               ? `custom:${customCommand?.id || 'unknown'}`
                               : mode;
                     const cacheModeKey = `v${REQUEST_CACHE_VERSION}:${baseCacheMode}:${cacheSettingsFingerprint}`;
-                    if (!localFindings.some((finding) => !finding.applied)) {
+                    if (!spellerFindings.some((finding) => !finding.applied)) {
                         void getCacheHash(cacheModeKey, getCacheSource())
                             .then((cacheKey) => setCachedText(cacheKey, fullResult))
                             .catch((error) => logger.error('Ошибка сохранения кэша:', error));
@@ -1373,7 +1381,8 @@ export function executeRequest(
             setTimeout: (callback, delay) => lifecycle.setTimeout(callback, delay),
             isCompact: () => compactResultMode,
             onDismiss: () => closePopup(),
-            canCheckAi: activeProvider === 'local' && mode === 'spellcheck' && !aiCheckPerformed && !checkingAi,
+            canCheckAi:
+                activeProvider === 'yandex-speller' && mode === 'spellcheck' && !aiCheckPerformed && !checkingAi,
             onCheckAi: handleCheckWithAi,
         });
     }
@@ -1403,8 +1412,8 @@ export function executeRequest(
             checkingAi = false;
             showActionStatus(
                 t(
-                    'localResultPreservedAiFailed',
-                    'Локальная проверка завершена. Расширенная AI-проверка временно недоступна.',
+                    'spellerResultPreservedAiFailed',
+                    'Проверка орфографии завершена. Дополнительная AI-проверка временно недоступна.',
                 ),
                 true,
             );
@@ -1412,7 +1421,7 @@ export function executeRequest(
             return;
         }
 
-        const currentLocalResult = getEffectiveResult();
+        const currentSpellerResult = getEffectiveResult();
         let aiCollectedText = '';
 
         await new Promise<void>((resolve) => {
@@ -1453,12 +1462,12 @@ export function executeRequest(
                     if (
                         cleanedAiResult &&
                         cleanedAiResult.trim() &&
-                        cleanedAiResult.trim() !== currentLocalResult.trim()
+                        cleanedAiResult.trim() !== currentSpellerResult.trim()
                     ) {
                         fullResult = cleanedAiResult;
                         aiCheckPerformed = true;
                         activeProvider = response.provider || 'mistral';
-                        localApplied = true;
+                        spellerApplied = true;
                         spellcheckHasChanges = true;
                         if (mode === 'spellcheck') {
                             spellcheckUi.setResult(currentSelection.text, fullResult);
@@ -1466,13 +1475,13 @@ export function executeRequest(
                             renderMarkdown(contentPane, fullResult);
                         }
                         if (headerLabelNode) {
-                            headerLabelNode.textContent = t('localPlusAi', 'Локально + AI');
+                            headerLabelNode.textContent = t('spellerPlusAi', 'Спеллер + AI');
                         }
                         finishStream(true, Boolean(response.fallbackNotification));
                         showActionStatus(
                             response.fallbackNotification
                                 ? `⚡ ${response.fallbackNotification}`
-                                : t('localPlusAi', 'Локально + AI'),
+                                : t('spellerPlusAi', 'Спеллер + AI'),
                         );
                     } else {
                         aiCheckPerformed = true;
@@ -1483,8 +1492,8 @@ export function executeRequest(
                 } else if (response.status === 'error') {
                     showActionStatus(
                         t(
-                            'localResultPreservedAiFailed',
-                            'Локальная проверка завершена. Расширенная AI-проверка временно недоступна.',
+                            'spellerResultPreservedAiFailed',
+                            'Проверка орфографии завершена. Дополнительная AI-проверка временно недоступна.',
                         ),
                         true,
                     );
@@ -1496,7 +1505,7 @@ export function executeRequest(
             try {
                 aiStreamPort.postMessage({
                     action: 'callMistral',
-                    text: currentLocalResult,
+                    text: currentSpellerResult,
                     context: currentSelection.context,
                     mode: 'spellcheck',
                     targetLang: currentTargetLang,
@@ -1535,7 +1544,7 @@ export function executeRequest(
             normalizeResultDisplayMode(res.resultDisplayMode, res.compactResultMode),
             mode,
         );
-        proofreadMode = res.proofreadMode === 'local' || res.proofreadMode === 'ai' ? res.proofreadMode : 'hybrid';
+        proofreadMode = res.proofreadMode === 'speller' || res.proofreadMode === 'ai' ? res.proofreadMode : 'hybrid';
         if (compactResultMode) applyCompactResultLayout();
         usePageContext =
             res.sendPageContext === true &&

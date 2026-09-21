@@ -27,7 +27,6 @@ const MIGRATION_SETTING_KEYS = [
     'visualStyle',
     'themeCustomization',
     'liveProofreadEnabled',
-    'liveProofreadDelay',
     'dailyRequestLimit',
     'monthlyTokenLimit',
     'budgetProfile',
@@ -125,7 +124,6 @@ export async function migrateSettings(): Promise<void> {
         if (!stored.themeCustomization || typeof stored.themeCustomization !== 'object')
             updates.themeCustomization = DEFAULT_THEME_CUSTOMIZATION;
         if (typeof stored.liveProofreadEnabled !== 'boolean') updates.liveProofreadEnabled = false;
-        if (![600, 900, 1500, 2500].includes(Number(stored.liveProofreadDelay))) updates.liveProofreadDelay = 900;
         if (!Number.isFinite(Number(stored.dailyRequestLimit)) || Number(stored.dailyRequestLimit) < 0)
             updates.dailyRequestLimit = 0;
         if (!Number.isFinite(Number(stored.monthlyTokenLimit)) || Number(stored.monthlyTokenLimit) < 0)
@@ -155,7 +153,9 @@ export async function migrateSettings(): Promise<void> {
     if (currentVersion < 15) {
         updates.cloudflareModel = normalizeCloudflareModel(stored.cloudflareModel);
     }
-    if (currentVersion < 16 && !['hybrid', 'local', 'ai'].includes(String(stored.proofreadMode))) {
+    if (stored.proofreadMode === 'local') {
+        updates.proofreadMode = 'speller';
+    } else if (currentVersion < 16 && !['hybrid', 'speller', 'ai'].includes(String(stored.proofreadMode))) {
         updates.proofreadMode = 'hybrid';
     }
     updates.settingsSchemaVersion = CURRENT_SETTINGS_SCHEMA;

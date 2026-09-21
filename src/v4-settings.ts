@@ -46,7 +46,6 @@ function fillThemeEditor(theme: ThemeCustomization): void {
 export interface StoredV4Settings {
     themeCustomization?: unknown;
     liveProofreadEnabled?: unknown;
-    liveProofreadDelay?: unknown;
     liveProofreadDisabledSites?: unknown;
     dailyRequestLimit?: unknown;
     monthlyTokenLimit?: unknown;
@@ -62,17 +61,11 @@ export async function restoreV4Settings(storedSettings?: StoredV4Settings): Prom
         (await chrome.storage.local.get({
             themeCustomization: DEFAULT_THEME_CUSTOMIZATION,
             liveProofreadEnabled: false,
-            liveProofreadDelay: 900,
             liveProofreadDisabledSites: [],
             enablePiiMasking: false,
             ...DEFAULT_BUDGET_SETTINGS,
         }));
     byId<HTMLInputElement>('liveProofreadEnabled').checked = stored.liveProofreadEnabled === true;
-    byId<HTMLSelectElement>('liveProofreadDelay').value = ['600', '900', '1500', '2500'].includes(
-        String(stored.liveProofreadDelay),
-    )
-        ? String(stored.liveProofreadDelay)
-        : '900';
     byId<HTMLTextAreaElement>('liveProofreadDisabledSites').value = Array.isArray(stored.liveProofreadDisabledSites)
         ? stored.liveProofreadDisabledSites.join('\n')
         : '';
@@ -144,9 +137,6 @@ export async function updateBudgetProgressIndicators(): Promise<void> {
 export function setupV4Settings(): void {
     byId<HTMLInputElement>('liveProofreadEnabled').addEventListener('change', (event) => {
         void chrome.storage.local.set({ liveProofreadEnabled: (event.target as HTMLInputElement).checked });
-    });
-    byId<HTMLSelectElement>('liveProofreadDelay').addEventListener('change', (event) => {
-        void chrome.storage.local.set({ liveProofreadDelay: Number((event.target as HTMLSelectElement).value) });
     });
     byId<HTMLTextAreaElement>('liveProofreadDisabledSites').addEventListener('change', (event) => {
         const input = event.target as HTMLTextAreaElement;
