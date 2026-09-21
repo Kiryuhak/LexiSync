@@ -1,6 +1,5 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, expect, test, vi } from 'vitest';
-import { readFile } from 'node:fs/promises';
 import { detectLayoutDirection, fixKeyboardLayout } from '../src/keyboard-layout';
 import { buildMessages, buildPromptPayload } from '../src/prompt-builder';
 import { escapeHTML, parseMarkdownToHTML, stripSummaryPrefix } from '../src/markdown';
@@ -58,13 +57,11 @@ import { isRuntimeSettingKey, pickRuntimeSettings, RUNTIME_SETTING_KEYS } from '
 import { isExtensionAllowedForUrl } from '../src/site-runtime-access';
 import { parsePortableSettingsJson } from '../src/settings-transfer';
 import { resetAiProviderHealth } from '../src/ai-client';
-import { applyLocalTextRules } from '../src/local-rule-engine';
 import {
-    checkRussianSpelling,
-    getRussianWordLookup,
-    resetLocalSpellCheckerCacheForTests,
-    type RussianWordLookup,
-} from '../src/local-spell-checker';
+    applyYandexSpellerCorrections,
+    checkYandexSpelling,
+    type YandexSpellerErrorItem,
+} from '../src/yandex-speller-client';
 
 beforeEach(() => {
     resetAiProviderHealth();
@@ -1802,35 +1799,6 @@ test('getSelectionCoords точно рассчитывает координат�
     }
 });
 
-test('локальный движок правил мгновенно исправляет опечатки, пробелы и типографику', async () => {
-    const { applyFastTypographyAndTypoFixes } = await import('../src/local-text-rules');
-
-    // 1. Опечатки
-    const typos = applyFastTypographyAndTypoFixes('вообщем здраствуйте, тчо происходит');
-    expect(typos.text).toBe('В общем здравствуйте, что происходит');
-    expect(typos.changed).toBe(true);
-    expect(typos.fixesCount).toBeGreaterThan(0);
-
-    // 2. Регистр
-    const caseCheck = applyFastTypographyAndTypoFixes('ВООБЩЕМ ДЕНЬ РОЖДЕНИЕ');
-    expect(caseCheck.text).toBe('В ОБЩЕМ ДЕНЬ РОЖДЕНИЯ');
-
-    // 3. Пробелы перед пунктуацией и после неё
-    const spacing = applyFastTypographyAndTypoFixes('Привет ,как дела ?Хорошо !');
-    expect(spacing.text).toBe('Привет, как дела? Хорошо!');
-
-    // 4. Тире и русские кавычки
-    const typography = applyFastTypographyAndTypoFixes('Это - пример "цитаты"');
-    expect(typography.text).toBe('Это — пример «цитаты»');
-
-    // 5. Английские опечатки
-    const english = applyFastTypographyAndTypoFixes('teh user dont recieve untill tomorrow');
-    expect(english.text).toBe("The user don't receive until tomorrow");
-
-    // 6. Пустая строка
-    expect(applyFastTypographyAndTypoFixes('').changed).toBe(false);
-});
-
 test('генератор промптов поддерживает режим summary и тона polite/concise/simple', () => {
     const summaryMessages = buildMessages(
         { mode: 'summary', text: 'Длинный текст статьи...' },
@@ -1871,15 +1839,6 @@ test('генератор промптов поддерживает режимы 
     expect(formatMessages[0].content).toContain('Очисти текст от лишних переносов строк');
 });
 
-test('cleanPdfLineBreaksAndWhitespace корректно склеивает переносы строк и дефисы', async () => {
-    const { cleanPdfLineBreaksAndWhitespace } = await import('../src/local-text-rules');
-
-    const rawPdf = 'Это предложе-\nние было разорвано\nв документе PDF.\n\nВторой абзац.';
-    const cleaned = cleanPdfLineBreaksAndWhitespace(rawPdf);
-    expect(cleaned).toContain('предложение было разорвано в документе PDF.');
-    expect(cleaned).toContain('Второй абзац.');
-});
-
 test('страница options.html содержит ссылку на почту разработчика для обратной связи', async () => {
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
@@ -1900,16 +1859,6 @@ test('fixKeyboardLayout корректно преобразует текст с 
     expect(fixKeyboardLayout('Rfr ltkf&')).toBe('Как дела?');
     expect(fixKeyboardLayout('ghbdtn? vbh!')).toBe('привет, мир!');
     expect(fixKeyboardLayout('руддщ! цщкдв.')).toBe('hello! world/');
-});
-
-test('applyFastTypographyAndTypoFixes исправляет новые грамматические конструкции', async () => {
-    const { applyFastTypographyAndTypoFixes } = await import('../src/local-text-rules');
-
-    expect(applyFastTypographyAndTypoFixes('в течении часа').text).toBe('В течение часа');
-    expect(applyFastTypographyAndTypoFixes('по прибытию поезда').text).toBe('По прибытии поезда');
-    expect(applyFastTypographyAndTypoFixes('более менее понятно').text).toBe('Более-менее понятно');
-    expect(applyFastTypographyAndTypoFixes('оплатить за проезд').text).toBe('Оплатить проезд');
-    expect(applyFastTypographyAndTypoFixes('займи мне денег').text).toBe('Одолжи мне денег');
 });
 
 test('buildMessages выполняет умное автоопределение языка для перевода', async () => {
@@ -2316,140 +2265,58 @@ test('text-replacement возвращает локальную функцию о
     expect(fakeInput.value).toBe('Исходный текст сообщения');
 });
 
-test('локальные правила безопасно исправляют пробелы, пунктуацию и частицу -нибудь', () => {
-    const result = applyLocalTextRules('Привет ,как дела  ? Текст.. Это - тест и какой нибудь пример.');
-    expect(result.correctedText).toBe('Привет, как дела? Текст… Это — тест и какой-нибудь пример.');
-    expect(result.findings.every((finding) => finding.confidence === 'high')).toBe(true);
+test('Яндекс.Спеллер применяет однозначные исправления строго по UTF-16 позициям', () => {
+    const errors: YandexSpellerErrorItem[] = [
+        { code: 1, pos: 3, row: 0, col: 3, len: 6, word: 'Карова', s: ['Корова'] },
+        { code: 1, pos: 19, row: 1, col: 0, len: 10, word: 'велосепеде', s: ['велосипеде'] },
+    ];
+    const result = applyYandexSpellerCorrections('🙂 Карова ехала на\nвелосепеде.', errors);
+    expect(result.correctedText).toBe('🙂 Корова ехала на\nвелосипеде.');
+    expect(result.findings.every((finding) => finding.applied)).toBe(true);
 });
 
-test('локальные правила не применяют типографические кавычки без подтверждения', () => {
-    const result = applyLocalTextRules('Он сказал "привет"');
-    expect(result.correctedText).toBe('Он сказал "привет"');
-    expect(result.findings).toContainEqual(
-        expect.objectContaining({
-            original: '"привет"',
-            suggestions: ['«привет»'],
-            confidence: 'medium',
-            applied: false,
-        }),
-    );
-});
-
-test('локальный корректор исправляет только однозначные опечатки и сохраняет технические слова', () => {
-    const valid = new Set(['проверяю', 'текст', 'на', 'ошибки', 'пагода', 'для']);
-    const suggestions: Record<string, string[]> = { непонятноеслово: ['непонятное'] };
-    const dictionary: RussianWordLookup = {
-        has: (word) => valid.has(word) || ['lexisync', 'mistral', 'cloudflare'].includes(word),
-        suggest: (word) => suggestions[word] ?? [],
-    };
-    const result = checkRussianSpelling(
-        'Провиряю тексст на ашибки для LexiSync Mistral Cloudflare, а пагода — корректное слово.',
-        dictionary,
-    );
-    expect(result.correctedText).toBe(
-        'Проверяю текст на ошибки для LexiSync Mistral Cloudflare, а пагода — корректное слово.',
-    );
-    expect(result.findings.filter((finding) => finding.applied)).toHaveLength(3);
-    expect(result.findings.some((finding) => finding.original === 'пагода')).toBe(false);
-});
-
-test('локальный корректор исправляет обязательные примеры и сохраняет технические идентификаторы и пагоду', () => {
-    const valid = new Set([
-        'текст',
-        'ошибка',
-        'хорошая',
-        'промпт',
-        'орфография',
-        'проверяю',
-        'синхронизация',
-        'пагода',
-        'для',
-        'в',
-        'и',
-        'пиши',
-        'остаётся',
-        'пагодой',
-        'на',
-        'это',
+test('Яндекс.Спеллер не применяет неоднозначные и устаревшие позиции автоматически', () => {
+    const result = applyYandexSpellerCorrections('замок замок', [
+        { code: 1, pos: 0, row: 0, col: 0, len: 5, word: 'замок', s: ['за́мок', 'замо́к'] },
+        { code: 1, pos: 6, row: 0, col: 6, len: 5, word: 'другое', s: ['замок'] },
     ]);
-    const dictionary: RussianWordLookup = {
-        has: (word) =>
-            valid.has(word) ||
-            ['lexisync', 'mistral', 'cloudflare', 'github', 'oauth', 'indexeddb', 'google', 'drive', 'промпт'].includes(
-                word,
-            ),
-        suggest: () => [],
-    };
-    const input =
-        'Харошая орфаграфия, провиряю тексст и ашибка: синхранизация в LexiSync для Cloudflare Mistral GitHub VS Code OAuth IndexedDB Google Drive GLM-4.7-Flash. Пиши промт, а пагода — это пагода.';
-    const result = checkRussianSpelling(input, dictionary);
-    expect(result.correctedText).toBe(
-        'Хорошая орфография, проверяю текст и ошибка: синхронизация в LexiSync для Cloudflare Mistral GitHub VS Code OAuth IndexedDB Google Drive GLM-4.7-Flash. Пиши промпт, а пагода — это пагода.',
-    );
-    expect(result.findings.some((finding) => finding.original === 'пагода')).toBe(false);
-    expect(result.findings.some((finding) => finding.original === 'LexiSync')).toBe(false);
-    expect(result.findings.some((finding) => finding.original === 'Cloudflare')).toBe(false);
+    expect(result.correctedText).toBe('замок замок');
+    expect(result.findings.map((finding) => finding.applied)).toEqual([false, false]);
+    expect(result.unresolvedCount).toBe(2);
 });
 
-test('локальный корректор показывает варианты с уверенностью medium, но не применяет их сам', () => {
-    const dictionary: RussianWordLookup = {
-        has: (word) => word === 'непонятное',
-        suggest: (word) => (word === 'непонятноеслово' ? ['непонятное'] : []),
-    };
-    const result = checkRussianSpelling('непонятноеслово', dictionary);
-    expect(result.correctedText).toBe('непонятноеслово');
-    expect(result.findings[0]).toMatchObject({ confidence: 'medium', applied: false });
+test('клиент Яндекс.Спеллера отправляет POST и сохраняет все поля ответа', async () => {
+    const fetchImpl = vi.fn(async (_input: string | URL | Request, init?: RequestInit) => {
+        expect(init?.method).toBe('POST');
+        expect(String(init?.body)).toContain('lang=ru%2Cen');
+        return new Response(
+            JSON.stringify([{ code: 1, pos: 0, row: 0, col: 0, len: 6, word: 'Карова', s: ['Корова'] }]),
+            { status: 200 },
+        );
+    }) as typeof fetch;
+    const result = await checkYandexSpelling('Карова and text', { lang: 'ru,en', fetchImpl });
+    expect(result.correctedText).toBe('Корова and text');
+    expect(result.findings[0]).toMatchObject({ code: 1, row: 0, col: 0, original: 'Карова' });
 });
 
-test('локальный корректор исправляет только однозначные популярные русские ошибки', () => {
-    const dictionary: RussianWordLookup = { has: () => true, suggest: () => [] };
-    const result = checkRussianSpelling('Вообщем, врядли. Извените, пожалуйсто: будующее прийдёт.', dictionary);
-    expect(result.correctedText).toBe('В общем, вряд ли. Извините, пожалуйста: будущее придёт.');
-    expect(result.findings).toHaveLength(6);
-    expect(result.findings.every((finding) => finding.confidence === 'high' && finding.applied)).toBe(true);
+test.each([
+    [429, 'HTTP_429'],
+    [503, 'HTTP_5XX'],
+] as const)('клиент классифицирует HTTP %s', async (status, code) => {
+    const fetchImpl = vi.fn(async () => new Response('error', { status })) as typeof fetch;
+    await expect(checkYandexSpelling('текст', { fetchImpl })).rejects.toMatchObject({ code });
 });
 
-test('скомпилированный русский словарь распознаёт словоформы без разворачивания Hunspell в памяти', async () => {
-    resetLocalSpellCheckerCacheForTests();
-    const [metadata, bloom] = await Promise.all([
-        readFile('public/dictionaries/ru/ru.bloom.json'),
-        readFile('public/dictionaries/ru/ru.bloom'),
-    ]);
-    const originalFetch = globalThis.fetch;
-    vi.stubGlobal(
-        'fetch',
-        vi.fn(async (input: string | URL | Request) => {
-            const url = String(input);
-            return url.endsWith('.json')
-                ? new Response(metadata, { status: 200, headers: { 'content-type': 'application/json' } })
-                : new Response(bloom, { status: 200 });
-        }),
-    );
-    const dictionary = await getRussianWordLookup(['моёслужебноеслово']);
-    expect(dictionary.has('ошибки')).toBe(true);
-    expect(dictionary.has('хорошая')).toBe(true);
-    expect(dictionary.has('проверяю')).toBe(true);
-    expect(dictionary.has('пагода')).toBe(true);
-    expect(dictionary.has('превышен')).toBe(true);
-    expect(dictionary.has('пользовательский')).toBe(true);
-    expect(dictionary.has('моёслужебноеслово')).toBe(true);
-    for (const technicalWord of [
-        'LexiSync',
-        'Cloudflare',
-        'Mistral',
-        'GitHub',
-        'OAuth',
-        'IndexedDB',
-        'Google',
-        'Drive',
-    ]) {
-        expect(dictionary.has(technicalWord)).toBe(true);
-    }
-    expect(dictionary.has('тексст')).toBe(false);
-    expect(dictionary.suggest('тексст')).toContain('текст');
-    vi.unstubAllGlobals();
-    expect(globalThis.fetch).toBe(originalFetch);
-    resetLocalSpellCheckerCacheForTests();
+test('клиент отклоняет пустой, неверный и слишком длинный ответ', async () => {
+    const emptyFetch = vi.fn(async () => new Response('', { status: 200 })) as typeof fetch;
+    await expect(checkYandexSpelling('текст', { fetchImpl: emptyFetch })).rejects.toMatchObject({
+        code: 'EMPTY_RESPONSE',
+    });
+    const invalidFetch = vi.fn(async () => new Response('{', { status: 200 })) as typeof fetch;
+    await expect(checkYandexSpelling('текст', { fetchImpl: invalidFetch })).rejects.toMatchObject({
+        code: 'INVALID_RESPONSE',
+    });
+    await expect(checkYandexSpelling('а'.repeat(10_001))).rejects.toMatchObject({ code: 'TEXT_TOO_LONG' });
 });
 
 test('text-replacement блокирует устаревшие offsets и сохраняет UTF-16 позицию caret', async () => {

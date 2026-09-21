@@ -557,7 +557,6 @@ test('restoreV4Settings корректно заполняет элементы �
         }
     > = {
         liveProofreadEnabled: { checked: false },
-        liveProofreadDelay: { value: '900' },
         liveProofreadDisabledSites: { value: '' },
         dailyRequestLimit: { value: '0' },
         monthlyTokenLimit: { value: '0' },
@@ -582,7 +581,6 @@ test('restoreV4Settings корректно заполняет элементы �
     try {
         await restoreV4Settings({
             liveProofreadEnabled: true,
-            liveProofreadDelay: 1500,
             liveProofreadDisabledSites: ['mail.example.com'],
             dailyRequestLimit: 50,
             monthlyTokenLimit: 100000,
@@ -592,7 +590,6 @@ test('restoreV4Settings корректно заполняет элементы �
         });
 
         expect(elements.liveProofreadEnabled.checked).toBe(true);
-        expect(elements.liveProofreadDelay.value).toBe('1500');
         expect(elements.liveProofreadDisabledSites.value).toBe('mail.example.com');
         expect(elements.dailyRequestLimit.value).toBe('50');
         expect(elements.monthlyTokenLimit.value).toBe('100000');

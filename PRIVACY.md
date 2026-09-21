@@ -1,7 +1,7 @@
 # Политика конфиденциальности LexiSync
 
 **Дата вступления в силу:** 24 августа 2026 г.
-**Последнее обновление:** 18 сентября 2026 г.
+**Последнее обновление:** 21 сентября 2026 г.
 
 [English version](#lexisync-privacy-policy)
 
@@ -11,7 +11,7 @@ LexiSync — браузерное расширение для проверки, 
 
 При запуске AI-команды выбранный пользователем текст или выбранная область изображения передаются напрямую из браузера к выбранному **AI-провайдеру (Mistral AI API или Cloudflare Workers AI API)** по защищённому HTTPS-соединению с использованием собственного API-ключа пользователя. Это необходимо для исправления, переписывания, перевода, добавления эмодзи и OCR.
 
-Локальная проверка русской орфографии и базовой пунктуации выполняется полностью на устройстве (Local Proofreader). В режиме «Только локальная» текст никогда не передаётся AI и не покидает браузер. В гибридном режиме текст передаётся AI только тогда, когда локального слоя недостаточно для сложной проверки. Опциональная кнопка «Проверить через AI» в окне результата является осознанным действием пользователя (opt-in cloud check) для отправки локально скорректированного фрагмента в настроенный AI-сервис (Mistral / Cloudflare) для глубокого анализа пунктуации, стиля и сложных языковых конструкций. Личный словарь пользователя никогда не включается в AI-промпт.
+При запуске проверки орфографии выбранный текст передаётся напрямую из браузера в облачный **API Яндекс.Спеллера**. Эта проверка не является локальной и требует сети. Отправка выполняется только после осознанной команды пользователя; фоновые события ввода не запускают Яндекс.Спеллер. Поля паролей, платёжных данных, кодов подтверждения и другие распознаваемые чувствительные поля не проверяются. После результата Спеллера пользователь может отдельно нажать «Проверить через AI», чтобы отправить исправленный текст в Mistral AI или Cloudflare Workers AI для проверки грамматики, пунктуации и контекста. Личный словарь применяется в расширении как список исключений и не передаётся Яндексу или AI-провайдерам.
 
 Передача окружающего текста, заголовка и домена страницы **отключена по умолчанию**. Она выполняется только после включения пользователем соответствующей настройки и может быть отдельно запрещена для выбранных сайтов.
 
@@ -23,7 +23,7 @@ LexiSync — браузерное расширение для проверки, 
 
 Разработчик и издатель расширения: **Kiryuhak**.
 
-LexiSync не использует собственный сервер разработчика для обработки пользовательского текста. Запросы к AI направляются из расширения непосредственно к выбранному AI-провайдеру (Mistral AI или Cloudflare Workers AI) с ключом пользователя.
+LexiSync не использует собственный сервер разработчика для обработки пользовательского текста. Орфографические запросы направляются непосредственно Яндекс.Спеллеру, а AI-запросы — выбранному AI-провайдеру (Mistral AI или Cloudflare Workers AI) с ключом пользователя.
 
 Связаться с разработчиком по вопросам конфиденциальности можно через [GitHub Issues](https://github.com/Kiryuhak/LexiSync/issues).
 
@@ -37,7 +37,7 @@ LexiSync может обрабатывать следующие категори
 - текст поддерживаемого поля ввода, если пользователь самостоятельно включил автоматическую проверку;
 - результат и запрошенный пользователем разбор исправлений, возвращённые выбранным AI-провайдером;
 - пользовательские инструкции, глоссарий и параметры стиля, необходимые для выбранной AI-команды;
-- личный словарь, который используется только локальным корректором и не передаётся AI-провайдерам.
+- личный словарь, который хранится локально, используется как список исключений и не передаётся Яндексу или AI-провайдерам.
 
 Текст может содержать созданный пользователем контент или личную переписку. LexiSync не требует вводить персональные, медицинские, финансовые или платёжные сведения и рекомендует не отправлять такие сведения в AI-сервисы без необходимости.
 
@@ -94,26 +94,28 @@ LexiSync не отправляет разработчику телеметрию
 
 Для AI-функций LexiSync передаёт выбранному AI-провайдеру только данные, необходимые для выбранной операции: текст, изображение OCR (только Mistral) и, если это разрешено пользователем, контекст страницы. Соответствующий ключ передаётся в заголовке авторизации напрямую к API провайдера:
 
-Личный словарь и упакованный русский словарь остаются на устройстве. Однозначная локальная проверка не создаёт AI-запрос; гибридный режим отправляет текст только при необходимости расширенной проверки.
+### 3.2. Яндекс.Спеллер
+
+По явной команде проверки орфографии LexiSync отправляет выбранный текст в `https://speller.yandex.net/`. Яндекс получает текст и обычные технические данные HTTPS-запроса. Обработка регулируется [условиями API Яндекс.Спеллера](https://yandex.ru/legal/speller_api/ru) и документами Яндекса. Личный словарь не передаётся.
 
 - **Mistral AI:** [Политика конфиденциальности Mistral AI](https://legal.mistral.ai/terms/privacy-policy)
 - **Cloudflare Workers AI:** [Политика конфиденциальности Cloudflare](https://www.cloudflare.com/privacypolicy/) и [Условия использования Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/)
 
 Срок хранения, модерация, место обработки и возможное использование данных определяются выбранным пользователем тарифом, настройками аккаунта и актуальными условиями провайдера. LexiSync не управляет инфраструктурой Mistral AI или Cloudflare Workers AI.
 
-### 3.2. Google Drive
+### 3.3. Google Drive
 
 Если пользователь явно подключает Google Drive и запускает синхронизацию, LexiSync передаёт Google токен авторизации и зашифрованный файл резервной копии. Файл сохраняется в `appDataFolder` и не содержит мастер-пароль. Обработка регулируется [Политикой конфиденциальности Google](https://policies.google.com/privacy) и настройками аккаунта пользователя.
 
-### 3.3. Поисковая система по выбору пользователя
+### 3.4. Поисковая система по выбору пользователя
 
 Если пользователь нажимает кнопку поиска выделенного текста, LexiSync открывает новую вкладку с запросом в выбранной поисковой системе: Google, Яндекс или DuckDuckGo. Текст запроса и стандартные данные веб-запроса обрабатываются выбранной поисковой системой по её собственной политике. LexiSync не выполняет такой поиск автоматически.
 
-### 3.4. Синхронизация браузера
+### 3.5. Синхронизация браузера
 
 Поставщик браузера может синхронизировать ограниченный набор несекретных настроек LexiSync между устройствами пользователя. Такая обработка регулируется политикой конфиденциальности Google Chrome, Mozilla Firefox или другого используемого браузера.
 
-### 3.5. Другие случаи
+### 3.6. Другие случаи
 
 LexiSync не продаёт пользовательские данные и не передаёт их рекламным сетям, брокерам данных или аналитическим сервисам. Передача также может потребоваться по закону или для защиты безопасности и прав пользователей, разработчика либо третьих лиц.
 
@@ -135,7 +137,7 @@ LexiSync не продаёт пользовательские данные и н
 Пользователь может в настройках LexiSync:
 
 - выбрать основного AI-провайдера и включить/отключить автоматический fallback;
-- выбрать гибридную, полностью локальную или только AI-проверку текста;
+- выбрать гибридную, орфографическую (Яндекс.Спеллер) или только AI-проверку текста;
 - отключить передачу контекста страницы;
 - отключить или повторно включить локальную маскировку персональных данных;
 - отключить автоматическую проверку текста;
@@ -162,6 +164,7 @@ LexiSync использует минимально необходимые раз
 - `identity` — вход в Google Drive по явному действию пользователя без ручного копирования токенов;
 - `https://api.mistral.ai/*` — защищённые запросы к Mistral AI API;
 - `https://api.cloudflare.com/*` — защищённые запросы к Cloudflare Workers AI REST API;
+- `https://speller.yandex.net/*` — проверка орфографии по явной команде пользователя через API Яндекс.Спеллера;
 - `https://www.googleapis.com/*` — запросы к Google Drive API только для явно включённой зашифрованной резервной копии;
 - необязательный доступ к HTTP/HTTPS-сайтам — постоянная работа только на сайтах, которые пользователь разрешил отдельно.
 
@@ -169,7 +172,7 @@ LexiSync использует минимально необходимые раз
 
 ## 7. Безопасность
 
-- Все запросы к Mistral AI и Cloudflare Workers AI выполняются по HTTPS.
+- Все запросы к Яндекс.Спеллеру, Mistral AI и Cloudflare Workers AI выполняются по HTTPS.
 - Исполняемый код поставляется внутри пакета расширения в соответствии с Manifest V3.
 - API-ключи и OAuth-токен Google Drive отделены от обычных настроек; токен Drive не включается в синхронизацию или резервную копию.
 - Резервные копии шифруются локально AES-256-GCM; параметры импортируемого файла проверяются до выполнения ресурсоёмкой операции расшифровки.
@@ -187,7 +190,7 @@ LexiSync не предназначен специально для детей и
 
 LexiSync использует разрешения браузера и пользовательские данные только для предоставления и улучшения заявленной пользовательской функции работы с текстом. Данные не используются для персонализированной рекламы, ретаргетинга, профилирования, продажи, определения платёжеспособности или целей, не связанных с работой расширения.
 
-Разработчик LexiSync не получает пользовательский текст на собственные серверы и не предоставляет людям доступ к нему. Передача Mistral AI, Cloudflare Workers AI, Google Drive и выбранной поисковой системе происходит только для выполнения функции, запрошенной пользователем, и регулируется условиями соответствующего сервиса.
+Разработчик LexiSync не получает пользовательский текст на собственные серверы и не предоставляет людям доступ к нему. Передача Яндекс.Спеллеру, Mistral AI, Cloudflare Workers AI, Google Drive и выбранной поисковой системе происходит только для выполнения функции, запрошенной пользователем, и регулируется условиями соответствующего сервиса.
 
 ## 10. Изменения политики
 
@@ -198,7 +201,7 @@ LexiSync использует разрешения браузера и поль�
 # LexiSync Privacy Policy
 
 **Effective:** August 24, 2026
-**Last updated:** September 15, 2026
+**Last updated:** September 21, 2026
 
 LexiSync is a browser extension for checking, correcting, rewriting, translating, and recognizing text in images. This Policy explains what data LexiSync processes, why it is needed, where it is stored, and when it is transferred to third parties.
 
@@ -206,7 +209,7 @@ LexiSync is a browser extension for checking, correcting, rewriting, translating
 
 When a user starts an AI command, the selected text or selected image area is sent directly from the browser to the chosen **AI provider API (Mistral AI API or Cloudflare Workers AI API)** over HTTPS using the user's own API key. This transfer is necessary for correction, rewriting, translation, emoji suggestions, and OCR.
 
-Local Russian spelling and basic punctuation checks run entirely on the device (Local Proofreader). In Local-only mode, text is never sent to AI and never leaves the browser. In Hybrid mode, text is sent only when the local layer cannot resolve a complex case. The optional "Check with AI" button in the result panel is an explicit opt-in action by the user to send the locally corrected text to the configured AI service (Mistral / Cloudflare) for deep punctuation, style, and grammar analysis. The user's personal dictionary is never included in an AI prompt.
+When the user starts a spelling check, the selected text is sent directly from the browser to the cloud **Yandex.Speller API**. This check is not local and requires a network connection. It runs only after an explicit user command; background typing events do not invoke Yandex.Speller. Password, payment, one-time-code, and other recognized sensitive fields are excluded. After the Speller result, the user may separately choose “Check with AI” to send the corrected text to Mistral AI or Cloudflare Workers AI for grammar, punctuation, and context checks. The personal dictionary is applied inside the extension as an exclusion list and is not sent to Yandex or AI providers.
 
 The transfer of surrounding text, page title, and current domain is **disabled by default**. It occurs only after the user enables the setting and can be disabled for individual websites.
 
@@ -230,7 +233,7 @@ LexiSync may process:
 - text from a supported input field when the user enables automatic proofreading;
 - AI results returned to the extension;
 - user commands, glossary, tone, and style settings needed for an AI request;
-- the personal dictionary, which is used only by the local proofreader and is not sent to AI providers;
+- the personal dictionary, which is stored locally, used as an exclusion list, and not sent to Yandex or AI providers;
 - an image of the user-selected page area when OCR is invoked (Mistral AI);
 - surrounding text, page title, and current domain when optional page context is enabled;
 - the user's Mistral AI and/or Cloudflare Workers AI credentials;
@@ -256,7 +259,9 @@ A limited set of non-secret preferences may be synchronized using `chrome.storag
 
 LexiSync sends the selected AI provider only the data needed for the requested AI operation: selected or automatically checked text, an OCR image (Mistral), and optional page context when enabled. The API key or token is included in the authorization header.
 
-The personal dictionary and packaged Russian dictionary remain on the device. An unambiguous local correction does not create an AI request; Hybrid mode sends text only when advanced checking is needed.
+### Yandex.Speller
+
+After an explicit spelling-check command, LexiSync sends the selected text to `https://speller.yandex.net/`. Yandex receives the text and ordinary HTTPS request metadata. Processing is governed by the [Yandex.Speller API Terms](https://yandex.ru/legal/speller_api/ru) and Yandex policies. The personal dictionary is not sent.
 
 - **Mistral AI:** [Mistral AI Privacy Policy](https://legal.mistral.ai/terms/privacy-policy)
 - **Cloudflare Workers AI:** [Cloudflare Privacy Policy](https://www.cloudflare.com/privacypolicy/) and [Cloudflare Workers AI Terms](https://developers.cloudflare.com/workers-ai/)
@@ -319,6 +324,7 @@ LexiSync uses the minimum permissions required for its user-facing purpose:
 - `identity` for Google Drive sign-in initiated by the user without manually copying tokens;
 - `https://api.mistral.ai/*` for HTTPS requests to Mistral AI API;
 - `https://api.cloudflare.com/*` for HTTPS requests to Cloudflare Workers AI REST API;
+- `https://speller.yandex.net/*` for spelling checks explicitly requested by the user;
 - `https://www.googleapis.com/*` for Google Drive API requests only when the user enables encrypted backup;
 - optional HTTP/HTTPS site access only for websites the user authorizes individually.
 
@@ -326,7 +332,7 @@ LexiSync does not request access to cookies, full browser history, geolocation, 
 
 ## 8. Security
 
-All Mistral AI, Cloudflare Workers AI, and Google Drive API requests use HTTPS. Executable code is packaged with the extension under Manifest V3. API keys and the Drive OAuth token are separated from ordinary settings; the Drive token is excluded from sync and backup. Backup files are encrypted locally with AES-256-GCM, and untrusted cryptographic parameters are validated before decryption. Persistent website access is requested only after a user action and can be revoked. Automatic proofreading is disabled by default and attempts to exclude sensitive fields. Local personal-data masking is enabled by default for text AI commands.
+All Yandex.Speller, Mistral AI, Cloudflare Workers AI, and Google Drive API requests use HTTPS. Executable code is packaged with the extension under Manifest V3. API keys and the Drive OAuth token are separated from ordinary settings; the Drive token is excluded from sync and backup. Backup files are encrypted locally with AES-256-GCM, and untrusted cryptographic parameters are validated before decryption. Persistent website access is requested only after a user action and can be revoked. Automatic proofreading is disabled by default and attempts to exclude sensitive fields. Local personal-data masking is enabled by default for text AI commands.
 
 No storage or transmission method is completely secure. Users are responsible for protecting their API keys and choosing which text or images to send to external services.
 
@@ -338,7 +344,7 @@ LexiSync is not specifically directed to children and does not knowingly collect
 
 LexiSync uses browser permissions and user data solely to provide and improve its disclosed, user-facing text-processing purpose. Data is not used for personalized advertising, retargeting, profiling, sale, creditworthiness decisions, or purposes unrelated to the extension.
 
-The LexiSync developer does not receive user text on developer-owned servers or provide human access to it. Transfers to Mistral AI, Cloudflare Workers AI, Google Drive, and a user-selected search provider occur only to perform a function requested by the user and are governed by the respective service's terms.
+The LexiSync developer does not receive user text on developer-owned servers or provide human access to it. Transfers to Yandex.Speller, Mistral AI, Cloudflare Workers AI, Google Drive, and a user-selected search provider occur only to perform a function requested by the user and are governed by the respective service's terms.
 
 ## 11. Policy changes
 
