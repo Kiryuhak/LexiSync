@@ -758,7 +758,7 @@ chrome.runtime.onConnect.addListener((port) => {
                 } catch (error) {
                     spellerFailure = error instanceof Error ? error : new Error(String(error));
                     logger.error(
-                        'Локальный словарь недоступен, запрос продолжен через AI:',
+                        'Яндекс.Спеллер недоступен, запрос продолжен через AI:',
                         error instanceof Error ? error.message : String(error),
                     );
                 }
