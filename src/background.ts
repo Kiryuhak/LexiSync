@@ -705,6 +705,7 @@ chrome.runtime.onConnect.addListener((port) => {
             safePostMessage({
                 status: 'done',
                 provider: 'yandex-speller',
+                spellerChecked: true,
                 spellerApplied,
                 spellerFindings: spellerResult.findings.map(({ original, suggestions, applied }) => ({
                     original,
@@ -761,12 +762,12 @@ chrome.runtime.onConnect.addListener((port) => {
                         'Яндекс.Спеллер недоступен, запрос продолжен через AI:',
                         error instanceof Error ? error.message : String(error),
                     );
+                    if (proofreadMode === 'speller' || msg.offline === true) throw spellerFailure;
                 }
             }
             if (spellerResult) {
                 spellerApplied = spellerResult.correctedText !== (msg.text || '');
-                const resolvedBySpeller = spellerResult.unresolvedCount === 0;
-                if (proofreadMode === 'speller' || resolvedBySpeller || msg.offline === true) {
+                if (proofreadMode === 'speller' || msg.offline === true) {
                     completeWithSpellerResult(undefined);
                     return;
                 }
@@ -900,7 +901,11 @@ chrome.runtime.onConnect.addListener((port) => {
                     currentCfCreds: { accountId: string; apiToken: string },
                 ) =>
                     executeAiStreamRequest({
-                        request: spellerResult ? { ...msg, text: spellerResult.correctedText } : msg,
+                        request: {
+                            ...msg,
+                            text: spellerResult ? spellerResult.correctedText : msg.text,
+                            requestId: String(requestId),
+                        },
                         settings: aiSettings,
                         primaryProvider: normalizePrimaryAiProvider(settings.primaryAiProvider),
                         autoFallback: normalizeAutoFallbackEnabled(settings.autoFallbackEnabled),
@@ -926,6 +931,7 @@ chrome.runtime.onConnect.addListener((port) => {
                         status: 'done',
                         provider: execResult.providerUsed,
                         fallbackNotification: execResult.fallbackNotification,
+                        spellerChecked: Boolean(spellerResult),
                         spellerApplied,
                         spellerFindings: spellerResult?.findings.map(({ original, suggestions, applied }) => ({
                             original,
@@ -945,10 +951,9 @@ chrome.runtime.onConnect.addListener((port) => {
                 msg.mode === 'spellcheck' &&
                 spellerResult &&
                 completeWithSpellerResult(
-                    t(
-                        'spellerResultPreservedAiFailed',
-                        'Проверка орфографии завершена. Дополнительная AI-проверка временно недоступна.',
-                    ),
+                    `${t('spellerResultPreservedAiFailed', 'Проверка орфографии завершена. Дополнительная AI-проверка временно недоступна.')} ${
+                        error instanceof Error ? error.message : ''
+                    }`.trim(),
                 )
             ) {
                 return;

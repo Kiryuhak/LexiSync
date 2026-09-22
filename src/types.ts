@@ -129,6 +129,7 @@ export interface StreamResponse {
     error?: string;
     retryable?: boolean;
     provider?: 'mistral' | 'cloudflare' | 'yandex-speller';
+    spellerChecked?: boolean;
     spellerApplied?: boolean;
     spellerFindings?: Array<{
         original: string;

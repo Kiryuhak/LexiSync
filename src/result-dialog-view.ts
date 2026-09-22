@@ -2,6 +2,7 @@ export interface ResultDialogElements {
     header: HTMLDivElement;
     headerTitle: HTMLDivElement;
     headerControl: HTMLDivElement;
+    source: HTMLDivElement;
     content: HTMLDivElement;
     compactDetails: HTMLDivElement;
     corrections: HTMLDivElement;
@@ -21,6 +22,10 @@ export function mountResultDialogFrame(container: HTMLElement): ResultDialogElem
     const headerControl = document.createElement('div');
     headerControl.className = 'lexisync-header-control';
     header.append(headerTitle, headerControl);
+
+    const source = document.createElement('div');
+    source.className = 'lexisync-result-source';
+    source.hidden = true;
 
     const content = document.createElement('div');
     content.className = 'lexisync-scroll lexisync-content-pane';
@@ -49,12 +54,13 @@ export function mountResultDialogFrame(container: HTMLElement): ResultDialogElem
     status.setAttribute('aria-atomic', 'true');
     status.hidden = true;
 
-    container.append(header, content, compactDetails, corrections, tools, stats, actions, status);
+    container.append(header, source, content, compactDetails, corrections, tools, stats, actions, status);
 
     return {
         header,
         headerTitle,
         headerControl,
+        source,
         content,
         compactDetails,
         corrections,

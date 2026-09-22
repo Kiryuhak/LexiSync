@@ -935,7 +935,7 @@
         "message": "сек…"
     },
     "spellcheckDone": {
-        "message": "Ошибки исправлены"
+        "message": "Орфографическая проверка завершена"
     },
     "styleChanged": {
         "message": "Стиль изменён"
@@ -2503,7 +2503,7 @@
         "message": "Проверка правописания: Яндекс.Спеллер"
     },
     "noSpellingErrors": {
-        "message": "Текст уже корректен"
+        "message": "Орфографических ошибок не найдено"
     },
     "emptySpellcheckResult": {
         "message": "Сервис вернул пустой результат. Исходный текст не изменён."
@@ -2525,6 +2525,9 @@
     },
     "aiNoExtraCorrections": {
         "message": "AI не нашёл дополнительных исправлений"
+    },
+    "aiCheckDone": {
+        "message": "AI-проверка завершена"
     },
     "spellerResultPreservedAiFailed": {
         "message": "Проверка орфографии завершена. Дополнительная AI-проверка временно недоступна."

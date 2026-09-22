@@ -935,7 +935,7 @@
         "message": "sec…"
     },
     "spellcheckDone": {
-        "message": "Corrections complete"
+        "message": "Spelling check completed"
     },
     "styleChanged": {
         "message": "Style updated"
@@ -2503,7 +2503,7 @@
         "message": "Spell checking: Yandex.Speller"
     },
     "noSpellingErrors": {
-        "message": "The text is already correct"
+        "message": "No spelling errors found"
     },
     "emptySpellcheckResult": {
         "message": "The service returned an empty result. The original text was not changed."
@@ -2525,6 +2525,9 @@
     },
     "aiNoExtraCorrections": {
         "message": "AI found no additional corrections"
+    },
+    "aiCheckDone": {
+        "message": "AI check completed"
     },
     "spellerResultPreservedAiFailed": {
         "message": "Spelling check completed. Additional AI checking is temporarily unavailable."

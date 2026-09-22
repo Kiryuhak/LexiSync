@@ -123,7 +123,7 @@ export function executeRequest(
     let headerLabel = '';
     let headerIcon = '';
     let headerEmoji = '';
-    if (mode === 'spellcheck') headerLabel = t('spellcheckDone', 'Ошибки исправлены');
+    if (mode === 'spellcheck') headerLabel = t('spellcheckDone', 'Орфографическая проверка завершена');
     else if (mode === 'style') {
         headerIcon = ICONS.style;
         headerLabel = t('styleChanged', 'Стиль изменён');
@@ -164,6 +164,7 @@ export function executeRequest(
         header,
         headerTitle: headerTitleWrapper,
         headerControl: loaderOrClose,
+        source: providerSource,
         content: contentPane,
         compactDetails: compactCorrectionDetails,
         corrections: correctionsContainer,
@@ -250,7 +251,7 @@ export function executeRequest(
         (node) => node.nodeType === Node.TEXT_NODE && node.textContent === headerLabel,
     );
     let activeProvider: 'mistral' | 'cloudflare' | 'yandex-speller' | null = mode === 'ocr' ? 'mistral' : null;
-    let spellerApplied = false;
+    let spellerChecked = false;
     let spellerFindings: NonNullable<StreamResponse['spellerFindings']> = [];
     let proofreadMode: 'hybrid' | 'speller' | 'ai' = 'hybrid';
     let spellcheckHasChanges = mode !== 'spellcheck';
@@ -277,14 +278,14 @@ export function executeRequest(
             badge.title = t('yandexSpellerAttribution', 'Проверка правописания: Яндекс.Спеллер');
         } else if (provider === 'cloudflare') {
             text.textContent = '☁️ Cloudflare';
-            badge.title = spellerApplied
+            badge.title = spellerChecked
                 ? 'Яндекс.Спеллер + Cloudflare Workers AI'
                 : isFallback
                   ? 'Cloudflare Workers AI (резервный)'
                   : 'Cloudflare Workers AI';
         } else {
             text.textContent = '✦ Mistral';
-            badge.title = spellerApplied
+            badge.title = spellerChecked
                 ? 'Яндекс.Спеллер + Mistral AI'
                 : isFallback
                   ? 'Mistral (резервный) • Mistral AI'
@@ -703,7 +704,7 @@ export function executeRequest(
                 if (response.provider) {
                     activeProvider = response.provider;
                 }
-                spellerApplied = response.spellerApplied === true;
+                spellerChecked = response.spellerChecked === true || response.provider === 'yandex-speller';
                 spellerFindings = response.spellerFindings ?? [];
                 streamUiUpdater?.cancel();
                 fullResult = cleanMarkdownArtifacts(fullResult);
@@ -723,7 +724,7 @@ export function executeRequest(
                     if (!spellcheckHasChanges && headerLabelNode)
                         headerLabelNode.textContent = hasUnresolvedSpeller
                             ? t('needsReview', 'Требуется проверка')
-                            : t('noSpellingErrors', 'Текст уже корректен');
+                            : t('noSpellingErrors', 'Орфографических ошибок не найдено');
                     spellcheckUi.setResult(currentSelection.text, fullResult, undefined, spellerFindings);
                 } else if (
                     compactResultMode &&
@@ -784,7 +785,9 @@ export function executeRequest(
                               ? `custom:${customCommand?.id || 'unknown'}`
                               : mode;
                     const cacheModeKey = `v${REQUEST_CACHE_VERSION}:${baseCacheMode}:${cacheSettingsFingerprint}`;
-                    if (!spellerFindings.some((finding) => !finding.applied)) {
+                    // Текстовый кэш не хранит источник и findings. Для spellcheck это
+                    // скрывало кнопку дополнительной AI-проверки после результата Спеллера.
+                    if (mode !== 'spellcheck' && !spellerFindings.some((finding) => !finding.applied)) {
                         void getCacheHash(cacheModeKey, getCacheSource())
                             .then((cacheKey) => setCachedText(cacheKey, fullResult))
                             .catch((error) => logger.error('Ошибка сохранения кэша:', error));
@@ -826,9 +829,12 @@ export function executeRequest(
         stopRequestTimer();
         disconnectStreamPort();
         loaderOrClose.replaceChildren();
-        if (activeProvider) {
-            loaderOrClose.appendChild(createProviderBadge(activeProvider, isFallback));
+        providerSource.replaceChildren();
+        if (spellerChecked) providerSource.appendChild(createProviderBadge('yandex-speller'));
+        if (activeProvider && activeProvider !== 'yandex-speller') {
+            providerSource.appendChild(createProviderBadge(activeProvider, isFallback));
         }
+        providerSource.hidden = providerSource.childElementCount === 0;
 
         const pinBtn = document.createElement('button');
         pinBtn.type = 'button';
@@ -1467,7 +1473,6 @@ export function executeRequest(
                         fullResult = cleanedAiResult;
                         aiCheckPerformed = true;
                         activeProvider = response.provider || 'mistral';
-                        spellerApplied = true;
                         spellcheckHasChanges = true;
                         if (mode === 'spellcheck') {
                             spellcheckUi.setResult(currentSelection.text, fullResult);
@@ -1475,7 +1480,7 @@ export function executeRequest(
                             renderMarkdown(contentPane, fullResult);
                         }
                         if (headerLabelNode) {
-                            headerLabelNode.textContent = t('spellerPlusAi', 'Спеллер + AI');
+                            headerLabelNode.textContent = t('aiCheckDone', 'AI-проверка завершена');
                         }
                         finishStream(true, Boolean(response.fallbackNotification));
                         showActionStatus(
@@ -1490,11 +1495,9 @@ export function executeRequest(
                     }
                     finish();
                 } else if (response.status === 'error') {
+                    const aiError = typeof response.error === 'string' ? response.error : '';
                     showActionStatus(
-                        t(
-                            'spellerResultPreservedAiFailed',
-                            'Проверка орфографии завершена. Дополнительная AI-проверка временно недоступна.',
-                        ),
+                        `${t('spellerResultPreservedAiFailed', 'Проверка орфографии завершена. Дополнительная AI-проверка временно недоступна.')} ${aiError}`.trim(),
                         true,
                     );
                     renderPrimaryActions();
@@ -1613,7 +1616,8 @@ export function executeRequest(
         const cacheModeKey = `v${REQUEST_CACHE_VERSION}:${baseCacheMode}:${cacheSettingsFingerprint}`;
         const cacheKey = await getCacheHash(cacheModeKey, getCacheSource());
         if (lifecycle.disposed) return;
-        const cachedResult = storageAllowed && !options.bypassCache ? await getCachedText(cacheKey) : null;
+        const cachedResult =
+            storageAllowed && !options.bypassCache && mode !== 'spellcheck' ? await getCachedText(cacheKey) : null;
         if (lifecycle.disposed) return;
         if (cachedResult) {
             void recordCacheHit();
@@ -1634,7 +1638,7 @@ export function executeRequest(
                 }
                 spellcheckHasChanges = fullResult.trim() !== currentSelection.text.trim();
                 if (!spellcheckHasChanges && headerLabelNode)
-                    headerLabelNode.textContent = t('noSpellingErrors', 'Текст уже корректен');
+                    headerLabelNode.textContent = t('noSpellingErrors', 'Орфографических ошибок не найдено');
                 spellcheckUi.setResult(currentSelection.text, fullResult);
             } else if (compactResultMode && originalText && fullResult && originalText.trim() !== fullResult.trim()) {
                 contentPane.replaceChildren(renderInlineDiffFragment(originalText, fullResult));

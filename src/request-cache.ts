@@ -1,4 +1,4 @@
-export const REQUEST_CACHE_VERSION = 2;
+export const REQUEST_CACHE_VERSION = 3;
 
 export function createSettingsFingerprint(value: unknown): string {
     const text = JSON.stringify(value);
