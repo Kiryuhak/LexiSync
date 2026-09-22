@@ -432,7 +432,7 @@ test('Telegram-подобная модалка с transform не смещает 
 
     const result = page.locator('#lexisync-extension-ui[data-surface="result"]');
     await expect(result.locator('.lexisync-spellcheck-state--success')).toHaveText(
-        /(?:Текст уже корректен|The text is already correct)/,
+        /(?:Орфографических ошибок не найдено|No spelling errors found)/,
     );
     const resultBox = await result.boundingBox();
     expect(resultBox).not.toBeNull();
@@ -583,7 +583,7 @@ test('неизменённый результат показывает явно�
     await page.keyboard.press('Alt+r');
     const panel = page.locator('#lexisync-extension-ui[data-surface="result"]');
     await expect(panel.locator('.lexisync-spellcheck-state--success')).toHaveText(
-        /(?:Текст уже корректен|The text is already correct)/,
+        /(?:Орфографических ошибок не найдено|No spelling errors found)/,
     );
     await expect(panel.locator('.lexisync-result-button')).toHaveCount(0);
 });
@@ -3370,6 +3370,10 @@ test('Test 71: «Проверить через AI» выполняет ровн�
     await background.evaluate(() => chrome.storage.local.set({ proofreadMode: 'speller' }));
 
     let aiCalls = 0;
+    let spellerCalls = 0;
+    context.on('request', (request) => {
+        if (request.url().startsWith('https://speller.yandex.net/')) spellerCalls += 1;
+    });
     await context.route('https://api.mistral.ai/v1/chat/completions', (route) => {
         aiCalls += 1;
         return route.fulfill({
@@ -3401,9 +3405,21 @@ test('Test 71: «Проверить через AI» выполняет ровн�
     await expect(panel).toBeVisible();
     await expect(panel).toContainText('Корова едет');
     await expect(panel.locator('.lexisync-provider-yandex-speller')).toBeVisible();
+    expect(spellerCalls).toBe(1);
 
     // 1. Убеждаемся, что до нажатия кнопки сетевых обращений к AI не было вообще
     expect(aiCalls).toBe(0);
+
+    // Повторная проверка не должна терять источник из-за текстового кэша.
+    await panel.locator('.lexisync-close-button').click();
+    await page.locator('#test71-input').focus();
+    await page
+        .locator('#test71-input')
+        .evaluate((element: HTMLTextAreaElement) => element.setSelectionRange(0, element.value.length));
+    await page.keyboard.press('Alt+r');
+    await expect(panel).toBeVisible();
+    await expect.poll(() => spellerCalls).toBe(2);
+    await expect(panel.locator('.lexisync-provider-yandex-speller')).toBeVisible();
 
     // 2. Кнопка «Проверить через AI» видна и доступна
     const checkAiBtn = panel.locator('.lexisync-btn-check-ai, .lexisync-action-check-ai').first();
@@ -3476,6 +3492,129 @@ test('Test 72: «Проверить через AI» при сбое AI сохр�
     await replaceBtn.click();
 
     await expect(page.locator('#test72-input')).toHaveValue('Корова едет');
+});
+
+test('гибридный режим запускает AI даже когда Спеллер не нашёл орфографических ошибок', async ({ context }) => {
+    await setFakeApiKey(context);
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    await background.evaluate(() =>
+        chrome.storage.local.set({ proofreadMode: 'hybrid', primaryAiProvider: 'mistral', autoFallbackEnabled: false }),
+    );
+
+    let mistralCalls = 0;
+    await context.route('https://api.mistral.ai/v1/chat/completions', (route) => {
+        mistralCalls += 1;
+        return route.fulfill({
+            status: 200,
+            contentType: 'text/event-stream',
+            body: 'data: {"choices":[{"delta":{"content":"Мы вчера ходили в магазин."}}]}\n\ndata: [DONE]\n\n',
+        });
+    });
+
+    const extensionId = new URL(background.url()).host;
+    const extensionPage = await context.newPage();
+    await extensionPage.goto(`chrome-extension://${extensionId}/options.html`);
+    const messages = await extensionPage.evaluate(
+        () =>
+            new Promise<Array<Record<string, unknown>>>((resolve) => {
+                const received: Array<Record<string, unknown>> = [];
+                const port = chrome.runtime.connect({ name: 'mistralStream' });
+                port.onMessage.addListener((message: Record<string, unknown>) => {
+                    received.push(message);
+                    if (message.status === 'done' || message.status === 'error') resolve(received);
+                });
+                port.postMessage({ action: 'callMistral', mode: 'spellcheck', text: 'Мы вчера ходил в магазин.' });
+            }),
+    );
+
+    expect(mistralCalls).toBe(1);
+    expect(messages.find((message) => message.status === 'chunk')).toMatchObject({
+        text: 'Мы вчера ходили в магазин.',
+    });
+    expect(messages.at(-1)).toMatchObject({ status: 'done', provider: 'mistral', spellerChecked: true });
+    await extensionPage.close();
+});
+
+test('кнопка AI соблюдает выбранный Cloudflare, а атрибуция помещается в компактной панели', async ({
+    page,
+    context,
+}) => {
+    await setFakeApiKey(context);
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    const extensionId = new URL(background.url()).host;
+    const extensionPage = await context.newPage();
+    await extensionPage.goto(`chrome-extension://${extensionId}/options.html`);
+    await extensionPage.evaluate(() =>
+        chrome.runtime.sendMessage({
+            action: 'setCloudflareCredentials',
+            accountId: 'test-cf-account-12345',
+            apiToken: 'test-cf-token-67890',
+        }),
+    );
+    await extensionPage.close();
+    await background.evaluate(() =>
+        chrome.storage.local.set({
+            proofreadMode: 'speller',
+            primaryAiProvider: 'cloudflare',
+            autoFallbackEnabled: false,
+            resultDisplayMode: 'compact',
+            selectedTheme: 'light',
+        }),
+    );
+
+    let mistralCalls = 0;
+    let cloudflareCalls = 0;
+    await context.route('https://api.mistral.ai/v1/chat/completions', (route) => {
+        mistralCalls += 1;
+        return route.abort();
+    });
+    await context.route('https://api.cloudflare.com/**', (route) => {
+        cloudflareCalls += 1;
+        return route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+                success: true,
+                result: { choices: [{ message: { content: 'Корова едет 5–10 секунд.' } }] },
+            }),
+        });
+    });
+
+    await page.setViewportSize({ width: 320, height: 640 });
+    await page.goto('https://example.com');
+    await grantSiteAccess(context, page);
+    await page.evaluate(() => {
+        const textarea = document.createElement('textarea');
+        textarea.id = 'cloudflare-force-ai';
+        textarea.value = 'Карова едет 5-10 сек.';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.setSelectionRange(0, textarea.value.length);
+    });
+    await page.keyboard.press('Alt+r');
+
+    const panel = page.locator('#lexisync-extension-ui[data-surface="result"]');
+    const attribution = panel.locator('.lexisync-result-source .lexisync-provider-yandex-speller');
+    await expect(attribution).toBeVisible();
+    await expect(attribution).toHaveAttribute('href', 'http://api.yandex.ru/speller/');
+    const fits = await attribution.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        const panelRect = element.closest('#lexisync-extension-ui')!.getBoundingClientRect();
+        return rect.left >= panelRect.left && rect.right <= panelRect.right && element.scrollWidth <= panelRect.width;
+    });
+    expect(fits).toBe(true);
+    await page.screenshot({ path: path.resolve('test-results/yandex-attribution-light.png') });
+
+    await panel.locator('.lexisync-btn-check-ai, .lexisync-action-check-ai').first().click();
+    await expect.poll(() => cloudflareCalls).toBe(1);
+    expect(mistralCalls).toBe(0);
+    await expect(panel).toContainText('Корова едет 5–10 секунд.');
+
+    await background.evaluate(() => chrome.storage.local.set({ selectedTheme: 'dark' }));
+    await expect(panel).toHaveAttribute('data-theme', 'dark');
+    await page.screenshot({ path: path.resolve('test-results/yandex-attribution-dark.png') });
 });
 
 test('Test 73: MV3 cooldown persistence: Mistral 429 сохраняется в storage.session и предотвращает повторный вызов', async ({
