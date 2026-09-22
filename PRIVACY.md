@@ -1,7 +1,7 @@
 # Политика конфиденциальности LexiSync
 
 **Дата вступления в силу:** 24 августа 2026 г.
-**Последнее обновление:** 21 сентября 2026 г.
+**Последнее обновление:** 22 сентября 2026 г.
 
 [English version](#lexisync-privacy-policy)
 
@@ -11,13 +11,13 @@ LexiSync — браузерное расширение для проверки, 
 
 При запуске AI-команды выбранный пользователем текст или выбранная область изображения передаются напрямую из браузера к выбранному **AI-провайдеру (Mistral AI API или Cloudflare Workers AI API)** по защищённому HTTPS-соединению с использованием собственного API-ключа пользователя. Это необходимо для исправления, переписывания, перевода, добавления эмодзи и OCR.
 
-При запуске проверки орфографии выбранный текст передаётся напрямую из браузера в облачный **API Яндекс.Спеллера**. Эта проверка не является локальной и требует сети. Отправка выполняется только после осознанной команды пользователя; фоновые события ввода не запускают Яндекс.Спеллер. Поля паролей, платёжных данных, кодов подтверждения и другие распознаваемые чувствительные поля не проверяются. После результата Спеллера пользователь может отдельно нажать «Проверить через AI», чтобы отправить исправленный текст в Mistral AI или Cloudflare Workers AI для проверки грамматики, пунктуации и контекста. Личный словарь применяется в расширении как список исключений и не передаётся Яндексу или AI-провайдерам.
+При запуске проверки орфографии выбранный текст передаётся напрямую из браузера в облачный **API Яндекс.Спеллера**. Эта проверка не является локальной и требует сети. Отправка выполняется только после осознанной команды пользователя; фоновые события ввода не запускают Яндекс.Спеллер. Поля паролей, платёжных данных, кодов подтверждения и другие распознаваемые чувствительные поля не проверяются. В выбранном пользователем гибридном режиме исправленный Спеллером текст затем последовательно отправляется основному AI-провайдеру, а при разрешённом резервном переключении — второму провайдеру только после сбоя первого. В режиме «Только Спеллер» AI вызывается лишь по отдельному нажатию «Проверить через AI». Личный словарь применяется в расширении как список исключений и не передаётся Яндексу или AI-провайдерам.
 
 Передача окружающего текста, заголовка и домена страницы **отключена по умолчанию**. Она выполняется только после включения пользователем соответствующей настройки и может быть отдельно запрещена для выбранных сайтов.
 
 Локальная маскировка персональных данных **включена по умолчанию** для текстовых AI-команд. До отправки запроса LexiSync на устройстве заменяет распознанные email-адреса, телефоны, номера банковских карт, IP-адреса и распространённые форматы секретных ключей служебными маркерами. После получения полного ответа исходные значения восстанавливаются локально. Пользователь может отключить эту защиту в настройках. Автоматическое распознавание снижает риск случайной передачи, но не гарантирует обнаружение любых возможных чувствительных данных.
 
-Функция автоматической проверки текста при вводе также **отключена по умолчанию**. После её включения текст поддерживаемого поля может автоматически отправляться в AI-сервис после выбранной задержки. Поля паролей, платёжных данных, кодов подтверждения и другие распознаваемые чувствительные поля исключаются на основе типа поля, атрибута `autocomplete` и его названия. Такая автоматическая фильтрация снижает риск, но не заменяет осторожность пользователя.
+Функция проверки при вводе также **отключена по умолчанию**. После её включения LexiSync только включает встроенный атрибут `spellcheck` браузера для поддерживаемых полей. События ввода не запускают запросы LexiSync к Яндекс.Спеллеру, Mistral или Cloudflare. Работа встроенной проверки регулируется настройками и политикой самого браузера.
 
 ## 1. Кто отвечает за LexiSync
 
@@ -34,7 +34,6 @@ LexiSync может обрабатывать следующие категори
 ### 2.1. Выбранный или введённый текст
 
 - текст, который пользователь явно выделил и передал команде LexiSync;
-- текст поддерживаемого поля ввода, если пользователь самостоятельно включил автоматическую проверку;
 - результат и запрошенный пользователем разбор исправлений, возвращённые выбранным AI-провайдером;
 - пользовательские инструкции, глоссарий и параметры стиля, необходимые для выбранной AI-команды;
 - личный словарь, который хранится локально, используется как список исключений и не передаётся Яндексу или AI-провайдерам.
@@ -74,7 +73,7 @@ LexiSync может обрабатывать следующие категори
 На устройстве могут храниться:
 
 - тема, масштаб и оформление интерфейса;
-- выбранный основной AI-провайдер (Mistral, Cloudflare или Автоматически), режим проверки текста, режим AI, тон, язык, поисковая система и задержка автоматической проверки;
+- выбранный основной AI-провайдер (Mistral, Cloudflare или Автоматически), режим проверки текста, режим AI, тон, язык и поисковая система;
 - пользовательские команды, текстовые макросы, глоссарий, личный словарь и профили стиля;
 - списки разрешённых или исключённых сайтов;
 - локальная история исходного и обработанного текста;
@@ -177,7 +176,7 @@ LexiSync использует минимально необходимые раз
 - API-ключи и OAuth-токен Google Drive отделены от обычных настроек; токен Drive не включается в синхронизацию или резервную копию.
 - Резервные копии шифруются локально AES-256-GCM; параметры импортируемого файла проверяются до выполнения ресурсоёмкой операции расшифровки.
 - Постоянный доступ к сайтам запрашивается только по инициативе пользователя и может быть отозван.
-- Автоматическая проверка отключена по умолчанию и старается исключать чувствительные поля.
+- Проверка при вводе отключена по умолчанию и не отправляет текст через сетевые API LexiSync.
 - Локальная маскировка персональных данных включена по умолчанию для текстовых AI-команд.
 
 Ни один способ хранения или передачи данных не обеспечивает абсолютную безопасность. Пользователь отвечает за сохранность своего API-ключа и за выбор текста или изображения, отправляемого внешним сервисам.
@@ -201,7 +200,7 @@ LexiSync использует разрешения браузера и поль�
 # LexiSync Privacy Policy
 
 **Effective:** August 24, 2026
-**Last updated:** September 21, 2026
+**Last updated:** September 22, 2026
 
 LexiSync is a browser extension for checking, correcting, rewriting, translating, and recognizing text in images. This Policy explains what data LexiSync processes, why it is needed, where it is stored, and when it is transferred to third parties.
 
@@ -209,13 +208,13 @@ LexiSync is a browser extension for checking, correcting, rewriting, translating
 
 When a user starts an AI command, the selected text or selected image area is sent directly from the browser to the chosen **AI provider API (Mistral AI API or Cloudflare Workers AI API)** over HTTPS using the user's own API key. This transfer is necessary for correction, rewriting, translation, emoji suggestions, and OCR.
 
-When the user starts a spelling check, the selected text is sent directly from the browser to the cloud **Yandex.Speller API**. This check is not local and requires a network connection. It runs only after an explicit user command; background typing events do not invoke Yandex.Speller. Password, payment, one-time-code, and other recognized sensitive fields are excluded. After the Speller result, the user may separately choose “Check with AI” to send the corrected text to Mistral AI or Cloudflare Workers AI for grammar, punctuation, and context checks. The personal dictionary is applied inside the extension as an exclusion list and is not sent to Yandex or AI providers.
+When the user starts a spelling check, the selected text is sent directly from the browser to the cloud **Yandex.Speller API**. This check is not local and requires a network connection. It runs only after an explicit user command; background typing events do not invoke Yandex.Speller. Password, payment, one-time-code, and other recognized sensitive fields are excluded. In the user-selected hybrid mode, the Speller-corrected text is then sent sequentially to the primary AI provider and, only after a qualifying failure, to the configured fallback. In “Speller only” mode, AI is invoked only by a separate “Check with AI” action. The personal dictionary is applied inside the extension as an exclusion list and is not sent to Yandex or AI providers.
 
 The transfer of surrounding text, page title, and current domain is **disabled by default**. It occurs only after the user enables the setting and can be disabled for individual websites.
 
 Local personal-data masking is **enabled by default** for text AI commands. Before a request is sent, LexiSync replaces recognized email addresses, phone numbers, payment-card numbers, IP addresses, and common secret-key formats with placeholders on the user's device. Original values are restored locally after the complete response is received. Users can disable this protection in Settings. Automatic recognition reduces the risk of accidental transfer but cannot guarantee detection of every possible type of sensitive data.
 
-Automatic proofreading while typing is also **disabled by default**. If enabled, text from a supported input field may be sent to the AI service automatically after the selected delay. Password, payment, verification-code, and other recognized sensitive fields are excluded using the input type, `autocomplete` value, and field identity. This filtering reduces risk but cannot replace user caution.
+Proofreading while typing is also **disabled by default**. If enabled, LexiSync only enables the browser's native `spellcheck` attribute for supported fields. Typing events do not trigger LexiSync requests to Yandex.Speller, Mistral, or Cloudflare. Native spell-check behavior is controlled by the browser's own settings and privacy policy.
 
 ## 1. Controller and contact
 
@@ -230,7 +229,6 @@ Privacy questions can be submitted through [GitHub Issues](https://github.com/Ki
 LexiSync may process:
 
 - text explicitly selected by the user;
-- text from a supported input field when the user enables automatic proofreading;
 - AI results returned to the extension;
 - user commands, glossary, tone, and style settings needed for an AI request;
 - the personal dictionary, which is stored locally, used as an exclusion list, and not sent to Yandex or AI providers;
@@ -332,7 +330,7 @@ LexiSync does not request access to cookies, full browser history, geolocation, 
 
 ## 8. Security
 
-All Yandex.Speller, Mistral AI, Cloudflare Workers AI, and Google Drive API requests use HTTPS. Executable code is packaged with the extension under Manifest V3. API keys and the Drive OAuth token are separated from ordinary settings; the Drive token is excluded from sync and backup. Backup files are encrypted locally with AES-256-GCM, and untrusted cryptographic parameters are validated before decryption. Persistent website access is requested only after a user action and can be revoked. Automatic proofreading is disabled by default and attempts to exclude sensitive fields. Local personal-data masking is enabled by default for text AI commands.
+All Yandex.Speller, Mistral AI, Cloudflare Workers AI, and Google Drive API requests use HTTPS. Executable code is packaged with the extension under Manifest V3. API keys and the Drive OAuth token are separated from ordinary settings; the Drive token is excluded from sync and backup. Backup files are encrypted locally with AES-256-GCM, and untrusted cryptographic parameters are validated before decryption. Persistent website access is requested only after a user action and can be revoked. Proofreading while typing is disabled by default and does not invoke LexiSync network APIs. Local personal-data masking is enabled by default for text AI commands.
 
 No storage or transmission method is completely secure. Users are responsible for protecting their API keys and choosing which text or images to send to external services.
 
