@@ -36,6 +36,31 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.6.9',
+        '2026-09-22',
+        'fixed',
+        'Надёжная гибридная проверка и защита чисел',
+        'Reliable hybrid proofreading and number protection',
+        [
+            [
+                'Исправлена ложная блокировка корректных ответов AI при типографической замене дефиса в числовых диапазонах; реальные изменения чисел по-прежнему отклоняются.',
+                'Fixed false rejection of valid AI responses when a hyphen in numeric ranges is replaced typographically; actual number changes remain blocked.',
+            ],
+            [
+                'Гибридный режим всегда выполняет последовательную проверку через Яндекс.Спеллер и выбранный AI, даже если Спеллер не нашёл ошибок.',
+                'Hybrid mode now always runs Yandex.Speller followed by the selected AI, even when Speller finds no errors.',
+            ],
+            [
+                'Результат Спеллера и кнопка «Проверить через AI» сохраняются при сбое AI и после повторной проверки.',
+                'Speller results and the “Check with AI” action are preserved after AI failures and repeated checks.',
+            ],
+            [
+                'Атрибуция Яндекс.Спеллера остаётся полностью видимой в компактной панели шириной 320 пикселей в светлой и тёмной темах.',
+                'Yandex.Speller attribution remains fully visible in the compact 320-pixel panel in both light and dark themes.',
+            ],
+        ],
+    ),
+    note(
         '5.6.8',
         '2026-09-21',
         'improved',
