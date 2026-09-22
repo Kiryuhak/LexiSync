@@ -46,6 +46,14 @@ export interface AiErrorContext {
         | 'rate_limit_account'
         | 'rate_limit_unknown';
     requestId?: string;
+    numericDiagnostics?: {
+        inputNumberCount: number;
+        outputNumberCount: number;
+        mismatchCount: number;
+        numericMismatchType: string;
+        normalizationApplied: string[];
+        validationInputStage: string;
+    };
 }
 
 export class AiProviderError extends Error {

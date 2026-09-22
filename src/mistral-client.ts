@@ -25,6 +25,8 @@ export interface MistralRequest {
     rawMessages?: Array<{ role: 'system' | 'user'; content: string }>;
     enableThinking?: boolean;
     forceAi?: boolean;
+    /** Внутренний идентификатор запроса; не включается в промпт. */
+    requestId?: string;
 }
 
 export interface MistralSettings {
@@ -420,6 +422,9 @@ export async function streamText(
                 'QUALITY_CHECK_FAILED',
                 'mistral',
                 true,
+                undefined,
+                undefined,
+                { numericDiagnostics: sanity.numericDiagnostics },
             );
         }
         fullCollectedText = sanity.cleanedText;

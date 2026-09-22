@@ -14,6 +14,16 @@ export interface AiSanityResult {
     valid: boolean;
     reason?: string;
     cleanedText: string;
+    numericDiagnostics?: NumericValidationDiagnostics;
+}
+
+export interface NumericValidationDiagnostics {
+    inputNumberCount: number;
+    outputNumberCount: number;
+    mismatchCount: number;
+    numericMismatchType: 'none' | 'count_changed' | 'value_changed' | 'order_changed';
+    normalizationApplied: string[];
+    validationInputStage: 'ai_input';
 }
 
 const CONVERSATIONAL_PREFIX_REGEXES = [
@@ -84,6 +94,97 @@ function extractMatches(value: string, pattern: RegExp): string[] {
 
 function sameMatches(original: string, corrected: string, pattern: RegExp): boolean {
     return JSON.stringify(extractMatches(original, pattern)) === JSON.stringify(extractMatches(corrected, pattern));
+}
+
+type NumericTokenKind = 'integer' | 'decimal' | 'range' | 'date' | 'version' | 'ip' | 'structured';
+
+interface NumericToken {
+    kind: NumericTokenKind;
+    canonical: string;
+    normalizations: string[];
+}
+
+const NUMERIC_EXPRESSION_REGEX =
+    /(?<![\p{L}\p{N}_])[-+]?\d+(?:[ \u00A0\u202F\u2009]\d{3})*(?:[.,:/\-–—]\d+(?:[ \u00A0\u202F\u2009]\d{3})*)*(?![\p{L}\p{N}_])/gu;
+
+function classifyNumericToken(raw: string, prefix: string): NumericToken {
+    const normalizations: string[] = [];
+    let compact = raw;
+    if (/[ \u00A0\u202F\u2009]/u.test(compact)) {
+        compact = compact.replace(/[ \u00A0\u202F\u2009]/gu, '');
+        normalizations.push('grouping_spaces');
+    }
+
+    if (/^(?:\d{1,3}\.){3}\d{1,3}$/u.test(compact)) {
+        return { kind: 'ip', canonical: `ip:${compact}`, normalizations };
+    }
+    if (/(?:верси(?:я|и|ю)|version|\bv)\s*$/iu.test(prefix) && /^\d+(?:\.\d+){1,3}$/u.test(compact)) {
+        return { kind: 'version', canonical: `version:${compact}`, normalizations };
+    }
+    if (/^(?:\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[./]\d{1,2}[./]\d{2,4})$/u.test(compact)) {
+        return { kind: 'date', canonical: `date:${compact}`, normalizations };
+    }
+    const range = compact.match(/^([-+]?\d+)[-–—](\d+)$/u);
+    if (range) {
+        if (!compact.includes('-')) normalizations.push('range_dash');
+        return { kind: 'range', canonical: `range:${range[1]}:${range[2]}`, normalizations };
+    }
+    const decimal = compact.match(/^([-+]?\d+)([.,])(\d+)$/u);
+    if (decimal) {
+        if (decimal[2] === ',') normalizations.push('decimal_separator');
+        return { kind: 'decimal', canonical: `decimal:${decimal[1]}.${decimal[3]}`, normalizations };
+    }
+    if (/^[-+]?\d+$/u.test(compact)) {
+        return { kind: 'integer', canonical: `integer:${compact}`, normalizations };
+    }
+    return { kind: 'structured', canonical: `structured:${compact}`, normalizations };
+}
+
+function extractNumericTokens(value: string): NumericToken[] {
+    const tokens: NumericToken[] = [];
+    for (const match of value.matchAll(NUMERIC_EXPRESSION_REGEX)) {
+        const offset = match.index ?? 0;
+        tokens.push(classifyNumericToken(match[0], value.slice(Math.max(0, offset - 16), offset)));
+    }
+    return tokens;
+}
+
+/** Сравнивает числовой смысл без включения самих пользовательских чисел в диагностику. */
+export function validateNumericIntegrity(input: string, output: string): NumericValidationDiagnostics {
+    const inputTokens = extractNumericTokens(input);
+    const outputTokens = extractNumericTokens(output);
+    const normalizationApplied = [
+        ...new Set([...inputTokens, ...outputTokens].flatMap((token) => token.normalizations)),
+    ].sort();
+    const inputCanonical = inputTokens.map((token) => token.canonical);
+    const outputCanonical = outputTokens.map((token) => token.canonical);
+    let numericMismatchType: NumericValidationDiagnostics['numericMismatchType'] = 'none';
+    let mismatchCount: number;
+
+    if (inputCanonical.length !== outputCanonical.length) {
+        numericMismatchType = 'count_changed';
+        mismatchCount = Math.abs(inputCanonical.length - outputCanonical.length);
+    } else {
+        mismatchCount = inputCanonical.reduce(
+            (count, token, index) => count + (token === outputCanonical[index] ? 0 : 1),
+            0,
+        );
+        if (mismatchCount > 0) {
+            const sortedInput = [...inputCanonical].sort();
+            const sortedOutput = [...outputCanonical].sort();
+            numericMismatchType =
+                JSON.stringify(sortedInput) === JSON.stringify(sortedOutput) ? 'order_changed' : 'value_changed';
+        }
+    }
+
+    return {
+        inputNumberCount: inputTokens.length,
+        outputNumberCount: outputTokens.length,
+        mismatchCount,
+        numericMismatchType,
+        normalizationApplied,
+        validationInputStage: 'ai_input',
+    };
 }
 
 function wordEditDistance(left: string, right: string): number {
@@ -226,22 +327,16 @@ export function validateAiOutput(options: AiSanityCheckOptions): AiSanityResult 
             };
         }
 
-        // 7. Любые числа, даты, версии и временные значения должны совпадать как мультимножество.
-        // Безопасная нормализация: обычные пробелы, NBSP (\u00A0) и узкие NBSP (\u202F) в разрядах тысяч (12 500 <-> 12500),
-        // а также десятичная запятая и точка (1,5 <-> 1.5), без разрешения менять сами цифры (12500 -> 15000 запрещено).
-        const normalizeNumbers = (str: string): string => {
-            let res = str.replace(/(?<=\b\d{1,3})[ \u00A0\u202F\u2009](?=\d{3}\b)/gu, '');
-            res = res.replace(/(?<=\b\d{1,6})[ \u00A0\u202F\u2009](?=\d{3}\b)/gu, '');
-            return res.replace(/(?<!\d,)(?<=\b\d+),(?=\d+\b)(?!,\d)/gu, '.');
-        };
-        const numberRegex = /(?<![\p{L}\p{N}_])[-+]?\d+(?:[.,:/-]\d+)*(?![\p{L}\p{N}_])/gu;
-        const normOrigForNumbers = normalizeNumbers(origTrim);
-        const normCleanForNumbers = normalizeNumbers(cleanTrim);
-        if (!sameMatches(normOrigForNumbers, normCleanForNumbers, numberRegex)) {
+        // 7. Числовые значения сравниваются с фактическим входом AI в исходном порядке.
+        // Допустимы только явно эквивалентные типографические формы диапазонов,
+        // разрядных пробелов и десятичного разделителя; даты, версии и IP классифицируются отдельно.
+        const numericDiagnostics = validateNumericIntegrity(origTrim, cleanTrim);
+        if (numericDiagnostics.numericMismatchType !== 'none') {
             return {
                 valid: false,
                 reason: 'AI_OUTPUT_CHANGED_NUMBERS',
                 cleanedText: cleaned,
+                numericDiagnostics,
             };
         }
 
@@ -284,7 +379,7 @@ export function validateAiOutput(options: AiSanityCheckOptions): AiSanityResult 
                 cleanedText: cleaned,
             };
         }
-        if (getWordOverlapRatio(origTrim, cleanTrim) < 0.6) {
+        if (getWordOverlapRatio(origTrim, cleanTrim) < 0.45) {
             return {
                 valid: false,
                 reason: 'AI_OUTPUT_EXCESSIVE_REWRITE',

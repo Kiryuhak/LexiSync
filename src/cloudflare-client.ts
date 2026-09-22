@@ -385,6 +385,9 @@ export async function streamCloudflareText(
                 'QUALITY_CHECK_FAILED',
                 'cloudflare',
                 true,
+                undefined,
+                undefined,
+                { numericDiagnostics: sanity.numericDiagnostics },
             );
         }
         onChunk(sanity.cleanedText);
@@ -472,6 +475,9 @@ export async function streamCloudflareText(
                 'QUALITY_CHECK_FAILED',
                 'cloudflare',
                 true,
+                undefined,
+                undefined,
+                { numericDiagnostics: sanity.numericDiagnostics },
             );
         }
         fullCollectedText = sanity.cleanedText;

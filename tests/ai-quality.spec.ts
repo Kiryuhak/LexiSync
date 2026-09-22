@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest';
-import { cleanAiOutputText, validateAiOutput } from '../src/ai-sanity-check';
+import { cleanAiOutputText, validateAiOutput, validateNumericIntegrity } from '../src/ai-sanity-check';
 import { streamCloudflareText } from '../src/cloudflare-client';
 import type { MistralSettings } from '../src/mistral-client';
 import { executeAiStreamRequest, resetAiProviderHealth } from '../src/ai-client';
@@ -399,6 +399,88 @@ describe('Sanity Check: validateAiOutput', () => {
         expect(resYear.reason).toBe('AI_OUTPUT_CHANGED_NUMBERS');
     });
 
+    test.each([
+        ['диапазон с en dash', 'Ожидание 5-10 сек.', 'Ожидание 5–10 секунд.', true],
+        ['диапазон с em dash', 'Ожидание 5-10 сек.', 'Ожидание 5—10 секунд.', true],
+        ['изменённая граница диапазона', 'Ожидание 5-10 сек.', 'Ожидание 5-100 секунд.', false],
+        ['единица минут', 'Осталась 1 мин.', 'Осталась 1 минута.', true],
+        ['единица секунд', 'Осталось 5 сек.', 'Осталось 5 секунд.', true],
+        ['группировка тысяч', 'Всего 10000 записей.', 'Всего 10 000 записей.', true],
+        ['NBSP в тысячах', 'Всего 12\u00a0500 записей.', 'Всего 12500 записей.', true],
+        ['десятичный разделитель', 'Значение 1.5 кг.', 'Значение 1,5 кг.', true],
+        ['изменённый год', 'Отчёт за 2025 год.', 'Отчёт за 2026 год.', false],
+        ['переставленные цифры', 'Всего 12 задач.', 'Всего 21 задача.', false],
+        ['IP без изменения', 'Адрес 192.168.1.1 доступен.', 'Адрес 192.168.1.1 доступен.', true],
+        ['версия без изменения', 'Версия 5.6.8 стабильна.', 'Версия 5.6.8 стабильна.', true],
+        ['URL с цифрами', 'Откройте https://example.test/v2/10.', 'Откройте https://example.test/v2/10.', true],
+        ['email с цифрами', 'Пишите user12@example.test.', 'Пишите user12@example.test.', true],
+        ['телефон', 'Телефон +7 912 345 67 89.', 'Телефон +7 912 345 67 89.', true],
+        ['повторяющиеся числа', '5 задач и ещё 5 задач.', '5 задач и ещё 5 задач.', true],
+        ['число в начале', '10 задач готовы.', '10 задач уже готовы.', true],
+        ['число после emoji', '⏱️ 5 сек.', '⏱️ 5 секунд.', true],
+        ['диапазон с NBSP', 'Пауза 5-10\u00a0сек.', 'Пауза 5–10\u00a0секунд.', true],
+    ])('%s', (_name, input, output, expectedValid) => {
+        const diagnostics = validateNumericIntegrity(input, output);
+        expect(diagnostics.numericMismatchType === 'none').toBe(expectedValid);
+        expect(JSON.stringify(diagnostics)).not.toContain('192.168.1.1');
+        expect(JSON.stringify(diagnostics)).not.toContain('12500');
+    });
+
+    test('пустой ответ AI бракуется до числовой проверки', () => {
+        const result = validateAiOutput({ originalText: 'Осталась 1 мин.', correctedText: '', mode: 'spellcheck' });
+        expect(result).toMatchObject({ valid: false, reason: 'AI_OUTPUT_EMPTY' });
+    });
+
+    test('реальный пользовательский пример допускает типографический диапазон без изменения значений', () => {
+        const original = [
+            'Не знаю как правильно сказал. Когда мы нажимаешь',
+            'перевести появляется таймер сколько осталось до конца',
+            'перевода например 1 мин. Он показывается примерно 5-10 сек',
+            'и пропадает индикатор. Потом приходиться нажимать снова',
+            'на перевод чтобы увидеть перевелся или нет. И потом',
+            'показывает таймер снова уже с остатком. Надо как-то сделать',
+            'чтобы с начало до конца показывался таймер перевода.',
+            'Если появиться ошибка перевода он автоматически',
+            'перезапуститься.',
+        ].join('\n');
+        const corrected = [
+            'Не знаю, как правильно сказать. Когда мы нажимаем',
+            '«Перевести», появляется таймер, показывающий, сколько осталось до конца',
+            'перевода, например 1 минута. Он отображается примерно 5–10 секунд',
+            'и затем исчезает. Потом приходится нажимать снова',
+            'на перевод, чтобы увидеть, завершился он или нет. После этого',
+            'таймер снова показывает оставшееся время. Нужно сделать,',
+            'чтобы таймер отображался от начала до конца перевода.',
+            'Если появится ошибка перевода, он автоматически',
+            'перезапустится.',
+        ].join('\n');
+        const result = validateAiOutput({ originalText: original, correctedText: corrected, mode: 'spellcheck' });
+        expect(result.valid).toBe(true);
+    });
+
+    test('второй пользовательский пример допускает полноценную грамматическую AI-правку', () => {
+        const original =
+            'Он не дает перевести через другие AI хотя в настройках стоит и так же криво подправляет текст';
+        const corrected =
+            'Он не даёт переводить текст с помощью других AI, хотя в настройках эта функция включена. Кроме того, он некорректно исправляет текст.';
+        expect(validateAiOutput({ originalText: original, correctedText: corrected, mode: 'spellcheck' }).valid).toBe(
+            true,
+        );
+    });
+
+    test('реальный пользовательский пример блокирует искажение диапазона', () => {
+        const original = 'Таймер показывает 1 мин и исчезает через 5-10 сек.';
+        const corrected = 'Таймер показывает 10 минут и исчезает через 5–100 секунд.';
+        const result = validateAiOutput({ originalText: original, correctedText: corrected, mode: 'spellcheck' });
+        expect(result).toMatchObject({ valid: false, reason: 'AI_OUTPUT_CHANGED_NUMBERS' });
+        expect(result.numericDiagnostics).toMatchObject({
+            inputNumberCount: 2,
+            outputNumberCount: 2,
+            numericMismatchType: 'value_changed',
+            validationInputStage: 'ai_input',
+        });
+    });
+
     test('успешно валидирует эквивалентные технические различия (CRLF, LF, CR, trailing spaces)', () => {
         const original = 'Первая строка.   \r\nВторая строка. \rТретья строка. ';
         const corrected = 'Первая строка.\nВторая строка.\nТретья строка.';
@@ -449,6 +531,49 @@ describe('Cloudflare Stream & Quality Fallback Integration', () => {
         expect((thrownError as AiProviderError).code).toBe('QUALITY_CHECK_FAILED');
         expect((thrownError as AiProviderError).isFallbackEligible).toBe(true);
 
+        vi.restoreAllMocks();
+    });
+
+    test('Cloudflare передаёт безопасную диагностику числового несовпадения без исходных чисел', async () => {
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+            new Response(
+                JSON.stringify({
+                    success: true,
+                    result: { choices: [{ message: { content: 'Ожидание займёт 5–100 секунд.' } }] },
+                }),
+                { status: 200, headers: { 'content-type': 'application/json' } },
+            ),
+        );
+
+        let thrownError: unknown;
+        try {
+            await streamCloudflareText(
+                { action: 'callMistral', mode: 'spellcheck', text: 'Ожидание займёт 5-10 сек.' },
+                { accountId: 'acc-1', apiToken: 'tok-1' },
+                {
+                    selectedTone: 'business',
+                    sendPageContext: false,
+                    personalDictionary: [],
+                    glossary: [],
+                    aiMode: 'balanced',
+                } as unknown as MistralSettings,
+                new AbortController().signal,
+                () => undefined,
+            );
+        } catch (error) {
+            thrownError = error;
+        }
+
+        expect(thrownError).toBeInstanceOf(AiProviderError);
+        const diagnostics = (thrownError as AiProviderError).context.numericDiagnostics;
+        expect(diagnostics).toMatchObject({
+            inputNumberCount: 1,
+            outputNumberCount: 1,
+            mismatchCount: 1,
+            numericMismatchType: 'value_changed',
+            validationInputStage: 'ai_input',
+        });
+        expect(JSON.stringify(diagnostics)).not.toMatch(/5|10|100/);
         vi.restoreAllMocks();
     });
 

@@ -70,6 +70,7 @@ async function writeProviderFailureLog(
         hasReasoningContent: error.context.hasReasoningContent,
         rateLimitType: error.context.rateLimitType,
         requestId: error.context.requestId,
+        details: error.context.numericDiagnostics,
     });
 }
 
@@ -413,6 +414,7 @@ export async function executeAiStreamRequest(options: AiRequestOptions): Promise
                     attempt: attempts,
                     fallbackProvider,
                     latencyMs: Date.now() - startedAt,
+                    requestId: normalized.context.requestId ?? options.request.requestId,
                 },
             );
         }
