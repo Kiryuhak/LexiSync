@@ -36,6 +36,35 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.6.10',
+        '2026-09-26',
+        'improved',
+        'Отказоустойчивость AI, состояние провайдеров и сохранение технической целостности',
+        'AI resilience, provider health states and technical entity integrity',
+        [
+            [
+                'Состояния доступности провайдеров (healthy, degraded, cooldown, probe-ready) теперь персистентно сохраняются в локальном хранилище и переживают перезапуски браузера.',
+                'Provider availability states (healthy, degraded, cooldown, probe-ready) now persist in local storage across browser restarts.',
+            ],
+            [
+                'После завершения периода cooldown разрешается строго один пробный запрос (probe-ready), предотвращая лавинообразные повторные ошибки 429.',
+                'A single probe request (probe-ready) is permitted once cooldown expires, preventing thundering herds on 429 rate limits.',
+            ],
+            [
+                'Ожидаемые ошибки ограничения частоты запросов (429) при успешном переключении на запасной провайдер регистрируются со статусом предупреждения (WARN), исключая ложные ошибки приложения.',
+                'Expected 429 rate limit errors with successful fallback are logged as warnings (WARN), eliminating false critical alarms.',
+            ],
+            [
+                'Улучшена валидация технической целостности: безопасные типографические и регистровые адаптации сущностей разрешены, а реальные искажения строго блокируются с безопасной диагностикой.',
+                'Improved technical entity validation: safe typography and casing adaptations are permitted while actual alterations are strictly blocked with safe diagnostics.',
+            ],
+            [
+                'Устранены общие обезличенные ошибки в интерфейсе и фоновом скрипте за счёт сохранения цепочек причин сбоев качества.',
+                'Eliminated generic error messages in UI and background script by preserving clear quality-check cause chains.',
+            ],
+        ],
+    ),
+    note(
         '5.6.9',
         '2026-09-22',
         'fixed',

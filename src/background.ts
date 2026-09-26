@@ -273,7 +273,10 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
             text: info.selectionText || '',
         },
         info.frameId,
-    ).catch((error) => logger.error('Не удалось выполнить команду LexiSync:', error));
+    ).catch((error) => {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        logger.error(`Не удалось выполнить команду меню (${String(info.menuItemId)}): ${errorMsg}`);
+    });
 });
 
 chrome.commands.onCommand.addListener((command, commandTab) => {
@@ -286,7 +289,10 @@ chrome.commands.onCommand.addListener((command, commandTab) => {
         }
         const frameId = await findCommandTargetFrame(tab.id);
         await sendToTabWithInjection(tab.id, { action: 'hotkeyTriggered', mode: command }, frameId);
-    })().catch((error) => logger.error('Не удалось выполнить горячую клавишу LexiSync:', error));
+    })().catch((error) => {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        logger.error(`Не удалось выполнить горячую клавишу (${command}): ${errorMsg}`);
+    });
 });
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -980,6 +986,8 @@ chrome.runtime.onConnect.addListener((port) => {
                     retryable,
                     provider: error instanceof AiProviderError ? error.provider : undefined,
                     errorCode: error instanceof AiProviderError ? error.code : undefined,
+                    causeCode:
+                        error instanceof AiProviderError ? error.causeCode || error.context?.causeCode : undefined,
                     statusCode: error instanceof AiProviderError ? error.status : undefined,
                     retryAfterMs: error instanceof AiProviderError ? error.retryAfterMs : undefined,
                     cooldownMs:

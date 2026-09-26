@@ -44,12 +44,17 @@ async function writeProviderFailureLog(
     error: AiProviderError,
     fallbackProvider?: AiProviderType,
     fallbackUsed = false,
+    level: 'error' | 'warn' = 'error',
+    customErrorCode?: string,
+    fallbackSucceeded = false,
 ): Promise<void> {
+    const availability = peekProviderAvailability(error.provider);
     await recordErrorLog({
-        level: 'error',
+        level,
         source: 'ai-client',
         provider: error.provider,
-        errorCode: error.code,
+        errorCode: customErrorCode || error.code,
+        causeCode: error.context?.causeCode || error.causeCode,
         status: error.status,
         httpStatus: error.status,
         message: error.message,
@@ -58,8 +63,11 @@ async function writeProviderFailureLog(
         attempt: error.context.attempt,
         fallbackProvider,
         fallbackUsed,
+        fallbackSucceeded,
+        cooldownState: availability.healthState || availability.state,
         retryAfterMs: error.retryAfterMs,
         latencyMs: error.context.latencyMs,
+        elapsedMs: error.context.elapsedMs || error.context.latencyMs,
         finishReason: error.context.finishReason,
         responseShape: error.context.responseShape,
         contentLength: error.context.contentLength,
@@ -70,7 +78,10 @@ async function writeProviderFailureLog(
         hasReasoningContent: error.context.hasReasoningContent,
         rateLimitType: error.context.rateLimitType,
         requestId: error.context.requestId,
-        details: error.context.numericDiagnostics,
+        details: {
+            ...error.context.numericDiagnostics,
+            ...error.context.technicalDiagnostics,
+        },
     });
 }
 
@@ -537,13 +548,16 @@ export async function executeAiStreamRequest(options: AiRequestOptions): Promise
             primaryError,
             preemptiveFallback ? effectivePrimary : fallbackProvider,
             preemptiveFallback,
+            'error',
+            primaryError.code,
+            false,
         );
         throw primaryError;
     }
 
     const fallbackAvailability = await acquireProviderAttempt(fallbackProvider);
     if (!fallbackAvailability.allowed) {
-        await writeProviderFailureLog(primaryError, fallbackProvider, false);
+        await writeProviderFailureLog(primaryError, fallbackProvider, false, 'error', primaryError.code, false);
         throw unavailableError(
             effectivePrimary,
             earliestRetry(getAiProviderCooldownRemaining(effectivePrimary), fallbackAvailability.cooldownRemainingMs),
@@ -553,12 +567,14 @@ export async function executeAiStreamRequest(options: AiRequestOptions): Promise
 
     // Частичный поток первого сервиса нельзя смешивать с новым ответом резервного сервиса.
     if (primaryProducedContent) options.onReset?.();
-    await writeProviderFailureLog(primaryError, fallbackProvider, true);
 
     // Резервный провайдер вызывается ровно один раз; возврата к первому сервису нет (no fallback loop).
     try {
         const response = await callProvider(fallbackProvider, options.signal, options.onChunk);
         await recordAvailabilitySuccess(fallbackProvider);
+        // Резервный провайдер успешно завершил запрос пользователя.
+        // Фиксируем сбой основного провайдера как предупреждение (WARN / PROVIDER_DEGRADED), а не как фатальную ошибку.
+        await writeProviderFailureLog(primaryError, fallbackProvider, true, 'warn', 'PROVIDER_DEGRADED', true);
         const notification = getFallbackNotification(effectivePrimary, fallbackProvider, primaryError.code);
         return {
             providerUsed: fallbackProvider,
@@ -576,7 +592,9 @@ export async function executeAiStreamRequest(options: AiRequestOptions): Promise
         }
         const secondaryError = normalizeAiError(secondErr, fallbackProvider);
         await recordAvailabilityFailure(secondaryError);
-        await writeProviderFailureLog(secondaryError, undefined, true);
+        // Запрос не удался у обоих провайдеров: фиксируем обе ошибки со статусом error.
+        await writeProviderFailureLog(primaryError, fallbackProvider, true, 'error', primaryError.code, false);
+        await writeProviderFailureLog(secondaryError, undefined, true, 'error', secondaryError.code, false);
         if (
             (primaryError.code === 'RATE_LIMIT' || primaryError.code === 'QUOTA_EXCEEDED') &&
             (secondaryError.code === 'RATE_LIMIT' || secondaryError.code === 'QUOTA_EXCEEDED')

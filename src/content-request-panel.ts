@@ -802,6 +802,17 @@ export function executeRequest(
                 requestStartedAt = null;
                 let errorMessage =
                     typeof response.error === 'string' ? response.error : t('unknownError', 'Неизвестная ошибка.');
+                if (response.causeCode === 'AI_OUTPUT_CHANGED_TECHNICAL_ENTITY') {
+                    errorMessage = t(
+                        'qualityFailedTechnicalEntity',
+                        'Ответ модели отклонён: изменены технические идентификаторы (URL, IP, версия или модель).',
+                    );
+                } else if (response.causeCode === 'AI_OUTPUT_CHANGED_NUMBERS') {
+                    errorMessage = t(
+                        'qualityFailedNumbers',
+                        'Ответ модели отклонён: искажены числовые значения или диапазоны.',
+                    );
+                }
                 if (
                     typeof response.cooldownMs === 'number' &&
                     response.cooldownMs > 0 &&

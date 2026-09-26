@@ -2,9 +2,11 @@ import type { AiErrorCode, AiProviderError, AiProviderType } from './ai-provider
 import { enqueueStorageMutation } from './storage-queue';
 
 export type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
+export type ProviderHealthState = 'healthy' | 'degraded' | 'cooldown' | 'probe-ready';
 
 export interface ProviderAvailabilityState {
     state: CircuitState;
+    healthState?: ProviderHealthState;
     consecutiveFailures: number;
     cooldownUntil: number;
     lastErrorCode?: AiErrorCode;
@@ -22,8 +24,23 @@ const STORAGE_QUEUE = 'provider-availability';
 const TRANSIENT_FAILURE_THRESHOLD = 2;
 const MAX_EXPLICIT_RETRY_AFTER_MS = 24 * 60 * 60_000;
 
+export function computeHealthState(state: ProviderAvailabilityState, now = Date.now()): ProviderHealthState {
+    if (state.state === 'OPEN') {
+        if (state.cooldownUntil > now) return 'cooldown';
+        return 'probe-ready';
+    }
+    if (state.state === 'HALF_OPEN') {
+        return 'probe-ready';
+    }
+    if (state.consecutiveFailures > 0) {
+        return 'degraded';
+    }
+    return 'healthy';
+}
+
 const emptyState = (): ProviderAvailabilityState => ({
     state: 'CLOSED',
+    healthState: 'healthy',
     consecutiveFailures: 0,
     cooldownUntil: 0,
     updatedAt: 0,
@@ -36,11 +53,6 @@ const states: Record<AiProviderType, ProviderAvailabilityState> = {
 
 const halfOpenProbes = new Set<AiProviderType>();
 let loadPromise: Promise<void> | null = null;
-
-function storageApi(): typeof chrome.storage.local | typeof chrome.storage.session | null {
-    if (typeof chrome === 'undefined' || !chrome.storage) return null;
-    return chrome.storage.session || chrome.storage.local || null;
-}
 
 function normalizeStoredState(value: unknown): ProviderAvailabilityState {
     const candidate = value && typeof value === 'object' ? (value as Partial<ProviderAvailabilityState>) : {};
@@ -58,11 +70,14 @@ function normalizeStoredState(value: unknown): ProviderAvailabilityState {
 async function ensureLoaded(): Promise<void> {
     if (loadPromise) return loadPromise;
     loadPromise = (async () => {
-        const storage = storageApi();
-        if (!storage) return;
+        if (typeof chrome === 'undefined' || !chrome.storage) return;
         try {
-            const stored = await storage.get(STORAGE_KEY);
-            const record = stored[STORAGE_KEY] as Partial<Record<AiProviderType, unknown>> | undefined;
+            let stored = await chrome.storage.local?.get(STORAGE_KEY);
+            let record = stored?.[STORAGE_KEY] as Partial<Record<AiProviderType, unknown>> | undefined;
+            if (!record?.mistral && !record?.cloudflare && chrome.storage.session) {
+                stored = await chrome.storage.session.get(STORAGE_KEY).catch(() => ({}));
+                record = stored?.[STORAGE_KEY] as Partial<Record<AiProviderType, unknown>> | undefined;
+            }
             if (record?.mistral) states.mistral = normalizeStoredState(record.mistral);
             if (record?.cloudflare) states.cloudflare = normalizeStoredState(record.cloudflare);
         } catch {
@@ -73,8 +88,7 @@ async function ensureLoaded(): Promise<void> {
 }
 
 async function persist(): Promise<void> {
-    const storage = storageApi();
-    if (!storage) return;
+    if (typeof chrome === 'undefined' || !chrome.storage) return;
     const snapshot = {
         mistral: { ...states.mistral, state: states.mistral.state === 'HALF_OPEN' ? 'OPEN' : states.mistral.state },
         cloudflare: {
@@ -82,7 +96,16 @@ async function persist(): Promise<void> {
             state: states.cloudflare.state === 'HALF_OPEN' ? 'OPEN' : states.cloudflare.state,
         },
     };
-    await enqueueStorageMutation(() => storage.set({ [STORAGE_KEY]: snapshot }), STORAGE_QUEUE);
+    await enqueueStorageMutation(async () => {
+        const promises: Promise<unknown>[] = [];
+        if (chrome.storage.local) {
+            promises.push(chrome.storage.local.set({ [STORAGE_KEY]: snapshot }));
+        }
+        if (chrome.storage.session) {
+            promises.push(chrome.storage.session.set({ [STORAGE_KEY]: snapshot }).catch(() => undefined));
+        }
+        await Promise.all(promises);
+    }, STORAGE_QUEUE);
 }
 
 function cooldownFor(error: AiProviderError, failureCount: number): number {
@@ -110,19 +133,46 @@ export async function acquireProviderAttempt(
     const current = states[provider];
     if (current.state === 'OPEN') {
         if (current.cooldownUntil > now) {
-            return { ...current, allowed: false, cooldownRemainingMs: current.cooldownUntil - now };
+            return {
+                ...current,
+                healthState: 'cooldown',
+                allowed: false,
+                cooldownRemainingMs: current.cooldownUntil - now,
+            };
         }
         if (halfOpenProbes.has(provider)) {
-            return { ...current, state: 'HALF_OPEN', allowed: false, cooldownRemainingMs: 0 };
+            return {
+                ...current,
+                state: 'HALF_OPEN',
+                healthState: 'probe-ready',
+                allowed: false,
+                cooldownRemainingMs: 0,
+            };
         }
         current.state = 'HALF_OPEN';
         halfOpenProbes.add(provider);
-        return { ...current, allowed: true, cooldownRemainingMs: 0 };
+        return {
+            ...current,
+            healthState: 'probe-ready',
+            allowed: true,
+            cooldownRemainingMs: 0,
+        };
     }
     if (current.state === 'HALF_OPEN' && halfOpenProbes.has(provider)) {
-        return { ...current, allowed: false, cooldownRemainingMs: 0 };
+        return {
+            ...current,
+            healthState: 'probe-ready',
+            allowed: false,
+            cooldownRemainingMs: 0,
+        };
     }
-    return { ...current, allowed: true, cooldownRemainingMs: 0 };
+    const healthState = computeHealthState(current, now);
+    return {
+        ...current,
+        healthState,
+        allowed: true,
+        cooldownRemainingMs: 0,
+    };
 }
 
 export async function recordProviderSuccess(provider: AiProviderType, now = Date.now()): Promise<void> {
@@ -172,8 +222,10 @@ export async function getProviderAvailability(
 ): Promise<ProviderAttemptPermission> {
     await ensureLoaded();
     const current = states[provider];
+    const healthState = computeHealthState(current, now);
     return {
         ...current,
+        healthState,
         allowed: current.state === 'CLOSED' || (current.state === 'OPEN' && current.cooldownUntil <= now),
         cooldownRemainingMs: Math.max(0, current.cooldownUntil - now),
     };
@@ -181,8 +233,10 @@ export async function getProviderAvailability(
 
 export function peekProviderAvailability(provider: AiProviderType, now = Date.now()): ProviderAttemptPermission {
     const current = states[provider];
+    const healthState = computeHealthState(current, now);
     return {
         ...current,
+        healthState,
         allowed: current.state === 'CLOSED' || (current.state === 'OPEN' && current.cooldownUntil <= now),
         cooldownRemainingMs: Math.max(0, current.cooldownUntil - now),
     };

@@ -15,6 +15,19 @@ export interface AiSanityResult {
     reason?: string;
     cleanedText: string;
     numericDiagnostics?: NumericValidationDiagnostics;
+    technicalDiagnostics?: TechnicalValidationDiagnostics;
+}
+
+export type TechnicalEntityType =
+    'model_id' | 'version' | 'ip' | 'url' | 'repo' | 'identifier' | 'code_span' | 'acronym' | 'tech_name';
+
+export interface TechnicalValidationDiagnostics {
+    entityType: TechnicalEntityType;
+    entityCountInput: number;
+    entityCountOutput: number;
+    mismatchCount: number;
+    normalizationType: 'none' | 'case_insensitive' | 'typography' | 'mismatch';
+    validationStage: 'ai_input';
 }
 
 export interface NumericValidationDiagnostics {
@@ -230,6 +243,252 @@ function getWordOverlapRatio(original: string, corrected: string): number {
     return (2 * common) / (originalWords.length + correctedWords.length);
 }
 
+interface ExtractedEntity {
+    raw: string;
+    normalized: string;
+    type: TechnicalEntityType;
+}
+
+const KNOWN_TECH_BRANDS = [
+    'ChatGPT',
+    'OpenAI',
+    'Mistral',
+    'Cloudflare',
+    'Яндекс.Спеллер',
+    'Yandex.Speller',
+    'SmartTube',
+    'Keenetic',
+    'Chrome',
+    'Firefox',
+    'TypeScript',
+    'JavaScript',
+    'Playwright',
+    'Vitest',
+    'Prettier',
+    'ESLint',
+    'Git',
+    'GitHub',
+    'Node.js',
+    'LexiSync',
+];
+
+const KNOWN_TECH_BRANDS_REGEX = new RegExp(
+    `\\b(?:${KNOWN_TECH_BRANDS.map((b) => b.replace('.', '\\.')).join('|')})\\b`,
+    'gi',
+);
+
+const TECH_ACRONYMS_REGEX =
+    /\b(?:API|HTTP|HTTPS|OAuth|HTML|CSS|DOM|JSON|REST|SDK|URL|URI|IP|VPN|SSH|TCP|UDP|CI\/CD|MV3|SPA)\b/gi;
+
+const MODEL_IDENTIFIER_REGEX =
+    /(?:@cf\/[a-zA-Z0-9_.-]+\/)?[a-zA-Z0-9_.-]*(?:glm|mistral|gpt|claude|gemini|llama|deepseek|qwen|phi)[a-zA-Z0-9_.-]*/gi;
+
+const VERSION_REGEX =
+    /(?<![\p{L}\p{N}_])(?:v\d+\.\d+(?:\.\d+)*|\d+\.\d+\.\d+(?:\.\d+)*)(?:-[a-zA-Z0-9._-]+)?(?![\p{L}\p{N}_])/gu;
+
+const IP_REGEX = /(?<![\p{L}\p{N}_])(?:\d{1,3}\.){3}\d{1,3}(?![\p{L}\p{N}_])/gu;
+
+const CODE_SPAN_REGEX = /`[^`\n]+`/g;
+
+const GITHUB_REPO_REGEX = /\bgithub\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\b/gi;
+
+const CODE_IDENTIFIERS_REGEX =
+    /\b(?:[A-Za-z_$][A-Za-z0-9$]*_[A-Za-z0-9_$]+|[a-z]+[A-Z][A-Za-z0-9]*|[A-Z][a-z0-9]+[A-Z][A-Za-z0-9]*|[A-Z][A-Z0-9_]{2,})\b/g;
+
+export function extractTechnicalEntities(text: string): ExtractedEntity[] {
+    const entities: ExtractedEntity[] = [];
+
+    // 1. Code spans: `...`
+    for (const match of text.matchAll(CODE_SPAN_REGEX)) {
+        entities.push({
+            raw: match[0],
+            normalized: match[0].slice(1, -1).trim(),
+            type: 'code_span',
+        });
+    }
+
+    // 2. URLs and GitHub repos
+    const urlRegex = /\bhttps?:\/\/[^\s<>"')]+/gi;
+    for (const match of text.matchAll(urlRegex)) {
+        entities.push({
+            raw: match[0],
+            normalized: match[0].toLowerCase().replace(/\/+$/, ''),
+            type: 'url',
+        });
+    }
+    for (const match of text.matchAll(GITHUB_REPO_REGEX)) {
+        if (!entities.some((e) => e.raw.includes(match[0]))) {
+            entities.push({
+                raw: match[0],
+                normalized: match[0].toLowerCase(),
+                type: 'repo',
+            });
+        }
+    }
+
+    // 3. IPs
+    for (const match of text.matchAll(IP_REGEX)) {
+        entities.push({
+            raw: match[0],
+            normalized: match[0],
+            type: 'ip',
+        });
+    }
+
+    // 4. Model IDs
+    for (const match of text.matchAll(MODEL_IDENTIFIER_REGEX)) {
+        const raw = match[0].replace(/^["'«“]|["'»”.,]$/g, '').trim();
+        if (raw.length >= 3) {
+            entities.push({
+                raw,
+                normalized: raw.toLowerCase().replace(/[–—]/g, '-'),
+                type: 'model_id',
+            });
+        }
+    }
+
+    // 5. Versions
+    for (const match of text.matchAll(VERSION_REGEX)) {
+        const raw = match[0].trim();
+        if (entities.some((e) => e.type === 'ip' && e.raw.includes(raw))) continue;
+        if (entities.some((e) => e.type === 'model_id' && e.raw.includes(raw))) continue;
+        entities.push({
+            raw,
+            normalized: raw.toLowerCase().replace(/^v/, ''),
+            type: 'version',
+        });
+    }
+
+    // 6. Tech brands
+    for (const match of text.matchAll(KNOWN_TECH_BRANDS_REGEX)) {
+        const raw = match[0].trim();
+        if (entities.some((e) => e.type === 'model_id' && e.raw.toLowerCase().includes(raw.toLowerCase()))) continue;
+        entities.push({
+            raw,
+            normalized: raw.toLowerCase(),
+            type: 'tech_name',
+        });
+    }
+
+    // 7. Tech acronyms
+    for (const match of text.matchAll(TECH_ACRONYMS_REGEX)) {
+        const raw = match[0].trim();
+        if (
+            entities.some(
+                (e) => (e.type === 'url' || e.type === 'tech_name') && e.raw.toUpperCase().includes(raw.toUpperCase()),
+            )
+        )
+            continue;
+        entities.push({
+            raw,
+            normalized: raw.toUpperCase(),
+            type: 'acronym',
+        });
+    }
+
+    // 8. General code identifiers
+    for (const match of text.matchAll(CODE_IDENTIFIERS_REGEX)) {
+        const raw = match[0].trim();
+        if (entities.some((e) => e.raw.includes(raw))) continue;
+        entities.push({
+            raw,
+            normalized: raw,
+            type: 'identifier',
+        });
+    }
+
+    return entities;
+}
+
+export function validateTechnicalIntegrity(
+    input: string,
+    output: string,
+): { valid: boolean; diagnostics?: TechnicalValidationDiagnostics } {
+    const inputEntities = extractTechnicalEntities(input);
+    const outputEntities = extractTechnicalEntities(output);
+
+    const typesToCheck: TechnicalEntityType[] = [
+        'code_span',
+        'model_id',
+        'version',
+        'ip',
+        'url',
+        'repo',
+        'tech_name',
+        'acronym',
+        'identifier',
+    ];
+
+    let overallNormalization: 'none' | 'case_insensitive' | 'typography' = 'none';
+
+    for (const type of typesToCheck) {
+        const inForType = inputEntities.filter((e) => e.type === type);
+        const outForType = [...outputEntities.filter((e) => e.type === type)];
+
+        if (inForType.length > 0) {
+            let mismatchCount = 0;
+            for (const inEntity of inForType) {
+                const matchIndex = outForType.findIndex((outEntity) => {
+                    if (outEntity.normalized === inEntity.normalized) return true;
+                    if (
+                        type === 'identifier' &&
+                        outEntity.normalized.replace(/[–—]/g, '-') === inEntity.normalized.replace(/[–—]/g, '-')
+                    )
+                        return true;
+                    return false;
+                });
+
+                if (matchIndex >= 0) {
+                    const matched = outForType[matchIndex];
+                    if (matched.raw !== inEntity.raw) {
+                        if (matched.raw.toLowerCase() === inEntity.raw.toLowerCase()) {
+                            if (overallNormalization === 'none') overallNormalization = 'case_insensitive';
+                        } else {
+                            if (overallNormalization === 'none') overallNormalization = 'typography';
+                        }
+                    }
+                    outForType.splice(matchIndex, 1);
+                } else {
+                    mismatchCount += 1;
+                }
+            }
+
+            if (mismatchCount > 0) {
+                return {
+                    valid: false,
+                    diagnostics: {
+                        entityType: type,
+                        entityCountInput: inForType.length,
+                        entityCountOutput: outputEntities.filter((e) => e.type === type).length,
+                        mismatchCount,
+                        normalizationType: 'mismatch',
+                        validationStage: 'ai_input',
+                    },
+                };
+            }
+        }
+
+        if (['model_id', 'version', 'ip', 'tech_name'].includes(type)) {
+            const outTotal = outputEntities.filter((e) => e.type === type);
+            if (outTotal.length !== inForType.length) {
+                return {
+                    valid: false,
+                    diagnostics: {
+                        entityType: type,
+                        entityCountInput: inForType.length,
+                        entityCountOutput: outTotal.length,
+                        mismatchCount: Math.abs(outTotal.length - inForType.length),
+                        normalizationType: 'mismatch',
+                        validationStage: 'ai_input',
+                    },
+                };
+            }
+        }
+    }
+
+    return { valid: true };
+}
+
 /**
  * Проверяет применимость ответа модели к исходному тексту (Sanity Check).
  */
@@ -327,7 +586,19 @@ export function validateAiOutput(options: AiSanityCheckOptions): AiSanityResult 
             };
         }
 
-        // 7. Числовые значения сравниваются с фактическим входом AI в исходном порядке.
+        // 7. Не позволяем модели менять фрагменты кода, названия моделей, версии, IP и технические сущности.
+        // Допустима безопасная типографика (регистр модели/акронима, дефисы), но запрещены искажения фактов.
+        const techCheck = validateTechnicalIntegrity(origTrim, cleanTrim);
+        if (!techCheck.valid) {
+            return {
+                valid: false,
+                reason: 'AI_OUTPUT_CHANGED_TECHNICAL_ENTITY',
+                cleanedText: cleaned,
+                technicalDiagnostics: techCheck.diagnostics,
+            };
+        }
+
+        // 8. Числовые значения сравниваются с фактическим входом AI в исходном порядке.
         // Допустимы только явно эквивалентные типографические формы диапазонов,
         // разрядных пробелов и десятичного разделителя; даты, версии и IP классифицируются отдельно.
         const numericDiagnostics = validateNumericIntegrity(origTrim, cleanTrim);
@@ -337,21 +608,6 @@ export function validateAiOutput(options: AiSanityCheckOptions): AiSanityResult 
                 reason: 'AI_OUTPUT_CHANGED_NUMBERS',
                 cleanedText: cleaned,
                 numericDiagnostics,
-            };
-        }
-
-        // 8. Не позволяем модели менять фрагменты кода и технические идентификаторы.
-        const codeSpanRegex = /`[^`\n]+`/g;
-        const technicalIdentifierRegex =
-            /\b(?:[A-Z]{2,}|[A-Za-z_$][A-Za-z0-9$]*[_$][A-Za-z0-9_$]*|[a-z]+[A-Z][A-Za-z0-9]*)\b/g;
-        if (
-            !sameMatches(origTrim, cleanTrim, codeSpanRegex) ||
-            !sameMatches(origTrim, cleanTrim, technicalIdentifierRegex)
-        ) {
-            return {
-                valid: false,
-                reason: 'AI_OUTPUT_CHANGED_TECHNICAL_ENTITY',
-                cleanedText: cleaned,
             };
         }
 

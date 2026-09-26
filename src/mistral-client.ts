@@ -424,7 +424,11 @@ export async function streamText(
                 true,
                 undefined,
                 undefined,
-                { numericDiagnostics: sanity.numericDiagnostics },
+                {
+                    causeCode: sanity.reason,
+                    numericDiagnostics: sanity.numericDiagnostics,
+                    technicalDiagnostics: sanity.technicalDiagnostics,
+                },
             );
         }
         fullCollectedText = sanity.cleanedText;

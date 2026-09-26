@@ -46,6 +46,7 @@ export interface AiErrorContext {
         | 'rate_limit_account'
         | 'rate_limit_unknown';
     requestId?: string;
+    causeCode?: string;
     numericDiagnostics?: {
         inputNumberCount: number;
         outputNumberCount: number;
@@ -53,6 +54,14 @@ export interface AiErrorContext {
         numericMismatchType: string;
         normalizationApplied: string[];
         validationInputStage: string;
+    };
+    technicalDiagnostics?: {
+        entityType: string;
+        entityCountInput: number;
+        entityCountOutput: number;
+        mismatchCount: number;
+        normalizationType: string;
+        validationStage: string;
     };
 }
 
@@ -68,6 +77,10 @@ export class AiProviderError extends Error {
     ) {
         super(message);
         this.name = 'AiProviderError';
+    }
+
+    get causeCode(): string | undefined {
+        return this.context.causeCode;
     }
 
     get isFallbackEligible(): boolean {

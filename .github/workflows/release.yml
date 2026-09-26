@@ -64,7 +64,10 @@ jobs:
               run: npx playwright install --with-deps chromium firefox
 
             - name: Полностью проверить релиз
-              run: npm run test:all
+              run: |
+                  echo "::group::Полная проверка релиза (static, audit, tests, artifacts, lint)"
+                  npm run test:all
+                  echo "::endgroup::"
 
             - name: Сохранить проверенные архивы релиза
               uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -85,6 +88,43 @@ jobs:
                       playwright-report/**
                   retention-days: 7
                   if-no-files-found: ignore
+
+            - name: Сформировать сводный отчёт релиза
+              if: always()
+              shell: bash
+              run: |
+                  echo "::group::Формирование сводного отчёта релиза"
+                  TAG="${{ steps.release_meta.outputs.tag }}"
+                  VERSION="${{ steps.release_meta.outputs.version }}"
+                  COMMIT_SHORT="${GITHUB_SHA::7}"
+                  STATUS="${{ job.status }}"
+
+                  {
+                    echo "## 🚀 Релиз LexiSync ${TAG}"
+                    echo ""
+                    echo "| Параметр | Значение |"
+                    echo "| :--- | :--- |"
+                    echo "| **Версия** | \`${VERSION}\` |"
+                    echo "| **Тег** | \`${TAG}\` |"
+                    echo "| **Коммит** | \`${COMMIT_SHORT}\` |"
+                    echo "| **Статус проверки** | \`${STATUS}\` |"
+                    echo ""
+                    echo "### 📦 Артефакты сборки и SHA-256"
+                    echo ""
+                    if compgen -G ".output/release/*.zip" > /dev/null; then
+                      echo "| Файл | Размер | SHA-256 |"
+                      echo "| :--- | :--- | :--- |"
+                      for file in .output/release/*.zip; do
+                        fname=$(basename "$file")
+                        fsize=$(ls -lh "$file" | awk '{print $5}')
+                        fsha=$(sha256sum "$file" | awk '{print $1}')
+                        echo "| \`$fname\` | $fsize | \`$fsha\` |"
+                      done
+                    else
+                      echo "_Архивы не найдены._"
+                    fi
+                  } >> "$GITHUB_STEP_SUMMARY"
+                  echo "::endgroup::"
 
             - name: Создать GitHub Release
               env:
@@ -171,6 +211,19 @@ jobs:
                   }
                   echo "$output"
 
+            - name: Сформировать отчёт отправки в Mozilla Add-ons
+              if: always()
+              shell: bash
+              run: |
+                  VERSION="${{ needs.verify-and-release.outputs.version }}"
+                  STATUS="${{ job.status }}"
+                  {
+                    echo "### 🦊 Публикация в Mozilla Add-ons (AMO)"
+                    echo ""
+                    echo "- **Версия:** \`${VERSION}\`"
+                    echo "- **Итог шага:** \`${STATUS}\`"
+                  } >> "$GITHUB_STEP_SUMMARY"
+
     publish-chrome:
         needs: verify-and-release
         if: ${{ github.event_name == 'push' || vars.PUBLISH_CHROME_STORE == 'true' || inputs.publish_chrome == true }}
@@ -205,3 +258,16 @@ jobs:
                   CHROME_POLL_DELAY_MS: 2500
                   CHROME_RETRY_DELAY_MS: 3000
               run: node scripts/publish-chrome-store.mjs
+
+            - name: Сформировать отчёт отправки в Chrome Web Store
+              if: always()
+              shell: bash
+              run: |
+                  VERSION="${{ needs.verify-and-release.outputs.version }}"
+                  STATUS="${{ job.status }}"
+                  {
+                    echo "### 🌐 Публикация в Chrome Web Store"
+                    echo ""
+                    echo "- **Версия:** \`${VERSION}\`"
+                    echo "- **Итог шага:** \`${STATUS}\`"
+                  } >> "$GITHUB_STEP_SUMMARY"

@@ -387,7 +387,11 @@ export async function streamCloudflareText(
                 true,
                 undefined,
                 undefined,
-                { numericDiagnostics: sanity.numericDiagnostics },
+                {
+                    causeCode: sanity.reason,
+                    numericDiagnostics: sanity.numericDiagnostics,
+                    technicalDiagnostics: sanity.technicalDiagnostics,
+                },
             );
         }
         onChunk(sanity.cleanedText);
@@ -477,7 +481,11 @@ export async function streamCloudflareText(
                 true,
                 undefined,
                 undefined,
-                { numericDiagnostics: sanity.numericDiagnostics },
+                {
+                    causeCode: sanity.reason,
+                    numericDiagnostics: sanity.numericDiagnostics,
+                    technicalDiagnostics: sanity.technicalDiagnostics,
+                },
             );
         }
         fullCollectedText = sanity.cleanedText;

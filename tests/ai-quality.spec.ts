@@ -495,6 +495,207 @@ describe('Sanity Check: validateAiOutput', () => {
         expect(res.valid).toBe(false);
         expect(res.reason).toBe('AI_OUTPUT_CHANGED_LINE_STRUCTURE');
     });
+
+    describe('Синтетический регрессионный корпус Section 18: технические сущности и типографика', () => {
+        test('1. «Таймер отображается 5-10 сек.» допускает en-dash и расшифровку единиц, но блокирует изменение чисел', () => {
+            const original = 'Таймер отображается 5-10 сек.';
+            expect(
+                validateAiOutput({
+                    originalText: original,
+                    correctedText: 'Таймер отображается 5–10 секунд.',
+                    mode: 'spellcheck',
+                }).valid,
+            ).toBe(true);
+
+            const changed = validateAiOutput({
+                originalText: original,
+                correctedText: 'Таймер отображается 5–20 секунд.',
+                mode: 'spellcheck',
+            });
+            expect(changed.valid).toBe(false);
+            expect(changed.reason).toBe('AI_OUTPUT_CHANGED_NUMBERS');
+        });
+
+        test('2. «Стоимость составляет 12 500 рублей.» допускает неразрывные пробелы и слитный ввод, но блокирует смену суммы', () => {
+            const original = 'Стоимость составляет 12 500 рублей.';
+            expect(
+                validateAiOutput({
+                    originalText: original,
+                    correctedText: 'Стоимость составляет 12\u00A0500 рублей.',
+                    mode: 'spellcheck',
+                }).valid,
+            ).toBe(true);
+
+            expect(
+                validateAiOutput({
+                    originalText: original,
+                    correctedText: 'Стоимость составляет 12500 рублей.',
+                    mode: 'spellcheck',
+                }).valid,
+            ).toBe(true);
+
+            const changed = validateAiOutput({
+                originalText: original,
+                correctedText: 'Стоимость составляет 15 000 рублей.',
+                mode: 'spellcheck',
+            });
+            expect(changed.valid).toBe(false);
+            expect(changed.reason).toBe('AI_OUTPUT_CHANGED_NUMBERS');
+        });
+
+        test('3. «Версия LexiSync 5.6.8.» сохраняет имя проекта и строго блокирует подмену версии на 5.6.9', () => {
+            const original = 'Версия LexiSync 5.6.8.';
+            expect(
+                validateAiOutput({
+                    originalText: original,
+                    correctedText: 'Версия LexiSync 5.6.8.',
+                    mode: 'spellcheck',
+                }).valid,
+            ).toBe(true);
+
+            const changedVersion = validateAiOutput({
+                originalText: original,
+                correctedText: 'Версия LexiSync 5.6.9.',
+                mode: 'spellcheck',
+            });
+            expect(changedVersion.valid).toBe(false);
+            expect(changedVersion.reason).toBe('AI_OUTPUT_CHANGED_TECHNICAL_ENTITY');
+            expect(changedVersion.technicalDiagnostics?.entityType).toBe('version');
+
+            const changedName = validateAiOutput({
+                originalText: original,
+                correctedText: 'Версия OtherSync 5.6.8.',
+                mode: 'spellcheck',
+            });
+            expect(changedName.valid).toBe(false);
+            expect(changedName.reason).toBe('AI_OUTPUT_CHANGED_TECHNICAL_ENTITY');
+        });
+
+        test('4. «Mistral вернул HTTP 429.» допускает нормализацию регистра акронима HTTP, но блокирует смену кода или провайдера', () => {
+            const original = 'Mistral вернул http 429.';
+            const normalized = validateAiOutput({
+                originalText: original,
+                correctedText: 'Mistral вернул HTTP 429.',
+                mode: 'spellcheck',
+            });
+            expect(normalized.valid).toBe(true);
+
+            const changedCode = validateAiOutput({
+                originalText: original,
+                correctedText: 'Mistral вернул HTTP 500.',
+                mode: 'spellcheck',
+            });
+            expect(changedCode.valid).toBe(false);
+
+            const changedProvider = validateAiOutput({
+                originalText: original,
+                correctedText: 'Cloudflare вернул HTTP 429.',
+                mode: 'spellcheck',
+            });
+            expect(changedProvider.valid).toBe(false);
+            expect(changedProvider.reason).toBe('AI_OUTPUT_CHANGED_TECHNICAL_ENTITY');
+        });
+
+        test('5. «Модель @cf/zai-org/glm-4.7-flash.» допускает регистровую типографику GLM-4.7-Flash, но блокирует другие модели', () => {
+            const original = 'Модель @cf/zai-org/glm-4.7-flash.';
+            const safeTypography = validateAiOutput({
+                originalText: original,
+                correctedText: 'Модель @cf/zai-org/GLM-4.7-Flash.',
+                mode: 'spellcheck',
+            });
+            expect(safeTypography.valid).toBe(true);
+
+            const alteredModel = validateAiOutput({
+                originalText: original,
+                correctedText: 'Модель @cf/zai-org/glm-4.8-flash.',
+                mode: 'spellcheck',
+            });
+            expect(alteredModel.valid).toBe(false);
+            expect(alteredModel.reason).toBe('AI_OUTPUT_CHANGED_TECHNICAL_ENTITY');
+            expect(alteredModel.technicalDiagnostics?.entityType).toBe('model_id');
+
+            const replacedModel = validateAiOutput({
+                originalText: original,
+                correctedText: 'Модель mistral-small-latest.',
+                mode: 'spellcheck',
+            });
+            expect(replacedModel.valid).toBe(false);
+            expect(replacedModel.reason).toBe('AI_OUTPUT_CHANGED_TECHNICAL_ENTITY');
+        });
+
+        test('6. «Сервер 192.168.2.1 недоступен.» строго блокирует подмену IP-адреса', () => {
+            const original = 'Сервер 192.168.2.1 недоступен.';
+            expect(
+                validateAiOutput({
+                    originalText: original,
+                    correctedText: 'Сервер 192.168.2.1 недоступен.',
+                    mode: 'spellcheck',
+                }).valid,
+            ).toBe(true);
+
+            const alteredIp = validateAiOutput({
+                originalText: original,
+                correctedText: 'Сервер 192.168.2.2 недоступен.',
+                mode: 'spellcheck',
+            });
+            expect(alteredIp.valid).toBe(false);
+            expect(alteredIp.reason).toBe('AI_OUTPUT_CHANGED_TECHNICAL_ENTITY');
+            expect(alteredIp.technicalDiagnostics?.entityType).toBe('ip');
+        });
+
+        test('7. «Откройте https://github.com/Kiryuhak/LexiSync.» сохраняет URL и репозиторий', () => {
+            const original = 'Откройте https://github.com/Kiryuhak/LexiSync.';
+            expect(
+                validateAiOutput({
+                    originalText: original,
+                    correctedText: 'Откройте https://github.com/Kiryuhak/LexiSync.',
+                    mode: 'spellcheck',
+                }).valid,
+            ).toBe(true);
+
+            const alteredUrl = validateAiOutput({
+                originalText: original,
+                correctedText: 'Откройте https://github.com/Other/Other.',
+                mode: 'spellcheck',
+            });
+            expect(alteredUrl.valid).toBe(false);
+        });
+
+        test('8. «API OAuth работает в Chrome и Firefox.» сохраняет протоколы и браузеры, допуская безопасную капитализацию', () => {
+            const original = 'Api oauth работает в Chrome и Firefox.';
+            expect(
+                validateAiOutput({
+                    originalText: original,
+                    correctedText: 'API OAuth работает в Chrome и Firefox.',
+                    mode: 'spellcheck',
+                }).valid,
+            ).toBe(true);
+
+            const alteredBrowser = validateAiOutput({
+                originalText: original,
+                correctedText: 'API OAuth работает в Safari и Firefox.',
+                mode: 'spellcheck',
+            });
+            expect(alteredBrowser.valid).toBe(false);
+            expect(alteredBrowser.reason).toBe('AI_OUTPUT_CHANGED_TECHNICAL_ENTITY');
+            expect(alteredBrowser.technicalDiagnostics?.entityType).toBe('tech_name');
+        });
+
+        test('диагностика technicalDiagnostics безопасна и не раскрывает пользовательский текст', () => {
+            const original = 'Модель @cf/zai-org/glm-4.7-flash.';
+            const res = validateAiOutput({
+                originalText: original,
+                correctedText: 'Модель mistral-small-latest.',
+                mode: 'spellcheck',
+            });
+            expect(res.valid).toBe(false);
+            expect(res.technicalDiagnostics).toBeDefined();
+            const diagStr = JSON.stringify(res.technicalDiagnostics);
+            expect(diagStr).not.toContain('glm-4.7-flash');
+            expect(diagStr).not.toContain('mistral-small-latest');
+            expect(res.technicalDiagnostics?.validationStage).toBe('ai_input');
+        });
+    });
 });
 
 describe('Cloudflare Stream & Quality Fallback Integration', () => {

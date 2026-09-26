@@ -8,6 +8,7 @@ export interface ErrorLogEntry {
     message: string;
     provider?: 'mistral' | 'cloudflare';
     errorCode?: string;
+    causeCode?: string;
     status?: number;
     httpStatus?: number;
     operation?: string;
@@ -15,8 +16,11 @@ export interface ErrorLogEntry {
     attempt?: number;
     fallbackProvider?: 'mistral' | 'cloudflare';
     fallbackUsed?: boolean;
+    fallbackSucceeded?: boolean;
+    cooldownState?: string;
     retryAfterMs?: number;
     latencyMs?: number;
+    elapsedMs?: number;
     cooldownSource?: 'server-retry-after' | 'server-ratelimit-header' | 'local-backoff';
     cooldownSeconds?: number;
     consecutiveFailures?: number;
@@ -129,10 +133,14 @@ export async function recordErrorLog(entry: {
     operation?: string;
     model?: string;
     attempt?: number;
+    causeCode?: string;
     fallbackProvider?: 'mistral' | 'cloudflare';
     fallbackUsed?: boolean;
+    fallbackSucceeded?: boolean;
+    cooldownState?: string;
     retryAfterMs?: number;
     latencyMs?: number;
+    elapsedMs?: number;
     cooldownSource?: 'server-retry-after' | 'server-ratelimit-header' | 'local-backoff';
     cooldownSeconds?: number;
     consecutiveFailures?: number;
@@ -166,6 +174,7 @@ export async function recordErrorLog(entry: {
                 message: sanitizedMsg,
                 provider: entry.provider,
                 errorCode: entry.errorCode,
+                causeCode: entry.causeCode,
                 status: entry.status,
                 httpStatus: entry.httpStatus ?? entry.status,
                 operation: entry.operation,
@@ -173,8 +182,11 @@ export async function recordErrorLog(entry: {
                 attempt: entry.attempt,
                 fallbackProvider: entry.fallbackProvider,
                 fallbackUsed: entry.fallbackUsed,
+                fallbackSucceeded: entry.fallbackSucceeded,
+                cooldownState: entry.cooldownState,
                 retryAfterMs: entry.retryAfterMs,
                 latencyMs: entry.latencyMs,
+                elapsedMs: entry.elapsedMs ?? entry.latencyMs,
                 cooldownSource: entry.cooldownSource,
                 cooldownSeconds: entry.cooldownSeconds,
                 consecutiveFailures: entry.consecutiveFailures,

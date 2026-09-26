@@ -1881,6 +1881,15 @@
         "message": "Paused after a failure. Retry in about $1 seconds.",
         "placeholders": { "seconds": { "content": "$1" } }
     },
+    "serverStatusProbeReady": {
+        "message": "Ready for probe attempt after cooldown"
+    },
+    "qualityFailedTechnicalEntity": {
+        "message": "Model output rejected: technical entities changed (URL, IP, version, or model)."
+    },
+    "qualityFailedNumbers": {
+        "message": "Model output rejected: numeric values or ranges were altered."
+    },
     "serverStatusAuthError": {
         "message": "Invalid API key"
     },

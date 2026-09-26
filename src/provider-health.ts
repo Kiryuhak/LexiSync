@@ -4,7 +4,7 @@ import { validateCloudflareCredentials } from './cloudflare-client';
 import { AI_CONFIG, normalizeCloudflareModel } from './ai-models-config';
 import { getProviderAvailability } from './provider-availability';
 
-export type HealthState = 'healthy' | 'degraded' | 'cooldown' | 'outage' | 'unconfigured' | 'checking';
+export type HealthState = 'healthy' | 'degraded' | 'cooldown' | 'probe-ready' | 'outage' | 'unconfigured' | 'checking';
 
 export interface ProviderHealthStatus {
     provider: AiProviderType;
@@ -28,6 +28,8 @@ export function getHealthStateColor(state: HealthState): string {
             return '#f59e0b'; // 🟡 желтый
         case 'cooldown':
             return '#f97316';
+        case 'probe-ready':
+            return '#0ea5e9'; // 🔵 готов к проверке
         case 'outage':
             return '#ef4444'; // 🔴 красный
         case 'checking':
@@ -46,6 +48,8 @@ export function getHealthStateBadge(state: HealthState): string {
             return '🟡';
         case 'cooldown':
             return '⏳';
+        case 'probe-ready':
+            return '🔍';
         case 'outage':
             return '🔴';
         case 'checking':

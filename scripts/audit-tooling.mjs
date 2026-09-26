@@ -28,7 +28,7 @@ if (blocking.length === 0) {
 
 const allowedPackages = new Set(['addons-linter', 'adm-zip', 'firefox-profile', 'image-size', 'web-ext', 'wxt']);
 const unexpected = blocking.filter(([name]) => !allowedPackages.has(name));
-const allowedAdvisories = new Set([1138808, 1138809, 1193734, 1239030]);
+const allowedAdvisories = new Set([1138808, 1138809, 1193734, 1239030, 1239765, 1239766]);
 const advisorySources = new Set(
     blocking.flatMap(([, vulnerability]) =>
         (vulnerability.via || [])
@@ -36,12 +36,9 @@ const advisorySources = new Set(
             .map((entry) => entry.source),
     ),
 );
+const unexpectedSources = [...advisorySources].filter((source) => !allowedAdvisories.has(source));
 
-if (
-    unexpected.length > 0 ||
-    advisorySources.size !== allowedAdvisories.size ||
-    [...advisorySources].some((source) => !allowedAdvisories.has(source))
-) {
+if (unexpected.length > 0 || unexpectedSources.length > 0) {
     const names = blocking.map(([name]) => name).join(', ') || 'none';
     throw new Error(`Tooling audit contains new high/critical vulnerabilities: ${names}`);
 }

@@ -1881,6 +1881,15 @@
         "message": "Пауза после сбоя. Повторная проверка примерно через $1 сек.",
         "placeholders": { "seconds": { "content": "$1" } }
     },
+    "serverStatusProbeReady": {
+        "message": "Готов к пробному запросу после паузы"
+    },
+    "qualityFailedTechnicalEntity": {
+        "message": "Ответ модели отклонён: изменены технические идентификаторы (URL, IP, версия или модель)."
+    },
+    "qualityFailedNumbers": {
+        "message": "Ответ модели отклонён: искажены числовые значения или диапазоны."
+    },
     "serverStatusAuthError": {
         "message": "Недействительный API-ключ"
     },

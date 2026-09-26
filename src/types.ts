@@ -139,6 +139,7 @@ export interface StreamResponse {
     }>;
     fallbackNotification?: string;
     errorCode?: string;
+    causeCode?: string;
     statusCode?: number;
     retryAfterMs?: number;
     cooldownMs?: number;

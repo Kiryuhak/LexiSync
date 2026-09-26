@@ -34,37 +34,70 @@ jobs:
               run: npm ci
 
             - name: Проверить код, типы, форматирование и локализацию
-              run: npm run check:static
+              run: |
+                  echo "::group::Статическая проверка кода, типов, Prettier и i18n"
+                  npm run check:static
+                  echo "::endgroup::"
 
             - name: Проверить production-зависимости
-              run: npm run audit:dependencies
+              run: |
+                  echo "::group::Проверка production-зависимостей (npm audit)"
+                  npm run audit:dependencies
+                  echo "::endgroup::"
 
             - name: Проверить инструменты сборки
-              run: npm run audit:tooling
+              run: |
+                  echo "::group::Проверка инструментов сборки"
+                  npm run audit:tooling
+                  echo "::endgroup::"
 
             - name: Запустить модульные тесты
-              run: npm run test:coverage
+              run: |
+                  echo "::group::Модульные тесты и сбор отчёта покрытия (Vitest)"
+                  npm run test:coverage
+                  echo "::endgroup::"
 
             - name: Собрать финальные production-архивы
-              run: npm run zip
+              run: |
+                  echo "::group::Сборка production-архивов Chrome и Firefox"
+                  npm run zip
+                  echo "::endgroup::"
 
             - name: Проверить манифесты и содержимое production-архивов
-              run: npm run verify:artifacts
+              run: |
+                  echo "::group::Верификация содержимого архивов и манифестов MV3"
+                  npm run verify:artifacts
+                  echo "::endgroup::"
 
             - name: Проверить финальную Firefox-сборку для Add-ons
-              run: npm run lint:firefox
+              run: |
+                  echo "::group::Линтинг сборки Firefox с помощью web-ext"
+                  npm run lint:firefox
+                  echo "::endgroup::"
 
             - name: Установить тестовые браузеры
-              run: npx playwright install --with-deps chromium firefox
+              run: |
+                  echo "::group::Установка браузеров Chromium и Firefox для Playwright"
+                  npx playwright install --with-deps chromium firefox
+                  echo "::endgroup::"
 
             - name: Собрать изолированные E2E-артефакты
-              run: npm run build:e2e
+              run: |
+                  echo "::group::Сборка изолированных E2E-артефактов"
+                  npm run build:e2e
+                  echo "::endgroup::"
 
             - name: Проверить Chrome
-              run: npm run test:e2e:only
+              run: |
+                  echo "::group::Сквозные E2E тесты Chrome"
+                  npm run test:e2e:only
+                  echo "::endgroup::"
 
             - name: Проверить Firefox
-              run: npm run test:firefox:only
+              run: |
+                  echo "::group::Сквозные тесты Firefox"
+                  npm run test:firefox:only
+                  echo "::endgroup::"
 
             - name: Сохранить диагностику E2E
               if: always()
@@ -92,3 +125,39 @@ jobs:
                   path: coverage/coverage-summary.json
                   retention-days: 14
                   if-no-files-found: ignore
+
+            - name: Сформировать сводный отчёт проверки CI
+              if: always()
+              shell: bash
+              run: |
+                  echo "::group::Формирование сводного отчёта шага GitHub Actions"
+                  VERSION="$(node -p "require('./package.json').version")"
+                  COMMIT_SHORT="${GITHUB_SHA::7}"
+                  STATUS="${{ job.status }}"
+
+                  {
+                    echo "## 📊 Сводка проверки LexiSync CI"
+                    echo ""
+                    echo "| Параметр | Значение |"
+                    echo "| :--- | :--- |"
+                    echo "| **Версия пакета** | \`v${VERSION}\` |"
+                    echo "| **Ветка** | \`${GITHUB_REF_NAME}\` |"
+                    echo "| **Коммит** | \`${COMMIT_SHORT}\` |"
+                    echo "| **Результат проверки** | \`${STATUS}\` |"
+                    echo ""
+                    echo "### 📦 Сборки и контрольные суммы SHA-256"
+                    echo ""
+                    if compgen -G ".output/release/*.zip" > /dev/null; then
+                      echo "| Файл | Размер | SHA-256 |"
+                      echo "| :--- | :--- | :--- |"
+                      for file in .output/release/*.zip; do
+                        fname=$(basename "$file")
+                        fsize=$(ls -lh "$file" | awk '{print $5}')
+                        fsha=$(sha256sum "$file" | awk '{print $1}')
+                        echo "| \`$fname\` | $fsize | \`$fsha\` |"
+                      done
+                    else
+                      echo "_Архивы релизов не были созданы._"
+                    fi
+                  } >> "$GITHUB_STEP_SUMMARY"
+                  echo "::endgroup::"

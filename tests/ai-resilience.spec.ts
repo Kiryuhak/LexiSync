@@ -10,6 +10,7 @@ import {
 import { readCloudflareDiagnostics, readCloudflarePayload, streamCloudflareText } from '../src/cloudflare-client';
 import { extractMistralRateLimitDiagnostics, streamText } from '../src/mistral-client';
 import { SseParser } from '../src/sse-parser';
+import { clearErrorLogs, getErrorLogs } from '../src/error-log';
 
 const settings = {
     selectedTone: 'business',
@@ -19,8 +20,36 @@ const settings = {
     aiMode: 'balanced' as const,
 };
 
+let mockLocalStorage: Record<string, unknown> = {};
+
 beforeEach(() => {
     vi.restoreAllMocks();
+    mockLocalStorage = {};
+    vi.stubGlobal('chrome', {
+        storage: {
+            local: {
+                async get(keys: string | string[] | Record<string, unknown> | null) {
+                    if (keys === null) return { ...mockLocalStorage };
+                    if (typeof keys === 'string') return { [keys]: mockLocalStorage[keys] };
+                    if (Array.isArray(keys)) {
+                        return Object.fromEntries(keys.map((k) => [k, mockLocalStorage[k]]));
+                    }
+                    if (keys && typeof keys === 'object') {
+                        return Object.fromEntries(
+                            Object.entries(keys).map(([k, def]) => [k, mockLocalStorage[k] ?? def]),
+                        );
+                    }
+                    return { ...mockLocalStorage };
+                },
+                async set(items: Record<string, unknown>) {
+                    Object.assign(mockLocalStorage, structuredClone(items));
+                },
+                async remove(keys: string | string[]) {
+                    for (const k of Array.isArray(keys) ? keys : [keys]) delete mockLocalStorage[k];
+                },
+            },
+        },
+    });
     resetAiProviderHealth();
 });
 
@@ -507,4 +536,136 @@ test('эксперимент: сравнение GLM-4.7-Flash reasoning (config
 
     expect(configAAvgLatency).toBeGreaterThan(8000);
     expect(configBAvgLatency).toBeLessThan(1000);
+});
+
+test('состояние провайдера переходит healthy -> cooldown -> probe-ready с увеличением паузы при повторном 429', async () => {
+    resetAiProviderHealth();
+    const baseTime = 10_000_000;
+
+    // Исходное состояние: healthy
+    let availability = await getProviderAvailability('mistral', baseTime);
+    expect(availability.healthState).toBe('healthy');
+    expect(availability.allowed).toBe(true);
+
+    // Первый 429: переходит в cooldown
+    await recordProviderFailure(new AiProviderError('429', 'RATE_LIMIT', 'mistral', true, 429), baseTime);
+    availability = await getProviderAvailability('mistral', baseTime);
+    expect(availability.healthState).toBe('cooldown');
+    expect(availability.allowed).toBe(false);
+    expect(availability.cooldownRemainingMs).toBe(30_000);
+
+    // Спустя 31 секунду cooldown истекает: переходит в probe-ready
+    const probeTime = baseTime + 31_000;
+    availability = await getProviderAvailability('mistral', probeTime);
+    expect(availability.healthState).toBe('probe-ready');
+    expect(availability.allowed).toBe(true);
+
+    // Первый probe разрешён
+    const firstProbe = await acquireProviderAttempt('mistral', probeTime);
+    expect(firstProbe.allowed).toBe(true);
+    expect(firstProbe.healthState).toBe('probe-ready');
+
+    // Параллельный второй probe блокируется
+    const secondProbe = await acquireProviderAttempt('mistral', probeTime);
+    expect(secondProbe.allowed).toBe(false);
+
+    // Если probe снова вернул 429: backoff экспоненциально увеличивает паузу (30s * 2^1 = 60s)
+    await recordProviderFailure(new AiProviderError('429', 'RATE_LIMIT', 'mistral', true, 429), probeTime);
+    const afterFailedProbe = await getProviderAvailability('mistral', probeTime);
+    expect(afterFailedProbe.healthState).toBe('cooldown');
+    expect(afterFailedProbe.cooldownRemainingMs).toBe(60_000);
+});
+
+test('Mistral 429 с успешным Cloudflare fallback логируется как WARN / PROVIDER_DEGRADED, а не как ERROR', async () => {
+    resetAiProviderHealth();
+    await clearErrorLogs();
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.includes('mistral.ai')) {
+            return new Response(JSON.stringify({ message: 'Rate limit reached' }), {
+                status: 429,
+                headers: { 'content-type': 'application/json' },
+            });
+        }
+        if (url.includes('cloudflare.com')) {
+            return new Response(
+                JSON.stringify({
+                    success: true,
+                    result: { choices: [{ message: { content: 'Текст для проверки без ошибок.' } }] },
+                }),
+                { status: 200, headers: { 'content-type': 'application/json' } },
+            );
+        }
+        return new Response('Not found', { status: 404 });
+    });
+
+    let collectedText = '';
+    const result = await executeAiStreamRequest({
+        request: { action: 'callMistral', text: 'Текст для проверки', mode: 'spellcheck' },
+        settings,
+        primaryProvider: 'mistral',
+        autoFallback: true,
+        mistralApiKey: 'mistral-test-key-12345678',
+        cloudflareAccountId: 'cf-account-id',
+        cloudflareApiToken: 'cf-api-token',
+        signal: new AbortController().signal,
+        onChunk: (text) => {
+            collectedText += text;
+        },
+    });
+
+    expect(result.fallbackOccurred).toBe(true);
+    expect(result.providerUsed).toBe('cloudflare');
+    expect(collectedText).toBe('Текст для проверки без ошибок.');
+
+    const logs = await getErrorLogs();
+    expect(logs.length).toBe(1);
+    expect(logs[0].level).toBe('warn');
+    expect(logs[0].errorCode).toBe('PROVIDER_DEGRADED');
+    expect(logs[0].provider).toBe('mistral');
+    expect(logs[0].fallbackProvider).toBe('cloudflare');
+    expect(logs[0].fallbackSucceeded).toBe(true);
+});
+
+test('когда оба провайдера завершаются 429, обе ошибки логируются как ERROR', async () => {
+    resetAiProviderHealth();
+    await clearErrorLogs();
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.includes('mistral.ai')) {
+            return new Response(JSON.stringify({ message: 'Rate limit reached' }), {
+                status: 429,
+                headers: { 'content-type': 'application/json' },
+            });
+        }
+        if (url.includes('cloudflare.com')) {
+            return new Response(JSON.stringify({ errors: [{ message: 'Rate limit exceeded' }] }), {
+                status: 429,
+                headers: { 'content-type': 'application/json' },
+            });
+        }
+        return new Response('Not found', { status: 404 });
+    });
+
+    await expect(
+        executeAiStreamRequest({
+            request: { action: 'callMistral', text: 'Текст для проверки', mode: 'spellcheck' },
+            settings,
+            primaryProvider: 'mistral',
+            autoFallback: true,
+            mistralApiKey: 'mistral-test-key-12345678',
+            cloudflareAccountId: 'cf-account-id',
+            cloudflareApiToken: 'cf-api-token',
+            signal: new AbortController().signal,
+            onChunk: () => undefined,
+        }),
+    ).rejects.toMatchObject({ code: 'PROVIDERS_UNAVAILABLE' });
+
+    const logs = await getErrorLogs();
+    expect(logs.length).toBe(2);
+    expect(logs.every((l) => l.level === 'error')).toBe(true);
+    expect(logs.some((l) => l.provider === 'mistral')).toBe(true);
+    expect(logs.some((l) => l.provider === 'cloudflare')).toBe(true);
 });
