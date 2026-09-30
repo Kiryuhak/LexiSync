@@ -54,7 +54,7 @@ export function mountResultDialogFrame(container: HTMLElement): ResultDialogElem
     status.setAttribute('aria-atomic', 'true');
     status.hidden = true;
 
-    container.append(header, source, content, compactDetails, corrections, tools, stats, actions, status);
+    container.append(header, source, content, compactDetails, corrections, tools, stats, status, actions);
 
     return {
         header,

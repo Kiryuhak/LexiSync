@@ -1253,7 +1253,7 @@ export const POPUP_STYLE_TEXT = `
                 box-shadow: none !important;
             }
             #lexisync-extension-ui[data-surface="result"] .lexisync-action-status[data-error="true"] {
-                margin-top: 0;
+                margin: 4px 12px 8px;
                 padding: 8px 10px;
                 border-radius: 9px;
                 background: var(--warning-bg);

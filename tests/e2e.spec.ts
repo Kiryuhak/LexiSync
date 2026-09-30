@@ -528,6 +528,8 @@ test('Проверка ошибок подсвечивает только исп
     await uiPanel.locator('mark').first().click();
     await uiPanel.locator('.lexisync-result-button--primary').click();
     await expect(page.locator('#spellcheck-input')).toHaveValue('Пишуу кот для проверки.');
+    await expect(uiPanel.locator('.lexisync-result-button--success').first()).toBeVisible();
+    await page.screenshot({ path: path.resolve('test-results/panel-after-replacement.png') });
 
     // Возвращаем исходное значение одной кнопкой.
     await uiPanel.locator('.lexisync-undo-button').click();
@@ -3484,6 +3486,8 @@ test('Test 72: «Проверить через AI» при сбое AI сохр�
     // Панель остаётся видимой, результат Спеллера не исчезает
     await expect(panel).toBeVisible();
     await expect(panel).toContainText('Корова едет');
+    await expect(panel.locator('.lexisync-action-status')).toContainText('AI');
+    await page.screenshot({ path: path.resolve('test-results/panel-ai-error.png') });
 
     // Кнопка Заменить остаётся доступной и применяет результат Спеллера
     const replaceBtn = panel.locator('.lexisync-result-button--accept, .lexisync-result-button--primary').first();

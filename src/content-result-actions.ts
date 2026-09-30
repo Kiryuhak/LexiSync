@@ -123,7 +123,7 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
                     replaceButton.classList.remove('lexisync-result-button--success');
                     appendIconAndText(replaceButton, replaceIcon, replaceText);
                 };
-                actionsContainer.appendChild(undoButton);
+                replaceButton.insertAdjacentElement('afterend', undoButton);
             } else showStatus(t('replaceFailed', 'Не удалось заменить текст.'), true);
         };
         actionsContainer.appendChild(replaceButton);
@@ -172,7 +172,7 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
                     appendButton.classList.remove('lexisync-result-button--success');
                     appendIconAndText(appendButton, ICONS.continueText, t('appendBelowText', 'Вставить ниже'));
                 };
-                actionsContainer.appendChild(undoButton);
+                appendButton.insertAdjacentElement('afterend', undoButton);
             } else showStatus(t('appendFailed', 'Не удалось вставить текст.'), true);
         };
         actionsContainer.appendChild(appendButton);

@@ -110,6 +110,7 @@ export function executeRequest(
     popupUI.setAttribute('aria-modal', 'true');
     popupUI.setAttribute('aria-label', t('resultDialog', 'Результат обработки текста'));
     popupUI.style.width = 'min(360px, calc(100vw - 24px))';
+    popupUI.style.maxHeight = 'min(560px, calc(100vh - 32px))';
     popupUI.style.boxSizing = 'border-box';
     popupUI.style.padding = '0';
     popupUI.style.display = 'block';
