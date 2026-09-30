@@ -54,6 +54,7 @@ import {
 } from './runtime-settings-cache';
 import { isExtensionAllowedForUrl } from './site-runtime-access';
 import { checkYandexSpelling, type YandexSpellerResult } from './yandex-speller-client';
+import { recordErrorLog } from './error-log';
 
 const REQUEST_TIMEOUT_MS = 45_000;
 
@@ -700,6 +701,7 @@ chrome.runtime.onConnect.addListener((port) => {
         let spellerFailure: Error | null = null;
         let spellerApplied = false;
         let servedBySpeller = false;
+        let aiFailed = false;
         const completeWithSpellerResult = (notification?: string): boolean => {
             if (!spellerResult || !isCurrentRequest()) return false;
             safePostMessage({ status: 'reset' });
@@ -951,15 +953,22 @@ chrome.runtime.onConnect.addListener((port) => {
             completedSuccessfully = true;
         } catch (error) {
             if (!isCurrentRequest()) return;
+            aiFailed = true;
             const isAbort = error instanceof DOMException && error.name === 'AbortError';
             if (
                 !isAbort &&
                 msg.mode === 'spellcheck' &&
                 spellerResult &&
                 completeWithSpellerResult(
-                    `${t('spellerResultPreservedAiFailed', 'Проверка орфографии завершена. Дополнительная AI-проверка временно недоступна.')} ${
-                        error instanceof Error ? error.message : ''
-                    }`.trim(),
+                    error instanceof AiProviderError && error.code === 'QUALITY_CHECK_FAILED'
+                        ? t(
+                              'qualityFailedLineStructure',
+                              'Дополнительная AI-проверка не прошла проверку безопасности результата. Орфографический результат сохранён.',
+                          )
+                        : t(
+                              'spellerResultPreservedAiFailed',
+                              'Проверка орфографии завершена. Дополнительная AI-проверка временно недоступна.',
+                          ),
                 )
             ) {
                 return;
@@ -997,6 +1006,22 @@ chrome.runtime.onConnect.addListener((port) => {
         } finally {
             clearTimeout(timeout);
             if (activeController === requestController) activeController = null;
+            if (isCurrentRequest() && !requestController.signal.aborted) {
+                const fallbackSucceeded =
+                    completedSuccessfully && (execResult?.fallbackOccurred === true || (servedBySpeller && aiFailed));
+                const errorCode = completedSuccessfully
+                    ? fallbackSucceeded
+                        ? 'REQUEST_SUCCEEDED_WITH_FALLBACK'
+                        : 'REQUEST_SUCCEEDED'
+                    : 'REQUEST_FAILED';
+                void recordErrorLog({
+                    level: completedSuccessfully ? (fallbackSucceeded ? 'warn' : 'info') : 'error',
+                    source: 'request',
+                    message: errorCode,
+                    errorCode,
+                    requestId: '' + requestId,
+                }).catch(() => undefined);
+            }
             if (msg.mode && !budgetRejected && !servedFromCache && !cancelledBeforeReservation) {
                 const reportedUsage = execResult?.usage;
                 const hasReportedTokens =

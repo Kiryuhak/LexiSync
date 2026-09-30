@@ -7,13 +7,13 @@
   ·
   <a href="https://addons.mozilla.org/ru/firefox/addon/65facfa619b74330bdfa/"><strong>Установить из Firefox Add-ons</strong></a>
   ·
-  <a href="https://github.com/Kiryuhak/LexiSync/releases/tag/v5.6.10"><strong>Релиз v5.6.10</strong></a>
+  <a href="https://github.com/Kiryuhak/LexiSync/releases/tag/v5.6.11"><strong>Релиз v5.6.11</strong></a>
   ·
   <a href="docs/RELEASING.md">Инструкция по выпуску</a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/версия-5.6.10-blue.svg?style=flat-square" alt="Версия 5.6.10">
+  <img src="https://img.shields.io/badge/версия-5.6.11-blue.svg?style=flat-square" alt="Версия 5.6.11">
   <img src="https://img.shields.io/badge/Manifest-V3-success.svg?style=flat-square" alt="Manifest V3">
   <img src="https://img.shields.io/badge/Chrome-Поддерживается-4285F4.svg?style=flat-square&logo=googlechrome&logoColor=white" alt="Chrome">
   <img src="https://img.shields.io/badge/Firefox-Поддерживается-FF7139.svg?style=flat-square&logo=firefoxbrowser&logoColor=white" alt="Firefox">
@@ -23,7 +23,7 @@
 
 Кросс-браузерное расширение для Chrome и Firefox с проверкой орфографии через **Яндекс.Спеллер**, глубокой AI-проверкой через **Mistral AI** и резервным AI-провайдером **Cloudflare Workers AI**. Позволяет исправлять ошибки, переписывать и переводить текст, менять раскладку, подбирать эмодзи и распознавать текст на изображениях напрямую из браузера.
 
-<h2 align="center">✨ Интерфейс LexiSync 5.6.10</h2>
+<h2 align="center">✨ Интерфейс LexiSync 5.6.11</h2>
 
 <p align="center">
   Новая русскоязычная галерея для Chrome и Firefox: без обрезанного интерфейса, тестовых ключей и служебных данных.
@@ -60,7 +60,13 @@
   </p>
 </details>
 
-## ✨ Готовится к следующему релизу
+## ✨ Что изменилось в 5.6.11
+
+- Проверка AI-ответа сохраняет смысловую структуру строк, абзацев и списков. Различия CRLF/LF/CR и конечных пробелов допускаются.
+- Числовые значения, включая обозначения 5x10, 1080p и 4K, защищены от удаления и искажения.
+- Лимит Mistral 429 переводит провайдер в cooldown; после паузы допускается один пробный запрос. При успешном резервном переходе пользователь получает результат.
+- Журнал показывает итог запроса отдельно от предупреждений провайдеров. Диагностика проверки качества содержит только счётчики и коды причин.
+- CI проверяет секреты, архивы, браузерные тесты и фиксирует результаты по-русски.
 
 - **Яндекс.Спеллер вместо Local Proofreader:** орфография проверяется официальным облачным API только после явной команды пользователя; проверяемый текст передаётся Яндексу.
 - **Кнопка «Проверить через AI»:** после Спеллера результат можно дополнительно проверить через Mistral AI с резервным переходом на Cloudflare Workers AI.

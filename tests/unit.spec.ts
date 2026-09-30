@@ -93,9 +93,9 @@ test('безопасно нормализует поисковик и повре
 });
 
 test('история обновлений содержит все выпуски и поддерживает поиск', () => {
-    expect(RELEASE_NOTES[0].version).toBe('5.6.10');
+    expect(RELEASE_NOTES[0].version).toBe('5.6.11');
     expect(RELEASE_NOTES.at(-1)?.version).toBe('2.5');
-    expect(RELEASE_NOTES).toHaveLength(70);
+    expect(RELEASE_NOTES).toHaveLength(71);
     expect(new Set(RELEASE_NOTES.map((release) => release.version)).size).toBe(RELEASE_NOTES.length);
     expect(filterReleaseNotes(RELEASE_NOTES, 'MagicOS', 'ru').map((release) => release.version)).toEqual([
         '5.3.4',
@@ -3600,9 +3600,10 @@ test('Unit 29: разметка истории и настроек содерж�
 
 test('Unit 30: runStorageGarbageCollection выполняет сборку мусора и ротацию логов', async () => {
     const { runStorageGarbageCollection, getStorageBytesInUse } = await import('../src/storage-gc');
+    const { MAX_ERROR_LOGS } = await import('../src/error-log');
 
     const fakeStorage: Record<string, unknown> = {
-        appErrorLogs: Array.from({ length: 65 }, (_, i) => ({ id: `log-${i}` })),
+        appErrorLogs: Array.from({ length: MAX_ERROR_LOGS + 15 }, (_, i) => ({ id: `log-${i}` })),
     };
 
     const originalChrome = globalThis.chrome;
@@ -3640,7 +3641,7 @@ test('Unit 30: runStorageGarbageCollection выполняет сборку му�
         expect(report.bytesInUse).toBe(1024);
         expect(report.logsTrimmed).toBe(15);
         expect(Array.isArray(fakeStorage.appErrorLogs)).toBe(true);
-        expect((fakeStorage.appErrorLogs as unknown[]).length).toBe(50);
+        expect((fakeStorage.appErrorLogs as unknown[]).length).toBe(MAX_ERROR_LOGS);
 
         const bytes = await getStorageBytesInUse();
         expect(bytes).toBe(1024);

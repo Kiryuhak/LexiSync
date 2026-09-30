@@ -3,7 +3,7 @@ import { browser } from 'wxt/browser';
 export interface ErrorLogEntry {
     id: string;
     timestamp: string;
-    level: 'error' | 'warn';
+    level: 'error' | 'warn' | 'info';
     source: string;
     message: string;
     provider?: 'mistral' | 'cloudflare';
@@ -38,7 +38,7 @@ export interface ErrorLogEntry {
     details?: Record<string, unknown>;
 }
 
-export const MAX_ERROR_LOGS = 50;
+export const MAX_ERROR_LOGS = 200;
 const LOG_STORAGE_KEY = 'appErrorLogs';
 let logMutationQueue: Promise<void> = Promise.resolve();
 
@@ -123,7 +123,7 @@ export async function getErrorLogs(): Promise<ErrorLogEntry[]> {
 }
 
 export async function recordErrorLog(entry: {
-    level?: 'error' | 'warn';
+    level?: 'error' | 'warn' | 'info';
     source: string;
     message: string;
     provider?: 'mistral' | 'cloudflare';

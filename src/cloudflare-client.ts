@@ -390,6 +390,7 @@ export async function streamCloudflareText(
                 {
                     causeCode: sanity.reason,
                     numericDiagnostics: sanity.numericDiagnostics,
+                    lineDiagnostics: sanity.lineDiagnostics,
                     technicalDiagnostics: sanity.technicalDiagnostics,
                 },
             );
@@ -484,6 +485,7 @@ export async function streamCloudflareText(
                 {
                     causeCode: sanity.reason,
                     numericDiagnostics: sanity.numericDiagnostics,
+                    lineDiagnostics: sanity.lineDiagnostics,
                     technicalDiagnostics: sanity.technicalDiagnostics,
                 },
             );

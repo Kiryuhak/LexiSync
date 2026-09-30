@@ -34,42 +34,58 @@ jobs:
               run: npm ci
 
             - name: Проверить код, типы, форматирование и локализацию
+              id: static
               run: |
                   echo "::group::Статическая проверка кода, типов, Prettier и i18n"
                   npm run check:static
                   echo "::endgroup::"
 
             - name: Проверить production-зависимости
+              id: audit
               run: |
                   echo "::group::Проверка production-зависимостей (npm audit)"
                   npm run audit:dependencies
                   echo "::endgroup::"
 
+            - name: Проверить секреты в исходниках
+              id: secrets
+              run: |
+                  echo "::group::Проверка секретов"
+                  npm run scan:secrets
+                  echo "::endgroup::"
+
             - name: Проверить инструменты сборки
+              id: tooling
               run: |
                   echo "::group::Проверка инструментов сборки"
                   npm run audit:tooling
                   echo "::endgroup::"
 
             - name: Запустить модульные тесты
+              id: unit
               run: |
                   echo "::group::Модульные тесты и сбор отчёта покрытия (Vitest)"
-                  npm run test:coverage
+                  mkdir -p .output/ci-logs
+                  set -o pipefail
+                  npm run test:coverage 2>&1 | tee .output/ci-logs/unit.log
                   echo "::endgroup::"
 
             - name: Собрать финальные production-архивы
+              id: build
               run: |
                   echo "::group::Сборка production-архивов Chrome и Firefox"
                   npm run zip
                   echo "::endgroup::"
 
             - name: Проверить манифесты и содержимое production-архивов
+              id: artifacts
               run: |
                   echo "::group::Верификация содержимого архивов и манифестов MV3"
                   npm run verify:artifacts
                   echo "::endgroup::"
 
             - name: Проверить финальную Firefox-сборку для Add-ons
+              id: firefox_lint
               run: |
                   echo "::group::Линтинг сборки Firefox с помощью web-ext"
                   npm run lint:firefox
@@ -88,15 +104,19 @@ jobs:
                   echo "::endgroup::"
 
             - name: Проверить Chrome
+              id: chrome_e2e
               run: |
                   echo "::group::Сквозные E2E тесты Chrome"
-                  npm run test:e2e:only
+                  set -o pipefail
+                  npm run test:e2e:only 2>&1 | tee .output/ci-logs/chrome-e2e.log || { code=$?; echo "::error::Chrome E2E завершился с кодом $code; диагностика: test-results/ и playwright-report/"; exit "$code"; }
                   echo "::endgroup::"
 
             - name: Проверить Firefox
+              id: firefox_e2e
               run: |
                   echo "::group::Сквозные тесты Firefox"
-                  npm run test:firefox:only
+                  set -o pipefail
+                  npm run test:firefox:only 2>&1 | tee .output/ci-logs/firefox-e2e.log || { code=$?; echo "::error::Firefox E2E завершился с кодом $code; диагностика: test-results/ и playwright-report/"; exit "$code"; }
                   echo "::endgroup::"
 
             - name: Сохранить диагностику E2E
@@ -133,7 +153,19 @@ jobs:
                   echo "::group::Формирование сводного отчёта шага GitHub Actions"
                   VERSION="$(node -p "require('./package.json').version")"
                   COMMIT_SHORT="${GITHUB_SHA::7}"
-                  STATUS="${{ job.status }}"
+                  status_ru() {
+                    case "$1" in
+                      success) echo "ПРОЙДЕНО" ;;
+                      failure) echo "ОШИБКА" ;;
+                      cancelled) echo "ОТМЕНЕНО" ;;
+                      *) echo "ПРОПУЩЕНО" ;;
+                    esac
+                  }
+                  STATUS="$(status_ru '${{ job.status }}')"
+                  UNIT_COUNT="$(grep -oE '[0-9]+ passed' .output/ci-logs/unit.log 2>/dev/null | tail -1 | cut -d' ' -f1 || true)"
+                  CHROME_COUNT="$(grep -oE '[0-9]+ passed' .output/ci-logs/chrome-e2e.log 2>/dev/null | tail -1 | cut -d' ' -f1 || true)"
+                  FIREFOX_COUNT="$(grep -oE '[0-9]+ passed' .output/ci-logs/firefox-e2e.log 2>/dev/null | tail -1 | cut -d' ' -f1 || true)"
+                  COVERAGE="$(node -e "try { console.log(require('./coverage/coverage-summary.json').total.lines.pct + '%') } catch { console.log('нет отчёта') }")"
 
                   {
                     echo "## 📊 Сводка проверки LexiSync CI"
@@ -144,6 +176,20 @@ jobs:
                     echo "| **Ветка** | \`${GITHUB_REF_NAME}\` |"
                     echo "| **Коммит** | \`${COMMIT_SHORT}\` |"
                     echo "| **Результат проверки** | \`${STATUS}\` |"
+                    echo ""
+                    echo "| Проверка | Статус |"
+                    echo "| :--- | :--- |"
+                    echo "| Статические проверки | $(status_ru '${{ steps.static.outcome }}') |"
+                    echo "| Модульные тесты | $(status_ru '${{ steps.unit.outcome }}'), $UNIT_COUNT |"
+                    echo "| Покрытие строк | $COVERAGE |"
+                    echo "| Chrome E2E | $(status_ru '${{ steps.chrome_e2e.outcome }}'), $CHROME_COUNT |"
+                    echo "| Firefox E2E | $(status_ru '${{ steps.firefox_e2e.outcome }}'), $FIREFOX_COUNT |"
+                    echo "| Сборка | $(status_ru '${{ steps.build.outcome }}') |"
+                    echo "| Проверка ZIP | $(status_ru '${{ steps.artifacts.outcome }}') |"
+                    echo "| web-ext | $(status_ru '${{ steps.firefox_lint.outcome }}') |"
+                    echo "| Аудит зависимостей | $(status_ru '${{ steps.audit.outcome }}') |"
+                    echo "| Аудит инструментов | $(status_ru '${{ steps.tooling.outcome }}') |"
+                    echo "| Проверка секретов | $(status_ru '${{ steps.secrets.outcome }}') |"
                     echo ""
                     echo "### 📦 Сборки и контрольные суммы SHA-256"
                     echo ""

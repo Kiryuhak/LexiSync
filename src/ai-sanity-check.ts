@@ -16,6 +16,20 @@ export interface AiSanityResult {
     cleanedText: string;
     numericDiagnostics?: NumericValidationDiagnostics;
     technicalDiagnostics?: TechnicalValidationDiagnostics;
+    lineDiagnostics?: LineValidationDiagnostics;
+}
+
+export interface LineValidationDiagnostics {
+    inputLineCount: number;
+    outputLineCount: number;
+    inputParagraphCount: number;
+    outputParagraphCount: number;
+    blankLineCountInput: number;
+    blankLineCountOutput: number;
+    structureMismatchType:
+        'line_count_changed' | 'paragraph_boundary_changed' | 'list_boundary_changed' | 'line_order_changed';
+    normalizationApplied: string[];
+    validationInputStage: 'ai_input';
 }
 
 export type TechnicalEntityType =
@@ -54,6 +68,8 @@ const META_COMMENTARY_PATTERNS = [
  */
 export function cleanAiOutputText(rawText: string, originalText = ''): string {
     if (!rawText || typeof rawText !== 'string') return '';
+    const leadingLineBreaks = rawText.match(/^(?:[ \t]*(?:\r\n|\r|\n))+/u)?.[0].replace(/[^\r\n]/gu, '') || '';
+    const trailingLineBreaks = rawText.match(/(?:(?:\r\n|\r|\n)[ \t]*)+$/u)?.[0].replace(/[^\r\n]/gu, '') || '';
     let cleaned = rawText.trim();
 
     // 1. Снимаем обрамляющие Markdown code blocks: ```...``` или ```text ... ```
@@ -92,11 +108,9 @@ export function cleanAiOutputText(rawText: string, originalText = ''): string {
         cleaned = cleaned.slice(1, -1).trim();
     }
 
-    const leadingWhitespace = originalText.match(/^\s*/)?.[0] || '';
-    const trailingWhitespace = originalText.match(/\s*$/)?.[0] || '';
-    if (leadingWhitespace || trailingWhitespace) {
-        cleaned = `${leadingWhitespace}${cleaned.trim()}${trailingWhitespace}`;
-    }
+    const leadingWhitespace = originalText.match(/^[ \t]*/u)?.[0] || '';
+    const trailingWhitespace = originalText.match(/[ \t]*$/u)?.[0] || '';
+    cleaned = leadingLineBreaks + leadingWhitespace + cleaned.trim() + trailingWhitespace + trailingLineBreaks;
 
     return cleaned;
 }
@@ -109,7 +123,7 @@ function sameMatches(original: string, corrected: string, pattern: RegExp): bool
     return JSON.stringify(extractMatches(original, pattern)) === JSON.stringify(extractMatches(corrected, pattern));
 }
 
-type NumericTokenKind = 'integer' | 'decimal' | 'range' | 'date' | 'version' | 'ip' | 'structured';
+type NumericTokenKind = 'integer' | 'decimal' | 'range' | 'date' | 'version' | 'ip' | 'structured' | 'identifier';
 
 interface NumericToken {
     kind: NumericTokenKind;
@@ -118,11 +132,17 @@ interface NumericToken {
 }
 
 const NUMERIC_EXPRESSION_REGEX =
-    /(?<![\p{L}\p{N}_])[-+]?\d+(?:[ \u00A0\u202F\u2009]\d{3})*(?:[.,:/\-–—]\d+(?:[ \u00A0\u202F\u2009]\d{3})*)*(?![\p{L}\p{N}_])/gu;
+    /(?<![\p{L}\p{N}_])(?:\d+[xX×]\d+|\d+[pPkK]|[-+]?\d+(?:[ \u00A0\u202F\u2009]\d{3})*(?:[.,:/\-–—]\d+(?:[ \u00A0\u202F\u2009]\d{3})*)*)(?![\p{L}\p{N}_])/gu;
 
 function classifyNumericToken(raw: string, prefix: string): NumericToken {
     const normalizations: string[] = [];
     let compact = raw;
+    if (/^\d+[xX×]\d+$/u.test(compact)) {
+        return { kind: 'identifier', canonical: 'dimensions:' + compact.replace(/[xX×]/u, 'x'), normalizations };
+    }
+    if (/^\d+[pPkK]$/u.test(compact)) {
+        return { kind: 'identifier', canonical: 'identifier:' + compact.toLowerCase(), normalizations };
+    }
     if (/[ \u00A0\u202F\u2009]/u.test(compact)) {
         compact = compact.replace(/[ \u00A0\u202F\u2009]/gu, '');
         normalizations.push('grouping_spaces');
@@ -241,6 +261,83 @@ function getWordOverlapRatio(original: string, corrected: string): number {
         remaining.splice(index, 1);
     }
     return (2 * common) / (originalWords.length + correctedWords.length);
+}
+
+function lineSignature(value: string) {
+    const normalizationApplied: string[] = [];
+    if (/\r/u.test(value)) normalizationApplied.push('line_endings');
+    if (/[^\S\r\n]+$/mu.test(value)) normalizationApplied.push('trailing_spaces');
+    if (/(?:\r\n|\r|\n)$/u.test(value)) normalizationApplied.push('trailing_newline');
+    const normalized = value
+        .replace(/\r\n?|\n/gu, '\n')
+        .replace(/[^\S\n]+$/gmu, '')
+        .replace(/\n$/u, '');
+    const lines = normalized.split('\n');
+    return {
+        lines,
+        kinds: lines.map((line) => (!line.trim() ? 'blank' : /^(?:[-*+]|\d+[.)])\s+/u.test(line) ? 'list' : 'text')),
+        paragraphCount: normalized.split(/\n\s*\n+/u).filter((paragraph) => paragraph.trim()).length,
+        blankLineCount: lines.filter((line) => !line.trim()).length,
+        normalizationApplied,
+    };
+}
+
+function lineSimilarity(left: string, right: string): number {
+    const leftWords = left.toLocaleLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
+    const rightWords = right.toLocaleLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
+    if (!leftWords.length || !rightWords.length) return 0;
+    const remaining = [...rightWords];
+    let common = 0;
+    for (const word of leftWords) {
+        const index = remaining.findIndex(
+            (candidate) => candidate === word || areLikelySpellingVariants(candidate, word),
+        );
+        if (index >= 0) {
+            common++;
+            remaining.splice(index, 1);
+        }
+    }
+    return (2 * common) / (leftWords.length + rightWords.length);
+}
+
+function validateLineStructure(input: string, output: string): LineValidationDiagnostics | undefined {
+    const left = lineSignature(input);
+    const right = lineSignature(output);
+    let structureMismatchType: LineValidationDiagnostics['structureMismatchType'] | undefined;
+    if (left.paragraphCount !== right.paragraphCount || left.blankLineCount !== right.blankLineCount) {
+        structureMismatchType = 'paragraph_boundary_changed';
+    } else if (left.lines.length !== right.lines.length) structureMismatchType = 'line_count_changed';
+    else if (left.kinds.some((kind, index) => (kind === 'blank') !== (right.kinds[index] === 'blank'))) {
+        structureMismatchType = 'paragraph_boundary_changed';
+    } else if (left.kinds.some((kind, index) => (kind === 'list') !== (right.kinds[index] === 'list'))) {
+        structureMismatchType = 'list_boundary_changed';
+    } else if (
+        left.lines.length > 1 &&
+        left.lines.some((line, index) => {
+            if (left.kinds[index] === 'blank') return false;
+            const own = lineSimilarity(line, right.lines[index]);
+            return right.lines.some(
+                (otherLine, otherIndex) =>
+                    otherIndex !== index &&
+                    lineSimilarity(line, otherLine) > own + 0.2 &&
+                    lineSimilarity(line, otherLine) >= 0.75,
+            );
+        })
+    ) {
+        structureMismatchType = 'line_order_changed';
+    }
+    if (!structureMismatchType) return undefined;
+    return {
+        inputLineCount: left.lines.length,
+        outputLineCount: right.lines.length,
+        inputParagraphCount: left.paragraphCount,
+        outputParagraphCount: right.paragraphCount,
+        blankLineCountInput: left.blankLineCount,
+        blankLineCountOutput: right.blankLineCount,
+        structureMismatchType,
+        normalizationApplied: [...new Set([...left.normalizationApplied, ...right.normalizationApplied])],
+        validationInputStage: 'ai_input',
+    };
 }
 
 interface ExtractedEntity {
@@ -507,6 +604,16 @@ export function validateAiOutput(options: AiSanityCheckOptions): AiSanityResult 
         const cleanTrim = cleaned.trim();
         const origLen = origTrim.length;
 
+        const lineDiagnostics = validateLineStructure(originalText, cleaned);
+        if (lineDiagnostics) {
+            return {
+                valid: false,
+                reason: 'AI_OUTPUT_CHANGED_LINE_STRUCTURE',
+                cleanedText: cleaned,
+                lineDiagnostics,
+            };
+        }
+
         if (origLen >= 8) {
             // 2. Корректор не должен возвращать обрезанный фрагмент даже для короткого выделения.
             if (cleanTrim.length < origLen * 0.7) {
@@ -551,7 +658,7 @@ export function validateAiOutput(options: AiSanityCheckOptions): AiSanityResult 
             if (!cleaned.includes(url)) {
                 return {
                     valid: false,
-                    reason: `AI_OUTPUT_LOST_URL: ${url}`,
+                    reason: 'AI_OUTPUT_LOST_URL',
                     cleanedText: cleaned,
                 };
             }
@@ -572,7 +679,7 @@ export function validateAiOutput(options: AiSanityCheckOptions): AiSanityResult 
             if (!cleaned.includes(email)) {
                 return {
                     valid: false,
-                    reason: `AI_OUTPUT_LOST_EMAIL: ${email}`,
+                    reason: 'AI_OUTPUT_LOST_EMAIL',
                     cleanedText: cleaned,
                 };
             }
@@ -624,17 +731,6 @@ export function validateAiOutput(options: AiSanityCheckOptions): AiSanityResult 
 
         // 10. Корректор не должен менять структуру абзацев или переписывать большую часть слов.
         // Нормализуем CRLF и CR к LF, чтобы различия переносов Windows/Unix не давали ложных сбоев.
-        const normOrigLines = originalText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-        const normCleanLines = cleaned.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-        const originalLineBreaks = (normOrigLines.trimEnd().match(/\n/g) || []).length;
-        const correctedLineBreaks = (normCleanLines.trimEnd().match(/\n/g) || []).length;
-        if (originalLineBreaks !== correctedLineBreaks) {
-            return {
-                valid: false,
-                reason: 'AI_OUTPUT_CHANGED_LINE_STRUCTURE',
-                cleanedText: cleaned,
-            };
-        }
         if (getWordOverlapRatio(origTrim, cleanTrim) < 0.45) {
             return {
                 valid: false,

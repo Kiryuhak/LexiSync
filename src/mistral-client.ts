@@ -427,6 +427,7 @@ export async function streamText(
                 {
                     causeCode: sanity.reason,
                     numericDiagnostics: sanity.numericDiagnostics,
+                    lineDiagnostics: sanity.lineDiagnostics,
                     technicalDiagnostics: sanity.technicalDiagnostics,
                 },
             );

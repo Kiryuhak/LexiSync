@@ -55,6 +55,17 @@ export interface AiErrorContext {
         normalizationApplied: string[];
         validationInputStage: string;
     };
+    lineDiagnostics?: {
+        inputLineCount: number;
+        outputLineCount: number;
+        inputParagraphCount: number;
+        outputParagraphCount: number;
+        blankLineCountInput: number;
+        blankLineCountOutput: number;
+        structureMismatchType: string;
+        normalizationApplied: string[];
+        validationInputStage: string;
+    };
     technicalDiagnostics?: {
         entityType: string;
         entityCountInput: number;

@@ -412,10 +412,19 @@ try {
         .locator('#lexisync-extension-ui[data-surface="result"] .lexisync-content-pane')
         .filter({ hasText: 'Проверяю текст на ошибки' })
         .waitFor({ state: 'visible' });
+    await result.setViewportSize({ width: 1200, height: 650 });
     await result.locator('#lexisync-extension-ui[data-surface="result"]').evaluate((element) => {
         element.style.zoom = '0.92';
+        element.style.setProperty('top', '12px', 'important');
+        element.style.setProperty('left', '84px', 'important');
+        element.style.setProperty('transform', 'none', 'important');
+        element.style.setProperty('height', 'auto', 'important');
+        element.style.setProperty('max-height', 'none', 'important');
+        element.style.setProperty('overflow', 'visible', 'important');
     });
-    await captureRaw(result, 'result.png');
+    await result.emulateMedia({ reducedMotion: 'reduce' });
+    await result.waitForTimeout(120);
+    await result.screenshot({ path: path.join(rawDir, 'result.png'), animations: 'disabled' });
     await result.close();
 
     for (const scene of scenes) await compose(context, scene, outputDir);

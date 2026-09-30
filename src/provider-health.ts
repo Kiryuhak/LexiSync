@@ -73,6 +73,15 @@ export async function checkProviderHealth(
 ): Promise<ProviderHealthStatus> {
     const cooldownStatus = async (resolvedProvider: AiProviderType): Promise<ProviderHealthStatus | null> => {
         const availability = await getProviderAvailability(resolvedProvider);
+        if (availability.healthState === 'probe-ready') {
+            return {
+                provider: resolvedProvider,
+                state: 'probe-ready',
+                message: t('serverStatusProbeReady', 'Готов к пробному запросу после паузы'),
+                checkedAt: Date.now(),
+                errorCode: availability.lastErrorCode,
+            };
+        }
         if (availability.cooldownRemainingMs <= 0) return null;
         const seconds = Math.max(1, Math.ceil(availability.cooldownRemainingMs / 1000));
         return {

@@ -400,6 +400,41 @@ describe('Sanity Check: validateAiOutput', () => {
     });
 
     test.each([
+        ['1 мин', '1 минута', true],
+        ['5-10 сек', '5–10 секунд', true],
+        ['12 500 рублей', '12\u202f500 рублей', true],
+        ['1.5 литра', '1,5 литра', true],
+        ['2026-09-30', '2026-09-29', false],
+        ['версия 5.6.8', 'версия 5.6.9', false],
+        ['192.168.2.1', '192.168.1.1', false],
+        ['HTTP 429', 'HTTP 430', false],
+        ['20%', '21%', false],
+        ['-15', '-16', false],
+        ['+7', '+8', false],
+        ['№123', '№124', false],
+        ['10/20', '10/21', false],
+        ['10:30', '10:31', false],
+        ['5x10', '5x11', false],
+        ['1080p', '720p', false],
+        ['4K', '8K', false],
+        ['Wi-Fi 6', 'Wi-Fi 7', false],
+        ['GPT-5.6', 'GPT-5.7', false],
+    ])('числовой корпус: %s → %s', (input, output, valid) => {
+        const diagnostics = validateNumericIntegrity(input, output);
+        expect(diagnostics.numericMismatchType === 'none').toBe(valid);
+    });
+
+    test('удаление двух из трёх числовых токенов остаётся ошибкой', () => {
+        const diagnostics = validateNumericIntegrity('HTTP 429, версия 5.6.8, 20%', 'HTTP 429');
+        expect(diagnostics).toMatchObject({
+            inputNumberCount: 3,
+            outputNumberCount: 1,
+            mismatchCount: 2,
+            numericMismatchType: 'count_changed',
+        });
+    });
+
+    test.each([
         ['диапазон с en dash', 'Ожидание 5-10 сек.', 'Ожидание 5–10 секунд.', true],
         ['диапазон с em dash', 'Ожидание 5-10 сек.', 'Ожидание 5—10 секунд.', true],
         ['изменённая граница диапазона', 'Ожидание 5-10 сек.', 'Ожидание 5-100 секунд.', false],
@@ -494,6 +529,67 @@ describe('Sanity Check: validateAiOutput', () => {
         const res = validateAiOutput({ originalText: original, correctedText: collapsed, mode: 'spellcheck' });
         expect(res.valid).toBe(false);
         expect(res.reason).toBe('AI_OUTPUT_CHANGED_LINE_STRUCTURE');
+    });
+
+    test('сохраняет смысловую структуру при смене CRLF, CR, пробелов и одного конечного переноса', () => {
+        const result = validateAiOutput({
+            originalText: 'Первый пункт.  \r\n\r\n- Второй пункт.\rТретий пункт.',
+            correctedText: 'Первый пункт.\n\n- Второй пункт.\nТретий пункт.\n',
+            mode: 'spellcheck',
+        });
+        expect(result.valid).toBe(true);
+    });
+
+    test('ведущий перевод строки нельзя ни удалить, ни добавить', () => {
+        expect(
+            validateAiOutput({
+                originalText: '\nПервый абзац.',
+                correctedText: 'Первый абзац.',
+                mode: 'spellcheck',
+            }).reason,
+        ).toBe('AI_OUTPUT_CHANGED_LINE_STRUCTURE');
+        expect(
+            validateAiOutput({
+                originalText: '\nПервый абзац.',
+                correctedText: '\nПервый абзац.',
+                mode: 'spellcheck',
+            }).valid,
+        ).toBe(true);
+        expect(
+            validateAiOutput({
+                originalText: 'Первый абзац.',
+                correctedText: '\nПервый абзац.',
+                mode: 'spellcheck',
+            }).reason,
+        ).toBe('AI_OUTPUT_CHANGED_LINE_STRUCTURE');
+    });
+
+    test.each([
+        [
+            'потеря пустой строки',
+            'Первый абзац.\n\nВторой абзац.',
+            'Первый абзац.\nВторой абзац.',
+            'paragraph_boundary_changed',
+        ],
+        ['потеря пункта', '- Первый пункт.\n- Второй пункт.', '- Первый пункт.', 'line_count_changed'],
+        [
+            'перестановка строк',
+            'Первая строка текста.\nВторая строка текста.',
+            'Вторая строка текста.\nПервая строка текста.',
+            'line_order_changed',
+        ],
+        [
+            'склейка мягких строк',
+            'Текст занимает 3\nстроки\nподряд.',
+            'Текст занимает 3 строки подряд.',
+            'line_count_changed',
+        ],
+    ])('%s блокируется с безопасной диагностикой', (_name, originalText, correctedText, mismatch) => {
+        const result = validateAiOutput({ originalText, correctedText, mode: 'spellcheck' });
+        expect(result.reason).toBe('AI_OUTPUT_CHANGED_LINE_STRUCTURE');
+        expect(result.lineDiagnostics?.structureMismatchType).toBe(mismatch);
+        expect(result.lineDiagnostics?.validationInputStage).toBe('ai_input');
+        expect(JSON.stringify(result.lineDiagnostics)).not.toContain('Первый');
     });
 
     describe('Синтетический регрессионный корпус Section 18: технические сущности и типографика', () => {

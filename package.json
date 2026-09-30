@@ -1,6 +1,6 @@
 {
     "name": "lexisync-extension",
-    "version": "5.6.10",
+    "version": "5.6.11",
     "description": "LexiSync - Smart Text AI Assistant with Mistral API and Cloudflare Workers AI",
     "scripts": {
         "dev": "wxt",
@@ -19,6 +19,7 @@
         "format:check": "prettier --check .",
         "check:i18n": "node scripts/check-i18n.mjs",
         "audit:dependencies": "npm audit --omit=dev --audit-level=high",
+        "scan:secrets": "node scripts/check-secrets.mjs",
         "audit:tooling": "node scripts/audit-tooling.mjs",
         "check:svg": "node scripts/check-svg-assets.mjs",
         "clean:artifacts": "node scripts/clean-artifacts.mjs",
@@ -42,7 +43,7 @@
         "lint:firefox": "web-ext lint --source-dir .output/release/firefox-mv3",
         "check:static": "npm run format:check && npm run lint && npm run typecheck && npm run typecheck:legacy && npm run check:i18n && npm run check:svg",
         "verify:release": "npm run zip && npm run verify:artifacts && npm run lint:firefox",
-        "verify": "npm run check:static && npm run audit:dependencies && npm run test:coverage && npm run verify:release",
+        "verify": "npm run check:static && npm run scan:secrets && npm run audit:dependencies && npm run audit:tooling && npm run test:coverage && npm run verify:release",
         "test:all": "npm run verify && npm run test:runtime",
         "test:full": "npm run verify && npm run test:runtime:headed",
         "postinstall": "wxt prepare"
@@ -68,16 +69,17 @@
         "spawn-sync": false
     },
     "overrides": {
-        "addons-linter": "10.9.0",
-        "adm-zip": "0.6.0",
-        "brace-expansion": "5.0.9",
-        "fast-uri": "3.1.6",
+        "addons-linter": "10.13.0",
+        "adm-zip": "0.6.1",
+        "brace-expansion": "5.0.12",
+        "fast-uri": "3.1.8",
+        "image-size": "2.0.4",
         "minimatch": "10.2.6",
         "multimatch": "7.0.0",
         "postcss": "8.5.25",
         "shell-quote": "^1.8.4",
         "tmp": "^0.2.6",
-        "undici": "7.29.0",
+        "undici": "7.29.1",
         "uuid": "11.1.1"
     },
     "devDependencies": {
@@ -96,7 +98,7 @@
         "typescript": "npm:@typescript/typescript6@^6.0.2",
         "typescript-eslint": "^8.68.0",
         "vitest": "^4.1.11",
-        "web-ext": "^10.3.0",
+        "web-ext": "^10.7.0",
         "wxt": "^0.21.4"
     }
 }

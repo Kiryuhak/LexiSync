@@ -57,6 +57,15 @@ jobs:
                     echo "Тег ${GITHUB_REF_NAME} не совпадает с версией ${VERSION}" >&2
                     exit 1
                   fi
+                  if [[ "$GITHUB_REF_TYPE" != "tag" || "$(git cat-file -t "$TAG")" != "tag" ]]; then
+                    echo "::error::Релиз можно запустить только из существующего annotated tag." >&2
+                    exit 1
+                  fi
+                  TAG_COMMIT="$(git rev-parse "$TAG^{commit}")"
+                  if [[ "$GITHUB_SHA" != "$TAG_COMMIT" ]]; then
+                    echo "::error::Коммит запуска не совпадает с коммитом тега: $TAG" >&2
+                    exit 1
+                  fi
                   echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
                   echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
@@ -97,7 +106,13 @@ jobs:
                   TAG="${{ steps.release_meta.outputs.tag }}"
                   VERSION="${{ steps.release_meta.outputs.version }}"
                   COMMIT_SHORT="${GITHUB_SHA::7}"
-                  STATUS="${{ job.status }}"
+                  case "${{ job.status }}" in
+                    success) STATUS="ПРОЙДЕНО" ;;
+                    failure) STATUS="ОШИБКА" ;;
+                    cancelled) STATUS="ОТМЕНЕНО" ;;
+                    *) STATUS="ПРОПУЩЕНО" ;;
+                  esac
+                  TAG_SHA="$(git rev-parse "$TAG" 2>/dev/null || echo 'нет данных')"
 
                   {
                     echo "## 🚀 Релиз LexiSync ${TAG}"
@@ -108,6 +123,8 @@ jobs:
                     echo "| **Тег** | \`${TAG}\` |"
                     echo "| **Коммит** | \`${COMMIT_SHORT}\` |"
                     echo "| **Статус проверки** | \`${STATUS}\` |"
+                    echo ""
+                    echo "Объект annotated tag: $TAG_SHA"
                     echo ""
                     echo "### 📦 Артефакты сборки и SHA-256"
                     echo ""
@@ -137,7 +154,8 @@ jobs:
                     if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
                       break
                     fi
-                    if gh release create "$RELEASE_TAG" --target "$GITHUB_SHA" --generate-notes --title "LexiSync ${RELEASE_TAG#v}"; then
+                    awk 'BEGIN {section=0} /^## \[/ {section++; if (section==2) exit} section==1 {print}' CHANGELOG.md > release-notes.md
+                    if gh release create "$RELEASE_TAG" --target "$GITHUB_SHA" --notes-file release-notes.md --title "LexiSync ${RELEASE_TAG#v}"; then
                       break
                     fi
                     if [[ "$attempt" -eq 5 ]]; then
@@ -148,17 +166,20 @@ jobs:
                     sleep 5
                   done
 
-                  # Попытка загрузки архивов с повторами
-                  for attempt in {1..5}; do
-                    if gh release upload "$RELEASE_TAG" .output/release/*.zip --clobber; then
-                      break
+                  # Уже загруженный архив можно пропустить только при совпадении SHA-256.
+                  for file in .output/release/*.zip; do
+                    name="$(basename "$file")"
+                    local_digest="sha256:$(sha256sum "$file" | cut -d' ' -f1)"
+                    remote_digest="$(gh release view "$RELEASE_TAG" --json assets --jq ".assets[] | select(.name == \"$name\") | .digest")"
+                    if [[ -n "$remote_digest" ]]; then
+                      if [[ "$remote_digest" != "$local_digest" ]]; then
+                        echo "::error::Архив $name уже существует с другим SHA-256. Перезапись запрещена." >&2
+                        exit 1
+                      fi
+                      echo "Архив $name уже загружен с совпадающим SHA-256."
+                      continue
                     fi
-                    if [[ "$attempt" -eq 5 ]]; then
-                      echo "Не удалось загрузить архивы в GitHub Release после 5 попыток" >&2
-                      exit 1
-                    fi
-                    echo "Попытка $attempt загрузки ассетов не удалась, ожидание перед повтором..." >&2
-                    sleep 5
+                    gh release upload "$RELEASE_TAG" "$file"
                   done
 
     publish-firefox:
@@ -216,7 +237,12 @@ jobs:
               shell: bash
               run: |
                   VERSION="${{ needs.verify-and-release.outputs.version }}"
-                  STATUS="${{ job.status }}"
+                  case "${{ job.status }}" in
+                    success) STATUS="ПРОЙДЕНО" ;;
+                    failure) STATUS="ОШИБКА" ;;
+                    cancelled) STATUS="ОТМЕНЕНО" ;;
+                    *) STATUS="ПРОПУЩЕНО" ;;
+                  esac
                   {
                     echo "### 🦊 Публикация в Mozilla Add-ons (AMO)"
                     echo ""
@@ -264,7 +290,12 @@ jobs:
               shell: bash
               run: |
                   VERSION="${{ needs.verify-and-release.outputs.version }}"
-                  STATUS="${{ job.status }}"
+                  case "${{ job.status }}" in
+                    success) STATUS="ПРОЙДЕНО" ;;
+                    failure) STATUS="ОШИБКА" ;;
+                    cancelled) STATUS="ОТМЕНЕНО" ;;
+                    *) STATUS="ПРОПУЩЕНО" ;;
+                  esac
                   {
                     echo "### 🌐 Публикация в Chrome Web Store"
                     echo ""

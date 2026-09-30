@@ -22,7 +22,7 @@ const blocking = Object.entries(vulnerabilities).filter(([, vulnerability]) =>
 );
 
 if (blocking.length === 0) {
-    console.log('Tooling audit: no high or critical vulnerabilities.');
+    console.log('Аудит инструментов: уязвимостей высокого и критического уровня нет.');
     process.exit(0);
 }
 
@@ -40,7 +40,7 @@ const unexpectedSources = [...advisorySources].filter((source) => !allowedAdviso
 
 if (unexpected.length > 0 || unexpectedSources.length > 0) {
     const names = blocking.map(([name]) => name).join(', ') || 'none';
-    throw new Error(`Tooling audit contains new high/critical vulnerabilities: ${names}`);
+    throw new Error(`Аудит инструментов выявил новые уязвимости высокого или критического уровня: ${names}`);
 }
 
-console.log('Tooling audit: only the accepted tooling advisories are present.');
+console.log('Аудит инструментов: найдены только ранее принятые предупреждения.');

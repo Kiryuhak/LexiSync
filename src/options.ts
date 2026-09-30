@@ -1155,8 +1155,9 @@ async function refreshErrorLogUI(): Promise<void> {
     const contentEl = document.getElementById('errorLogContent');
     const logs = await getErrorLogs();
     if (counterEl) {
-        counterEl.textContent = formatErrorCount(logs.length);
-        counterEl.setAttribute('data-count', String(logs.length));
+        const errorCount = logs.filter((entry) => entry.level === 'error').length;
+        counterEl.textContent = formatErrorCount(errorCount);
+        counterEl.setAttribute('data-count', String(errorCount));
     }
     if (contentEl) {
         contentEl.textContent = formatErrorLogsAsText(logs);

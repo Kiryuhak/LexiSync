@@ -812,6 +812,11 @@ export function executeRequest(
                         'qualityFailedNumbers',
                         'Ответ модели отклонён: искажены числовые значения или диапазоны.',
                     );
+                } else if (response.causeCode === 'AI_OUTPUT_CHANGED_LINE_STRUCTURE') {
+                    errorMessage = t(
+                        'qualityFailedLineStructure',
+                        'Дополнительная AI-проверка не прошла проверку безопасности результата. Орфографический результат сохранён.',
+                    );
                 }
                 if (
                     typeof response.cooldownMs === 'number' &&

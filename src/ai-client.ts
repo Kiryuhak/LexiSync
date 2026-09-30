@@ -80,6 +80,7 @@ async function writeProviderFailureLog(
         requestId: error.context.requestId,
         details: {
             ...error.context.numericDiagnostics,
+            ...error.context.lineDiagnostics,
             ...error.context.technicalDiagnostics,
         },
     });

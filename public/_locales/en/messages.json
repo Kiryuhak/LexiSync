@@ -1890,6 +1890,9 @@
     "qualityFailedNumbers": {
         "message": "Model output rejected: numeric values or ranges were altered."
     },
+    "qualityFailedLineStructure": {
+        "message": "The additional AI check did not pass result safety validation. The spelling result was preserved."
+    },
     "serverStatusAuthError": {
         "message": "Invalid API key"
     },

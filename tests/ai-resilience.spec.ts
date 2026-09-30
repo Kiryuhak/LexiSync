@@ -11,6 +11,21 @@ import { readCloudflareDiagnostics, readCloudflarePayload, streamCloudflareText 
 import { extractMistralRateLimitDiagnostics, streamText } from '../src/mistral-client';
 import { SseParser } from '../src/sse-parser';
 import { clearErrorLogs, getErrorLogs } from '../src/error-log';
+import { checkProviderHealth } from '../src/provider-health';
+
+test('экран состояния не расходует единственный probe после cooldown', async () => {
+    resetAiProviderHealth();
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+    await recordProviderFailure(new AiProviderError('Лимит', 'RATE_LIMIT', 'mistral', true, 429), Date.now() - 31_000);
+    const status = await checkProviderHealth('mistral', 'test_key');
+    expect(status.state).toBe('probe-ready');
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect((await acquireProviderAttempt('mistral')).allowed).toBe(true);
+    expect((await acquireProviderAttempt('mistral')).allowed).toBe(false);
+    vi.unstubAllGlobals();
+    resetAiProviderHealth();
+});
 
 const settings = {
     selectedTone: 'business',
