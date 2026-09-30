@@ -708,6 +708,19 @@ if (!contentRuntime.__lexisyncContentInitialized) {
         popupUI.style.setProperty('opacity', '1', 'important');
     }
 
+    window.addEventListener('resize', () => {
+        if (!popupUI) return;
+        if (!isManuallyPositioned) {
+            adjustPopupPosition();
+            return;
+        }
+        const rect = popupUI.getBoundingClientRect();
+        const maxX = Math.max(0, window.innerWidth - rect.width);
+        const maxY = Math.max(0, window.innerHeight - rect.height);
+        popupUI.style.setProperty('left', `${Math.min(Math.max(rect.left, 0), maxX)}px`, 'important');
+        popupUI.style.setProperty('top', `${Math.min(Math.max(rect.top, 0), maxY)}px`, 'important');
+    });
+
     function closePopup(removeImmediately = false, restoreFocus = true): void {
         isPopupPinned = false;
         activeRequestCleanup?.();

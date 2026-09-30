@@ -184,6 +184,17 @@ test('удерживает модальное окно рядом с указа�
     });
     expect(narrowPosition.x).toBe(12);
     expect(narrowPosition.x + 296).toBeLessThanOrEqual(320);
+
+    const veryNarrowPosition = calculatePopupPosition({
+        anchorX: 220,
+        anchorY: 200,
+        popupWidth: 264,
+        popupHeight: 180,
+        viewportWidth: 280,
+        viewportHeight: 500,
+    });
+    expect(veryNarrowPosition.x).toBe(8);
+    expect(veryNarrowPosition.x + 264).toBeLessThanOrEqual(280);
 });
 
 test('исключает чувствительные поля из фоновой автопроверки', () => {
@@ -2317,6 +2328,16 @@ test('клиент отклоняет пустой, неверный и слиш
         code: 'INVALID_RESPONSE',
     });
     await expect(checkYandexSpelling('а'.repeat(10_001))).rejects.toMatchObject({ code: 'TEXT_TOO_LONG' });
+});
+
+test('Яндекс.Спеллер не отправляет запрос при заранее отменённом сигнале', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const fetchImpl = vi.fn(async () => new Response('[]')) as typeof fetch;
+    await expect(checkYandexSpelling('текст', { signal: controller.signal, fetchImpl })).rejects.toMatchObject({
+        name: 'AbortError',
+    });
+    expect(fetchImpl).not.toHaveBeenCalled();
 });
 
 test('text-replacement блокирует устаревшие offsets и сохраняет UTF-16 позицию caret', async () => {

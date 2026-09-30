@@ -141,7 +141,9 @@ export async function checkYandexSpelling(
     const timeout = setTimeout(() => timeoutController.abort('timeout'), options.timeoutMs ?? 12_000);
     const abortFromCaller = () => timeoutController.abort(options.signal?.reason);
     options.signal?.addEventListener('abort', abortFromCaller, { once: true });
+    if (options.signal?.aborted) abortFromCaller();
     try {
+        if (timeoutController.signal.aborted) throw new DOMException('Запрос отменён.', 'AbortError');
         const body = new URLSearchParams({
             text,
             lang: options.lang ?? 'ru',

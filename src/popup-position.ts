@@ -21,8 +21,9 @@ export function calculatePopupPosition({
     gap = 6,
     margin = 20,
 }: PopupPositionInput): { x: number; y: number } {
-    const maxX = Math.max(margin, viewportWidth - popupWidth - margin);
-    const x = Math.min(Math.max(anchorX, margin), maxX);
+    const horizontalMargin = Math.min(margin, Math.max(0, (viewportWidth - popupWidth) / 2));
+    const maxX = Math.max(horizontalMargin, viewportWidth - popupWidth - horizontalMargin);
+    const x = Math.min(Math.max(anchorX, horizontalMargin), maxX);
     const below = anchorY + gap;
     const above = anchorTop - popupHeight - gap;
     const maxY = Math.max(margin, viewportHeight - popupHeight - margin);
