@@ -7,13 +7,13 @@
   ·
   <a href="https://addons.mozilla.org/ru/firefox/addon/65facfa619b74330bdfa/"><strong>Установить из Firefox Add-ons</strong></a>
   ·
-  <a href="https://github.com/Kiryuhak/LexiSync/releases/tag/v5.6.11"><strong>Релиз v5.6.11</strong></a>
+  <a href="https://github.com/Kiryuhak/LexiSync/releases/tag/v5.6.12"><strong>Релиз v5.6.12</strong></a>
   ·
   <a href="docs/RELEASING.md">Инструкция по выпуску</a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/версия-5.6.11-blue.svg?style=flat-square" alt="Версия 5.6.11">
+  <img src="https://img.shields.io/badge/версия-5.6.12-blue.svg?style=flat-square" alt="Версия 5.6.12">
   <img src="https://img.shields.io/badge/Manifest-V3-success.svg?style=flat-square" alt="Manifest V3">
   <img src="https://img.shields.io/badge/Chrome-Поддерживается-4285F4.svg?style=flat-square&logo=googlechrome&logoColor=white" alt="Chrome">
   <img src="https://img.shields.io/badge/Firefox-Поддерживается-FF7139.svg?style=flat-square&logo=firefoxbrowser&logoColor=white" alt="Firefox">
@@ -23,7 +23,7 @@
 
 Кросс-браузерное расширение для Chrome и Firefox с проверкой орфографии через **Яндекс.Спеллер**, глубокой AI-проверкой через **Mistral AI** и резервным AI-провайдером **Cloudflare Workers AI**. Позволяет исправлять ошибки, переписывать и переводить текст, менять раскладку, подбирать эмодзи и распознавать текст на изображениях напрямую из браузера.
 
-<h2 align="center">✨ Интерфейс LexiSync 5.6.11</h2>
+<h2 align="center">✨ Интерфейс LexiSync 5.6.12</h2>
 
 <p align="center">
   Новая русскоязычная галерея для Chrome и Firefox: без обрезанного интерфейса, тестовых ключей и служебных данных.
@@ -60,7 +60,14 @@
   </p>
 </details>
 
-## ✨ Что изменилось в 5.6.11
+## ✨ Что изменилось в 5.6.12
+
+- Панель результата стала аккуратнее: зелёная кнопка замены осталась основным действием, вторичные действия и источники проверки стали понятнее.
+- На экранах от 280 пикселей панель и её действия остаются видимыми. При изменении размера окна панель возвращается в пределы экрана.
+- Заранее отменённый запрос Яндекс.Спеллера не отправляется. Во время дополнительной AI-проверки кнопка показывает состояние ожидания без скачка расположения действий.
+- [Сравнение панели до и после](docs/audit/2026-09-30.md) и снимки реального Chromium доступны вместе с техническим аудитом.
+
+### Ранее в 5.6.11
 
 - Проверка AI-ответа сохраняет смысловую структуру строк, абзацев и списков. Различия CRLF/LF/CR и конечных пробелов допускаются.
 - Числовые значения, включая обозначения 5x10, 1080p и 4K, защищены от удаления и искажения.
