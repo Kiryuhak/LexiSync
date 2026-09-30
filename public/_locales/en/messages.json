@@ -937,6 +937,9 @@
     "spellcheckDone": {
         "message": "Spelling check completed"
     },
+    "checkCompleteShort": {
+        "message": "Check complete"
+    },
     "styleChanged": {
         "message": "Style updated"
     },

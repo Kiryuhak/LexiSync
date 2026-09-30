@@ -22,6 +22,7 @@ interface ResultActionsOptions {
     isCompact?: () => boolean;
     onDismiss?: () => void;
     canCheckAi?: boolean;
+    checkAiPending?: boolean;
     onCheckAi?: () => Promise<void> | void;
 }
 
@@ -52,7 +53,14 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
             'Отправить текст в AI для глубокого анализа стиля, пунктуации и сложных ошибок',
         );
         checkAiButton.setAttribute('aria-label', t('checkWithAi', 'Проверить через AI'));
-        appendIconAndText(checkAiButton, ICONS.sparkles, t('checkWithAi', 'Проверить через AI'));
+        appendIconAndText(
+            checkAiButton,
+            ICONS.sparkles,
+            options.checkAiPending
+                ? t('checkingWithAi', 'Проверяем через AI…')
+                : t('checkWithAi', 'Проверить через AI'),
+        );
+        checkAiButton.disabled = options.checkAiPending === true;
         checkAiButton.onpointerdown = (e) => e.stopPropagation();
         checkAiButton.onmousedown = (e) => e.stopPropagation();
         checkAiButton.onclick = async (event) => {
@@ -73,9 +81,7 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
     if (hasReplaceTarget) {
         const replaceButton = document.createElement('button');
         replaceButton.type = 'button';
-        replaceButton.className = isCompact
-            ? `${btnClass} lexisync-result-button lexisync-result-button--primary lexisync-result-button--accept`
-            : `${btnClass} lexisync-result-button lexisync-result-button--primary`;
+        replaceButton.className = `${btnClass} lexisync-result-button lexisync-result-button--primary lexisync-result-button--accept`;
         const replaceText = t('replace', 'Заменить');
         appendIconAndText(replaceButton, replaceIcon, replaceText);
         replaceButton.setAttribute('aria-label', replaceText);
@@ -126,7 +132,7 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
 
         const appendButton = document.createElement('button');
         appendButton.type = 'button';
-        appendButton.className = `${btnClass} lexisync-result-button`;
+        appendButton.className = `${btnClass} lexisync-result-button lexisync-result-button--secondary`;
         appendButton.title = t('appendBelowTextHint', 'Вставить результат с новой строки ниже выделенного фрагмента');
         appendIconAndText(appendButton, ICONS.continueText, t('appendBelowText', 'Вставить ниже'));
         appendButton.disabled = !hasValidReplaceTarget;

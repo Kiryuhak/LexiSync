@@ -937,6 +937,9 @@
     "spellcheckDone": {
         "message": "Орфографическая проверка завершена"
     },
+    "checkCompleteShort": {
+        "message": "Проверка завершена"
+    },
     "styleChanged": {
         "message": "Стиль изменён"
     },

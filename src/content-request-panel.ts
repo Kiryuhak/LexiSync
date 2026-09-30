@@ -123,7 +123,7 @@ export function executeRequest(
     let headerLabel = '';
     let headerIcon = '';
     let headerEmoji = '';
-    if (mode === 'spellcheck') headerLabel = t('spellcheckDone', 'Орфографическая проверка завершена');
+    if (mode === 'spellcheck') headerLabel = t('checkCompleteShort', 'Проверка завершена');
     else if (mode === 'style') {
         headerIcon = ICONS.style;
         headerLabel = t('styleChanged', 'Стиль изменён');
@@ -277,14 +277,14 @@ export function executeRequest(
             text.textContent = t('yandexSpellerAttribution', 'Проверка правописания: Яндекс.Спеллер');
             badge.title = t('yandexSpellerAttribution', 'Проверка правописания: Яндекс.Спеллер');
         } else if (provider === 'cloudflare') {
-            text.textContent = '☁️ Cloudflare';
+            text.textContent = 'Cloudflare AI';
             badge.title = spellerChecked
                 ? 'Яндекс.Спеллер + Cloudflare Workers AI'
                 : isFallback
                   ? 'Cloudflare Workers AI (резервный)'
                   : 'Cloudflare Workers AI';
         } else {
-            text.textContent = '✦ Mistral';
+            text.textContent = 'Mistral AI';
             badge.title = spellerChecked
                 ? 'Яндекс.Спеллер + Mistral AI'
                 : isFallback
@@ -345,6 +345,7 @@ export function executeRequest(
             tab.type = 'button';
             tab.className = `lexisync-quick-tab${tabConf.active ? ' lexisync-quick-tab--active' : ''}`;
             tab.textContent = tabConf.label;
+            tab.setAttribute('aria-pressed', String(tabConf.active));
             tab.onclick = (e) => {
                 e.stopPropagation();
                 if (tabConf.active) return;
@@ -1403,8 +1404,8 @@ export function executeRequest(
             setTimeout: (callback, delay) => lifecycle.setTimeout(callback, delay),
             isCompact: () => compactResultMode,
             onDismiss: () => closePopup(),
-            canCheckAi:
-                activeProvider === 'yandex-speller' && mode === 'spellcheck' && !aiCheckPerformed && !checkingAi,
+            canCheckAi: activeProvider === 'yandex-speller' && mode === 'spellcheck' && !aiCheckPerformed,
+            checkAiPending: checkingAi,
             onCheckAi: handleCheckWithAi,
         });
     }

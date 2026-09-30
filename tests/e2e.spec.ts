@@ -3607,6 +3607,24 @@ test('кнопка AI соблюдает выбранный Cloudflare, а ат�
     expect(fits).toBe(true);
     await page.screenshot({ path: path.resolve('test-results/yandex-attribution-light.png') });
 
+    for (const width of [280, 320, 375, 480]) {
+        await page.setViewportSize({ width, height: 640 });
+        const bounds = await panel.boundingBox();
+        expect(bounds).not.toBeNull();
+        expect(bounds!.x).toBeGreaterThanOrEqual(-1);
+        expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width + 1);
+        if (width === 280 || width === 375) {
+            await page.screenshot({ path: path.resolve(`test-results/panel-light-${width}.png`) });
+        }
+    }
+    const primary = panel.locator('.lexisync-result-button--accept').first();
+    const secondary = panel.locator('.lexisync-result-button--secondary').first();
+    const actionColors = await Promise.all([
+        primary.evaluate((element) => getComputedStyle(element).backgroundColor),
+        secondary.evaluate((element) => getComputedStyle(element).backgroundColor),
+    ]);
+    expect(actionColors[0]).not.toBe(actionColors[1]);
+
     await panel.locator('.lexisync-btn-check-ai, .lexisync-action-check-ai').first().click();
     await expect.poll(() => cloudflareCalls).toBe(1);
     expect(mistralCalls).toBe(0);
@@ -3615,6 +3633,8 @@ test('кнопка AI соблюдает выбранный Cloudflare, а ат�
     await background.evaluate(() => chrome.storage.local.set({ selectedTheme: 'dark' }));
     await expect(panel).toHaveAttribute('data-theme', 'dark');
     await page.screenshot({ path: path.resolve('test-results/yandex-attribution-dark.png') });
+    await page.setViewportSize({ width: 320, height: 640 });
+    await page.screenshot({ path: path.resolve('test-results/panel-dark-320.png') });
 });
 
 test('Test 73: MV3 cooldown persistence: Mistral 429 сохраняется в storage.session и предотвращает повторный вызов', async ({
