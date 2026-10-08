@@ -1,7 +1,7 @@
 # Политика конфиденциальности LexiSync
 
 **Дата вступления в силу:** 24 августа 2026 г.
-**Последнее обновление:** 30 сентября 2026 г.
+**Последнее обновление:** 8 октября 2026 г.
 
 [English version](#lexisync-privacy-policy)
 
@@ -202,7 +202,7 @@ LexiSync использует разрешения браузера и поль�
 # LexiSync Privacy Policy
 
 **Effective:** August 24, 2026
-**Last updated:** September 30, 2026
+**Last updated:** October 8, 2026
 
 LexiSync is a browser extension for checking, correcting, rewriting, translating, and recognizing text in images. This Policy explains what data LexiSync processes, why it is needed, where it is stored, and when it is transferred to third parties.
 

@@ -2964,13 +2964,25 @@ test('виджет статуса серверов отображается в �
             body: JSON.stringify({ success: true, result: { response: 'pong' } }),
         });
     });
-    await context.route('https://api.mistral.ai/v1/models', async (route) => {
+    await context.route('https://api.mistral.ai/**', async (route) => {
         mistralHealthRequests++;
-        await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({ data: [{ id: 'mistral-small-latest' }] }),
-        });
+        const url = route.request().url();
+        if (url.includes('/chat/completions')) {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    id: 'probe-test',
+                    choices: [{ message: { content: 'PONG' } }],
+                }),
+            });
+        } else {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({ data: [{ id: 'mistral-small-latest' }] }),
+            });
+        }
     });
 
     await background.evaluate(() => chrome.storage.local.set({ onboardingCompleted: true }));

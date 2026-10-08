@@ -16,6 +16,7 @@ export default defineConfig({
             'tests/google-drive-auth.spec.ts',
             'tests/ai-quality.spec.ts',
             'tests/ai-resilience.spec.ts',
+            'tests/provider-health-regression.spec.ts',
         ],
         coverage: {
             provider: 'v8',

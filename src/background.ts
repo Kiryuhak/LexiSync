@@ -12,7 +12,7 @@ import { applySettingsMutation, type SettingsMutation } from './settings-store';
 import { initializeSettingsSync, restoreSyncedSettings } from './settings-transfer';
 import { formatMistralError, isRetryableMistralError, processOcr, type MistralRequest } from './mistral-client';
 import { executeAiStreamRequest, getAiProviderCooldownRemaining } from './ai-client';
-import { AiProviderError, type AiExecutionResult } from './ai-provider-types';
+import { AiProviderError, type AiExecutionResult, type CloudflareCredentials } from './ai-provider-types';
 import { validateApiKey } from './mistral-client';
 import { validateCloudflareCredentials } from './cloudflare-client';
 import { checkProviderHealth } from './provider-health';
@@ -403,7 +403,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         void initializationPromise
             .then(async () =>
                 request.health === true
-                    ? checkProviderHealth(request.provider, request.credential, 7000, request.model)
+                    ? checkProviderHealth(request.provider, request.credential, 7000, request.model, {
+                          probe: request.probe === true,
+                      })
                     : request.provider === 'cloudflare'
                       ? validateCloudflareCredentials(request.credential, request.model)
                       : validateApiKey(request.credential),
@@ -726,6 +728,18 @@ chrome.runtime.onConnect.addListener((port) => {
             return true;
         };
 
+        let activeError: unknown;
+        let primaryProviderUsed: 'mistral' | 'cloudflare' = 'mistral';
+        let fallbackProviderUsed: 'mistral' | 'cloudflare' = 'cloudflare';
+        let primaryResult: string | undefined;
+        let fallbackResult: string | undefined;
+        let fallbackAttempted = false;
+        let fallbackSucceeded = false;
+        let finalErrorCode = 'REQUEST_FAILED';
+        let causeCode: string | undefined;
+        let mistralApiKey: string | undefined;
+        let cloudflareCreds: CloudflareCredentials = { accountId: '', apiToken: '' };
+
         try {
             await initializationPromise;
             const settings = await getCachedSettings({
@@ -742,6 +756,10 @@ chrome.runtime.onConnect.addListener((port) => {
                 enablePiiMasking: true,
                 proofreadMode: 'hybrid',
             });
+            const configuredPrimary = normalizePrimaryAiProvider(settings.primaryAiProvider);
+            primaryProviderUsed = configuredPrimary === 'cloudflare' ? 'cloudflare' : 'mistral';
+            fallbackProviderUsed = primaryProviderUsed === 'mistral' ? 'cloudflare' : 'mistral';
+
             if (!msg.mode) throw new Error(t('modeMissing', 'Режим обработки не указан.'));
             if (msg.mode === 'layout') {
                 const result = fixKeyboardLayout(msg.text || '');
@@ -750,6 +768,9 @@ chrome.runtime.onConnect.addListener((port) => {
                     safePostMessage({ status: 'done' });
                 }
                 completedSuccessfully = true;
+                primaryResult = 'success';
+                finalErrorCode = 'REQUEST_SUCCEEDED';
+                causeCode = 'LAYOUT_CONVERTED';
                 return;
             }
 
@@ -791,6 +812,9 @@ chrome.runtime.onConnect.addListener((port) => {
                     if (cached !== null) {
                         servedFromCache = true;
                         completedSuccessfully = true;
+                        primaryResult = 'cache_hit';
+                        finalErrorCode = 'REQUEST_SUCCEEDED';
+                        causeCode = 'CACHE_HIT';
                         try {
                             await applyUsageMutation('cacheHit', {});
                         } catch (error) {
@@ -804,10 +828,7 @@ chrome.runtime.onConnect.addListener((port) => {
                     }
                 }
             }
-            let [mistralApiKey, cloudflareCreds] = await Promise.all([
-                getStoredApiKey(),
-                getStoredCloudflareCredentials(),
-            ]);
+            [mistralApiKey, cloudflareCreds] = await Promise.all([getStoredApiKey(), getStoredCloudflareCredentials()]);
             if (!mistralApiKey && (!cloudflareCreds.accountId || !cloudflareCreds.apiToken)) {
                 if (
                     completeWithSpellerResult(
@@ -816,8 +837,17 @@ chrome.runtime.onConnect.addListener((port) => {
                             'Проверка орфографии завершена. Дополнительная AI-проверка временно недоступна.',
                         ),
                     )
-                )
+                ) {
+                    completedSuccessfully = true;
+                    servedBySpeller = true;
+                    fallbackAttempted = true;
+                    fallbackSucceeded = true;
+                    primaryResult = 'NO_API_KEY';
+                    fallbackResult = 'speller_success';
+                    finalErrorCode = 'REQUEST_SUCCEEDED_WITH_FALLBACK';
+                    causeCode = 'NO_API_KEY';
                     return;
+                }
                 if (spellerFailure) throw spellerFailure;
                 throw new Error(t('apiKeyMissing', 'API-ключ не настроен'));
             }
@@ -888,6 +918,10 @@ chrome.runtime.onConnect.addListener((port) => {
                     }
                 }
                 execResult = { providerUsed: 'mistral', attempts: 1 };
+                completedSuccessfully = true;
+                primaryResult = 'success';
+                finalErrorCode = 'REQUEST_SUCCEEDED';
+                causeCode = 'SUCCESS';
                 if (isCurrentRequest()) safePostMessage({ status: 'done', provider: 'mistral' });
             } else {
                 const aiSettings = {
@@ -934,6 +968,22 @@ chrome.runtime.onConnect.addListener((port) => {
                     });
 
                 execResult = await runAiRequest(mistralApiKey, cloudflareCreds);
+                completedSuccessfully = true;
+                if (execResult.fallbackOccurred) {
+                    fallbackAttempted = true;
+                    fallbackSucceeded = true;
+                    primaryResult = execResult.fallbackReason || 'PROVIDER_DEGRADED';
+                    fallbackResult = 'success';
+                    finalErrorCode = 'REQUEST_SUCCEEDED_WITH_FALLBACK';
+                    causeCode = execResult.fallbackReason || 'FALLBACK_SUCCESS';
+                } else {
+                    primaryResult = 'success';
+                    fallbackAttempted = false;
+                    fallbackSucceeded = false;
+                    fallbackResult = 'not_attempted';
+                    finalErrorCode = 'REQUEST_SUCCEEDED';
+                    causeCode = 'SUCCESS';
+                }
                 if (isCurrentRequest()) {
                     safePostMessage({
                         status: 'done',
@@ -950,11 +1000,12 @@ chrome.runtime.onConnect.addListener((port) => {
                     });
                 }
             }
-            completedSuccessfully = true;
         } catch (error) {
             if (!isCurrentRequest()) return;
+            activeError = error;
             aiFailed = true;
             const isAbort = error instanceof DOMException && error.name === 'AbortError';
+            const cancelledByUser = isAbort && cancelledControllers.has(requestController);
             if (
                 !isAbort &&
                 msg.mode === 'spellcheck' &&
@@ -971,10 +1022,24 @@ chrome.runtime.onConnect.addListener((port) => {
                           ),
                 )
             ) {
+                completedSuccessfully = true;
+                servedBySpeller = true;
+                fallbackAttempted = true;
+                fallbackSucceeded = true;
+                primaryResult = error instanceof AiProviderError ? error.code : 'AI_FAILED';
+                fallbackResult = 'speller_success';
+                finalErrorCode = 'REQUEST_SUCCEEDED_WITH_FALLBACK';
+                causeCode =
+                    error instanceof AiProviderError
+                        ? error.causeCode || error.context?.causeCode || error.code
+                        : 'SPELLER_FALLBACK';
                 return;
             }
+            completedSuccessfully = false;
+            finalErrorCode = 'REQUEST_FAILED';
             if (isAbort) {
-                const cancelledByUser = cancelledControllers.has(requestController);
+                causeCode = cancelledByUser ? 'USER_CANCELLED' : 'TIMEOUT';
+                primaryResult = 'TIMEOUT';
                 safePostMessage({
                     status: cancelledByUser ? 'cancelled' : 'error',
                     error: cancelledByUser
@@ -983,20 +1048,56 @@ chrome.runtime.onConnect.addListener((port) => {
                     retryable: !cancelledByUser,
                 });
             } else {
-                const errorMessage = error instanceof Error ? error.message : formatMistralError(error);
+                let errorMessage = error instanceof Error ? error.message : formatMistralError(error);
                 const retryable =
                     error && typeof error === 'object' && 'retryable' in error
                         ? Boolean((error as { retryable: boolean }).retryable)
                         : isRetryableMistralError(error);
-                if (error instanceof AiProviderError) failedProvider = error.provider;
+                if (error instanceof AiProviderError) {
+                    failedProvider = error.provider;
+                    causeCode = error.causeCode || error.context?.causeCode || error.code;
+                    primaryResult = error.provider === primaryProviderUsed ? error.code : 'FAILED';
+                    if (error.context?.fallbackProvider || error.provider === fallbackProviderUsed) {
+                        fallbackAttempted = true;
+                        fallbackResult = error.code;
+                    }
+                    if (
+                        error.code === 'QUALITY_CHECK_FAILED' &&
+                        (fallbackAttempted || error.provider === fallbackProviderUsed)
+                    ) {
+                        errorMessage = t(
+                            'qualityFailedWithFallback',
+                            'Mistral временно ограничен, а резервная AI-проверка не смогла вернуть безопасный результат.',
+                        );
+                    }
+                } else if (budgetRejected) {
+                    causeCode = budgetReservationId ? 'DAILY_BUDGET_REACHED' : 'BUDGET_REACHED';
+                    finalErrorCode = 'BUDGET_EXCEEDED';
+                    primaryResult = 'BUDGET_REJECTED';
+                } else if (cancelledBeforeReservation) {
+                    causeCode = 'USER_CANCELLED';
+                    finalErrorCode = 'CANCELLED';
+                    primaryResult = 'CANCELLED';
+                } else if (spellerFailure) {
+                    causeCode = 'SPELLER_ERROR';
+                    finalErrorCode = 'SPELLER_ERROR';
+                    primaryResult = 'SPELLER_FAILED';
+                } else if (!mistralApiKey && (!cloudflareCreds.accountId || !cloudflareCreds.apiToken)) {
+                    causeCode = 'NO_API_KEY';
+                    finalErrorCode = 'AUTH_ERROR';
+                    primaryResult = 'NO_API_KEY';
+                } else {
+                    causeCode = error instanceof Error ? error.name || 'UNKNOWN_ERROR' : 'UNKNOWN_ERROR';
+                    primaryResult = 'FAILED';
+                }
+
                 safePostMessage({
                     status: 'error',
                     error: errorMessage,
                     retryable,
                     provider: error instanceof AiProviderError ? error.provider : undefined,
-                    errorCode: error instanceof AiProviderError ? error.code : undefined,
-                    causeCode:
-                        error instanceof AiProviderError ? error.causeCode || error.context?.causeCode : undefined,
+                    errorCode: error instanceof AiProviderError ? error.code : finalErrorCode,
+                    causeCode: causeCode || (error instanceof AiProviderError ? error.code : undefined),
                     statusCode: error instanceof AiProviderError ? error.status : undefined,
                     retryAfterMs: error instanceof AiProviderError ? error.retryAfterMs : undefined,
                     cooldownMs:
@@ -1007,19 +1108,42 @@ chrome.runtime.onConnect.addListener((port) => {
             clearTimeout(timeout);
             if (activeController === requestController) activeController = null;
             if (isCurrentRequest() && !requestController.signal.aborted) {
-                const fallbackSucceeded =
-                    completedSuccessfully && (execResult?.fallbackOccurred === true || (servedBySpeller && aiFailed));
-                const errorCode = completedSuccessfully
+                fallbackSucceeded =
+                    fallbackSucceeded ||
+                    (completedSuccessfully && (execResult?.fallbackOccurred === true || (servedBySpeller && aiFailed)));
+                const logErrorCode = completedSuccessfully
                     ? fallbackSucceeded
                         ? 'REQUEST_SUCCEEDED_WITH_FALLBACK'
                         : 'REQUEST_SUCCEEDED'
                     : 'REQUEST_FAILED';
+                const elapsedMs = Date.now() - startedAt;
                 void recordErrorLog({
                     level: completedSuccessfully ? (fallbackSucceeded ? 'warn' : 'info') : 'error',
                     source: 'request',
-                    message: errorCode,
-                    errorCode,
+                    message: logErrorCode,
+                    errorCode: logErrorCode,
+                    finalErrorCode: completedSuccessfully ? logErrorCode : finalErrorCode,
+                    causeCode: causeCode || (completedSuccessfully ? 'SUCCESS' : 'UNKNOWN_ERROR'),
                     requestId: '' + requestId,
+                    operation: msg.mode,
+                    provider:
+                        execResult?.providerUsed ||
+                        (activeError instanceof AiProviderError ? activeError.provider : primaryProviderUsed),
+                    primaryProvider: primaryProviderUsed,
+                    fallbackProvider: fallbackProviderUsed,
+                    primaryResult: primaryResult || (completedSuccessfully ? 'success' : 'failed'),
+                    fallbackResult:
+                        fallbackResult ||
+                        (fallbackAttempted ? (fallbackSucceeded ? 'success' : 'failed') : 'not_attempted'),
+                    fallbackAttempted,
+                    fallbackSucceeded,
+                    elapsedMs,
+                    details: {
+                        servedBySpeller,
+                        spellerApplied,
+                        budgetReservationId: budgetReservationId || undefined,
+                        attempts: execResult?.attempts,
+                    },
                 }).catch(() => undefined);
             }
             if (msg.mode && !budgetRejected && !servedFromCache && !cancelledBeforeReservation) {

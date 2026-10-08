@@ -17,6 +17,11 @@ export interface ErrorLogEntry {
     fallbackProvider?: 'mistral' | 'cloudflare';
     fallbackUsed?: boolean;
     fallbackSucceeded?: boolean;
+    primaryProvider?: 'mistral' | 'cloudflare';
+    primaryResult?: string;
+    fallbackResult?: string;
+    finalErrorCode?: string;
+    fallbackAttempted?: boolean;
     cooldownState?: string;
     retryAfterMs?: number;
     latencyMs?: number;
@@ -137,6 +142,11 @@ export async function recordErrorLog(entry: {
     fallbackProvider?: 'mistral' | 'cloudflare';
     fallbackUsed?: boolean;
     fallbackSucceeded?: boolean;
+    primaryProvider?: 'mistral' | 'cloudflare';
+    primaryResult?: string;
+    fallbackResult?: string;
+    finalErrorCode?: string;
+    fallbackAttempted?: boolean;
     cooldownState?: string;
     retryAfterMs?: number;
     latencyMs?: number;
@@ -183,6 +193,11 @@ export async function recordErrorLog(entry: {
                 fallbackProvider: entry.fallbackProvider,
                 fallbackUsed: entry.fallbackUsed,
                 fallbackSucceeded: entry.fallbackSucceeded,
+                primaryProvider: entry.primaryProvider,
+                primaryResult: entry.primaryResult,
+                fallbackResult: entry.fallbackResult,
+                finalErrorCode: entry.finalErrorCode,
+                fallbackAttempted: entry.fallbackAttempted,
                 cooldownState: entry.cooldownState,
                 retryAfterMs: entry.retryAfterMs,
                 latencyMs: entry.latencyMs,
@@ -239,16 +254,27 @@ export function formatErrorLogsAsText(logs: ErrorLogEntry[]): string {
     const lines = logs.map((log, index) => {
         const parts = [
             `#${index + 1} [${log.timestamp}] [${log.level.toUpperCase()}] [${log.source}]`,
-            log.provider ? `  Провайдер: ${log.provider}` : null,
-            log.errorCode ? `  Код ошибки: ${log.errorCode}` : null,
-            log.httpStatus || log.status ? `  HTTP статус: ${log.httpStatus ?? log.status}` : null,
+            log.requestId ? `  Request ID: ${log.requestId}` : null,
             log.operation ? `  Операция: ${log.operation}` : null,
+            log.provider ? `  Провайдер: ${log.provider}` : null,
+            log.primaryProvider ? `  Основной провайдер: ${log.primaryProvider}` : null,
+            log.primaryResult ? `  Результат основного: ${log.primaryResult}` : null,
+            log.fallbackProvider ? `  Резервный провайдер: ${log.fallbackProvider}` : null,
+            typeof log.fallbackAttempted === 'boolean'
+                ? `  Попытка резерва: ${log.fallbackAttempted ? 'да' : 'нет'}`
+                : typeof log.fallbackUsed === 'boolean'
+                  ? `  Резервное переключение: ${log.fallbackUsed ? 'да' : 'нет'}`
+                  : null,
+            typeof log.fallbackSucceeded === 'boolean'
+                ? `  Успех резерва: ${log.fallbackSucceeded ? 'да' : 'нет'}`
+                : null,
+            log.fallbackResult ? `  Результат резерва: ${log.fallbackResult}` : null,
+            log.finalErrorCode ? `  Итоговый код ошибки: ${log.finalErrorCode}` : null,
+            log.errorCode ? `  Код ошибки: ${log.errorCode}` : null,
+            log.causeCode ? `  Причина (cause): ${log.causeCode}` : null,
+            log.httpStatus || log.status ? `  HTTP статус: ${log.httpStatus ?? log.status}` : null,
             log.model ? `  Модель: ${log.model}` : null,
             log.attempt ? `  Попытка: ${log.attempt}` : null,
-            log.fallbackProvider ? `  Резервный провайдер: ${log.fallbackProvider}` : null,
-            typeof log.fallbackUsed === 'boolean'
-                ? `  Резервное переключение: ${log.fallbackUsed ? 'да' : 'нет'}`
-                : null,
             typeof log.retryAfterMs === 'number' ? `  Повтор через: ${log.retryAfterMs} мс` : null,
             typeof log.cooldownSeconds === 'number' ? `  Кулдаун: ${log.cooldownSeconds} сек.` : null,
             log.cooldownSource ? `  Источник кулдауна: ${log.cooldownSource}` : null,
@@ -258,7 +284,11 @@ export function formatErrorLogsAsText(logs: ErrorLogEntry[]): string {
             log.responseShape ? `  Форма ответа: ${log.responseShape}` : null,
             typeof log.contentLength === 'number' ? `  Длина content: ${log.contentLength}` : null,
             typeof log.reasoningLength === 'number' ? `  Длина reasoning: ${log.reasoningLength}` : null,
-            typeof log.latencyMs === 'number' ? `  Задержка: ${Math.round(log.latencyMs)} мс` : null,
+            typeof log.elapsedMs === 'number'
+                ? `  Длительность: ${Math.round(log.elapsedMs)} мс`
+                : typeof log.latencyMs === 'number'
+                  ? `  Задержка: ${Math.round(log.latencyMs)} мс`
+                  : null,
             `  Сообщение: ${log.message}`,
             log.details ? `  Детали: ${JSON.stringify(log.details)}` : null,
             '----------------------------------------',

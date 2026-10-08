@@ -317,6 +317,133 @@ export async function validateApiKey(apiKey: string): Promise<{ ok: boolean; mes
     }
 }
 
+export async function probeMistralConnection(
+    apiKey: string,
+    signal?: AbortSignal,
+): Promise<{
+    ok: boolean;
+    message: string;
+    latencyMs?: number;
+    status?: number;
+    errorCode?: string;
+    retryAfterMs?: number;
+}> {
+    const trimmed = apiKey.trim();
+    if (!trimmed) {
+        return { ok: false, message: t('tutorialKeyRequired', 'Сначала вставьте API-ключ.'), errorCode: 'AUTH_ERROR' };
+    }
+    const start = Date.now();
+    const controller = new AbortController();
+    const timeoutTimer = setTimeout(() => controller.abort(), 10_000);
+    const combinedSignal = signal
+        ? AbortSignal.any
+            ? AbortSignal.any([signal, controller.signal])
+            : controller.signal
+        : controller.signal;
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/chat/completions`, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${trimmed}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                model: 'mistral-small-latest',
+                messages: [{ role: 'user', content: 'Ping' }],
+                max_tokens: 1,
+            }),
+            cache: 'no-store',
+            signal: combinedSignal,
+        });
+
+        clearTimeout(timeoutTimer);
+        const latencyMs = Date.now() - start;
+
+        if (response.ok) {
+            let data: unknown;
+            try {
+                data = await response.json();
+            } catch {
+                return {
+                    ok: false,
+                    message: t('mistralInvalidResponse', 'Mistral AI вернул некорректный ответ.'),
+                    latencyMs,
+                    status: response.status,
+                    errorCode: 'INVALID_RESPONSE',
+                };
+            }
+            const choices = (data as { choices?: Array<{ message?: { content?: unknown } }> })?.choices;
+            if (!Array.isArray(choices) || choices.length === 0) {
+                return {
+                    ok: false,
+                    message: t('mistralEmptyResponse', 'Mistral AI вернул пустой ответ.'),
+                    latencyMs,
+                    status: response.status,
+                    errorCode: 'INVALID_RESPONSE',
+                };
+            }
+            return {
+                ok: true,
+                message: t('serverStatusHealthy', 'Работает отлично'),
+                latencyMs,
+            };
+        }
+
+        if (response.status === 404) {
+            const fallback = await validateApiKey(trimmed);
+            return {
+                ok: fallback.ok,
+                message: fallback.ok ? t('serverStatusHealthy', 'Работает отлично') : fallback.message,
+                latencyMs,
+                errorCode: fallback.ok ? undefined : 'NOT_FOUND',
+            };
+        }
+
+        const retryAfterMs = parseRetryAfterMs(response.headers?.get('Retry-After'));
+        const providerMsg = await readResponseErrorMessage(response);
+        const userMsg = getApiError(response.status, providerMsg);
+
+        let errorCode = 'UNKNOWN_ERROR';
+        if (response.status === 429) {
+            errorCode = 'RATE_LIMIT';
+        } else if (response.status === 401 || response.status === 403) {
+            errorCode = 'AUTH_ERROR';
+        } else if (response.status >= 500) {
+            errorCode = 'SERVER_ERROR';
+        }
+
+        return {
+            ok: false,
+            message: userMsg,
+            latencyMs,
+            status: response.status,
+            errorCode,
+            retryAfterMs: retryAfterMs ?? undefined,
+        };
+    } catch (error) {
+        clearTimeout(timeoutTimer);
+        const latencyMs = Date.now() - start;
+        const isTimeout =
+            (controller.signal.aborted && !signal?.aborted) ||
+            (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError'));
+        if (isTimeout) {
+            return {
+                ok: false,
+                message: t('serverStatusTimeout', 'Таймаут подключения'),
+                latencyMs,
+                errorCode: 'TIMEOUT',
+            };
+        }
+        return {
+            ok: false,
+            message: formatMistralError(error),
+            latencyMs,
+            errorCode: 'NETWORK_ERROR',
+        };
+    }
+}
+
 /**
  * Совместимый разбор одного SSE-фрагмента для существующих потребителей.
  * Потоковые клиенты используют SseParser, который корректно собирает границы событий.

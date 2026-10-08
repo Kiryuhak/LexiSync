@@ -722,16 +722,74 @@ async function restoreOptions(): Promise<void> {
     void initializeServerHealth();
 }
 
+const cooldownTimers: { [key in 'cloudflare' | 'mistral']?: number } = {};
+
+function startCooldownCountdown(provider: 'cloudflare' | 'mistral', cooldownUntil: number): void {
+    if (cooldownTimers[provider]) {
+        window.clearInterval(cooldownTimers[provider]);
+        delete cooldownTimers[provider];
+    }
+    const update = () => {
+        const remainingMs = cooldownUntil - Date.now();
+        if (remainingMs <= 0) {
+            if (cooldownTimers[provider]) {
+                window.clearInterval(cooldownTimers[provider]);
+                delete cooldownTimers[provider];
+            }
+            renderServerHealthCard(provider, {
+                provider,
+                state: 'probe-ready',
+                message: t('serverStatusProbeReadyTitle', 'Пауза завершена'),
+                subMessage: t('serverStatusProbeReadySubtext', 'Можно проверить доступность'),
+                cooldownRemainingMs: 0,
+                checkedAt: Date.now(),
+            });
+            return;
+        }
+        const seconds = Math.max(1, Math.ceil(remainingMs / 1000));
+        renderServerHealthCard(provider, {
+            provider,
+            state: 'cooldown',
+            message:
+                provider === 'mistral'
+                    ? t('serverStatusMistralLimited', 'Временно ограничен API-провайдером')
+                    : t(
+                          'serverStatusCooldown',
+                          `Пауза после сбоя. Повторная проверка примерно через ${seconds} сек.`,
+                          String(seconds),
+                      ),
+            subMessage:
+                provider === 'mistral'
+                    ? t('serverStatusMistralRetryIn', `Повторная проверка через ${seconds} сек.`, String(seconds))
+                    : undefined,
+            cooldownRemainingMs: remainingMs,
+            checkedAt: Date.now(),
+        });
+    };
+    update();
+    cooldownTimers[provider] = window.setInterval(update, 1000);
+}
+
 function renderServerHealthCard(provider: 'cloudflare' | 'mistral', status: ProviderHealthStatus): void {
     const card = document.getElementById(`${provider}StatusCard`);
     const dot = document.getElementById(`${provider}StatusDot`);
     const text = document.getElementById(`${provider}StatusText`);
+    const subtext = document.getElementById(`${provider}StatusSubtext`);
     const latency = document.getElementById(`${provider}StatusLatency`);
     if (!card || !dot || !text || !latency) return;
+
+    if (status.state !== 'cooldown' && cooldownTimers[provider]) {
+        window.clearInterval(cooldownTimers[provider]);
+        delete cooldownTimers[provider];
+    }
 
     card.dataset.status = status.state;
     dot.className = `server-status-dot dot-${status.state}`;
     text.textContent = status.message;
+    if (subtext) {
+        subtext.textContent = status.subMessage || '';
+        subtext.style.display = status.subMessage ? 'block' : 'none';
+    }
     latency.textContent =
         typeof status.latencyMs === 'number' ? `${Math.round(status.latencyMs)} ${t('millisecondsShort', 'мс')}` : '';
 }
@@ -772,12 +830,19 @@ async function refreshServerHealthStatus(showChecking = true): Promise<void> {
                 'cloudflare',
                 { accountId: cloudflareAccountId, apiToken: cloudflareApiToken },
                 cloudflareModel,
+                { probe: true },
             ),
-            checkProviderHealth('mistral', mistralKey),
+            checkProviderHealth('mistral', mistralKey, undefined, { probe: true }),
         ]);
 
         renderServerHealthCard('cloudflare', cloudflareStatus);
         renderServerHealthCard('mistral', mistralStatus);
+        if (cloudflareStatus.state === 'cooldown' && cloudflareStatus.cooldownRemainingMs) {
+            startCooldownCountdown('cloudflare', Date.now() + cloudflareStatus.cooldownRemainingMs);
+        }
+        if (mistralStatus.state === 'cooldown' && mistralStatus.cooldownRemainingMs) {
+            startCooldownCountdown('mistral', Date.now() + mistralStatus.cooldownRemainingMs);
+        }
         await saveCachedHealthStatus({ cloudflare: cloudflareStatus, mistral: mistralStatus });
     })().finally(() => {
         refreshButton?.removeAttribute('aria-busy');
@@ -793,41 +858,72 @@ async function initializeServerHealth(): Promise<void> {
         getProviderAvailability('cloudflare'),
         getProviderAvailability('mistral'),
     ]);
-    const renderCooldown = (provider: 'cloudflare' | 'mistral', cooldownRemainingMs: number) => {
-        const seconds = Math.max(1, Math.ceil(cooldownRemainingMs / 1000));
-        renderServerHealthCard(provider, {
-            provider,
-            state: 'cooldown',
-            message: t(
-                'serverStatusCooldown',
-                `Пауза после сбоя. Повторная проверка примерно через ${seconds} сек.`,
-                String(seconds),
-            ),
-            cooldownRemainingMs,
+
+    if (cloudflareAvailability.cooldownRemainingMs > 0) {
+        startCooldownCountdown('cloudflare', cloudflareAvailability.cooldownUntil);
+    } else if (cloudflareAvailability.healthState === 'probe-ready') {
+        renderServerHealthCard('cloudflare', {
+            provider: 'cloudflare',
+            state: 'probe-ready',
+            message: t('serverStatusProbeReadyTitle', 'Пауза завершена'),
+            subMessage: t('serverStatusProbeReadySubtext', 'Можно проверить доступность'),
+            cooldownRemainingMs: 0,
             checkedAt: Date.now(),
         });
-    };
-    if (cloudflareAvailability.cooldownRemainingMs > 0)
-        renderCooldown('cloudflare', cloudflareAvailability.cooldownRemainingMs);
-    else if (cached.cloudflare) renderServerHealthCard('cloudflare', cached.cloudflare);
-    else if (restoredCloudflareAccountId && restoredCloudflareApiToken)
+    } else if (cached.cloudflare) {
+        if (cached.cloudflare.state === 'cooldown') {
+            renderServerHealthCard('cloudflare', {
+                provider: 'cloudflare',
+                state: 'probe-ready',
+                message: t('serverStatusProbeReadyTitle', 'Пауза завершена'),
+                subMessage: t('serverStatusProbeReadySubtext', 'Можно проверить доступность'),
+                cooldownRemainingMs: 0,
+                checkedAt: Date.now(),
+            });
+        } else {
+            renderServerHealthCard('cloudflare', cached.cloudflare);
+        }
+    } else if (restoredCloudflareAccountId && restoredCloudflareApiToken) {
         renderServerHealthCard('cloudflare', {
             provider: 'cloudflare',
             state: 'unconfigured',
             message: t('serverStatusNotChecked', 'Статус не проверен'),
             checkedAt: Date.now(),
         });
-    if (mistralAvailability.cooldownRemainingMs > 0) renderCooldown('mistral', mistralAvailability.cooldownRemainingMs);
-    else if (cached.mistral) renderServerHealthCard('mistral', cached.mistral);
-    else if (restoredApiKey)
+    }
+
+    if (mistralAvailability.cooldownRemainingMs > 0) {
+        startCooldownCountdown('mistral', mistralAvailability.cooldownUntil);
+    } else if (mistralAvailability.healthState === 'probe-ready') {
+        renderServerHealthCard('mistral', {
+            provider: 'mistral',
+            state: 'probe-ready',
+            message: t('serverStatusProbeReadyTitle', 'Пауза завершена'),
+            subMessage: t('serverStatusProbeReadySubtext', 'Можно проверить доступность'),
+            cooldownRemainingMs: 0,
+            checkedAt: Date.now(),
+        });
+    } else if (cached.mistral) {
+        if (cached.mistral.state === 'cooldown') {
+            renderServerHealthCard('mistral', {
+                provider: 'mistral',
+                state: 'probe-ready',
+                message: t('serverStatusProbeReadyTitle', 'Пауза завершена'),
+                subMessage: t('serverStatusProbeReadySubtext', 'Можно проверить доступность'),
+                cooldownRemainingMs: 0,
+                checkedAt: Date.now(),
+            });
+        } else {
+            renderServerHealthCard('mistral', cached.mistral);
+        }
+    } else if (restoredApiKey) {
         renderServerHealthCard('mistral', {
             provider: 'mistral',
             state: 'unconfigured',
             message: t('serverStatusNotChecked', 'Статус не проверен'),
             checkedAt: Date.now(),
         });
-    // Проверка Cloudflare выполняет минимальный inference-запрос и расходует квоту,
-    // поэтому она запускается только по явному нажатию пользователя.
+    }
 }
 
 function setupPromptLibrary(): void {

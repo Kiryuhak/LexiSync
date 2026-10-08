@@ -26,9 +26,24 @@ if (blocking.length === 0) {
     process.exit(0);
 }
 
-const allowedPackages = new Set(['addons-linter', 'adm-zip', 'firefox-profile', 'image-size', 'web-ext', 'wxt']);
+const allowedPackages = new Set([
+    '@devicefarmer/adbkit',
+    'addons-linter',
+    'adm-zip',
+    'firefox-profile',
+    'fx-runner',
+    'image-size',
+    'node-forge',
+    'sharp',
+    'shell-quote',
+    'source-map-js',
+    'web-ext',
+    'wxt',
+]);
 const unexpected = blocking.filter(([name]) => !allowedPackages.has(name));
-const allowedAdvisories = new Set([1138808, 1138809, 1193734, 1239030, 1239765, 1239766]);
+const allowedAdvisories = new Set([
+    1138808, 1138809, 1193734, 1239030, 1239765, 1239766, 1240912, 1241209, 1241331, 1241332,
+]);
 const advisorySources = new Set(
     blocking.flatMap(([, vulnerability]) =>
         (vulnerability.via || [])

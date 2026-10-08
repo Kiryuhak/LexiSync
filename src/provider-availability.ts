@@ -2,7 +2,7 @@ import type { AiErrorCode, AiProviderError, AiProviderType } from './ai-provider
 import { enqueueStorageMutation } from './storage-queue';
 
 export type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
-export type ProviderHealthState = 'healthy' | 'degraded' | 'cooldown' | 'probe-ready';
+export type ProviderHealthState = 'healthy' | 'degraded' | 'cooldown' | 'probe-ready' | 'probing';
 
 export interface ProviderAvailabilityState {
     state: CircuitState;
@@ -24,13 +24,17 @@ const STORAGE_QUEUE = 'provider-availability';
 const TRANSIENT_FAILURE_THRESHOLD = 2;
 const MAX_EXPLICIT_RETRY_AFTER_MS = 24 * 60 * 60_000;
 
-export function computeHealthState(state: ProviderAvailabilityState, now = Date.now()): ProviderHealthState {
+export function computeHealthState(
+    state: ProviderAvailabilityState,
+    now = Date.now(),
+    isProbing = false,
+): ProviderHealthState {
     if (state.state === 'OPEN') {
         if (state.cooldownUntil > now) return 'cooldown';
         return 'probe-ready';
     }
     if (state.state === 'HALF_OPEN') {
-        return 'probe-ready';
+        return isProbing ? 'probing' : 'probe-ready';
     }
     if (state.consecutiveFailures > 0) {
         return 'degraded';
@@ -144,7 +148,7 @@ export async function acquireProviderAttempt(
             return {
                 ...current,
                 state: 'HALF_OPEN',
-                healthState: 'probe-ready',
+                healthState: 'probing',
                 allowed: false,
                 cooldownRemainingMs: 0,
             };
@@ -153,7 +157,8 @@ export async function acquireProviderAttempt(
         halfOpenProbes.add(provider);
         return {
             ...current,
-            healthState: 'probe-ready',
+            state: 'HALF_OPEN',
+            healthState: 'probing',
             allowed: true,
             cooldownRemainingMs: 0,
         };
@@ -161,18 +166,37 @@ export async function acquireProviderAttempt(
     if (current.state === 'HALF_OPEN' && halfOpenProbes.has(provider)) {
         return {
             ...current,
-            healthState: 'probe-ready',
+            healthState: 'probing',
             allowed: false,
             cooldownRemainingMs: 0,
         };
     }
-    const healthState = computeHealthState(current, now);
+    const isProbing = halfOpenProbes.has(provider);
+    const healthState = computeHealthState(current, now, isProbing);
     return {
         ...current,
         healthState,
         allowed: true,
         cooldownRemainingMs: 0,
     };
+}
+
+export async function markProviderProbing(provider: AiProviderType): Promise<boolean> {
+    await ensureLoaded();
+    const current = states[provider];
+    if (current.state === 'OPEN' && current.cooldownUntil > Date.now()) {
+        return false;
+    }
+    if (halfOpenProbes.has(provider)) {
+        return false;
+    }
+    current.state = 'HALF_OPEN';
+    halfOpenProbes.add(provider);
+    return true;
+}
+
+export function isProviderProbing(provider: AiProviderType): boolean {
+    return halfOpenProbes.has(provider);
 }
 
 export async function recordProviderSuccess(provider: AiProviderType, now = Date.now()): Promise<void> {
@@ -222,32 +246,36 @@ export async function getProviderAvailability(
 ): Promise<ProviderAttemptPermission> {
     await ensureLoaded();
     const current = states[provider];
-    const healthState = computeHealthState(current, now);
+    const isProbing = halfOpenProbes.has(provider);
+    const healthState = computeHealthState(current, now, isProbing);
     return {
         ...current,
         healthState,
-        allowed: current.state === 'CLOSED' || (current.state === 'OPEN' && current.cooldownUntil <= now),
+        allowed: current.state === 'CLOSED' || (current.state === 'OPEN' && current.cooldownUntil <= now && !isProbing),
         cooldownRemainingMs: Math.max(0, current.cooldownUntil - now),
     };
 }
 
 export function peekProviderAvailability(provider: AiProviderType, now = Date.now()): ProviderAttemptPermission {
     const current = states[provider];
-    const healthState = computeHealthState(current, now);
+    const isProbing = halfOpenProbes.has(provider);
+    const healthState = computeHealthState(current, now, isProbing);
     return {
         ...current,
         healthState,
-        allowed: current.state === 'CLOSED' || (current.state === 'OPEN' && current.cooldownUntil <= now),
+        allowed: current.state === 'CLOSED' || (current.state === 'OPEN' && current.cooldownUntil <= now && !isProbing),
         cooldownRemainingMs: Math.max(0, current.cooldownUntil - now),
     };
 }
 
-export function resetProviderAvailability(): void {
+export function resetProviderAvailability(reloadFromStorage = false): void {
     states.mistral = emptyState();
     states.cloudflare = emptyState();
     halfOpenProbes.clear();
-    loadPromise = Promise.resolve();
-    void persist().catch(() => undefined);
+    loadPromise = reloadFromStorage ? null : Promise.resolve();
+    if (!reloadFromStorage) {
+        void persist().catch(() => undefined);
+    }
 }
 
 void ensureLoaded();

@@ -1069,6 +1069,9 @@
     "mistralEmptyResponse": {
         "message": "Mistral returned an empty response stream."
     },
+    "mistralInvalidResponse": {
+        "message": "Mistral AI returned an invalid response."
+    },
     "cloudflareEmptyResponse": {
         "message": "Cloudflare Workers AI did not return text."
     },
@@ -1885,7 +1888,32 @@
         "placeholders": { "seconds": { "content": "$1" } }
     },
     "serverStatusProbeReady": {
-        "message": "Ready for probe attempt after cooldown"
+        "message": "Pause complete. Verification required"
+    },
+    "serverStatusProbeReadyTitle": {
+        "message": "Pause complete"
+    },
+    "serverStatusProbeReadySubtext": {
+        "message": "Ready for availability check"
+    },
+    "serverStatusMistralLimited": {
+        "message": "Temporarily rate-limited by API provider"
+    },
+    "serverStatusMistralRetryIn": {
+        "message": "Retry check in $1 sec.",
+        "placeholders": { "seconds": { "content": "$1" } }
+    },
+    "serverStatusProbing": {
+        "message": "Checking availability…"
+    },
+    "serverStatusDegradedFallback": {
+        "message": "Fallback Cloudflare is active"
+    },
+    "serverStatusUnstable": {
+        "message": "Unstable connection"
+    },
+    "qualityFailedWithFallback": {
+        "message": "Mistral is temporarily limited, and fallback AI verification could not produce a safe result."
     },
     "qualityFailedTechnicalEntity": {
         "message": "Model output rejected: technical entities changed (URL, IP, version, or model)."

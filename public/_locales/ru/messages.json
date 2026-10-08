@@ -1069,6 +1069,9 @@
     "mistralEmptyResponse": {
         "message": "Mistral вернул пустой поток данных."
     },
+    "mistralInvalidResponse": {
+        "message": "Mistral AI вернул некорректный ответ."
+    },
     "cloudflareEmptyResponse": {
         "message": "Cloudflare Workers AI не вернул текст."
     },
@@ -1885,7 +1888,32 @@
         "placeholders": { "seconds": { "content": "$1" } }
     },
     "serverStatusProbeReady": {
-        "message": "Готов к пробному запросу после паузы"
+        "message": "Пауза завершена. Требуется повторная проверка"
+    },
+    "serverStatusProbeReadyTitle": {
+        "message": "Пауза завершена"
+    },
+    "serverStatusProbeReadySubtext": {
+        "message": "Можно проверить доступность"
+    },
+    "serverStatusMistralLimited": {
+        "message": "Временно ограничен API-провайдером"
+    },
+    "serverStatusMistralRetryIn": {
+        "message": "Повторная проверка через $1 сек.",
+        "placeholders": { "seconds": { "content": "$1" } }
+    },
+    "serverStatusProbing": {
+        "message": "Проверяем доступность…"
+    },
+    "serverStatusDegradedFallback": {
+        "message": "Используется резервный Cloudflare"
+    },
+    "serverStatusUnstable": {
+        "message": "Работает нестабильно"
+    },
+    "qualityFailedWithFallback": {
+        "message": "Mistral временно ограничен, а резервная AI-проверка не смогла вернуть безопасный результат."
     },
     "qualityFailedTechnicalEntity": {
         "message": "Ответ модели отклонён: изменены технические идентификаторы (URL, IP, версия или модель)."

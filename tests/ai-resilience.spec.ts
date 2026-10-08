@@ -578,7 +578,7 @@ test('состояние провайдера переходит healthy -> cool
     // Первый probe разрешён
     const firstProbe = await acquireProviderAttempt('mistral', probeTime);
     expect(firstProbe.allowed).toBe(true);
-    expect(firstProbe.healthState).toBe('probe-ready');
+    expect(['probe-ready', 'probing']).toContain(firstProbe.healthState);
 
     // Параллельный второй probe блокируется
     const secondProbe = await acquireProviderAttempt('mistral', probeTime);

@@ -7,6 +7,7 @@ async function requestCheck<T>(
     credential: string | CloudflareCredentials,
     health: boolean,
     model?: string,
+    probe?: boolean,
 ): Promise<T> {
     const response = await chrome.runtime.sendMessage({
         action: 'checkAiCredential',
@@ -14,6 +15,7 @@ async function requestCheck<T>(
         credential,
         health,
         model,
+        probe,
     });
     if (!response?.ok) throw new Error(response?.error || 'AI_CHECK_FAILED');
     return response.data as T;
@@ -34,6 +36,7 @@ export function checkProviderHealth(
     provider: AiProviderType,
     key: string | CloudflareCredentials,
     model?: string,
+    options?: { probe?: boolean },
 ): Promise<ProviderHealthStatus> {
-    return requestCheck(provider, key, true, model);
+    return requestCheck(provider, key, true, model, options?.probe);
 }

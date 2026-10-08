@@ -1,24 +1,43 @@
 import { t } from './i18n';
-import { AiProviderError, type AiProviderType, type CloudflareCredentials } from './ai-provider-types';
+import {
+    AiProviderError,
+    type AiErrorCode,
+    type AiProviderType,
+    type CloudflareCredentials,
+} from './ai-provider-types';
 import { validateCloudflareCredentials } from './cloudflare-client';
 import { AI_CONFIG, normalizeCloudflareModel } from './ai-models-config';
-import { getProviderAvailability } from './provider-availability';
+import {
+    getProviderAvailability,
+    markProviderProbing,
+    recordProviderFailure,
+    recordProviderSuccess,
+    releaseProviderAttempt,
+} from './provider-availability';
+import { probeMistralConnection } from './mistral-client';
 
-export type HealthState = 'healthy' | 'degraded' | 'cooldown' | 'probe-ready' | 'outage' | 'unconfigured' | 'checking';
+export type HealthState =
+    'healthy' | 'degraded' | 'cooldown' | 'probe-ready' | 'probing' | 'outage' | 'unconfigured' | 'checking';
 
 export interface ProviderHealthStatus {
     provider: AiProviderType;
     state: HealthState;
     latencyMs?: number;
     message: string;
+    subMessage?: string;
     checkedAt: number;
     model?: string;
     cooldownRemainingMs?: number;
     errorCode?: string;
 }
 
+export interface CheckProviderHealthOptions {
+    probe?: boolean;
+}
+
 const HEALTH_CACHE_KEY = 'lexisync_provider_health_cache';
 const HEALTH_CACHE_MAX_AGE_MS = 15 * 60_000;
+const activeProbes = new Map<AiProviderType, Promise<ProviderHealthStatus>>();
 
 export function getHealthStateColor(state: HealthState): string {
     switch (state) {
@@ -30,10 +49,11 @@ export function getHealthStateColor(state: HealthState): string {
             return '#f97316';
         case 'probe-ready':
             return '#0ea5e9'; // 🔵 готов к проверке
-        case 'outage':
-            return '#ef4444'; // 🔴 красный
+        case 'probing':
         case 'checking':
             return '#3b82f6'; // 🔵 синий / проверка
+        case 'outage':
+            return '#ef4444'; // 🔴 красный
         case 'unconfigured':
         default:
             return '#9ca3af'; // ⚪ серый
@@ -50,10 +70,11 @@ export function getHealthStateBadge(state: HealthState): string {
             return '⏳';
         case 'probe-ready':
             return '🔍';
-        case 'outage':
-            return '🔴';
+        case 'probing':
         case 'checking':
             return '🔄';
+        case 'outage':
+            return '🔴';
         case 'unconfigured':
         default:
             return '⚪';
@@ -62,7 +83,8 @@ export function getHealthStateBadge(state: HealthState): string {
 
 export function formatHealthMessage(status: ProviderHealthStatus): string {
     const latencyStr = typeof status.latencyMs === 'number' ? ` (${Math.round(status.latencyMs)} мс)` : '';
-    return `${status.message}${latencyStr}`;
+    const subStr = status.subMessage ? ` • ${status.subMessage}` : '';
+    return `${status.message}${subStr}${latencyStr}`;
 }
 
 export async function checkProviderHealth(
@@ -70,33 +92,8 @@ export async function checkProviderHealth(
     apiKey: string | CloudflareCredentials,
     timeoutMs = 7000,
     cloudflareModel: unknown = AI_CONFIG.cloudflare.defaultModel,
+    options?: CheckProviderHealthOptions,
 ): Promise<ProviderHealthStatus> {
-    const cooldownStatus = async (resolvedProvider: AiProviderType): Promise<ProviderHealthStatus | null> => {
-        const availability = await getProviderAvailability(resolvedProvider);
-        if (availability.healthState === 'probe-ready') {
-            return {
-                provider: resolvedProvider,
-                state: 'probe-ready',
-                message: t('serverStatusProbeReady', 'Готов к пробному запросу после паузы'),
-                checkedAt: Date.now(),
-                errorCode: availability.lastErrorCode,
-            };
-        }
-        if (availability.cooldownRemainingMs <= 0) return null;
-        const seconds = Math.max(1, Math.ceil(availability.cooldownRemainingMs / 1000));
-        return {
-            provider: resolvedProvider,
-            state: 'cooldown',
-            message: t(
-                'serverStatusCooldown',
-                `Пауза после сбоя. Повторная проверка примерно через ${seconds} сек.`,
-                String(seconds),
-            ),
-            checkedAt: Date.now(),
-            cooldownRemainingMs: availability.cooldownRemainingMs,
-            errorCode: availability.lastErrorCode,
-        };
-    };
     if (provider === 'cloudflare') {
         const resolvedModel = normalizeCloudflareModel(cloudflareModel);
         let creds: CloudflareCredentials;
@@ -118,44 +115,126 @@ export async function checkProviderHealth(
                 model: resolvedModel,
             };
         }
-        const runtimeCooldown = await cooldownStatus('cloudflare');
-        if (runtimeCooldown) return { ...runtimeCooldown, model: resolvedModel };
 
-        const signal = AbortSignal.timeout(timeoutMs);
-        const result = await validateCloudflareCredentials(creds, resolvedModel, signal);
-
-        if (result.ok) {
-            const isDegraded = (result.latencyMs ?? 0) >= 2500;
+        const availability = await getProviderAvailability('cloudflare');
+        if (availability.cooldownRemainingMs > 0) {
+            const seconds = Math.max(1, Math.ceil(availability.cooldownRemainingMs / 1000));
             return {
                 provider: 'cloudflare',
-                state: isDegraded ? 'degraded' : 'healthy',
-                latencyMs: result.latencyMs,
-                message: isDegraded
-                    ? t('serverStatusDegradedLatency', 'Замедление ответа')
-                    : t('serverStatusHealthy', 'Работает отлично'),
+                state: 'cooldown',
+                message: t('serverStatusMistralLimited', 'Временно ограничен API-провайдером'),
+                subMessage: t(
+                    'serverStatusMistralRetryIn',
+                    `Повторная проверка через ${seconds} сек.`,
+                    String(seconds),
+                ),
+                cooldownRemainingMs: availability.cooldownRemainingMs,
                 checkedAt: Date.now(),
                 model: resolvedModel,
+                errorCode: availability.lastErrorCode,
             };
         }
 
-        const isDegraded =
-            result.status === 429 ||
-            result.errorCode === 'RATE_LIMIT' ||
-            result.errorCode === 'TIMEOUT' ||
-            result.message.includes('квота') ||
-            result.message.includes('лимит') ||
-            /rate\s*limit/i.test(result.message) ||
-            result.message.includes('вовремя') ||
-            result.message.includes('timeout');
+        if (options?.probe !== true) {
+            if (availability.healthState === 'probe-ready') {
+                return {
+                    provider: 'cloudflare',
+                    state: 'probe-ready',
+                    message: t('serverStatusProbeReadyTitle', 'Пауза завершена'),
+                    subMessage: t('serverStatusProbeReadySubtext', 'Можно проверить доступность'),
+                    checkedAt: Date.now(),
+                    model: resolvedModel,
+                    errorCode: availability.lastErrorCode,
+                };
+            }
+            if (availability.healthState === 'probing') {
+                return {
+                    provider: 'cloudflare',
+                    state: 'probing',
+                    message: t('serverStatusProbing', 'Проверяем доступность…'),
+                    checkedAt: Date.now(),
+                    model: resolvedModel,
+                };
+            }
+            if (options?.probe === false) {
+                if (availability.healthState === 'degraded') {
+                    return {
+                        provider: 'cloudflare',
+                        state: 'degraded',
+                        message: t('serverStatusUnstable', 'Работает нестабильно'),
+                        subMessage: t('serverStatusDegradedLatency', 'Замедление ответа'),
+                        checkedAt: Date.now(),
+                        model: resolvedModel,
+                        errorCode: availability.lastErrorCode,
+                    };
+                }
+                const cached = await loadCachedHealthStatus();
+                if (cached.cloudflare) return cached.cloudflare;
+                return {
+                    provider: 'cloudflare',
+                    state: 'unconfigured',
+                    message: t('serverStatusNotChecked', 'Статус не проверен'),
+                    checkedAt: Date.now(),
+                    model: resolvedModel,
+                };
+            }
+        }
 
-        return {
-            provider: 'cloudflare',
-            state: isDegraded ? 'degraded' : 'outage',
-            latencyMs: result.latencyMs,
-            message: result.message,
-            checkedAt: Date.now(),
-            model: resolvedModel,
-        };
+        if (activeProbes.has('cloudflare')) {
+            return activeProbes.get('cloudflare')!;
+        }
+
+        const probePromise = (async (): Promise<ProviderHealthStatus> => {
+            try {
+                const signal = AbortSignal.timeout(timeoutMs);
+                const result = await validateCloudflareCredentials(creds, resolvedModel, signal);
+
+                if (result.ok) {
+                    await recordProviderSuccess('cloudflare');
+                    const isDegraded = (result.latencyMs ?? 0) >= 2500;
+                    return {
+                        provider: 'cloudflare',
+                        state: isDegraded ? 'degraded' : 'healthy',
+                        latencyMs: result.latencyMs,
+                        message: isDegraded
+                            ? t('serverStatusUnstable', 'Работает нестабильно')
+                            : t('serverStatusHealthy', 'Работает отлично'),
+                        subMessage: isDegraded ? t('serverStatusDegradedLatency', 'Замедление ответа') : undefined,
+                        checkedAt: Date.now(),
+                        model: resolvedModel,
+                    };
+                }
+
+                if (result.status === 429) {
+                    return {
+                        provider: 'cloudflare',
+                        state: 'degraded',
+                        latencyMs: result.latencyMs,
+                        message: t('serverStatusRateLimit', 'Лимит запросов (Rate Limit)'),
+                        checkedAt: Date.now(),
+                        model: resolvedModel,
+                        errorCode: result.errorCode,
+                    };
+                }
+
+                return {
+                    provider: 'cloudflare',
+                    state: 'outage',
+                    latencyMs: result.latencyMs,
+                    message: result.message,
+                    checkedAt: Date.now(),
+                    model: resolvedModel,
+                    errorCode: result.errorCode,
+                };
+            } finally {
+                activeProbes.delete('cloudflare');
+            }
+        })();
+
+        activeProbes.set('cloudflare', probePromise);
+        const resolved = await probePromise;
+        void saveCachedHealthStatus({ cloudflare: resolved });
+        return resolved;
     }
 
     const trimmedKey = (typeof apiKey === 'string' ? apiKey : '').trim();
@@ -167,111 +246,138 @@ export async function checkProviderHealth(
             checkedAt: Date.now(),
         };
     }
-    const runtimeCooldown = await cooldownStatus('mistral');
-    if (runtimeCooldown) return runtimeCooldown;
 
-    const startTime = performance.now();
-    const url = `${AI_CONFIG.mistral.baseUrl}/models`;
-    const signal = AbortSignal.timeout(timeoutMs);
+    const availability = await getProviderAvailability('mistral');
+    if (availability.cooldownRemainingMs > 0) {
+        const seconds = Math.max(1, Math.ceil(availability.cooldownRemainingMs / 1000));
+        return {
+            provider: 'mistral',
+            state: 'cooldown',
+            message: t('serverStatusMistralLimited', 'Временно ограничен API-провайдером'),
+            subMessage: t('serverStatusMistralRetryIn', `Повторная проверка через ${seconds} сек.`, String(seconds)),
+            cooldownRemainingMs: availability.cooldownRemainingMs,
+            checkedAt: Date.now(),
+            errorCode: availability.lastErrorCode,
+        };
+    }
 
-    try {
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                Authorization: `Bearer ${trimmedKey}`,
-            },
-            cache: 'no-store',
-            signal,
-        });
-
-        const durationMs = performance.now() - startTime;
-
-        if (response.ok) {
-            if (durationMs < 2500) {
+    if (options?.probe !== true) {
+        if (availability.healthState === 'probe-ready') {
+            return {
+                provider: 'mistral',
+                state: 'probe-ready',
+                message: t('serverStatusProbeReadyTitle', 'Пауза завершена'),
+                subMessage: t('serverStatusProbeReadySubtext', 'Можно проверить доступность'),
+                checkedAt: Date.now(),
+                errorCode: availability.lastErrorCode,
+            };
+        }
+        if (availability.healthState === 'probing') {
+            return {
+                provider: 'mistral',
+                state: 'probing',
+                message: t('serverStatusProbing', 'Проверяем доступность…'),
+                checkedAt: Date.now(),
+            };
+        }
+        if (options?.probe === false) {
+            if (availability.healthState === 'degraded') {
                 return {
                     provider: 'mistral',
-                    state: 'healthy',
-                    latencyMs: durationMs,
-                    message: t('serverStatusHealthy', 'Работает отлично'),
+                    state: 'degraded',
+                    message: t('serverStatusUnstable', 'Работает нестабильно'),
+                    subMessage: t('serverStatusDegradedFallback', 'Используется резервный Cloudflare'),
+                    checkedAt: Date.now(),
+                    errorCode: availability.lastErrorCode,
+                };
+            }
+            const cached = await loadCachedHealthStatus();
+            if (cached.mistral) return cached.mistral;
+            return {
+                provider: 'mistral',
+                state: 'unconfigured',
+                message: t('serverStatusNotChecked', 'Статус не проверен'),
+                checkedAt: Date.now(),
+            };
+        }
+    }
+
+    if (activeProbes.has('mistral')) {
+        return activeProbes.get('mistral')!;
+    }
+
+    const probePromise = (async (): Promise<ProviderHealthStatus> => {
+        try {
+            await markProviderProbing('mistral');
+            const probeResult = await probeMistralConnection(trimmedKey, AbortSignal.timeout(timeoutMs));
+
+            if (probeResult.ok) {
+                await recordProviderSuccess('mistral');
+                const isDegraded = (probeResult.latencyMs ?? 0) >= 2500;
+                return {
+                    provider: 'mistral',
+                    state: isDegraded ? 'degraded' : 'healthy',
+                    latencyMs: probeResult.latencyMs,
+                    message: isDegraded
+                        ? t('serverStatusUnstable', 'Работает нестабильно')
+                        : t('serverStatusHealthy', 'Работает отлично'),
+                    subMessage: isDegraded ? t('serverStatusDegradedLatency', 'Замедление ответа') : undefined,
                     checkedAt: Date.now(),
                 };
             }
+
+            const error = new AiProviderError(
+                probeResult.message,
+                (probeResult.errorCode as AiErrorCode) || 'SERVER_ERROR',
+                'mistral',
+                probeResult.status === 429 || !probeResult.status || probeResult.status >= 500,
+                probeResult.status,
+                probeResult.retryAfterMs,
+            );
+            await recordProviderFailure(error);
+            const updated = await getProviderAvailability('mistral');
+            if (updated.cooldownRemainingMs > 0) {
+                const seconds = Math.max(1, Math.ceil(updated.cooldownRemainingMs / 1000));
+                return {
+                    provider: 'mistral',
+                    state: 'cooldown',
+                    message: t('serverStatusMistralLimited', 'Временно ограничен API-провайдером'),
+                    subMessage: t(
+                        'serverStatusMistralRetryIn',
+                        `Повторная проверка через ${seconds} сек.`,
+                        String(seconds),
+                    ),
+                    latencyMs: probeResult.latencyMs,
+                    cooldownRemainingMs: updated.cooldownRemainingMs,
+                    checkedAt: Date.now(),
+                    errorCode: updated.lastErrorCode,
+                };
+            }
+
+            const isAuth = probeResult.status === 401 || probeResult.status === 403;
+            const isOutage =
+                isAuth ||
+                (typeof probeResult.status === 'number' && probeResult.status >= 500) ||
+                probeResult.errorCode === 'NETWORK_ERROR' ||
+                probeResult.errorCode === 'SERVER_ERROR';
             return {
                 provider: 'mistral',
-                state: 'degraded',
-                latencyMs: durationMs,
-                message: t('serverStatusDegradedLatency', 'Замедление ответа'),
+                state: isOutage ? 'outage' : 'degraded',
+                latencyMs: probeResult.latencyMs,
+                message: probeResult.message,
                 checkedAt: Date.now(),
+                errorCode: probeResult.errorCode,
             };
+        } finally {
+            activeProbes.delete('mistral');
+            await releaseProviderAttempt('mistral');
         }
+    })();
 
-        if (response.status === 429) {
-            return {
-                provider: 'mistral',
-                state: 'degraded',
-                latencyMs: durationMs,
-                message: t('serverStatusRateLimit', 'Лимит запросов (Rate Limit)'),
-                checkedAt: Date.now(),
-            };
-        }
-
-        if (response.status === 401 || response.status === 403) {
-            return {
-                provider: 'mistral',
-                state: 'outage',
-                latencyMs: durationMs,
-                message: t('serverStatusAuthError', 'Недействительный API-ключ'),
-                checkedAt: Date.now(),
-            };
-        }
-
-        if (response.status >= 500) {
-            return {
-                provider: 'mistral',
-                state: 'outage',
-                latencyMs: durationMs,
-                message: t('serverStatusServerError', `Сбой сервера (${response.status})`),
-                checkedAt: Date.now(),
-            };
-        }
-
-        return {
-            provider: 'mistral',
-            state: 'outage',
-            latencyMs: durationMs,
-            message: t('serverStatusHttpError', `Ошибка HTTP ${response.status}`),
-            checkedAt: Date.now(),
-        };
-    } catch (error) {
-        const durationMs = performance.now() - startTime;
-        if (error instanceof AiProviderError && error.status) {
-            return evaluateHealthFromRuntimeResponse('mistral', durationMs, error.status);
-        }
-        const isTimeout =
-            error instanceof Error &&
-            (error.name === 'TimeoutError' ||
-                error.name === 'AbortError' ||
-                error.message.includes('timeout') ||
-                error.message.includes('aborted'));
-
-        if (isTimeout) {
-            return {
-                provider: 'mistral',
-                state: 'degraded',
-                latencyMs: durationMs,
-                message: t('serverStatusTimeout', 'Тайм-аут соединения'),
-                checkedAt: Date.now(),
-            };
-        }
-
-        return {
-            provider: 'mistral',
-            state: 'outage',
-            latencyMs: durationMs,
-            message: t('serverStatusNetworkError', 'Ошибка сети / недоступен'),
-            checkedAt: Date.now(),
-        };
-    }
+    activeProbes.set('mistral', probePromise);
+    const resolved = await probePromise;
+    void saveCachedHealthStatus({ mistral: resolved });
+    return resolved;
 }
 
 export function evaluateHealthFromRuntimeResponse(

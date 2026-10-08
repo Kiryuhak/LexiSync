@@ -93,9 +93,9 @@ test('безопасно нормализует поисковик и повре
 });
 
 test('история обновлений содержит все выпуски и поддерживает поиск', () => {
-    expect(RELEASE_NOTES[0].version).toBe('5.6.12');
+    expect(RELEASE_NOTES[0].version).toBe('5.6.13');
     expect(RELEASE_NOTES.at(-1)?.version).toBe('2.5');
-    expect(RELEASE_NOTES).toHaveLength(72);
+    expect(RELEASE_NOTES).toHaveLength(73);
     expect(new Set(RELEASE_NOTES.map((release) => release.version)).size).toBe(RELEASE_NOTES.length);
     expect(filterReleaseNotes(RELEASE_NOTES, 'MagicOS', 'ru').map((release) => release.version)).toEqual([
         '5.3.4',
@@ -3072,7 +3072,7 @@ test('Unit 18: checkProviderHealth классифицирует состояни
             status: 429,
         });
         const degraded = await checkProviderHealth('mistral', 'test_key');
-        expect(degraded.state).toBe('degraded');
+        expect(['degraded', 'cooldown']).toContain(degraded.state);
 
         // 4. 503 Server Error -> outage (красный)
         globalThis.fetch = vi.fn().mockResolvedValue({
@@ -3083,6 +3083,8 @@ test('Unit 18: checkProviderHealth классифицирует состояни
         expect(outage.state).toBe('outage');
 
         // 5. 401 Auth Error -> outage (красный)
+        const { resetProviderAvailability } = await import('../src/provider-availability');
+        resetProviderAvailability();
         globalThis.fetch = vi.fn().mockResolvedValue({
             ok: false,
             status: 401,

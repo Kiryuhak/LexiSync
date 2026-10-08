@@ -310,7 +310,8 @@ function renderPopupHealthDot(provider: 'cloudflare' | 'mistral', status: Provid
         typeof status.latencyMs === 'number'
             ? ` (${Math.round(status.latencyMs)} ${t('millisecondsShort', 'мс')})`
             : '';
-    item.title = `${provider === 'cloudflare' ? 'Cloudflare' : 'Mistral'}: ${status.message}${latencyStr}`;
+    const subStr = status.subMessage ? ` • ${status.subMessage}` : '';
+    item.title = `${provider === 'cloudflare' ? 'Cloudflare' : 'Mistral'}: ${status.message}${subStr}${latencyStr}`;
 }
 
 async function initializePopupServerStatus(): Promise<void> {
@@ -319,30 +320,62 @@ async function initializePopupServerStatus(): Promise<void> {
         getProviderAvailability('cloudflare'),
         getProviderAvailability('mistral'),
     ]);
-    const withCooldown = (
+    const resolveStatus = (
         provider: 'cloudflare' | 'mistral',
         status: ProviderHealthStatus | null,
-        cooldownRemainingMs: number,
+        availability: { cooldownRemainingMs: number; healthState?: string },
     ): ProviderHealthStatus | null => {
-        if (cooldownRemainingMs <= 0) return status;
-        const seconds = Math.max(1, Math.ceil(cooldownRemainingMs / 1000));
-        return {
-            provider,
-            state: 'cooldown',
-            message: t(
-                'serverStatusCooldown',
-                `Пауза после сбоя. Повторная проверка примерно через ${seconds} сек.`,
-                String(seconds),
-            ),
-            checkedAt: Date.now(),
-            cooldownRemainingMs,
-        };
+        if (availability.cooldownRemainingMs > 0) {
+            const seconds = Math.max(1, Math.ceil(availability.cooldownRemainingMs / 1000));
+            return {
+                provider,
+                state: 'cooldown',
+                message:
+                    provider === 'mistral'
+                        ? t('serverStatusMistralLimited', 'Временно ограничен API-провайдером')
+                        : t(
+                              'serverStatusCooldown',
+                              `Пауза после сбоя. Повторная проверка примерно через ${seconds} сек.`,
+                              String(seconds),
+                          ),
+                subMessage:
+                    provider === 'mistral'
+                        ? t('serverStatusMistralRetryIn', `Повторная проверка через ${seconds} сек.`, String(seconds))
+                        : undefined,
+                checkedAt: Date.now(),
+                cooldownRemainingMs: availability.cooldownRemainingMs,
+            };
+        }
+        if (availability.healthState === 'probe-ready') {
+            return {
+                provider,
+                state: 'probe-ready',
+                message: t('serverStatusProbeReadyTitle', 'Пауза завершена'),
+                subMessage: t('serverStatusProbeReadySubtext', 'Можно проверить доступность'),
+                checkedAt: Date.now(),
+            };
+        }
+        if (availability.healthState === 'probing') {
+            return {
+                provider,
+                state: 'probing',
+                message: t('serverStatusProbing', 'Проверяем доступность…'),
+                checkedAt: Date.now(),
+            };
+        }
+        if (status?.state === 'cooldown') {
+            return {
+                provider,
+                state: 'probe-ready',
+                message: t('serverStatusProbeReadyTitle', 'Пауза завершена'),
+                subMessage: t('serverStatusProbeReadySubtext', 'Можно проверить доступность'),
+                checkedAt: Date.now(),
+            };
+        }
+        return status;
     };
-    renderPopupHealthDot(
-        'cloudflare',
-        withCooldown('cloudflare', cached.cloudflare, cloudflareAvailability.cooldownRemainingMs),
-    );
-    renderPopupHealthDot('mistral', withCooldown('mistral', cached.mistral, mistralAvailability.cooldownRemainingMs));
+    renderPopupHealthDot('cloudflare', resolveStatus('cloudflare', cached.cloudflare, cloudflareAvailability));
+    renderPopupHealthDot('mistral', resolveStatus('mistral', cached.mistral, mistralAvailability));
 }
 
 async function initializeRecentResults(): Promise<void> {
