@@ -94,9 +94,19 @@ export function executeRequest(
     }
 
     let activeAiCheckController: AbortController | null = null;
+    let retryCountdownTimer: number | null = null;
+
+    function stopRetryCountdown(): void {
+        if (retryCountdownTimer !== null) {
+            window.clearInterval(retryCountdownTimer);
+            retryCountdownTimer = null;
+        }
+    }
+
     const lifecycle = createRequestLifecycle(() => {
         activeAiCheckController?.abort();
         streamUiUpdater?.cancel();
+        stopRetryCountdown();
         deactivateDialogKeyboard?.();
         popupResizeObserver?.disconnect();
         popupResizeObserver = null;
@@ -436,8 +446,9 @@ export function executeRequest(
         }, 2500);
     }
 
-    function showRequestError(message: string, retryable = false): void {
+    function showRequestError(message: string, retryable = false, cooldownMs?: number): void {
         streamUiUpdater?.cancel();
+        stopRetryCountdown();
         const errorContainer = document.createElement('div');
         errorContainer.className = 'lexisync-error-box';
         errorContainer.style.cssText = 'padding: 8px 0; color: var(--error-color);';
@@ -452,10 +463,47 @@ export function executeRequest(
             retryButton.type = 'button';
             retryButton.id = 'retryRequestBtn';
             retryButton.style.cssText =
-                'background: var(--primary); color: #ffffff; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500;';
-            retryButton.textContent = t('retryRequest', 'Повторить попытку');
+                'background: var(--primary); color: #ffffff; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; transition: opacity 0.2s;';
+
+            const remainingCooldown = typeof cooldownMs === 'number' && cooldownMs > 0 ? cooldownMs : 0;
+            if (remainingCooldown > 0) {
+                let secondsLeft = Math.ceil(remainingCooldown / 1000);
+                retryButton.disabled = true;
+                retryButton.style.opacity = '0.6';
+                retryButton.style.cursor = 'not-allowed';
+
+                const updateButtonCountdown = (sec: number) => {
+                    const minutes = Math.floor(sec / 60);
+                    const remSec = sec % 60;
+                    const formatted = minutes > 0 ? `${minutes}:${remSec < 10 ? '0' : ''}${remSec}` : `${sec} сек.`;
+                    retryButton.textContent = `${t('retryInTime', 'Повторить через')} ${formatted}`;
+                };
+
+                updateButtonCountdown(secondsLeft);
+
+                retryCountdownTimer = window.setInterval(() => {
+                    if (lifecycle.disposed) {
+                        stopRetryCountdown();
+                        return;
+                    }
+                    secondsLeft -= 1;
+                    if (secondsLeft <= 0) {
+                        stopRetryCountdown();
+                        retryButton.disabled = false;
+                        retryButton.style.opacity = '1';
+                        retryButton.style.cursor = 'pointer';
+                        retryButton.textContent = t('retryRequest', 'Повторить попытку');
+                    } else {
+                        updateButtonCountdown(secondsLeft);
+                    }
+                }, 1000);
+            } else {
+                retryButton.textContent = t('retryRequest', 'Повторить попытку');
+            }
+
             retryButton.onclick = () => {
-                if (lifecycle.disposed) return;
+                if (lifecycle.disposed || retryButton.disabled) return;
+                stopRetryCountdown();
                 contentPane.replaceChildren();
                 contentPane.style.color = '';
                 startStream();
@@ -832,7 +880,7 @@ export function executeRequest(
                         String(seconds),
                     )}`;
                 }
-                showRequestError(errorMessage, response.retryable === true);
+                showRequestError(errorMessage, response.retryable === true, response.cooldownMs);
             } else if (response.status === 'cancelled') {
                 requestStartedAt = null;
                 streamUiUpdater?.cancel();

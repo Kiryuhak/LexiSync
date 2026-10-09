@@ -22,6 +22,7 @@ import {
     releaseProviderAttempt,
     resetProviderAvailability,
 } from './provider-availability';
+import { isProviderCapableOf } from './provider-capabilities';
 
 export const AI_PROVIDERS: Record<AiProviderType, AIProvider> = {
     mistral: mistralProvider,
@@ -88,7 +89,7 @@ async function writeProviderFailureLog(
 
 async function runWithProviderTimeout<T>(
     provider: AiProviderType,
-    parentSignal: AbortSignal,
+    parentSignal: AbortSignal | undefined,
     timeoutMs: number,
     stallTimeoutMs: number,
     totalTimeoutMs: number,
@@ -97,11 +98,11 @@ async function runWithProviderTimeout<T>(
     const controller = new AbortController();
     let timedOut = false;
     let activityTimeout: ReturnType<typeof setTimeout> | undefined;
-    const abortFromParent = () => controller.abort(parentSignal.reason);
-    if (parentSignal.aborted) abortFromParent();
-    else parentSignal.addEventListener('abort', abortFromParent, { once: true });
+    const abortFromParent = () => controller.abort(parentSignal?.reason);
+    if (parentSignal?.aborted) abortFromParent();
+    else parentSignal?.addEventListener('abort', abortFromParent, { once: true });
 
-    if (parentSignal.aborted) {
+    if (parentSignal?.aborted) {
         parentSignal.removeEventListener('abort', abortFromParent);
         throw parentSignal.reason instanceof Error
             ? parentSignal.reason
@@ -132,14 +133,14 @@ async function runWithProviderTimeout<T>(
     try {
         return await task(controller.signal, () => armTimeout(stallTimeoutMs));
     } catch (error) {
-        if (timedOut && !parentSignal.aborted) {
+        if (timedOut && !parentSignal?.aborted) {
             throw new AiProviderError(t('providerTimeout', 'AI-сервис не ответил вовремя.'), 'TIMEOUT', provider, true);
         }
         throw error;
     } finally {
         if (activityTimeout) clearTimeout(activityTimeout);
         clearTimeout(totalTimeout);
-        parentSignal.removeEventListener('abort', abortFromParent);
+        parentSignal?.removeEventListener('abort', abortFromParent);
     }
 }
 
@@ -291,22 +292,34 @@ export function getFallbackNotification(
 }
 
 export function resolveExecutionPlan(options: {
+    operation?: string;
     primaryProvider: PrimaryAiProvider;
     autoFallback: boolean;
     mistralApiKey?: string;
     cloudflareAccountId?: string;
     cloudflareApiToken?: string;
-}): { primary: AiProviderType; backup?: AiProviderType } {
+}): {
+    primary: AiProviderType;
+    primaryCapable: boolean;
+    backup?: AiProviderType;
+    backupCapable: boolean;
+    fallbackEligible: boolean;
+} {
     const mistralKey = (options.mistralApiKey || '').trim();
     const cfAccount = (options.cloudflareAccountId || '').trim();
     const cfToken = (options.cloudflareApiToken || '').trim();
     const hasCloudflare = Boolean(cfAccount && cfToken);
     const hasMistral = Boolean(mistralKey);
+    const operation = options.operation;
 
     let primary: AiProviderType;
     let secondary: AiProviderType;
 
-    if (options.primaryProvider === 'cloudflare') {
+    if (operation === 'ocr') {
+        // Распознавание изображений (OCR) поддерживается только Mistral API
+        primary = 'mistral';
+        secondary = 'cloudflare';
+    } else if (options.primaryProvider === 'cloudflare') {
         primary = 'cloudflare';
         secondary = 'mistral';
     } else if (options.primaryProvider === 'mistral') {
@@ -326,10 +339,17 @@ export function resolveExecutionPlan(options: {
         }
     }
 
+    const primaryCapable = isProviderCapableOf(primary, operation);
+    const secondaryCapable = isProviderCapableOf(secondary, operation);
     const hasBackupKey = secondary === 'mistral' ? hasMistral : hasCloudflare;
+    const backup = options.autoFallback && hasBackupKey && secondaryCapable ? secondary : undefined;
+
     return {
         primary,
-        backup: options.autoFallback && hasBackupKey ? secondary : undefined,
+        primaryCapable,
+        backup,
+        backupCapable: secondaryCapable,
+        fallbackEligible: Boolean(backup),
     };
 }
 
@@ -339,6 +359,7 @@ export async function executeAiStreamRequest(options: AiRequestOptions): Promise
     const cfToken = (options.cloudflareApiToken || '').trim();
 
     const plan = resolveExecutionPlan({
+        operation: options.request.mode,
         primaryProvider: options.primaryProvider,
         autoFallback: options.autoFallback,
         mistralApiKey: mistralKey,
@@ -528,7 +549,7 @@ export async function executeAiStreamRequest(options: AiRequestOptions): Promise
             attempts,
         };
     } catch (err) {
-        if (options.signal.aborted) {
+        if (options.signal?.aborted) {
             await releaseProviderAttempt(effectivePrimary);
             throw err;
         }
@@ -587,7 +608,7 @@ export async function executeAiStreamRequest(options: AiRequestOptions): Promise
             attempts,
         };
     } catch (secondErr) {
-        if (options.signal.aborted) {
+        if (options.signal?.aborted) {
             await releaseProviderAttempt(fallbackProvider);
             throw secondErr;
         }

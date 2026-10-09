@@ -17,11 +17,13 @@ export default defineConfig({
             'tests/ai-quality.spec.ts',
             'tests/ai-resilience.spec.ts',
             'tests/provider-health-regression.spec.ts',
+            'tests/ocr-regression.spec.ts',
         ],
         coverage: {
             provider: 'v8',
             reporter: ['text', 'json-summary'],
             include: [
+                'src/provider-capabilities.ts',
                 'src/ai-sanity-check.ts',
                 'src/cloudflare-client.ts',
                 'src/cloudflare-provider.ts',

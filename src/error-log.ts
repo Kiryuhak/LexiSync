@@ -14,11 +14,15 @@ export interface ErrorLogEntry {
     operation?: string;
     model?: string;
     attempt?: number;
+    primaryProvider?: 'mistral' | 'cloudflare';
+    primaryCapability?: boolean;
+    primaryHealth?: string;
+    primaryResult?: string;
     fallbackProvider?: 'mistral' | 'cloudflare';
+    fallbackCapability?: boolean;
+    fallbackEligibility?: boolean;
     fallbackUsed?: boolean;
     fallbackSucceeded?: boolean;
-    primaryProvider?: 'mistral' | 'cloudflare';
-    primaryResult?: string;
     fallbackResult?: string;
     finalErrorCode?: string;
     fallbackAttempted?: boolean;
@@ -139,11 +143,15 @@ export async function recordErrorLog(entry: {
     model?: string;
     attempt?: number;
     causeCode?: string;
+    primaryProvider?: 'mistral' | 'cloudflare';
+    primaryCapability?: boolean;
+    primaryHealth?: string;
+    primaryResult?: string;
     fallbackProvider?: 'mistral' | 'cloudflare';
+    fallbackCapability?: boolean;
+    fallbackEligibility?: boolean;
     fallbackUsed?: boolean;
     fallbackSucceeded?: boolean;
-    primaryProvider?: 'mistral' | 'cloudflare';
-    primaryResult?: string;
     fallbackResult?: string;
     finalErrorCode?: string;
     fallbackAttempted?: boolean;
@@ -190,11 +198,15 @@ export async function recordErrorLog(entry: {
                 operation: entry.operation,
                 model: entry.model,
                 attempt: entry.attempt,
+                primaryProvider: entry.primaryProvider,
+                primaryCapability: entry.primaryCapability,
+                primaryHealth: entry.primaryHealth,
+                primaryResult: entry.primaryResult,
                 fallbackProvider: entry.fallbackProvider,
+                fallbackCapability: entry.fallbackCapability,
+                fallbackEligibility: entry.fallbackEligibility,
                 fallbackUsed: entry.fallbackUsed,
                 fallbackSucceeded: entry.fallbackSucceeded,
-                primaryProvider: entry.primaryProvider,
-                primaryResult: entry.primaryResult,
                 fallbackResult: entry.fallbackResult,
                 finalErrorCode: entry.finalErrorCode,
                 fallbackAttempted: entry.fallbackAttempted,
@@ -258,8 +270,18 @@ export function formatErrorLogsAsText(logs: ErrorLogEntry[]): string {
             log.operation ? `  Операция: ${log.operation}` : null,
             log.provider ? `  Провайдер: ${log.provider}` : null,
             log.primaryProvider ? `  Основной провайдер: ${log.primaryProvider}` : null,
+            log.primaryCapability !== undefined
+                ? `  Совместимость основного: ${log.primaryCapability ? 'да' : 'нет'}`
+                : null,
+            log.primaryHealth ? `  Здоровье основного: ${log.primaryHealth}` : null,
             log.primaryResult ? `  Результат основного: ${log.primaryResult}` : null,
             log.fallbackProvider ? `  Резервный провайдер: ${log.fallbackProvider}` : null,
+            log.fallbackCapability !== undefined
+                ? `  Совместимость резерва: ${log.fallbackCapability ? 'да' : 'нет'}`
+                : null,
+            log.fallbackEligibility !== undefined
+                ? `  Допустимость резерва: ${log.fallbackEligibility ? 'да' : 'нет'}`
+                : null,
             typeof log.fallbackAttempted === 'boolean'
                 ? `  Попытка резерва: ${log.fallbackAttempted ? 'да' : 'нет'}`
                 : typeof log.fallbackUsed === 'boolean'

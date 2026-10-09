@@ -2580,5 +2580,20 @@
     },
     "serverStatusLimitedByProvider": {
         "message": "Temporarily rate-limited by provider"
+    },
+    "ocrRateLimitNoFallback": {
+        "message": "Mistral rate limit reached. Fallback provider Cloudflare does not support text recognition."
+    },
+    "ocrProviderUnavailableNoFallback": {
+        "message": "Text recognition service is temporarily unavailable. Fallback provider does not support OCR."
+    },
+    "ocrNoCompatibleFallback": {
+        "message": "No compatible fallback provider available for text recognition."
+    },
+    "retryInTime": {
+        "message": "Retry in"
+    },
+    "serverStatusCapabilityHint": {
+        "message": "Mistral: text and OCR • Cloudflare: text only"
     }
 }

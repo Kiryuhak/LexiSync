@@ -2580,5 +2580,20 @@
     },
     "serverStatusLimitedByProvider": {
         "message": "Временно ограничен API-провайдером"
+    },
+    "ocrRateLimitNoFallback": {
+        "message": "Превышен лимит запросов Mistral. Резервный провайдер Cloudflare не поддерживает распознавание текста."
+    },
+    "ocrProviderUnavailableNoFallback": {
+        "message": "Сервис распознавания текста временно недоступен. Резервный провайдер не поддерживает OCR."
+    },
+    "ocrNoCompatibleFallback": {
+        "message": "Для распознавания текста нет совместимого резервного провайдера."
+    },
+    "retryInTime": {
+        "message": "Повторить через"
+    },
+    "serverStatusCapabilityHint": {
+        "message": "Mistral: текст и OCR • Cloudflare: только текст"
     }
 }

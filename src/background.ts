@@ -10,9 +10,30 @@ import { applyAdaptiveMutation, type AdaptiveMutation } from './adaptive-model-s
 import { createSettingsFingerprint } from './request-cache';
 import { applySettingsMutation, type SettingsMutation } from './settings-store';
 import { initializeSettingsSync, restoreSyncedSettings } from './settings-transfer';
-import { formatMistralError, isRetryableMistralError, processOcr, type MistralRequest } from './mistral-client';
-import { executeAiStreamRequest, getAiProviderCooldownRemaining } from './ai-client';
-import { AiProviderError, type AiExecutionResult, type CloudflareCredentials } from './ai-provider-types';
+import {
+    formatMistralError,
+    isRetryableMistralError,
+    processOcr,
+    MistralRequestError,
+    type MistralRequest,
+} from './mistral-client';
+import { executeAiStreamRequest, getAiProviderCooldownRemaining, resolveExecutionPlan } from './ai-client';
+import {
+    acquireProviderAttempt,
+    peekProviderAvailability,
+    recordProviderFailure,
+    recordProviderSuccess,
+    releaseProviderAttempt,
+} from './provider-availability';
+import { isProviderCapableOf } from './provider-capabilities';
+import { generateRequestId } from './request-id';
+export { generateRequestId };
+import {
+    AiProviderError,
+    type AiErrorCode,
+    type AiExecutionResult,
+    type CloudflareCredentials,
+} from './ai-provider-types';
 import { validateApiKey } from './mistral-client';
 import { validateCloudflareCredentials } from './cloudflare-client';
 import { checkProviderHealth } from './provider-health';
@@ -636,7 +657,7 @@ chrome.runtime.onConnect.addListener((port) => {
     if (port.name !== 'mistralStream') return;
 
     let activeController: AbortController | null = null;
-    let activeRequestId = 0;
+    let activeRequestSeq = 0;
     let disconnected = false;
     const cancelledControllers = new WeakSet<AbortController>();
     const safePostMessage = (message: object) => {
@@ -686,8 +707,9 @@ chrome.runtime.onConnect.addListener((port) => {
         activeController?.abort();
         const requestController = new AbortController();
         activeController = requestController;
-        const requestId = ++activeRequestId;
-        const isCurrentRequest = () => activeRequestId === requestId && !disconnected;
+        const currentLocalSeq = ++activeRequestSeq;
+        const requestId = generateRequestId();
+        const isCurrentRequest = () => activeRequestSeq === currentLocalSeq && !disconnected;
         const timeout = setTimeout(() => requestController.abort(), REQUEST_TIMEOUT_MS);
         const startedAt = Date.now();
         let completedSuccessfully = false;
@@ -730,7 +752,7 @@ chrome.runtime.onConnect.addListener((port) => {
 
         let activeError: unknown;
         let primaryProviderUsed: 'mistral' | 'cloudflare' = 'mistral';
-        let fallbackProviderUsed: 'mistral' | 'cloudflare' = 'cloudflare';
+        let fallbackProviderUsed: 'mistral' | 'cloudflare' | undefined = 'cloudflare';
         let primaryResult: string | undefined;
         let fallbackResult: string | undefined;
         let fallbackAttempted = false;
@@ -756,9 +778,17 @@ chrome.runtime.onConnect.addListener((port) => {
                 enablePiiMasking: true,
                 proofreadMode: 'hybrid',
             });
-            const configuredPrimary = normalizePrimaryAiProvider(settings.primaryAiProvider);
-            primaryProviderUsed = configuredPrimary === 'cloudflare' ? 'cloudflare' : 'mistral';
-            fallbackProviderUsed = primaryProviderUsed === 'mistral' ? 'cloudflare' : 'mistral';
+            [mistralApiKey, cloudflareCreds] = await Promise.all([getStoredApiKey(), getStoredCloudflareCredentials()]);
+            const plan = resolveExecutionPlan({
+                operation: msg.mode,
+                primaryProvider: normalizePrimaryAiProvider(settings.primaryAiProvider),
+                autoFallback: normalizeAutoFallbackEnabled(settings.autoFallbackEnabled),
+                mistralApiKey,
+                cloudflareAccountId: cloudflareCreds.accountId,
+                cloudflareApiToken: cloudflareCreds.apiToken,
+            });
+            primaryProviderUsed = plan.primary;
+            fallbackProviderUsed = plan.backup;
 
             if (!msg.mode) throw new Error(t('modeMissing', 'Режим обработки не указан.'));
             if (msg.mode === 'layout') {
@@ -904,25 +934,141 @@ chrome.runtime.onConnect.addListener((port) => {
             if (msg.mode === 'ocr') {
                 const hasMistral = Boolean(mistralApiKey?.trim());
                 if (!hasMistral) {
-                    throw new Error(t('ocrKeyRequired', 'Для распознавания текста (OCR) требуется API-ключ Mistral.'));
+                    throw new AiProviderError(
+                        t('ocrKeyRequired', 'Для распознавания текста (OCR) требуется API-ключ Mistral.'),
+                        'AUTH_ERROR',
+                        'mistral',
+                        false,
+                        undefined,
+                        undefined,
+                        { causeCode: 'OCR_AUTH_ERROR' },
+                    );
                 }
 
-                const text = await processOcr(msg, mistralApiKey!, requestController.signal);
-                if (isCurrentRequest()) safePostMessage({ status: 'chunk', text });
-                outputText = text;
-                if (canUseOcrCache) {
-                    try {
-                        await applyCacheMutation('set', { key: ocrCacheKey, value: text });
-                    } catch (error) {
-                        logger.error('Не удалось сохранить OCR-кэш:', error);
-                    }
+                const mistralCooldown = getAiProviderCooldownRemaining('mistral');
+                if (mistralCooldown > 0) {
+                    throw new AiProviderError(
+                        t(
+                            'ocrRateLimitNoFallback',
+                            'Превышен лимит запросов Mistral. Резервный провайдер Cloudflare не поддерживает распознавание текста.',
+                        ),
+                        'RATE_LIMIT',
+                        'mistral',
+                        true,
+                        undefined,
+                        mistralCooldown,
+                        { causeCode: 'OCR_PROVIDER_RATE_LIMIT', fallbackProvider: undefined },
+                    );
                 }
-                execResult = { providerUsed: 'mistral', attempts: 1 };
-                completedSuccessfully = true;
-                primaryResult = 'success';
-                finalErrorCode = 'REQUEST_SUCCEEDED';
-                causeCode = 'SUCCESS';
-                if (isCurrentRequest()) safePostMessage({ status: 'done', provider: 'mistral' });
+
+                const lease = await acquireProviderAttempt('mistral');
+                if (!lease.allowed) {
+                    const waitMs = lease.cooldownRemainingMs || mistralCooldown || 1000;
+                    throw new AiProviderError(
+                        t(
+                            'ocrRateLimitNoFallback',
+                            'Превышен лимит запросов Mistral. Резервный провайдер Cloudflare не поддерживает распознавание текста.',
+                        ),
+                        'RATE_LIMIT',
+                        'mistral',
+                        true,
+                        undefined,
+                        waitMs,
+                        { causeCode: 'OCR_PROVIDER_RATE_LIMIT', fallbackProvider: undefined },
+                    );
+                }
+
+                const ocrStart = Date.now();
+                try {
+                    const text = await processOcr(msg, mistralApiKey!, requestController.signal);
+                    await recordProviderSuccess('mistral', Date.now() - ocrStart);
+                    if (isCurrentRequest()) safePostMessage({ status: 'chunk', text });
+                    outputText = text;
+                    if (canUseOcrCache) {
+                        try {
+                            await applyCacheMutation('set', { key: ocrCacheKey, value: text });
+                        } catch (error) {
+                            logger.error('Не удалось сохранить OCR-кэш:', error);
+                        }
+                    }
+                    execResult = { providerUsed: 'mistral', attempts: 1 };
+                    completedSuccessfully = true;
+                    primaryResult = 'success';
+                    finalErrorCode = 'REQUEST_SUCCEEDED';
+                    causeCode = 'SUCCESS';
+                    if (isCurrentRequest()) safePostMessage({ status: 'done', provider: 'mistral' });
+                } catch (ocrErr) {
+                    let parsedError = ocrErr;
+                    if (ocrErr instanceof MistralRequestError) {
+                        const isRateLimit = ocrErr.status === 429;
+                        const isServer = typeof ocrErr.status === 'number' && ocrErr.status >= 500;
+                        const code: AiErrorCode = isRateLimit
+                            ? 'RATE_LIMIT'
+                            : isServer
+                              ? 'SERVER_ERROR'
+                              : ocrErr.status === 401 || ocrErr.status === 403
+                                ? 'AUTH_ERROR'
+                                : 'NETWORK_ERROR';
+                        const cause = isRateLimit
+                            ? 'OCR_PROVIDER_RATE_LIMIT'
+                            : isServer
+                              ? 'OCR_PROVIDER_UNAVAILABLE'
+                              : ocrErr.rateLimitType || 'REQUEST_FAILED';
+                        const userMsg = isRateLimit
+                            ? t(
+                                  'ocrRateLimitNoFallback',
+                                  'Превышен лимит запросов Mistral. Резервный провайдер Cloudflare не поддерживает распознавание текста.',
+                              )
+                            : isServer
+                              ? t(
+                                    'ocrProviderUnavailableNoFallback',
+                                    'Сервис распознавания текста временно недоступен. Резервный провайдер не поддерживает OCR.',
+                                )
+                              : ocrErr.message;
+                        const providerError = new AiProviderError(
+                            userMsg,
+                            code,
+                            'mistral',
+                            ocrErr.retryable,
+                            ocrErr.status,
+                            ocrErr.retryAfterMs,
+                            { causeCode: cause },
+                        );
+                        await recordProviderFailure(providerError);
+                        parsedError = providerError;
+                    } else if (ocrErr instanceof Error) {
+                        if (
+                            ocrErr.message.includes('Изображение для распознавания не получено') ||
+                            ocrErr.message.includes('imageMissing')
+                        ) {
+                            parsedError = new AiProviderError(
+                                ocrErr.message,
+                                'INVALID_REQUEST',
+                                'mistral',
+                                false,
+                                undefined,
+                                undefined,
+                                { causeCode: 'OCR_INVALID_IMAGE' },
+                            );
+                        } else if (
+                            ocrErr.message.includes('не обнаружил текст') ||
+                            ocrErr.message.includes('ocrNoText')
+                        ) {
+                            parsedError = new AiProviderError(
+                                ocrErr.message,
+                                'INVALID_RESPONSE',
+                                'mistral',
+                                false,
+                                undefined,
+                                undefined,
+                                { causeCode: 'OCR_INVALID_RESPONSE' },
+                            );
+                        }
+                    }
+                    throw parsedError;
+                } finally {
+                    releaseProviderAttempt('mistral');
+                }
             } else {
                 const aiSettings = {
                     selectedTone: settings.selectedTone as string,
@@ -1117,6 +1263,13 @@ chrome.runtime.onConnect.addListener((port) => {
                         : 'REQUEST_SUCCEEDED'
                     : 'REQUEST_FAILED';
                 const elapsedMs = Date.now() - startedAt;
+                const primaryCap = isProviderCapableOf(primaryProviderUsed, msg.mode);
+                const fallbackCap = fallbackProviderUsed ? isProviderCapableOf(fallbackProviderUsed, msg.mode) : false;
+                const fallbackEligible = fallbackProviderUsed
+                    ? isProviderCapableOf(fallbackProviderUsed, msg.mode)
+                    : false;
+                const primaryHealth = peekProviderAvailability(primaryProviderUsed).healthState || 'healthy';
+
                 void recordErrorLog({
                     level: completedSuccessfully ? (fallbackSucceeded ? 'warn' : 'info') : 'error',
                     source: 'request',
@@ -1130,8 +1283,12 @@ chrome.runtime.onConnect.addListener((port) => {
                         execResult?.providerUsed ||
                         (activeError instanceof AiProviderError ? activeError.provider : primaryProviderUsed),
                     primaryProvider: primaryProviderUsed,
-                    fallbackProvider: fallbackProviderUsed,
+                    primaryCapability: primaryCap,
+                    primaryHealth,
                     primaryResult: primaryResult || (completedSuccessfully ? 'success' : 'failed'),
+                    fallbackProvider: fallbackProviderUsed,
+                    fallbackCapability: fallbackCap,
+                    fallbackEligibility: fallbackEligible,
                     fallbackResult:
                         fallbackResult ||
                         (fallbackAttempted ? (fallbackSucceeded ? 'success' : 'failed') : 'not_attempted'),

@@ -7,13 +7,13 @@
   ·
   <a href="https://addons.mozilla.org/ru/firefox/addon/65facfa619b74330bdfa/"><strong>Установить из Firefox Add-ons</strong></a>
   ·
-  <a href="https://github.com/Kiryuhak/LexiSync/releases/tag/v5.6.13"><strong>Релиз v5.6.13</strong></a>
+  <a href="https://github.com/Kiryuhak/LexiSync/releases/tag/v5.6.14"><strong>Релиз v5.6.14</strong></a>
   ·
   <a href="docs/RELEASING.md">Инструкция по выпуску</a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/версия-5.6.13-blue.svg?style=flat-square" alt="Версия 5.6.13">
+  <img src="https://img.shields.io/badge/версия-5.6.14-blue.svg?style=flat-square" alt="Версия 5.6.14">
   <img src="https://img.shields.io/badge/Manifest-V3-success.svg?style=flat-square" alt="Manifest V3">
   <img src="https://img.shields.io/badge/Chrome-Поддерживается-4285F4.svg?style=flat-square&logo=googlechrome&logoColor=white" alt="Chrome">
   <img src="https://img.shields.io/badge/Firefox-Поддерживается-FF7139.svg?style=flat-square&logo=firefoxbrowser&logoColor=white" alt="Firefox">
@@ -23,7 +23,7 @@
 
 Кросс-браузерное расширение для Chrome и Firefox с проверкой орфографии через **Яндекс.Спеллер**, глубокой AI-проверкой через **Mistral AI** и резервным AI-провайдером **Cloudflare Workers AI**. Позволяет исправлять ошибки, переписывать и переводить текст, менять раскладку, подбирать эмодзи и распознавать текст на изображениях напрямую из браузера.
 
-<h2 align="center">✨ Интерфейс LexiSync 5.6.13</h2>
+<h2 align="center">✨ Интерфейс LexiSync 5.6.14</h2>
 
 <p align="center">
   Новая русскоязычная галерея для Chrome и Firefox: без обрезанного интерфейса, тестовых ключей и служебных данных.
@@ -60,7 +60,15 @@
   </p>
 </details>
 
-## ✨ Что изменилось в 5.6.13
+## ✨ Что изменилось в 5.6.14
+
+- **Маршрутизация и совместимость OCR:** Внедрена централизованная матрица возможностей провайдеров (`PROVIDER_CAPABILITIES`), исключающая ошибочное назначение несовместимого резервного провайдера Cloudflare для операций OCR.
+- **Мгновенный отказ (Fail-Fast) при кулдауне:** При временном ограничении Mistral 429 запросы распознавания текста мгновенно информируют пользователя без сетевого спама к серверу.
+- **Интерактивный таймер на кнопке повтора:** Кнопка «Повторить попытку» при активном кулдауне временно блокируется и показывает ежесекундный обратный отсчёт (`Повторить через M:SS`).
+- **Глобально уникальные идентификаторы запросов:** Идентификаторы запросов переведены на уникальную структуру `req-${timestamp}-${seq}-${rand}` для точной трассировки сессий.
+- **Расширенная диагностика без сохранения данных:** Журнал ошибок фиксирует поля совместимости и здоровья (`primaryCapability`, `fallbackCapability`, `fallbackEligibility`, `primaryHealth`) без сохранения текста и картинок.
+
+### Ранее в 5.6.13
 
 - **Точная семантика доступности AI-провайдеров:** состояние после завершения кулдауна («Пауза завершена. Можно проверить доступность») строго отделено от рабочего статуса («Работает отлично»).
 - **Реальная проверка генерации (Probe):** проверка Mistral API отправляет минимальный тестовый запрос генерации с валидацией ответа, а не поверхностный список моделей, выявляя реальные лимиты 429.

@@ -9,6 +9,17 @@ export interface CloudflareCredentials {
     apiToken: string;
 }
 
+export type OcrErrorCode =
+    | 'OCR_PROVIDER_RATE_LIMIT'
+    | 'OCR_PROVIDER_UNAVAILABLE'
+    | 'OCR_UNSUPPORTED_BY_FALLBACK'
+    | 'OCR_INVALID_IMAGE'
+    | 'OCR_IMAGE_TOO_LARGE'
+    | 'OCR_TIMEOUT'
+    | 'OCR_INVALID_RESPONSE'
+    | 'OCR_ABORTED'
+    | 'OCR_AUTH_ERROR';
+
 export type AiErrorCode =
     | 'AUTH_ERROR'
     | 'ACCOUNT_ERROR'
@@ -22,13 +33,19 @@ export type AiErrorCode =
     | 'INVALID_CONFIG'
     | 'QUALITY_CHECK_FAILED'
     | 'PROVIDERS_UNAVAILABLE'
-    | 'UNKNOWN_ERROR';
+    | 'NO_COMPATIBLE_FALLBACK'
+    | 'UNKNOWN_ERROR'
+    | OcrErrorCode;
 
 export interface AiErrorContext {
     operation?: string;
     model?: string;
     attempt?: number;
     fallbackProvider?: AiProviderType;
+    primaryCapability?: boolean;
+    fallbackCapability?: boolean;
+    fallbackEligibility?: boolean;
+    primaryHealth?: string;
     latencyMs?: number;
     finishReason?: string;
     hasChoices?: boolean;
