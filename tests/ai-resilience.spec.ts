@@ -8,7 +8,13 @@ import {
     releaseProviderAttempt,
 } from '../src/provider-availability';
 import { readCloudflareDiagnostics, readCloudflarePayload, streamCloudflareText } from '../src/cloudflare-client';
-import { extractMistralRateLimitDiagnostics, streamText } from '../src/mistral-client';
+import {
+    extractMistralRateLimitDiagnostics,
+    getMistralDiagnosticCounters,
+    resetMistralDiagnosticCounters,
+    streamText,
+} from '../src/mistral-client';
+import { AI_CONFIG } from '../src/ai-models-config';
 import { SseParser } from '../src/sse-parser';
 import { clearErrorLogs, getErrorLogs } from '../src/error-log';
 import { checkProviderHealth } from '../src/provider-health';
@@ -440,6 +446,16 @@ test('extractMistralRateLimitDiagnostics корректно классифици
     // 4. Ошибки модели
     const modelDiag = extractMistralRateLimitDiagnostics(new Headers(), 'Model capacity exceeded', 429);
     expect(modelDiag.rateLimitType).toBe('rate_limit_model');
+
+    // 5. Нулевой лимит RPM (0 RPM) на бесплатном тарифе для недоступных моделей/OCR
+    const zeroRpmHeaders = new Headers({
+        'x-ratelimit-limit-req-minute': '0',
+        'x-ratelimit-remaining-req-minute': '0',
+    });
+    const zeroRpmDiag = extractMistralRateLimitDiagnostics(zeroRpmHeaders, 'Rate limit exceeded', 429);
+    expect(zeroRpmDiag.rateLimitType).toBe('rate_limit_quota_exhausted');
+    expect(zeroRpmDiag.limitReqMinute).toBe(0);
+    expect(zeroRpmDiag.remainingReqMinute).toBe(0);
 });
 
 test('provider-availability рассчитывает ступенчатый кулдаун для rate_limit_quota_exhausted', async () => {
@@ -683,4 +699,14 @@ test('когда оба провайдера завершаются 429, обе 
     expect(logs.every((l) => l.level === 'error')).toBe(true);
     expect(logs.some((l) => l.provider === 'mistral')).toBe(true);
     expect(logs.some((l) => l.provider === 'cloudflare')).toBe(true);
+});
+
+test('диагностические счётчики Mistral и конфигурация модели по умолчанию', () => {
+    expect(AI_CONFIG.mistral.defaultModel).toBe('ministral-8b-latest');
+    resetMistralDiagnosticCounters();
+    const counters = getMistralDiagnosticCounters();
+    expect(counters.mistralChatRequests).toBe(0);
+    expect(counters.mistralOcrRequests).toBe(0);
+    expect(counters.mistralProbeRequests).toBe(0);
+    expect(counters.mistral429Count).toBe(0);
 });

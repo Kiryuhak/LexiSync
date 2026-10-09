@@ -49,6 +49,31 @@ export type MistralRateLimitType =
     | 'rate_limit_account'
     | 'rate_limit_unknown';
 
+export interface MistralDiagnosticCounters {
+    mistralChatRequests: number;
+    mistralOcrRequests: number;
+    mistralProbeRequests: number;
+    mistral429Count: number;
+}
+
+const diagnosticCounters: MistralDiagnosticCounters = {
+    mistralChatRequests: 0,
+    mistralOcrRequests: 0,
+    mistralProbeRequests: 0,
+    mistral429Count: 0,
+};
+
+export function getMistralDiagnosticCounters(): Readonly<MistralDiagnosticCounters> {
+    return { ...diagnosticCounters };
+}
+
+export function resetMistralDiagnosticCounters(): void {
+    diagnosticCounters.mistralChatRequests = 0;
+    diagnosticCounters.mistralOcrRequests = 0;
+    diagnosticCounters.mistralProbeRequests = 0;
+    diagnosticCounters.mistral429Count = 0;
+}
+
 export interface MistralRateLimitInfo {
     rateLimitType?: MistralRateLimitType;
     retryAfterMs?: number;
@@ -225,8 +250,9 @@ export function extractMistralRateLimitDiagnostics(
 
     const lowerMsg = providerMessage.toLowerCase();
     let rateLimitType: MistralRateLimitType = 'rate_limit_unknown';
-
-    if (
+    if (limReq === '0' || (limReq !== null && limReq !== undefined && Number(limReq) === 0)) {
+        rateLimitType = 'rate_limit_quota_exhausted';
+    } else if (
         lowerMsg.includes('quota') ||
         lowerMsg.includes('credit') ||
         lowerMsg.includes('balance') ||
@@ -263,6 +289,9 @@ export function extractMistralRateLimitDiagnostics(
 }
 
 async function createApiError(response: Response): Promise<MistralRequestError> {
+    if (response.status === 429) {
+        diagnosticCounters.mistral429Count++;
+    }
     const providerMessage = await readResponseErrorMessage(response);
     const diag = extractMistralRateLimitDiagnostics(response.headers, providerMessage, response.status);
     const retryAfterHeader = response.headers?.get('Retry-After');
@@ -332,6 +361,7 @@ export async function probeMistralConnection(
     if (!trimmed) {
         return { ok: false, message: t('tutorialKeyRequired', 'Сначала вставьте API-ключ.'), errorCode: 'AUTH_ERROR' };
     }
+    diagnosticCounters.mistralProbeRequests++;
     const start = Date.now();
     const controller = new AbortController();
     const timeoutTimer = setTimeout(() => controller.abort(), 10_000);
@@ -349,7 +379,7 @@ export async function probeMistralConnection(
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                model: 'mistral-small-latest',
+                model: AI_CONFIG.mistral.defaultModel,
                 messages: [{ role: 'user', content: 'Ping' }],
                 max_tokens: 1,
             }),
@@ -398,6 +428,10 @@ export async function probeMistralConnection(
                 latencyMs,
                 errorCode: fallback.ok ? undefined : 'NOT_FOUND',
             };
+        }
+
+        if (response.status === 429) {
+            diagnosticCounters.mistral429Count++;
         }
 
         const retryAfterMs = parseRetryAfterMs(response.headers?.get('Retry-After'));
@@ -467,6 +501,7 @@ export function readSsePayload(line: string): string | null {
 }
 
 export async function processOcr(msg: MistralRequest, apiKey: string, signal: AbortSignal): Promise<string> {
+    diagnosticCounters.mistralOcrRequests++;
     if (!msg.imageUrl) throw new Error(t('imageMissing', 'Изображение для распознавания не получено.'));
     const response = await fetchWithRetry(
         `${API_BASE_URL}/ocr`,
@@ -500,6 +535,7 @@ export async function streamText(
     onChunk: (text: string) => void,
     onActivity?: () => void,
 ): Promise<AIResponse> {
+    diagnosticCounters.mistralChatRequests++;
     const prompt = buildPromptPayload(msg, settings);
     const shouldRestorePii = Object.keys(prompt.piiMaskMap).length > 0;
     const requestInit: RequestInit = {

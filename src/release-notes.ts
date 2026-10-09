@@ -36,6 +36,27 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.6.15',
+        '2026-10-09',
+        'fixed',
+        'Переход на активную модель Ministral 8B и устранение лимитов 429',
+        'Transition to active Ministral 8B model and 429 rate limit resolution',
+        [
+            [
+                'Основная модель Mistral переведена на актуальную и высокопроизводительную Ministral 8B (ministral-8b-latest), доступную на всех тарифных планах с лимитом до 188 RPM.',
+                'Primary Mistral model switched to the active and high-performance Ministral 8B (ministral-8b-latest), available across all tiers with up to 188 RPM.',
+            ],
+            [
+                'Проверка доступности (Probe) теперь валидирует активную модель провайдера и возвращает реальный зелёный статус HEALTHY.',
+                'Health probe now validates the active provider model and reliably returns live green HEALTHY status.',
+            ],
+            [
+                'Добавлены сессионные счётчики диагностических запросов и точная классификация квот с нулевым лимитом (0 RPM).',
+                'Added session diagnostic request counters and precise classification of 0-RPM quota limits.',
+            ],
+        ],
+    ),
+    note(
         '5.6.14',
         '2026-10-09',
         'fixed',

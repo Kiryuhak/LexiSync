@@ -3,7 +3,7 @@ export const AI_CONFIG = {
         id: 'mistral' as const,
         name: 'Mistral AI',
         baseUrl: 'https://api.mistral.ai/v1',
-        defaultModel: 'mistral-small-latest',
+        defaultModel: 'ministral-8b-latest',
         ocrModel: 'mistral-ocr-latest',
     },
     cloudflare: {

@@ -2102,7 +2102,7 @@ test('Быстрый режим и профиль стиля влияют на A
     await selectTextOnPage(page, 'h1');
     await page.keyboard.press('Alt+y');
     await expect(page.locator('#lexisync-extension-ui')).toContainText('Деловой текст');
-    expect(model).toBe('mistral-small-latest');
+    expect(model).toBe('ministral-8b-latest');
     expect(systemPrompt).toContain('Пиши короткими деловыми предложениями.');
 });
 

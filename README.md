@@ -7,13 +7,13 @@
   ·
   <a href="https://addons.mozilla.org/ru/firefox/addon/65facfa619b74330bdfa/"><strong>Установить из Firefox Add-ons</strong></a>
   ·
-  <a href="https://github.com/Kiryuhak/LexiSync/releases/tag/v5.6.14"><strong>Релиз v5.6.14</strong></a>
+  <a href="https://github.com/Kiryuhak/LexiSync/releases/tag/v5.6.15"><strong>Релиз v5.6.15</strong></a>
   ·
   <a href="docs/RELEASING.md">Инструкция по выпуску</a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/версия-5.6.14-blue.svg?style=flat-square" alt="Версия 5.6.14">
+  <img src="https://img.shields.io/badge/версия-5.6.15-blue.svg?style=flat-square" alt="Версия 5.6.15">
   <img src="https://img.shields.io/badge/Manifest-V3-success.svg?style=flat-square" alt="Manifest V3">
   <img src="https://img.shields.io/badge/Chrome-Поддерживается-4285F4.svg?style=flat-square&logo=googlechrome&logoColor=white" alt="Chrome">
   <img src="https://img.shields.io/badge/Firefox-Поддерживается-FF7139.svg?style=flat-square&logo=firefoxbrowser&logoColor=white" alt="Firefox">
@@ -23,7 +23,7 @@
 
 Кросс-браузерное расширение для Chrome и Firefox с проверкой орфографии через **Яндекс.Спеллер**, глубокой AI-проверкой через **Mistral AI** и резервным AI-провайдером **Cloudflare Workers AI**. Позволяет исправлять ошибки, переписывать и переводить текст, менять раскладку, подбирать эмодзи и распознавать текст на изображениях напрямую из браузера.
 
-<h2 align="center">✨ Интерфейс LexiSync 5.6.14</h2>
+<h2 align="center">✨ Интерфейс LexiSync 5.6.15</h2>
 
 <p align="center">
   Новая русскоязычная галерея для Chrome и Firefox: без обрезанного интерфейса, тестовых ключей и служебных данных.
@@ -60,7 +60,14 @@
   </p>
 </details>
 
-## ✨ Что изменилось в 5.6.14
+## ✨ Что изменилось в 5.6.15
+
+- **Переход на активную модель Ministral 8B:** Основная рабочая модель Mistral переведена на актуальную `ministral-8b-latest` с лимитом 188 RPM и мгновенным ответом 200 OK.
+- **Восстановление здорового статуса (Probe):** Проверка доступности провайдера валидирует активную модель конфигурации, позволяя Mistral безопасно переходить в статус «Работает отлично».
+- **Распознавание 0-RPM квот:** Заголовки с нулевым лимитом (`x-ratelimit-limit-req-minute: 0`) классифицируются как ограничения тарифа, предотвращая ложные частые повторы.
+- **Сессионные счётчики сетевых запросов:** Внедрён прозрачный подсчёт запросов и ошибок для детальной диагностики работы расширения.
+
+### Ранее в 5.6.14
 
 - **Маршрутизация и совместимость OCR:** Внедрена централизованная матрица возможностей провайдеров (`PROVIDER_CAPABILITIES`), исключающая ошибочное назначение несовместимого резервного провайдера Cloudflare для операций OCR.
 - **Мгновенный отказ (Fail-Fast) при кулдауне:** При временном ограничении Mistral 429 запросы распознавания текста мгновенно информируют пользователя без сетевого спама к серверу.
