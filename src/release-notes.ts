@@ -36,6 +36,35 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.6.16',
+        '2026-11-21',
+        'fixed',
+        'Комплексный аудит безопасности, стабильности AI-маршрутизации и изоляции шины OCR',
+        'Comprehensive security audit, AI routing stability, and OCR bus isolation',
+        [
+            [
+                'Усилена изоляция передачи скриншотов OCR через защищённую внутреннюю шину расширения, исключающую утечки в пользовательский контекст DOM.',
+                'Enhanced OCR screenshot isolation via a protected internal extension bus, preventing leaks into the user DOM context.',
+            ],
+            [
+                'Добавлена строгая фильтрация чувствительных полей ввода (пароли, скрытые поля) и исключение утечек base64-изображений в журнал ошибок.',
+                'Added strict filtering for sensitive input fields (password, hidden) and prevented base64 image leaks into error logs.',
+            ],
+            [
+                'Оптимизирована маршрутизация провайдеров AI: отключены избыточные рассуждения (enable_thinking: false) для модели Cloudflare GLM-4.7-Flash, обеспечена строгая изоляция Яндекс.Спеллера.',
+                'Optimized AI provider routing: disabled redundant reasoning (enable_thinking: false) for Cloudflare GLM-4.7-Flash, enforced strict isolation for Yandex.Speller.',
+            ],
+            [
+                'Повышена безопасность замены текста: предотвращена перезапись изменённого пользователем содержимого при отмене и защищены диапазоны в статическом контенте.',
+                'Improved text replacement safety: prevented overwriting user-modified content on undo and protected ranges across static and editable content.',
+            ],
+            [
+                'Улучшена синхронизация и резервное копирование: ограничен максимальный размер зашифрованного payload и добавлен тайм-аут на загрузку ответов Google Drive.',
+                'Enhanced synchronization and backup: capped maximum encrypted payload size and added timeouts for Google Drive body downloads.',
+            ],
+        ],
+    ),
+    note(
         '5.6.15',
         '2026-10-09',
         'fixed',

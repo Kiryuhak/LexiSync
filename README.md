@@ -7,13 +7,13 @@
   ·
   <a href="https://addons.mozilla.org/ru/firefox/addon/65facfa619b74330bdfa/"><strong>Установить из Firefox Add-ons</strong></a>
   ·
-  <a href="https://github.com/Kiryuhak/LexiSync/releases/tag/v5.6.15"><strong>Релиз v5.6.15</strong></a>
+  <a href="https://github.com/Kiryuhak/LexiSync/releases/tag/v5.6.16"><strong>Релиз v5.6.16</strong></a>
   ·
   <a href="docs/RELEASING.md">Инструкция по выпуску</a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/версия-5.6.15-blue.svg?style=flat-square" alt="Версия 5.6.15">
+  <img src="https://img.shields.io/badge/версия-5.6.16-blue.svg?style=flat-square" alt="Версия 5.6.16">
   <img src="https://img.shields.io/badge/Manifest-V3-success.svg?style=flat-square" alt="Manifest V3">
   <img src="https://img.shields.io/badge/Chrome-Поддерживается-4285F4.svg?style=flat-square&logo=googlechrome&logoColor=white" alt="Chrome">
   <img src="https://img.shields.io/badge/Firefox-Поддерживается-FF7139.svg?style=flat-square&logo=firefoxbrowser&logoColor=white" alt="Firefox">
@@ -23,7 +23,7 @@
 
 Кросс-браузерное расширение для Chrome и Firefox с проверкой орфографии через **Яндекс.Спеллер**, глубокой AI-проверкой через **Mistral AI** и резервным AI-провайдером **Cloudflare Workers AI**. Позволяет исправлять ошибки, переписывать и переводить текст, менять раскладку, подбирать эмодзи и распознавать текст на изображениях напрямую из браузера.
 
-<h2 align="center">✨ Интерфейс LexiSync 5.6.15</h2>
+<h2 align="center">✨ Интерфейс LexiSync 5.6.16</h2>
 
 <p align="center">
   Новая русскоязычная галерея для Chrome и Firefox: без обрезанного интерфейса, тестовых ключей и служебных данных.
@@ -60,7 +60,15 @@
   </p>
 </details>
 
-## ✨ Что изменилось в 5.6.15
+## ✨ Что изменилось в 5.6.16
+
+- **Изоляция шины передачи OCR:** Передача скриншотов области переведена на изолированную внутреннюю шину расширения (`isolatedContentBus`), исключающую утечки данных в DOM страницы.
+- **Безопасность полей ввода и логов:** Поля паролей, скрытые поля и файлы исключены из захвата текста; base64-изображения надёжно маскируются в журнале ошибок.
+- **Оптимизация и стабильность AI:** Отключены избыточные рассуждения (thinking) для Cloudflare GLM-4.7-Flash, обеспечена строгая изоляция Яндекс.Спеллера, устранены ложные отклонения слов в валидаторе sanity check.
+- **Безопасная замена и отмена текста:** Защита от перезаписи пользовательского текста при отмене (`undo`), сохранение диапазонов в статическом контенте и устранение мутаций при уточнении промпта.
+- **Сетевая надёжность и синхронизация:** Установлен лимит размера зашифрованных резервных копий и таймауты на скачивание ответов Google Drive.
+
+### Ранее в 5.6.15
 
 - **Переход на активную модель Ministral 8B:** Основная рабочая модель Mistral переведена на актуальную `ministral-8b-latest` с лимитом 188 RPM и мгновенным ответом 200 OK.
 - **Восстановление здорового статуса (Probe):** Проверка доступности провайдера валидирует активную модель конфигурации, позволяя Mistral безопасно переходить в статус «Работает отлично».
