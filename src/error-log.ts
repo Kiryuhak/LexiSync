@@ -88,7 +88,9 @@ export function sanitizeLogMessage(input: string, knownKeys: string[] = []): str
         // Email адреса
         .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/gi, '[REDACTED_EMAIL]')
         // Номера телефонов с кодом или разделителями
-        .replace(/\b(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b|\b\+7\d{10}\b/g, '[REDACTED_PHONE]');
+        .replace(/\b(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b|\b\+7\d{10}\b/g, '[REDACTED_PHONE]')
+        // Base64 изображения (включая скриншоты OCR)
+        .replace(/data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/gi, '[REDACTED_IMAGE_DATA]');
 
     return sanitized;
 }

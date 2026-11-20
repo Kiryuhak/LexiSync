@@ -23,7 +23,12 @@ import {
     executeRequest as executeContentRequest,
     type ContentRequestContext,
 } from './content-request-panel';
-import { ensureOptionalContentFeature, OCR_IMAGE_EVENT, OCR_START_EVENT } from './optional-content-features';
+import {
+    ensureOptionalContentFeature,
+    isolatedContentBus,
+    OCR_IMAGE_EVENT,
+    OCR_START_EVENT,
+} from './optional-content-features';
 import { applyAppearanceStyle, normalizeAppearanceStyle, type AppearanceStyle } from './appearance-style';
 import {
     applyThemeCustomization,
@@ -213,7 +218,9 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             if (screenshotUrl) {
                 void ensureOcrOverlay()
                     .then(() => {
-                        document.dispatchEvent(new CustomEvent(OCR_START_EVENT, { detail: { screenshotUrl } }));
+                        isolatedContentBus.dispatchEvent(
+                            new CustomEvent(OCR_START_EVENT, { detail: { screenshotUrl } }),
+                        );
                     })
                     .catch(() => undefined);
             }
@@ -755,7 +762,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
         return ocrOverlayPromise;
     }
 
-    document.addEventListener(OCR_IMAGE_EVENT, (event) => {
+    isolatedContentBus.addEventListener(OCR_IMAGE_EVENT, (event) => {
         if (!extensionEnabledOnSite) return;
         const detail = (event as CustomEvent<{ imageUrl?: unknown; rect?: Partial<DOMRect> }>).detail;
         if (typeof detail?.imageUrl !== 'string' || !detail.rect) return;

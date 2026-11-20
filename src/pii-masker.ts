@@ -20,7 +20,14 @@ export function maskPii(text: string, startIndex = 0): MaskPiiResult {
     }
 
     const maskMap: Record<string, string> = {};
-    let counter = Math.max(0, Math.trunc(startIndex));
+    // Находим максимальный индекс уже существующих в тексте плейсхолдеров, чтобы избежать коллизий
+    let maxExistingIndex = 0;
+    const existingMatches = text.matchAll(/\[__[A-Z]+_(\d+)__\]/g);
+    for (const match of existingMatches) {
+        const num = Number.parseInt(match[1], 10);
+        if (num > maxExistingIndex) maxExistingIndex = num;
+    }
+    let counter = Math.max(maxExistingIndex, Math.max(0, Math.trunc(startIndex)));
     let maskedCount = 0;
 
     const replaceWithToken = (match: string, type: string): string => {

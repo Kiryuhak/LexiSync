@@ -514,6 +514,9 @@
     "undoReplacement": {
         "message": "Отменить замену"
     },
+    "undoBlockedModified": {
+        "message": "Текст был изменён после замены — отмена заблокирована для защиты данных."
+    },
     "replaced": {
         "message": "Заменено!"
     },
@@ -1873,6 +1876,9 @@
     },
     "ocrMistralKeyRequired": {
         "message": "Для распознавания текста (OCR) требуется API-ключ Mistral."
+    },
+    "ocrPayloadTooLarge": {
+        "message": "Размер изображения превышает лимит API (HTTP 413). Выделите меньшую область."
     },
     "serverStatusHealthy": {
         "message": "Работает отлично"

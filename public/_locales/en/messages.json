@@ -514,6 +514,9 @@
     "undoReplacement": {
         "message": "Undo replacement"
     },
+    "undoBlockedModified": {
+        "message": "Text was modified after replacement — undo is blocked to protect data."
+    },
     "replaced": {
         "message": "Replaced!"
     },
@@ -1873,6 +1876,9 @@
     },
     "ocrMistralKeyRequired": {
         "message": "Mistral API key is required for OCR text recognition."
+    },
+    "ocrPayloadTooLarge": {
+        "message": "Image size exceeds API limit (HTTP 413). Please select a smaller area."
     },
     "serverStatusHealthy": {
         "message": "Operational"

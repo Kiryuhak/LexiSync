@@ -1,7 +1,31 @@
 import type { SelectionData } from './types';
 
+function isSensitiveOrNonTextInput(element: Element): boolean {
+    if (typeof HTMLInputElement !== 'undefined' && element instanceof HTMLInputElement) {
+        const type = (element.type || 'text').toLowerCase();
+        return (
+            type === 'password' ||
+            type === 'hidden' ||
+            type === 'file' ||
+            type === 'button' ||
+            type === 'submit' ||
+            type === 'reset' ||
+            type === 'checkbox' ||
+            type === 'radio' ||
+            type === 'image'
+        );
+    }
+    const tag = (element as HTMLElement).tagName?.toLowerCase?.();
+    if (tag === 'input') {
+        const type = ((element as HTMLInputElement).type || 'text').toLowerCase();
+        return type === 'password' || type === 'hidden' || type === 'file';
+    }
+    return false;
+}
+
 function isTextInput(element: Element | null): element is HTMLInputElement | HTMLTextAreaElement {
     if (!element) return false;
+    if (isSensitiveOrNonTextInput(element)) return false;
     if (typeof HTMLInputElement !== 'undefined' && element instanceof HTMLInputElement) return true;
     if (typeof HTMLTextAreaElement !== 'undefined' && element instanceof HTMLTextAreaElement) return true;
     const tag = (element as HTMLElement).tagName?.toLowerCase?.();
@@ -24,6 +48,17 @@ export function getSelectedText(): string {
 
 export function captureSelection(fallbackText = ''): SelectionData {
     const activeElement = document.activeElement;
+    if (activeElement && isSensitiveOrNonTextInput(activeElement)) {
+        return {
+            text: '',
+            context: '',
+            range: null,
+            activeElement: null,
+            start: null,
+            end: null,
+            isInput: false,
+        };
+    }
     const browserSelection = window.getSelection();
     const result: SelectionData = {
         text: '',

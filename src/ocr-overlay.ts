@@ -1,4 +1,5 @@
 import { t } from './i18n';
+import { logger } from './logger';
 
 export interface OcrOverlayOptions {
     isEnabled: () => boolean;
@@ -21,31 +22,42 @@ export function initializeOcrOverlay(options: OcrOverlayOptions): OcrOverlayCont
         overlay?.remove();
         overlay = null;
         selection = null;
+        selecting = false;
+        screenshotDataUrl = '';
     };
 
-    const crop = (rect: DOMRect) => {
+    const crop = (rect: DOMRect, dataUrl: string) => {
         const image = new Image();
         image.onload = () => {
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
-            if (!context) return;
-            const dpr = window.devicePixelRatio || 1;
-            canvas.width = rect.width * dpr;
-            canvas.height = rect.height * dpr;
-            context.drawImage(
-                image,
-                rect.left * dpr,
-                rect.top * dpr,
-                rect.width * dpr,
-                rect.height * dpr,
-                0,
-                0,
-                canvas.width,
-                canvas.height,
-            );
-            options.onImage(canvas.toDataURL('image/jpeg', 0.9), rect);
+            try {
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                if (!context) {
+                    return;
+                }
+                const dpr = window.devicePixelRatio || 1;
+                canvas.width = rect.width * dpr;
+                canvas.height = rect.height * dpr;
+                context.drawImage(
+                    image,
+                    rect.left * dpr,
+                    rect.top * dpr,
+                    rect.width * dpr,
+                    rect.height * dpr,
+                    0,
+                    0,
+                    canvas.width,
+                    canvas.height,
+                );
+                options.onImage(canvas.toDataURL('image/jpeg', 0.9), rect);
+            } catch (err) {
+                logger.error('Ошибка обрезки изображения OCR:', err);
+            }
         };
-        image.src = screenshotDataUrl;
+        image.onerror = () => {
+            logger.error('Ошибка загрузки скриншота для OCR');
+        };
+        image.src = dataUrl;
     };
 
     const open = () => {
@@ -86,8 +98,9 @@ export function initializeOcrOverlay(options: OcrOverlayOptions): OcrOverlayCont
             selecting = false;
             if (!selection) return;
             const rect = selection.getBoundingClientRect();
+            const dataUrl = screenshotDataUrl;
             close();
-            if (rect.width > 10 && rect.height > 10) crop(rect);
+            if (rect.width > 10 && rect.height > 10 && dataUrl) crop(rect, dataUrl);
         });
     };
 
