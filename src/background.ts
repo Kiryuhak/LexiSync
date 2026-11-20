@@ -258,6 +258,16 @@ chrome.runtime.onInstalled.addListener((details) => {
 
 async function sendOcrCommand(tabId: number, windowId?: number): Promise<void> {
     try {
+        // Проверяем, что целевая вкладка всё ещё активна, чтобы не захватить снимок другой вкладки
+        const activeTabs = await chrome.tabs.query({
+            active: true,
+            ...(typeof windowId === 'number' ? { windowId } : { currentWindow: true }),
+        });
+        const activeTab = activeTabs[0];
+        if (activeTab && activeTab.id !== tabId) {
+            throw new Error('Активная вкладка изменилась во время захвата.');
+        }
+
         // Захватываем вкладку прямо в контексте пользовательского жеста. Firefox может
         // потерять временный activeTab-доступ, если сначала ждать внедрения скрипта.
         const dataUrl =
@@ -683,6 +693,15 @@ chrome.runtime.onConnect.addListener((port) => {
         }
         if (!message || typeof message !== 'object' || (message as Partial<MistralRequest>).action !== 'callMistral')
             return;
+
+        // Синхронно создаём и регистрируем контроллер до любых асинхронных вызовов
+        activeController?.abort();
+        const requestController = new AbortController();
+        activeController = requestController;
+        const currentLocalSeq = ++activeRequestSeq;
+        const isCurrentRequest = () =>
+            activeRequestSeq === currentLocalSeq && !disconnected && !requestController.signal.aborted;
+
         try {
             validateMistralRequest(message);
         } catch (error) {
@@ -693,8 +712,22 @@ chrome.runtime.onConnect.addListener((port) => {
             });
             return;
         }
-        if (!(await canUseExtensionForSender(port.sender ?? {}))) {
-            activeController?.abort();
+
+        let senderAllowed: boolean;
+        try {
+            senderAllowed = await canUseExtensionForSender(port.sender ?? {});
+        } catch (error) {
+            safePostMessage({
+                status: 'error',
+                error: error instanceof Error ? error.message : t('requestFailed', 'Ошибка проверки доступа.'),
+                retryable: false,
+            });
+            return;
+        }
+
+        if (!isCurrentRequest()) return;
+
+        if (!senderAllowed) {
             safePostMessage({
                 status: 'error',
                 error: t('siteAccessDisabled', 'LexiSync отключён для этого сайта.'),
@@ -704,12 +737,7 @@ chrome.runtime.onConnect.addListener((port) => {
         }
         const msg = message;
 
-        activeController?.abort();
-        const requestController = new AbortController();
-        activeController = requestController;
-        const currentLocalSeq = ++activeRequestSeq;
         const requestId = generateRequestId();
-        const isCurrentRequest = () => activeRequestSeq === currentLocalSeq && !disconnected;
         const timeout = setTimeout(() => requestController.abort(), REQUEST_TIMEOUT_MS);
         const startedAt = Date.now();
         let completedSuccessfully = false;
@@ -717,7 +745,7 @@ chrome.runtime.onConnect.addListener((port) => {
         let servedFromCache = false;
         let cancelledBeforeReservation = false;
         let budgetReservationId = '';
-        const inputTokens = estimateTokens(msg.text || msg.imageUrl || '');
+        const inputTokens = msg.mode === 'ocr' ? 1000 : estimateTokens(msg.text || '');
         let outputText = '';
         let execResult: Partial<AiExecutionResult> | undefined;
         let failedProvider: 'mistral' | 'cloudflare' | undefined;
@@ -1001,40 +1029,52 @@ chrome.runtime.onConnect.addListener((port) => {
                     let parsedError = ocrErr;
                     if (ocrErr instanceof MistralRequestError) {
                         const isRateLimit = ocrErr.status === 429;
+                        const isPayloadTooLarge = ocrErr.status === 413;
                         const isServer = typeof ocrErr.status === 'number' && ocrErr.status >= 500;
                         const code: AiErrorCode = isRateLimit
                             ? 'RATE_LIMIT'
-                            : isServer
-                              ? 'SERVER_ERROR'
-                              : ocrErr.status === 401 || ocrErr.status === 403
-                                ? 'AUTH_ERROR'
-                                : 'NETWORK_ERROR';
+                            : isPayloadTooLarge
+                              ? 'INVALID_REQUEST'
+                              : isServer
+                                ? 'SERVER_ERROR'
+                                : ocrErr.status === 401 || ocrErr.status === 403
+                                  ? 'AUTH_ERROR'
+                                  : 'NETWORK_ERROR';
                         const cause = isRateLimit
                             ? 'OCR_PROVIDER_RATE_LIMIT'
-                            : isServer
-                              ? 'OCR_PROVIDER_UNAVAILABLE'
-                              : ocrErr.rateLimitType || 'REQUEST_FAILED';
+                            : isPayloadTooLarge
+                              ? 'OCR_PAYLOAD_TOO_LARGE'
+                              : isServer
+                                ? 'OCR_PROVIDER_UNAVAILABLE'
+                                : ocrErr.rateLimitType || 'REQUEST_FAILED';
                         const userMsg = isRateLimit
                             ? t(
                                   'ocrRateLimitNoFallback',
                                   'Превышен лимит запросов Mistral. Резервный провайдер Cloudflare не поддерживает распознавание текста.',
                               )
-                            : isServer
+                            : isPayloadTooLarge
                               ? t(
-                                    'ocrProviderUnavailableNoFallback',
-                                    'Сервис распознавания текста временно недоступен. Резервный провайдер не поддерживает OCR.',
+                                    'ocrPayloadTooLarge',
+                                    'Изображение слишком велико для распознавания. Попробуйте выделить меньшую область.',
                                 )
-                              : ocrErr.message;
+                              : isServer
+                                ? t(
+                                      'ocrProviderUnavailableNoFallback',
+                                      'Сервис распознавания текста временно недоступен. Резервный провайдер не поддерживает OCR.',
+                                  )
+                                : ocrErr.message;
                         const providerError = new AiProviderError(
                             userMsg,
                             code,
                             'mistral',
-                            ocrErr.retryable,
+                            ocrErr.retryable && !isPayloadTooLarge,
                             ocrErr.status,
                             ocrErr.retryAfterMs,
                             { causeCode: cause },
                         );
-                        await recordProviderFailure(providerError);
+                        if (!isPayloadTooLarge && (isRateLimit || isServer)) {
+                            await recordProviderFailure(providerError);
+                        }
                         parsedError = providerError;
                     } else if (ocrErr instanceof Error) {
                         if (

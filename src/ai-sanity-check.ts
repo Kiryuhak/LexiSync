@@ -84,8 +84,9 @@ export function cleanAiOutputText(rawText: string, originalText = ''): string {
         .replace(/^<TEXT_TO_PROCESS(?:_JSON)?>\s*([\s\S]*?)\s*<\/TEXT_TO_PROCESS(?:_JSON)?>$/i, '$1')
         .trim();
 
-    // 3. Удаляем вступительные фразы ("Вот исправленный текст:", "Результат:" и др.)
+    // 3. Удаляем вступительные фразы ("Вот исправленный текст:", "Результат:" и др.), если их не было в оригинале
     for (const prefixRegex of CONVERSATIONAL_PREFIX_REGEXES) {
+        if (originalText && prefixRegex.test(originalText)) continue;
         cleaned = cleaned.replace(prefixRegex, '').trim();
     }
 
@@ -132,11 +133,15 @@ interface NumericToken {
 }
 
 const NUMERIC_EXPRESSION_REGEX =
-    /(?<![\p{L}\p{N}_])(?:\d+[xX×]\d+|\d+[pPkK]|[-+]?\d+(?:[ \u00A0\u202F\u2009]\d{3})*(?:[.,:/\-–—]\d+(?:[ \u00A0\u202F\u2009]\d{3})*)*)(?![\p{L}\p{N}_])/gu;
+    /(?<![\p{L}\p{N}_])(?:\d+[xX×]\d+|\d+[pPkK]|[-+−]?\d+(?:[ \u00A0\u202F\u2009]\d{3})*(?:[.,:/\-–—−]\d+(?:[ \u00A0\u202F\u2009]\d{3})*)*)(?![\p{L}\p{N}_])/gu;
 
 function classifyNumericToken(raw: string, prefix: string): NumericToken {
     const normalizations: string[] = [];
     let compact = raw;
+    if (compact.includes('−')) {
+        compact = compact.replace(/−/gu, '-');
+        normalizations.push('unicode_minus');
+    }
     if (/^\d+[xX×]\d+$/u.test(compact)) {
         return { kind: 'identifier', canonical: 'dimensions:' + compact.replace(/[xX×]/u, 'x'), normalizations };
     }
@@ -378,7 +383,7 @@ const TECH_ACRONYMS_REGEX =
     /\b(?:API|HTTP|HTTPS|OAuth|HTML|CSS|DOM|JSON|REST|SDK|URL|URI|IP|VPN|SSH|TCP|UDP|CI\/CD|MV3|SPA)\b/gi;
 
 const MODEL_IDENTIFIER_REGEX =
-    /(?:@cf\/[a-zA-Z0-9_.-]+\/)?[a-zA-Z0-9_.-]*(?:glm|mistral|gpt|claude|gemini|llama|deepseek|qwen|phi)[a-zA-Z0-9_.-]*/gi;
+    /\b(?:@cf\/[a-zA-Z0-9_.-]+\/)?[a-zA-Z0-9_.-]*(?:glm|mistral|gpt|claude|gemini|llama|deepseek|qwen)(?:-[a-zA-Z0-9_.-]+)*\b|\bphi-[0-9a-zA-Z_.-]+\b/gi;
 
 const VERSION_REGEX =
     /(?<![\p{L}\p{N}_])(?:v\d+\.\d+(?:\.\d+)*|\d+\.\d+\.\d+(?:\.\d+)*)(?:-[a-zA-Z0-9._-]+)?(?![\p{L}\p{N}_])/gu;

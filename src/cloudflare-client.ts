@@ -221,6 +221,9 @@ export async function validateCloudflareCredentials(
             body: JSON.stringify({
                 messages: [{ role: 'user', content: 'Ping' }],
                 max_tokens: 1,
+                ...(resolvedModel === '@cf/zai-org/glm-4.7-flash'
+                    ? { chat_template_kwargs: { enable_thinking: false } }
+                    : {}),
             }),
             signal: combinedSignal,
         });
@@ -307,7 +310,7 @@ export async function streamCloudflareText(
     };
     if (typeof msg.enableThinking === 'boolean') {
         requestBody.chat_template_kwargs = { enable_thinking: msg.enableThinking };
-    } else if ((msg.mode === 'spellcheck' || msg.mode === 'style') && resolvedModel === '@cf/zai-org/glm-4.7-flash') {
+    } else if (resolvedModel === '@cf/zai-org/glm-4.7-flash') {
         requestBody.chat_template_kwargs = { enable_thinking: false };
     }
 

@@ -74,6 +74,8 @@ export function isProviderCapableOf(provider: string, operation?: string): boole
     if (operation in caps) {
         return caps[operation as keyof ProviderCapability];
     }
+    // Яндекс.Спеллер поддерживает строго проверку орфографии (spellcheck)
+    if (provider === 'yandex_speller') return false;
     // Для текстовых операций, не перечисленных явно, текстовые AI-провайдеры считаются способными, кроме OCR
     return operation !== 'ocr';
 }

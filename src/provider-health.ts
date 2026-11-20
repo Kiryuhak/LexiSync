@@ -37,7 +37,7 @@ export interface CheckProviderHealthOptions {
 
 const HEALTH_CACHE_KEY = 'lexisync_provider_health_cache';
 const HEALTH_CACHE_MAX_AGE_MS = 15 * 60_000;
-const activeProbes = new Map<AiProviderType, Promise<ProviderHealthStatus>>();
+const activeProbes = new Map<string, Promise<ProviderHealthStatus>>();
 
 export function getHealthStateColor(state: HealthState): string {
     switch (state) {
@@ -169,7 +169,7 @@ export async function checkProviderHealth(
                     };
                 }
                 const cached = await loadCachedHealthStatus();
-                if (cached.cloudflare) return cached.cloudflare;
+                if (cached.cloudflare && cached.cloudflare.model === resolvedModel) return cached.cloudflare;
                 return {
                     provider: 'cloudflare',
                     state: 'unconfigured',
@@ -180,8 +180,9 @@ export async function checkProviderHealth(
             }
         }
 
-        if (activeProbes.has('cloudflare')) {
-            return activeProbes.get('cloudflare')!;
+        const probeKey = `cloudflare:${resolvedModel}`;
+        if (activeProbes.has(probeKey)) {
+            return activeProbes.get(probeKey)!;
         }
 
         const probePromise = (async (): Promise<ProviderHealthStatus> => {
@@ -227,11 +228,11 @@ export async function checkProviderHealth(
                     errorCode: result.errorCode,
                 };
             } finally {
-                activeProbes.delete('cloudflare');
+                activeProbes.delete(probeKey);
             }
         })();
 
-        activeProbes.set('cloudflare', probePromise);
+        activeProbes.set(probeKey, probePromise);
         const resolved = await probePromise;
         void saveCachedHealthStatus({ cloudflare: resolved });
         return resolved;

@@ -201,6 +201,11 @@ export function isProviderProbing(provider: AiProviderType): boolean {
 
 export async function recordProviderSuccess(provider: AiProviderType, now = Date.now()): Promise<void> {
     await ensureLoaded();
+    const current = states[provider];
+    if (current && current.state === 'OPEN' && current.cooldownUntil > now) {
+        // Не сбрасываем активный кулдаун, установленный параллельным запросом
+        return;
+    }
     states[provider] = { ...emptyState(), updatedAt: now };
     halfOpenProbes.delete(provider);
     await persist().catch(() => undefined);

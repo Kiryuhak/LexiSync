@@ -77,10 +77,11 @@ export async function getStoredCloudflareCredentials(): Promise<CloudflareCreden
 }
 
 export async function setStoredCloudflareCredentials(credentials: CloudflareCredentials): Promise<void> {
-    await Promise.all([
-        setStoredCloudflareAccountId(credentials.accountId || ''),
-        setStoredCloudflareApiToken(credentials.apiToken || ''),
-    ]);
+    const accountId = (credentials.accountId || '').trim();
+    const apiToken = (credentials.apiToken || '').trim();
+    if (accountId.length > 512) throw new Error('ACCOUNT_ID_TOO_LONG');
+    if (apiToken.length > 1024) throw new Error('API_KEY_TOO_LONG');
+    await Promise.all([setStoredCloudflareAccountId(accountId), setStoredCloudflareApiToken(apiToken)]);
 }
 
 export async function getStoredGoogleDriveToken(): Promise<string> {
