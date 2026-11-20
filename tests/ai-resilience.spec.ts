@@ -710,3 +710,31 @@ test('диагностические счётчики Mistral и конфигу�
     expect(counters.mistralProbeRequests).toBe(0);
     expect(counters.mistral429Count).toBe(0);
 });
+
+test('Cloudflare потоковый запрос для GLM-4.7-Flash передает enable_thinking: false в chat_template_kwargs', async () => {
+    let capturedBody: { chat_template_kwargs?: { enable_thinking?: boolean } } | undefined;
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => {
+        capturedBody = JSON.parse(init?.body as string) as {
+            chat_template_kwargs?: { enable_thinking?: boolean };
+        };
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+            start(controller) {
+                controller.enqueue(encoder.encode('data: {"response":"Тестовый стиль"}\n\ndata: [DONE]\n\n'));
+                controller.close();
+            },
+        });
+        return new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } });
+    });
+
+    await streamCloudflareText(
+        { action: 'callMistral', text: 'Текст', mode: 'style' },
+        { accountId: 'cf-acc', apiToken: 'cf-tok' },
+        settings,
+        new AbortController().signal,
+        () => undefined,
+    );
+
+    const result = capturedBody as { chat_template_kwargs?: { enable_thinking?: boolean } } | undefined;
+    expect(result?.chat_template_kwargs).toEqual({ enable_thinking: false });
+});

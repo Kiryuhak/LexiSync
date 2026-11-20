@@ -1005,4 +1005,25 @@ describe('Cloudflare Stream & Quality Fallback Integration', () => {
 
         vi.restoreAllMocks();
     });
+
+    test('validateAiOutput не блокирует обычные слова, содержащие "phi" (философия, graphic, delphi)', () => {
+        const text = 'Кафедра философии и компьютерной графики использует язык Delphi.';
+        const result = validateAiOutput({ originalText: text, correctedText: text, mode: 'spellcheck' });
+        expect(result.valid).toBe(true);
+        expect(result.reason).toBeUndefined();
+    });
+
+    test('validateNumericIntegrity корректно обрабатывает типографический минус (Unicode U+2212)', () => {
+        const original = 'Температура упала до −15 °C.';
+        const output = 'Температура упала до −15 °C.';
+        const result = validateNumericIntegrity(original, output);
+        expect(result.mismatchCount).toBe(0);
+        expect(result.numericMismatchType).toBe('none');
+    });
+
+    test('cleanAiOutputText сохраняет приветствие, если оно присутствовало в оригинале', () => {
+        const original = 'Здравствуйте! Проверьте текст.';
+        const output = 'Здравствуйте! Проверенный текст.';
+        expect(cleanAiOutputText(output, original)).toBe(output);
+    });
 });

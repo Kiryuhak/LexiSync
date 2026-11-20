@@ -12,6 +12,7 @@ import {
     setStoredApiKey,
     getStoredApiKey,
 } from '../src/secret-store';
+import { captureSelection, getSelectedText } from '../src/selection-state';
 
 vi.mock('wxt/browser', () => {
     let memStore: Record<string, unknown> = {};
@@ -274,4 +275,44 @@ test('secret-store сохраняет и очищает учетные данн�
 
     expect(await getStoredApiKey()).toBe('');
     expect(await getStoredCloudflareCredentials()).toEqual({ accountId: '', apiToken: '' });
+});
+
+test('журнал ошибок маскирует base64 data:image OCR скриншоты', () => {
+    const rawMsg =
+        'Ошибка распознавания: {"image":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAA..."}';
+    const sanitized = sanitizeLogMessage(rawMsg);
+    expect(sanitized).not.toContain('iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAA');
+    expect(sanitized).toContain('[REDACTED_IMAGE_DATA]');
+});
+
+test('captureSelection и getSelectedText игнорируют поля ввода паролей', () => {
+    const fakePasswordInput = {
+        tagName: 'INPUT',
+        type: 'password',
+        value: 'SuperSecretPassword123',
+        selectionStart: 0,
+        selectionEnd: 22,
+    };
+    vi.stubGlobal('document', {
+        activeElement: fakePasswordInput,
+    });
+    vi.stubGlobal('window', {
+        getSelection: () => null,
+    });
+
+    expect(getSelectedText()).toBe('');
+    const sel = captureSelection();
+    expect(sel.text).toBe('');
+
+    vi.unstubAllGlobals();
+});
+
+test('setStoredCloudflareCredentials валидирует длину accountId и apiToken перед записью', async () => {
+    await expect(
+        setStoredCloudflareCredentials({ accountId: 'a'.repeat(600), apiToken: 'valid-token' }),
+    ).rejects.toThrow('ACCOUNT_ID_TOO_LONG');
+
+    await expect(
+        setStoredCloudflareCredentials({ accountId: 'valid-acc', apiToken: 'b'.repeat(1200) }),
+    ).rejects.toThrow('API_KEY_TOO_LONG');
 });

@@ -252,30 +252,30 @@ test('Сценарий 9: OCR запрос при здоровом Mistral ус�
     expect(availability.healthState).toBe('healthy');
 });
 
-test('Сценарий 10: OCR запрос без API-ключа выбрасывает ошибку авторизации', async () => {
-    let error: unknown;
+test('Сценарий 10: OCR запрос без API-ключа выбрасывает ошибку авторизации 401', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        headers: new Headers(),
+        text: async () => JSON.stringify({ message: 'Unauthorized: Invalid API key' }),
+    });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    let caughtError: unknown;
     try {
-        const hasMistral = Boolean(''.trim());
-        if (!hasMistral) {
-            throw new AiProviderError(
-                'Для распознавания текста (OCR) требуется API-ключ Mistral.',
-                'AUTH_ERROR',
-                'mistral',
-                false,
-                undefined,
-                undefined,
-                { causeCode: 'OCR_AUTH_ERROR' },
-            );
-        }
+        await processOcr(
+            { action: 'callMistral', mode: 'ocr', text: '', imageUrl: 'data:image/png;base64,iVBORw0KGgo=' },
+            '',
+            new AbortController().signal,
+        );
     } catch (e) {
-        error = e;
+        caughtError = e;
     }
 
-    expect(error).toBeInstanceOf(AiProviderError);
-    const aiErr = error as AiProviderError;
-    expect(aiErr.code).toBe('AUTH_ERROR');
-    expect(aiErr.causeCode).toBe('OCR_AUTH_ERROR');
-    expect(aiErr.retryable).toBe(false);
+    expect(caughtError).toBeInstanceOf(MistralRequestError);
+    const mistralErr = caughtError as MistralRequestError;
+    expect(mistralErr.status).toBe(401);
+    expect(mistralErr.message).toContain('API-ключ недействителен');
 });
 
 test('Сценарий 11: OCR запрос без изображения выбрасывает ошибку INVALID_PAYLOAD', async () => {

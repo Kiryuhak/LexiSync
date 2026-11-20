@@ -131,6 +131,17 @@ describe('crypto-backup: Zero-Knowledge Web Crypto', () => {
             ),
         ).rejects.toThrow('CORRUPTED_BACKUP');
     });
+
+    test('encryptBackupPayload отклоняет слишком большой payload ошибкой BACKUP_PAYLOAD_TOO_LARGE', async () => {
+        const payload: BackupPayload = {
+            version: 1,
+            createdAt: new Date().toISOString(),
+            settings: { hugeData: 'x'.repeat(2_500_000) },
+            secrets: {},
+        };
+
+        await expect(encryptBackupPayload(payload, 'master-pass')).rejects.toThrow('BACKUP_PAYLOAD_TOO_LARGE');
+    });
 });
 
 describe('crypto-backup: Полный цикл создания и восстановления бэкапа в хранилище', () => {

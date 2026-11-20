@@ -93,9 +93,9 @@ test('безопасно нормализует поисковик и повре
 });
 
 test('история обновлений содержит все выпуски и поддерживает поиск', () => {
-    expect(RELEASE_NOTES[0].version).toBe('5.6.15');
+    expect(RELEASE_NOTES[0].version).toBe('5.6.16');
     expect(RELEASE_NOTES.at(-1)?.version).toBe('2.5');
-    expect(RELEASE_NOTES).toHaveLength(75);
+    expect(RELEASE_NOTES).toHaveLength(76);
     expect(new Set(RELEASE_NOTES.map((release) => release.version)).size).toBe(RELEASE_NOTES.length);
     expect(filterReleaseNotes(RELEASE_NOTES, 'MagicOS', 'ru').map((release) => release.version)).toEqual([
         '5.3.4',
@@ -104,6 +104,7 @@ test('история обновлений содержит все выпуски
         '5.1.0',
     ]);
     expect(filterReleaseNotes(RELEASE_NOTES, 'чувствительных', 'ru').map((release) => release.version)).toEqual([
+        '5.6.16',
         '5.4.0',
         '5.2.3',
     ]);
@@ -2274,6 +2275,49 @@ test('text-replacement возвращает локальную функцию о
 
     undoFn?.();
     expect(fakeInput.value).toBe('Исходный текст сообщения');
+});
+
+test('text-replacement: отмена (undo) не перезаписывает поле, если пользователь изменил текст после замены', async () => {
+    const { replaceSelectedText } = await import('../src/text-replacement');
+
+    let nativeValue = 'Привет мир';
+    const fakeInput = {
+        tagName: 'INPUT',
+        isConnected: true,
+        disabled: false,
+        readOnly: false,
+        get value() {
+            return nativeValue;
+        },
+        set value(v: string) {
+            nativeValue = v;
+        },
+        selectionStart: 7,
+        selectionEnd: 10,
+        dispatchEvent: vi.fn(),
+        focus: vi.fn(),
+    } as unknown as HTMLInputElement;
+
+    const selection = {
+        text: 'мир',
+        context: 'мир',
+        range: null,
+        activeElement: fakeInput,
+        start: 7,
+        end: 10,
+        isInput: true,
+    };
+
+    const undoFn = replaceSelectedText(selection, 'вселенная');
+    expect(fakeInput.value).toBe('Привет вселенная');
+
+    // Пользователь продолжил ввод в поле
+    fakeInput.value = 'Привет вселенная и галактика';
+
+    // Попытка отмены не должна затереть новый ввод пользователя
+    const undoResult = undoFn?.();
+    expect(undoResult).toBe(false);
+    expect(fakeInput.value).toBe('Привет вселенная и галактика');
 });
 
 test('Яндекс.Спеллер применяет однозначные исправления строго по UTF-16 позициям', () => {

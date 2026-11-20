@@ -65,6 +65,9 @@ test('Firefox временно устанавливает собранное р�
     expect(manifest.browser_specific_settings.gecko.id).toBe('lexisync@kiryuhak.dev');
     await expect(fs.access(path.join(sourceDirectory, 'inject.js'))).resolves.toBeUndefined();
     await expect(fs.access(path.join(sourceDirectory, 'options.html'))).resolves.toBeUndefined();
+    await expect(fs.access(path.join(sourceDirectory, 'background.js'))).resolves.toBeUndefined();
+    const bgCode = await fs.readFile(path.join(sourceDirectory, 'background.js'), 'utf8');
+    expect(bgCode.length).toBeGreaterThan(1000);
 
     const webExtCli = path.resolve(__dirname, '../node_modules/web-ext/bin/web-ext.js');
     const firefoxArguments = [
