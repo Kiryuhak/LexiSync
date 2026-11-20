@@ -49,6 +49,8 @@ export interface ContentRequestContext {
 
 interface RequestExecutionOptions {
     bypassCache?: boolean;
+    overrideText?: string;
+    overrideContext?: string;
 }
 
 export function handleActionClick(mode: RequestMode, context: ContentRequestContext): void {
@@ -72,9 +74,11 @@ export function executeRequest(
     const popupUI = context.getPopup();
     if (!popupUI) return;
     const currentSelection = context.getSelection();
+    const requestText = options.overrideText ?? currentSelection.text;
+    const requestContext = options.overrideContext ?? currentSelection.context;
     let currentTargetLang = context.getTargetLanguage();
     const { getLanguageName, adjustPopupPosition, closePopup, registerRequestCleanup } = context;
-    const originalText = currentSelection.text;
+    const originalText = requestText;
     let streamPort: chrome.runtime.Port | null = null;
     let streamDisconnectGuard: PortDisconnectGuard | null = null;
     let streamUiUpdater: BatchedUiUpdater | null = null;
@@ -417,8 +421,8 @@ export function executeRequest(
 
     function getCacheSource(): string {
         return serializeCacheSource({
-            text: currentSelection.text,
-            context: usePageContext ? currentSelection.context : '',
+            text: requestText,
+            context: usePageContext ? requestContext : '',
             pageTitle: usePageContext ? document.title : '',
             pageOrigin: usePageContext ? location.origin : '',
             customPrompt: customCommand?.prompt || '',
@@ -676,7 +680,7 @@ export function executeRequest(
             return;
         }
 
-        if (currentSelection.text.length > 3000) {
+        if (requestText.length > 3000) {
             contentPane.textContent = t(
                 'textTooLong',
                 'Текст слишком длинный. Выделите не более 3000 символов за раз.',
@@ -719,8 +723,8 @@ export function executeRequest(
         try {
             requestPort.postMessage({
                 action: 'callMistral',
-                text: currentSelection.text,
-                context: currentSelection.context,
+                text: requestText,
+                context: requestContext,
                 mode: mode,
                 targetLang: currentTargetLang,
                 pageTitle: document.title,
@@ -769,13 +773,13 @@ export function executeRequest(
                         );
                         return;
                     }
-                    spellcheckHasChanges = fullResult.trim() !== currentSelection.text.trim();
+                    spellcheckHasChanges = fullResult.trim() !== requestText.trim();
                     const hasUnresolvedSpeller = spellerFindings.some((finding) => !finding.applied);
                     if (!spellcheckHasChanges && headerLabelNode)
                         headerLabelNode.textContent = hasUnresolvedSpeller
                             ? t('needsReview', 'Требуется проверка')
                             : t('noSpellingErrors', 'Орфографических ошибок не найдено');
-                    spellcheckUi.setResult(currentSelection.text, fullResult, undefined, spellerFindings);
+                    spellcheckUi.setResult(requestText, fullResult, undefined, spellerFindings);
                 } else if (
                     compactResultMode &&
                     originalText &&
@@ -821,7 +825,7 @@ export function executeRequest(
                 const historyItem: HistoryItem = {
                     id: Date.now(),
                     mode,
-                    original: currentSelection.text,
+                    original: requestText,
                     result: getEffectiveResult(),
                     date: new Date().toISOString(),
                     customName: customCommand?.name,
@@ -1174,9 +1178,10 @@ export function executeRequest(
                 }
                 const refine = (name: string, prompt: string) => {
                     const source = getEffectiveResult();
-                    currentSelection.text = source;
-                    currentSelection.context = source;
-                    void executeRequest('custom', { id: `refine-${name}`, name, prompt }, context);
+                    void executeRequest('custom', { id: `refine-${name}`, name, prompt }, context, {
+                        overrideText: source,
+                        overrideContext: source,
+                    });
                 };
                 if (mode === 'reply') {
                     tools.push(
@@ -1541,7 +1546,7 @@ export function executeRequest(
                         activeProvider = response.provider || 'mistral';
                         spellcheckHasChanges = true;
                         if (mode === 'spellcheck') {
-                            spellcheckUi.setResult(currentSelection.text, fullResult);
+                            spellcheckUi.setResult(requestText, fullResult);
                         } else {
                             renderMarkdown(contentPane, fullResult);
                         }
@@ -1575,7 +1580,7 @@ export function executeRequest(
                 aiStreamPort.postMessage({
                     action: 'callMistral',
                     text: currentSpellerResult,
-                    context: currentSelection.context,
+                    context: requestContext,
                     mode: 'spellcheck',
                     targetLang: currentTargetLang,
                     pageTitle: document.title,
@@ -1702,10 +1707,10 @@ export function executeRequest(
                     );
                     return;
                 }
-                spellcheckHasChanges = fullResult.trim() !== currentSelection.text.trim();
+                spellcheckHasChanges = fullResult.trim() !== requestText.trim();
                 if (!spellcheckHasChanges && headerLabelNode)
                     headerLabelNode.textContent = t('noSpellingErrors', 'Орфографических ошибок не найдено');
-                spellcheckUi.setResult(currentSelection.text, fullResult);
+                spellcheckUi.setResult(requestText, fullResult);
             } else if (compactResultMode && originalText && fullResult && originalText.trim() !== fullResult.trim()) {
                 contentPane.replaceChildren(renderInlineDiffFragment(originalText, fullResult));
                 ensureQuickTabs();

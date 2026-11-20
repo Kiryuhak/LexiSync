@@ -22,8 +22,8 @@ function resolveCurrentRange(selection: SelectionData): Range {
     }
     const { startContainer, startOffset, endContainer, endOffset, expectedText } = snapshot;
     if (
-        !startContainer.isConnected ||
-        !endContainer.isConnected ||
+        startContainer.isConnected === false ||
+        endContainer.isConnected === false ||
         startContainer.getRootNode() !== endContainer.getRootNode() ||
         startOffset < 0 ||
         endOffset < 0 ||
@@ -49,11 +49,13 @@ export function validateSelectionTarget(selection: SelectionData): boolean {
         if (selection.isInput) {
             const { activeElement, start, end } = selection;
             if (!activeElement || start === null || end === null || start < 0 || end < start) return false;
+            if (activeElement.isConnected === false || activeElement.disabled || activeElement.readOnly) return false;
             const value = activeElement.value;
             if (end > value.length || value.slice(start, end) !== selection.text) return false;
             return selection.inputValueSnapshot === undefined || value === selection.inputValueSnapshot;
         }
-        resolveCurrentRange(selection);
+        const range = resolveCurrentRange(selection);
+        if (range.startContainer.isConnected === false || range.endContainer.isConnected === false) return false;
         return true;
     } catch {
         return false;
@@ -95,7 +97,7 @@ export function setNativeValue(element: HTMLInputElement | HTMLTextAreaElement, 
     element.value = value;
 }
 
-export function replaceSelectedText(selection: SelectionData, newText: string): (() => void) | null {
+export function replaceSelectedText(selection: SelectionData, newText: string): (() => boolean | void) | null {
     const { isInput, activeElement, range } = selection;
     try {
         if (isInput && activeElement) {
@@ -109,12 +111,18 @@ export function replaceSelectedText(selection: SelectionData, newText: string): 
             dispatchValueEvents(activeElement);
             activeElement.focus();
 
-            const undoFn = () => {
+            const undoFn = (): boolean => {
+                if (activeElement.isConnected === false) return false;
+                if (activeElement.value !== nextValue) {
+                    logger.warn('Текст был изменён после замены — отмена заблокирована для защиты данных');
+                    return false;
+                }
                 setNativeValue(activeElement, oldValue);
                 activeElement.selectionStart = oldStart;
                 activeElement.selectionEnd = oldEnd;
                 dispatchValueEvents(activeElement);
                 activeElement.focus();
+                return true;
             };
             return undoFn;
         }
@@ -125,7 +133,13 @@ export function replaceSelectedText(selection: SelectionData, newText: string): 
             browserSelection?.removeAllRanges();
             browserSelection?.addRange(currentRange);
             document.execCommand('insertText', false, newText);
-            const undoFn = () => document.execCommand('undo');
+            const undoFn = (): boolean => {
+                try {
+                    return document.execCommand('undo');
+                } catch {
+                    return false;
+                }
+            };
             return undoFn;
         }
     } catch (error) {
@@ -135,7 +149,7 @@ export function replaceSelectedText(selection: SelectionData, newText: string): 
     return null;
 }
 
-export function appendBelowSelectedText(selection: SelectionData, newText: string): (() => void) | null {
+export function appendBelowSelectedText(selection: SelectionData, newText: string): (() => boolean | void) | null {
     const { isInput, activeElement, range } = selection;
     try {
         if (isInput && activeElement) {
@@ -151,12 +165,18 @@ export function appendBelowSelectedText(selection: SelectionData, newText: strin
             dispatchValueEvents(activeElement);
             activeElement.focus();
 
-            const undoFn = () => {
+            const undoFn = (): boolean => {
+                if (activeElement.isConnected === false) return false;
+                if (activeElement.value !== nextValue) {
+                    logger.warn('Текст был изменён после вставки — отмена заблокирована для защиты данных');
+                    return false;
+                }
                 setNativeValue(activeElement, oldValue);
                 activeElement.selectionStart = oldStart;
                 activeElement.selectionEnd = oldEnd;
                 dispatchValueEvents(activeElement);
                 activeElement.focus();
+                return true;
             };
             return undoFn;
         }
@@ -168,7 +188,13 @@ export function appendBelowSelectedText(selection: SelectionData, newText: strin
             browserSelection?.removeAllRanges();
             browserSelection?.addRange(cloneRange);
             document.execCommand('insertText', false, '\n' + newText);
-            const undoFn = () => document.execCommand('undo');
+            const undoFn = (): boolean => {
+                try {
+                    return document.execCommand('undo');
+                } catch {
+                    return false;
+                }
+            };
             return undoFn;
         }
     } catch (error) {

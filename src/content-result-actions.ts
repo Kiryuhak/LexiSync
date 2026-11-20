@@ -93,7 +93,7 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
         replaceButton.onclick = (event) => {
             event.preventDefault();
             event.stopPropagation();
-            let undo: (() => void) | null;
+            let undo: (() => boolean | void) | null;
             try {
                 undo = replaceSelectedText(selection, getResult());
             } catch (error) {
@@ -117,7 +117,17 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
                 undoButton.onclick = (e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    undo();
+                    const undone = undo();
+                    if (undone === false) {
+                        showStatus(
+                            t(
+                                'undoBlockedModified',
+                                'Текст был изменён после замены — отмена заблокирована для защиты данных.',
+                            ),
+                            true,
+                        );
+                        return;
+                    }
                     undoButton.remove();
                     replaceButton.disabled = false;
                     replaceButton.classList.remove('lexisync-result-button--success');
@@ -142,7 +152,7 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
         appendButton.onclick = (event) => {
             event.preventDefault();
             event.stopPropagation();
-            let undo: (() => void) | null;
+            let undo: (() => boolean | void) | null;
             try {
                 undo = appendBelowSelectedText(selection, getResult());
             } catch (error) {
@@ -166,7 +176,17 @@ export function renderPrimaryResultActions(options: ResultActionsOptions): void 
                 undoButton.onclick = (e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    undo();
+                    const undone = undo();
+                    if (undone === false) {
+                        showStatus(
+                            t(
+                                'undoBlockedModified',
+                                'Текст был изменён после вставки — отмена заблокирована для защиты данных.',
+                            ),
+                            true,
+                        );
+                        return;
+                    }
                     undoButton.remove();
                     appendButton.disabled = false;
                     appendButton.classList.remove('lexisync-result-button--success');
