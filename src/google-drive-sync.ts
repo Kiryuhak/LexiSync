@@ -64,13 +64,46 @@ async function fetchGoogleDrive(url: string, init: RequestInit = {}): Promise<Re
     const controller = new AbortController();
     const timeout = globalThis.setTimeout(() => controller.abort(), GOOGLE_DRIVE_REQUEST_TIMEOUT_MS);
     try {
-        return await fetch(url, { ...init, signal: controller.signal });
+        const response = await fetch(url, { ...init, signal: controller.signal });
+        const originalJson = response.json ? response.json.bind(response) : async () => ({});
+        const originalText = response.text ? response.text.bind(response) : async () => '';
+
+        let cleanedUp = false;
+        const cleanup = () => {
+            if (!cleanedUp) {
+                cleanedUp = true;
+                globalThis.clearTimeout(timeout);
+            }
+        };
+
+        response.json = async () => {
+            try {
+                return await originalJson();
+            } catch (error) {
+                if (controller.signal.aborted) throw new Error(GOOGLE_DRIVE_ERROR.TIMEOUT, { cause: error });
+                throw error;
+            } finally {
+                cleanup();
+            }
+        };
+
+        response.text = async () => {
+            try {
+                return await originalText();
+            } catch (error) {
+                if (controller.signal.aborted) throw new Error(GOOGLE_DRIVE_ERROR.TIMEOUT, { cause: error });
+                throw error;
+            } finally {
+                cleanup();
+            }
+        };
+
+        return response;
     } catch (error) {
+        globalThis.clearTimeout(timeout);
         if (controller.signal.aborted) throw new Error(GOOGLE_DRIVE_ERROR.TIMEOUT, { cause: error });
         logger.error('Сетевая ошибка при обращении к Google Drive API:', error);
         throw new Error(GOOGLE_DRIVE_ERROR.NETWORK, { cause: error });
-    } finally {
-        globalThis.clearTimeout(timeout);
     }
 }
 

@@ -113,6 +113,10 @@ export async function encryptBackupPayload(
         encodedPayload,
     );
 
+    if (encryptedBuffer.byteLength > MAX_CIPHERTEXT_BYTE_LENGTH) {
+        throw new Error('BACKUP_PAYLOAD_TOO_LARGE');
+    }
+
     return {
         format: 'lexisync-encrypted-backup',
         version: 1,
