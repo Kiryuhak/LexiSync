@@ -36,6 +36,27 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.6.17',
+        '2026-11-21',
+        'fixed',
+        'Устранение уязвимостей в инструментах сборки и усиление аудита зависимостей',
+        'Remediation of toolchain security vulnerabilities and hardening of dependency audit',
+        [
+            [
+                'Устранены уязвимости высокого и критического уровня в dev-зависимостях сборки: обновлены sharp (0.35.5), undici (7.30.2), vite (8.3.8), source-map-js (1.2.4), shell-quote (1.12.0) и node-forge (1.4.3).',
+                'Resolved high and critical vulnerabilities in toolchain dev-dependencies: updated sharp (0.35.5), undici (7.30.2), vite (8.3.8), source-map-js (1.2.4), shell-quote (1.12.0), and node-forge (1.4.3).',
+            ],
+            [
+                'Модуль проверки инструментов сборки (audit:tooling) переведён на строгую модель fail-closed с поддержкой аннотаций GitHub Actions и нулевым списком исключений.',
+                'The tooling audit module (audit:tooling) switched to a strict fail-closed model with GitHub Actions annotation support and a zero-allowlist baseline.',
+            ],
+            [
+                'Добавлен комплект модульных тестов для валидации политики аудита безопасности зависимостей.',
+                'Added a unit test suite to validate the dependency security audit policy.',
+            ],
+        ],
+    ),
+    note(
         '5.6.16',
         '2026-11-21',
         'fixed',

@@ -18,6 +18,7 @@ export default defineConfig({
             'tests/ai-resilience.spec.ts',
             'tests/provider-health-regression.spec.ts',
             'tests/ocr-regression.spec.ts',
+            'tests/audit-tooling.spec.ts',
         ],
         coverage: {
             provider: 'v8',
