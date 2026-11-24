@@ -3846,7 +3846,7 @@ test('Сценарий Iframe 2: отсутствие выделения не и
     const toast = page.locator('#lexisync-extension-ui[data-surface="toast"]');
     await expect(toast).toBeVisible({ timeout: 4000 });
     const toastText = await toast.textContent();
-    expect(toastText).toContain('Выделите нужный фрагмент в поле ответа');
+    expect(toastText).toMatch(/Выделите нужный фрагмент в поле ответа|Select the required text in the answer field/);
     expect(toastText).not.toContain('Секретный посторонний текст');
 
     await page.close();
@@ -3878,7 +3878,9 @@ test('Сценарий Iframe 3: всплывающее диагностичес
 
     const toast = page.locator('#lexisync-extension-ui[data-surface="toast"]');
     await expect(toast).toBeVisible({ timeout: 4000 });
-    expect(await toast.textContent()).toContain('LexiSync не имеет доступа к редактору внутри этой страницы');
+    expect(await toast.textContent()).toMatch(
+        /LexiSync не имеет доступа к редактору внутри этой страницы|LexiSync does not have access to the editor inside this page/,
+    );
 
     await page.close();
 });
