@@ -34,6 +34,9 @@ function isTextInput(element: Element | null): element is HTMLInputElement | HTM
 
 export function getSelectedText(): string {
     const activeElement = document.activeElement;
+    if (activeElement && isSensitiveOrNonTextInput(activeElement)) {
+        return '';
+    }
     if (isTextInput(activeElement)) {
         try {
             const start = activeElement.selectionStart;

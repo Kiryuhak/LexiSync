@@ -84,7 +84,7 @@ if (!contentRuntime.__lexisyncContentInitialized) {
     let currentPinnedToolbarActions: RequestMode[] = [];
     let lastPageHotkey: { mode: RequestMode; at: number } | null = null;
 
-    void chrome.storage.local
+    const contentInitializationPromise = chrome.storage.local
         .get({
             blockedSites: [],
             adaptiveSuggestionsEnabled: false,
@@ -208,6 +208,14 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             sendResponse({ ok: true });
             return;
         }
+        if (request.action === 'showDiagnosticNotification') {
+            const message = typeof request.message === 'string' ? request.message : '';
+            if (message) {
+                showToast(message);
+            }
+            sendResponse?.({ ok: true });
+            return;
+        }
         if (!extensionEnabledOnSite) return;
         if (request.action === 'showToast' && typeof request.message === 'string') {
             showToast(request.message);
@@ -226,13 +234,18 @@ if (!contentRuntime.__lexisyncContentInitialized) {
             }
             return;
         }
+
         if (request.action === 'contextMenuClicked') {
-            cancelPendingSelectionMenu();
-            saveSelectionState(request.text);
-            const x = lastMouseX || window.innerWidth / 2;
-            const y = lastMouseY || window.innerHeight / 2;
-            showAIMenu(x, y, y);
-            handleActionClick(request.mode);
+            void contentInitializationPromise.then(() => {
+                if (!extensionEnabledOnSite) return;
+                cancelPendingSelectionMenu();
+                saveSelectionState(request.text);
+                const x = lastMouseX || window.innerWidth / 2;
+                const y = lastMouseY || window.innerHeight / 2;
+                showAIMenu(x, y, y);
+                handleActionClick(request.mode);
+            });
+            return;
         }
 
         if (request.action === 'hotkeyTriggered') {
@@ -245,38 +258,19 @@ if (!contentRuntime.__lexisyncContentInitialized) {
                 return;
             }
             cancelPendingSelectionMenu();
-            (async () => {
-                let text = getSelectedText();
+            void contentInitializationPromise.then(() => {
+                if (!extensionEnabledOnSite) return;
+                const text = getSelectedText();
                 if (!text || text.trim().length === 0) {
-                    try {
-                        text = await navigator.clipboard.readText();
-                        if (!text || text.trim().length === 0) {
-                            showToast(
-                                t(
-                                    'textNotFound',
-                                    'Текст не найден. В Google Docs выделите текст, нажмите Ctrl+C и повторите горячую клавишу.',
-                                ),
-                            );
-                            return;
-                        }
-                    } catch {
-                        showToast(
-                            t(
-                                'clipboardDenied',
-                                'Нет доступа к буферу обмена. Кликните по документу и попробуйте снова.',
-                            ),
-                        );
-                        return;
-                    }
+                    showToast(t('noSelectedTextInField', 'Выделите нужный фрагмент в поле ответа.'));
+                    return;
                 }
-                if (text && text.trim().length > 0) {
-                    saveSelectionState(text);
-                    const coords = getSelectionCoords();
-                    showAIMenu(coords.x, coords.y, coords.top);
-                    handleActionClick(request.mode);
-                }
-            })();
-            // Убрали return true, чтобы не было ошибки в консоли!
+                saveSelectionState(text);
+                const coords = getSelectionCoords();
+                showAIMenu(coords.x, coords.y, coords.top);
+                handleActionClick(request.mode);
+            });
+            return;
         }
 
         if (request.action === 'historyReplay') {
@@ -415,28 +409,10 @@ if (!contentRuntime.__lexisyncContentInitialized) {
                     e.preventDefault();
                     lastPageHotkey = { mode, at: Date.now() };
                     cancelPendingSelectionMenu();
-                    let text = getSelectedText();
+                    const text = getSelectedText();
                     if (!text || text.trim().length === 0) {
-                        try {
-                            text = await navigator.clipboard.readText();
-                            if (!text || text.trim().length === 0) {
-                                showToast(
-                                    t(
-                                        'textNotFound',
-                                        'Текст не найден. В Google Docs выделите текст, нажмите Ctrl+C и повторите горячую клавишу.',
-                                    ),
-                                );
-                                return;
-                            }
-                        } catch {
-                            showToast(
-                                t(
-                                    'clipboardReadFailed',
-                                    'Не удалось прочитать буфер обмена. Разрешите доступ и попробуйте снова.',
-                                ),
-                            );
-                            return;
-                        }
+                        showToast(t('noSelectedTextInField', 'Выделите нужный фрагмент в поле ответа.'));
+                        return;
                     }
                     if (text && text.trim().length > 0) {
                         saveSelectionState(text);

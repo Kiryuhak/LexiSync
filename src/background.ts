@@ -42,12 +42,17 @@ import { cleanMarkdownArtifacts } from './markdown';
 import { validateMistralRequest } from './request-validation';
 import { resolveStyleProfile } from './site-profiles';
 import {
+    classifyFrameAccessError,
     ensureContentScript,
-    findCommandTargetFrame,
+    getBrowserType,
+    getOriginPattern,
     injectOptionalContentFeature,
     initializeSiteAccess,
+    resolveCommandTarget,
     sendToTabWithInjection,
+    storePendingFramePermission,
     syncRegisteredSiteScripts,
+    type FrameAccessErrorCode,
 } from './site-access';
 import { getPrivacySettings, isSiteDisabled, normalizeDisabledSites } from './privacy';
 import { DEFAULT_BUDGET_SETTINGS, estimateTokens } from './budget';
@@ -75,7 +80,7 @@ import {
 } from './runtime-settings-cache';
 import { isExtensionAllowedForUrl } from './site-runtime-access';
 import { checkYandexSpelling, type YandexSpellerResult } from './yandex-speller-client';
-import { recordErrorLog } from './error-log';
+import { recordErrorLog, recordFrameDiagnosticEvent } from './error-log';
 
 const REQUEST_TIMEOUT_MS = 45_000;
 
@@ -291,36 +296,140 @@ async function sendOcrCommand(tabId: number, windowId?: number): Promise<void> {
     }
 }
 
+async function handleFrameAccessError(
+    tabId: number,
+    component: 'context-menu' | 'shortcut',
+    command: string,
+    requestId: string,
+    errorCode: FrameAccessErrorCode,
+    frameId: number,
+    frameOrigin?: string,
+): Promise<void> {
+    const isPermission = errorCode === 'NO_HOST_PERMISSION';
+    void recordFrameDiagnosticEvent({
+        component,
+        requestId,
+        command,
+        browser: getBrowserType(),
+        source: component === 'context-menu' ? 'context-menu' : 'browser-command',
+        frameId,
+        frameOrigin,
+        permissionStatus: isPermission ? 'denied' : 'restricted',
+        stage: 'permission-check',
+        errorCode,
+        result: isPermission ? 'needs-user-action' : 'failed',
+    });
+
+    if (isPermission && frameOrigin) {
+        await storePendingFramePermission(tabId, frameId, frameOrigin);
+    }
+
+    const message =
+        errorCode === 'NO_HOST_PERMISSION'
+            ? t(
+                  'frameAccessDenied',
+                  'LexiSync не имеет доступа к редактору внутри этой страницы. Разрешите доступ к сайту редактора в настройках расширения.',
+              )
+            : errorCode === 'FRAME_NOT_ACCESSIBLE'
+              ? t('frameRestricted', 'Браузер не разрешает расширению работать в этом поле.')
+              : t('frameNotFound', 'Фрейм редактора не найден или был обновлен. Повторите попытку.');
+
+    void sendToTabWithInjection(tabId, { action: 'showDiagnosticNotification', message, errorCode }, 0).catch(
+        () => undefined,
+    );
+}
+
 chrome.contextMenus.onClicked.addListener((info, tab) => {
     if (!tab?.id) return;
+    const tabId = tab.id;
     if (info.menuItemId === 'ocr') {
-        void sendOcrCommand(tab.id, tab.windowId);
+        void sendOcrCommand(tabId, tab.windowId);
         return;
     }
-    void sendToTabWithInjection(
-        tab.id,
-        {
-            action: 'contextMenuClicked',
-            mode: info.menuItemId,
-            text: info.selectionText || '',
-        },
-        info.frameId,
-    ).catch((error) => {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        logger.error(`Не удалось выполнить команду меню (${String(info.menuItemId)}): ${errorMsg}`);
-    });
+    const targetFrameId = info.frameId ?? 0;
+    const frameOrigin = info.frameUrl ? getOriginPattern(info.frameUrl) : undefined;
+    const requestId = generateRequestId();
+
+    void (async () => {
+        try {
+            await sendToTabWithInjection(
+                tabId,
+                {
+                    action: 'contextMenuClicked',
+                    mode: info.menuItemId,
+                    text: info.selectionText || '',
+                },
+                targetFrameId,
+            );
+            void recordFrameDiagnosticEvent({
+                component: 'context-menu',
+                requestId,
+                command: String(info.menuItemId),
+                browser: getBrowserType(),
+                source: 'context-menu',
+                frameId: targetFrameId,
+                frameOrigin: frameOrigin || undefined,
+                permissionStatus: 'granted',
+                stage: 'delivery',
+                result: 'success',
+            });
+        } catch (error) {
+            const classified = classifyFrameAccessError(error);
+            await handleFrameAccessError(
+                tabId,
+                'context-menu',
+                String(info.menuItemId),
+                requestId,
+                classified.errorCode,
+                targetFrameId,
+                frameOrigin || undefined,
+            );
+            const safeMsg =
+                classified.errorCode === 'NO_HOST_PERMISSION'
+                    ? `Missing host permission for frame ${targetFrameId} (${frameOrigin || 'unknown origin'})`
+                    : classified.errorCode;
+            logger.error(`Не удалось выполнить команду меню (${String(info.menuItemId)}): ${safeMsg}`);
+        }
+    })();
 });
 
 chrome.commands.onCommand.addListener((command, commandTab) => {
     void (async () => {
         const tab = commandTab?.id ? commandTab : (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
         if (!tab?.id) return;
+        const tabId = tab.id;
         if (command === 'ocr') {
-            await sendOcrCommand(tab.id, tab.windowId);
+            await sendOcrCommand(tabId, tab.windowId);
             return;
         }
-        const frameId = await findCommandTargetFrame(tab.id);
-        await sendToTabWithInjection(tab.id, { action: 'hotkeyTriggered', mode: command }, frameId);
+        const requestId = generateRequestId();
+        const resolution = await resolveCommandTarget(tabId);
+
+        if (resolution.error) {
+            await handleFrameAccessError(
+                tabId,
+                'shortcut',
+                command,
+                requestId,
+                resolution.error,
+                resolution.frameId ?? 0,
+                resolution.frameOrigin,
+            );
+            return;
+        }
+
+        await sendToTabWithInjection(tabId, { action: 'hotkeyTriggered', mode: command }, resolution.frameId);
+        void recordFrameDiagnosticEvent({
+            component: 'shortcut',
+            requestId,
+            command,
+            browser: getBrowserType(),
+            source: 'browser-command',
+            frameId: resolution.frameId,
+            permissionStatus: 'granted',
+            stage: 'delivery',
+            result: 'success',
+        });
     })().catch((error) => {
         const errorMsg = error instanceof Error ? error.message : String(error);
         logger.error(`Не удалось выполнить горячую клавишу (${command}): ${errorMsg}`);

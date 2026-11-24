@@ -2601,5 +2601,29 @@
     },
     "serverStatusCapabilityHint": {
         "message": "Mistral: текст и OCR • Cloudflare: только текст"
+    },
+    "frameAccessDenied": {
+        "message": "LexiSync не имеет доступа к редактору внутри этой страницы. Разрешите доступ к сайту редактора в настройках расширения."
+    },
+    "permissionGrantedRepeat": {
+        "message": "Доступ разрешён. Повторите команду."
+    },
+    "shortcutMayBeTaken": {
+        "message": "Это сочетание может быть занято. Измените его в настройках сочетаний Firefox/Chrome."
+    },
+    "noSelectedTextInField": {
+        "message": "Выделите нужный фрагмент в поле ответа."
+    },
+    "frameRestricted": {
+        "message": "Браузер не разрешает расширению работать в этом поле."
+    },
+    "frameNotFound": {
+        "message": "Фрейм редактора не найден или был обновлен. Повторите попытку."
+    },
+    "frameAccessRequiredTitle": {
+        "message": "Доступ к редактору"
+    },
+    "grantFrameAccess": {
+        "message": "Разрешить доступ"
     }
 }

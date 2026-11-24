@@ -36,6 +36,27 @@ const note = (
 // Пользовательская версия CHANGELOG: все опубликованные выпуски, но без внутренних технических подробностей.
 export const RELEASE_NOTES: ReleaseNote[] = [
     note(
+        '5.6.18',
+        '2026-11-24',
+        'fixed',
+        'Безопасная маршрутизация команд во вложенных фреймах (iframe) и защита буфера обмена',
+        'Secure command routing in nested iframes and clipboard protection',
+        [
+            [
+                'Исправлена ошибка доступа Missing host permission при вызове контекстного меню в iframe: добавлено понятное уведомление и карточка запроса разрешения в меню расширения.',
+                'Resolved Missing host permission error when invoking context menu in iframes: added clear notification and permission request card in popup.',
+            ],
+            [
+                'Реализована двухфазная маршрутизация горячих клавиш (Alt+R, Alt+Y, Alt+T) в активные редакторы внутри фреймов без блокировки сторонними фреймами.',
+                'Implemented two-phase routing for shortcuts (Alt+R, Alt+Y, Alt+T) to active in-frame editors without cross-origin subframe interference.',
+            ],
+            [
+                'Удалён скрытый фолбек к системному буферу обмена при отсутствии выделения в поле ввода: исключена отправка посторонних данных в AI-провайдеры.',
+                'Removed silent system clipboard fallback when selection is absent: prevented accidental leaking of unrelated clipboard text to AI providers.',
+            ],
+        ],
+    ),
+    note(
         '5.6.17',
         '2026-11-21',
         'fixed',

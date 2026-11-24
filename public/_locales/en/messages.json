@@ -2601,5 +2601,29 @@
     },
     "serverStatusCapabilityHint": {
         "message": "Mistral: text and OCR • Cloudflare: text only"
+    },
+    "frameAccessDenied": {
+        "message": "LexiSync does not have access to the editor inside this page. Allow access to the editor site in extension settings."
+    },
+    "permissionGrantedRepeat": {
+        "message": "Access granted. Repeat the command."
+    },
+    "shortcutMayBeTaken": {
+        "message": "This shortcut may be taken. Change it in Firefox/Chrome shortcut settings."
+    },
+    "noSelectedTextInField": {
+        "message": "Select the required text in the answer field."
+    },
+    "frameRestricted": {
+        "message": "The browser does not allow the extension to operate in this field."
+    },
+    "frameNotFound": {
+        "message": "Editor frame not found or was updated. Please try again."
+    },
+    "frameAccessRequiredTitle": {
+        "message": "Editor access"
+    },
+    "grantFrameAccess": {
+        "message": "Grant access"
     }
 }

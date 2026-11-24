@@ -347,3 +347,81 @@ export async function downloadErrorLogsText(): Promise<void> {
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
 }
+
+export interface FrameDiagnosticEvent {
+    component: 'context-menu' | 'shortcut' | 'frame-access' | 'content-script';
+    requestId?: string;
+    command?: string;
+    browser?: 'firefox' | 'chromium';
+    source?: 'context-menu' | 'browser-command' | 'content-keydown';
+    frameId?: number;
+    frameOrigin?: string;
+    permissionStatus?: 'granted' | 'denied' | 'not-requested' | 'restricted';
+    stage:
+        | 'command-received'
+        | 'frame-resolved'
+        | 'permission-check'
+        | 'ping'
+        | 'injection'
+        | 'delivery'
+        | 'selection'
+        | 'ui';
+    errorCode?: string;
+    result: 'success' | 'failed' | 'needs-user-action';
+}
+
+export function sanitizeOrigin(urlOrOrigin: string): string {
+    if (!urlOrOrigin) return '';
+    try {
+        const raw = urlOrOrigin.replace(/\/\*$/, '');
+        const hasProtocol = /^https?:\/\//i.test(raw);
+        if (!hasProtocol && !raw.includes('.')) return '';
+        const url = new URL(hasProtocol ? raw : `https://${raw}`);
+        if (!['http:', 'https:'].includes(url.protocol)) return '';
+        if (!url.hostname.includes('.') && url.hostname !== 'localhost') return '';
+        return `${url.origin}/*`;
+    } catch {
+        return '';
+    }
+}
+
+let lastFrameEventKey = '';
+let lastFrameEventTime = 0;
+
+export async function recordFrameDiagnosticEvent(event: FrameDiagnosticEvent): Promise<void> {
+    const eventKey = `${event.source}:${event.command}:${event.frameId}:${event.stage}:${event.errorCode}`;
+    const now = Date.now();
+    if (eventKey === lastFrameEventKey && now - lastFrameEventTime < 1500) {
+        return;
+    }
+    lastFrameEventKey = eventKey;
+    lastFrameEventTime = now;
+
+    const sanitizedOrigin = event.frameOrigin ? sanitizeOrigin(event.frameOrigin) : undefined;
+    const level: 'info' | 'warn' | 'error' =
+        event.result === 'success' ? 'info' : event.result === 'needs-user-action' ? 'warn' : 'error';
+
+    const message = `[${event.component}] ${event.stage} (${event.command || 'unknown'}): ${event.result}${
+        event.errorCode ? ` [${event.errorCode}]` : ''
+    }${sanitizedOrigin ? ` origin=${sanitizedOrigin}` : ''}`;
+
+    await recordErrorLog({
+        level,
+        source: event.component,
+        message,
+        errorCode: event.errorCode,
+        requestId: event.requestId,
+        details: {
+            component: event.component,
+            command: event.command,
+            browser: event.browser,
+            source: event.source,
+            frameId: event.frameId,
+            frameOrigin: sanitizedOrigin,
+            permissionStatus: event.permissionStatus,
+            stage: event.stage,
+            errorCode: event.errorCode,
+            result: event.result,
+        },
+    });
+}

@@ -3741,3 +3741,180 @@ test('Test 73: MV3 cooldown persistence: Mistral 429 сохраняется в s
 
     await extensionPage.close();
 });
+
+test('Сценарий Iframe 1: кросс-доменный iframe с textarea получает команду и открывает панель LexiSync', async ({
+    context,
+}) => {
+    await setFakeApiKey(context);
+    const page = await context.newPage();
+
+    // Маршрут для дочернего фрейма с textarea (отдельный origin: editor.example.org)
+    await context.route('https://editor.example.org/embed-frame.html', (route) =>
+        route.fulfill({
+            status: 200,
+            contentType: 'text/html; charset=utf-8',
+            body: `<!doctype html><html><body>
+                <textarea id="answerInput" class="answer-textarea" rows="4" cols="40">Провиряю текст ответа с ашибками.</textarea>
+            </body></html>`,
+        }),
+    );
+
+    // Маршрут для родительской страницы (отдельный origin: course.example.com)
+    await context.route('https://course.example.com/course-page.html', (route) =>
+        route.fulfill({
+            status: 200,
+            contentType: 'text/html; charset=utf-8',
+            body: `<!doctype html><html><body>
+                <h1>Учебный курс</h1>
+                <iframe id="editorFrame" src="https://editor.example.org/embed-frame.html" style="width:500px;height:300px;"></iframe>
+            </body></html>`,
+        }),
+    );
+
+    await page.goto('https://course.example.com/course-page.html');
+    const tabId = await grantSiteAccess(context, page);
+
+    const frameElement = page.frameLocator('#editorFrame');
+    const textarea = frameElement.locator('#answerInput');
+    await textarea.waitFor({ state: 'visible' });
+
+    // Фокусируемся и выделяем слово «Провиряю»
+    await textarea.focus();
+    await textarea.evaluate((el: HTMLTextAreaElement) => {
+        el.setSelectionRange(0, 9);
+    });
+
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+
+    // Находим frameId через executeScript
+    const target = await background.evaluate(async (id) => {
+        const frames = await chrome.scripting.executeScript({
+            target: { tabId: id, allFrames: true },
+            func: () => ({
+                hasFocus: document.hasFocus(),
+                hasEditable: document.activeElement instanceof HTMLTextAreaElement,
+                selection: (document.activeElement as HTMLTextAreaElement)?.selectionEnd ?? 0,
+            }),
+        });
+        const matched = frames.find((f) => f.result?.hasEditable && f.result?.selection > 0);
+        return matched?.frameId;
+    }, tabId);
+
+    expect(typeof target).toBe('number');
+    expect(target).toBeGreaterThan(0);
+
+    // Доставляем команду горячей клавиши в целевой фрейм с предварительным внедрением сценария
+    await background.evaluate(
+        async ({ id, fId }) => {
+            await chrome.scripting.executeScript({ target: { tabId: id, frameIds: [fId] }, files: ['inject.js'] });
+            await chrome.tabs.sendMessage(id, { action: 'hotkeyTriggered', mode: 'spellcheck' }, { frameId: fId });
+        },
+        { id: tabId, fId: target! },
+    );
+
+    // Панель LexiSync должна появиться внутри iframe
+    const panelInFrame = frameElement.locator(
+        '#lexisync-extension-ui[data-surface="menu"], #lexisync-extension-ui[data-surface="result"]',
+    );
+    await expect(panelInFrame.first()).toBeVisible({ timeout: 5000 });
+
+    await page.close();
+});
+
+test('Сценарий Iframe 2: отсутствие выделения не использует буфер обмена и показывает тост', async ({ context }) => {
+    await setFakeApiKey(context);
+    const page = await context.newPage();
+
+    await page.goto('https://example.com/');
+    await page.evaluate(() => navigator.clipboard.writeText('Секретный посторонний текст из буфера обмена'));
+
+    const tabId = await grantSiteAccess(context, page);
+
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+
+    // Снимаем выделение
+    await page.evaluate(() => window.getSelection()?.removeAllRanges());
+
+    // Отправляем hotkeyTriggered
+    await background.evaluate(async (id) => {
+        await chrome.tabs.sendMessage(id, { action: 'hotkeyTriggered', mode: 'spellcheck' }, { frameId: 0 });
+    }, tabId);
+
+    // Должен появиться тост с требованием выделить текст, а не выполнение AI с чужим буфером!
+    const toast = page.locator('#lexisync-extension-ui[data-surface="toast"]');
+    await expect(toast).toBeVisible({ timeout: 4000 });
+    const toastText = await toast.textContent();
+    expect(toastText).toContain('Выделите нужный фрагмент в поле ответа');
+    expect(toastText).not.toContain('Секретный посторонний текст');
+
+    await page.close();
+});
+
+test('Сценарий Iframe 3: всплывающее диагностическое уведомление при отказе в доступе к фрейму', async ({
+    context,
+}) => {
+    const page = await context.newPage();
+    await page.goto('https://example.com/');
+    const tabId = await grantSiteAccess(context, page);
+
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+
+    // Фоновый скрипт отправляет диагностическое уведомление в основной фрейм
+    await background.evaluate(async (id) => {
+        await chrome.tabs.sendMessage(
+            id,
+            {
+                action: 'showDiagnosticNotification',
+                message:
+                    'LexiSync не имеет доступа к редактору внутри этой страницы. Разрешите доступ к сайту редактора в настройках расширения.',
+                errorCode: 'NO_HOST_PERMISSION',
+            },
+            { frameId: 0 },
+        );
+    }, tabId);
+
+    const toast = page.locator('#lexisync-extension-ui[data-surface="toast"]');
+    await expect(toast).toBeVisible({ timeout: 4000 });
+    expect(await toast.textContent()).toContain('LexiSync не имеет доступа к редактору внутри этой страницы');
+
+    await page.close();
+});
+
+test('Сценарий Iframe 4: карточка запроса доступа к фрейму отображается в popup', async ({ context }) => {
+    const page = await context.newPage();
+    await page.goto('https://example.com/');
+    const tabId = await grantSiteAccess(context, page);
+
+    let [background] = context.serviceWorkers();
+    if (!background) background = await context.waitForEvent('serviceworker');
+    const extensionId = new URL(background.url()).host;
+
+    // Сохраняем pendingFramePermission для активной вкладки
+    await background.evaluate(
+        async ({ id }) => {
+            await chrome.storage.local.set({
+                pendingFramePermissions: {
+                    [id]: { frameId: 2, frameOrigin: 'https://editor.example.org/*', timestamp: Date.now() },
+                },
+            });
+        },
+        { id: tabId },
+    );
+
+    const popupPage = await context.newPage();
+    await popupPage.goto(
+        `chrome-extension://${extensionId}/popup.html?tabId=${tabId}&targetUrl=${encodeURIComponent('https://example.com/')}`,
+    );
+
+    // Карточка запроса разрешения должна появиться и содержать домен фрейма
+    const frameCard = popupPage.locator('#frame-permission-card');
+    await expect(frameCard).toBeVisible({ timeout: 4000 });
+    const domainLabel = popupPage.locator('#frame-permission-domain');
+    expect(await domainLabel.textContent()).toContain('editor.example.org');
+
+    await popupPage.close();
+    await page.close();
+});

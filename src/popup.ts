@@ -3,7 +3,16 @@ import { localizeDocument, t } from './i18n';
 import { setSitePreference, type SitePreference } from './settings-store';
 import { applyAppearanceStyle, normalizeAppearanceStyle, type AppearanceStyle } from './appearance-style';
 import { applyThemeCustomization } from './theme-customization';
-import { hasAllSitesAccess, requestAllSitesAccess, removeAllSitesAccess, detectTabFrameOrigins } from './site-access';
+import {
+    clearPendingFramePermission,
+    detectTabFrameOrigins,
+    ensureContentScript,
+    getPendingFramePermission,
+    hasAllSitesAccess,
+    removeAllSitesAccess,
+    requestAllSitesAccess,
+    syncRegisteredSiteScripts,
+} from './site-access';
 import { logger } from './logger';
 import { loadCachedHealthStatus, type ProviderHealthStatus } from './provider-health';
 import { getHistory } from './history-store';
@@ -182,6 +191,42 @@ async function initializeSiteControls(): Promise<void> {
     updateDependentControls();
     siteCard.hidden = false;
 
+    const pendingFrame = typeof activeTab.id === 'number' ? await getPendingFramePermission(activeTab.id) : null;
+    const frameCard = document.getElementById('frame-permission-card') as HTMLElement | null;
+    const frameDomain = document.getElementById('frame-permission-domain') as HTMLElement | null;
+    const grantBtn = document.getElementById('grant-frame-permission-btn') as HTMLButtonElement | null;
+
+    if (pendingFrame && frameCard && frameDomain && grantBtn) {
+        try {
+            const parsed = new URL(pendingFrame.frameOrigin.replace('/*', ''));
+            frameDomain.textContent = parsed.hostname;
+        } catch {
+            frameDomain.textContent = pendingFrame.frameOrigin;
+        }
+        frameCard.hidden = false;
+        grantBtn.onclick = async () => {
+            try {
+                grantBtn.disabled = true;
+                const granted = await chrome.permissions.request({ origins: [pendingFrame.frameOrigin] });
+                if (granted) {
+                    await syncRegisteredSiteScripts();
+                    if (typeof activeTab.id === 'number') {
+                        await clearPendingFramePermission(activeTab.id);
+                        await ensureContentScript(activeTab.id, pendingFrame.frameId).catch(() => undefined);
+                    }
+                    frameCard.hidden = true;
+                    showStatus(t('permissionGrantedRepeat', 'Доступ разрешён. Повторите команду.'));
+                } else {
+                    grantBtn.disabled = false;
+                    showStatus(t('sitePermissionDenied', 'Доступ к сайту не предоставлен.'), true);
+                }
+            } catch (err) {
+                grantBtn.disabled = false;
+                logger.error('Failed to grant frame permission:', err);
+            }
+        };
+    }
+
     siteSummary.addEventListener('click', () => {
         const isOpen = siteCard.classList.toggle('is-open');
         siteSummary.setAttribute('aria-expanded', String(isOpen));
@@ -239,13 +284,19 @@ async function initializeSiteControls(): Promise<void> {
         setBusy(true);
         showStatus();
         const detectedFrames = typeof activeTab.id === 'number' ? await detectTabFrameOrigins(activeTab.id) : [];
-        const originsToManage = [...new Set([originPattern, ...detectedFrames])];
+        const originsToManage = [
+            ...new Set([originPattern, ...detectedFrames, ...(pendingFrame ? [pendingFrame.frameOrigin] : [])]),
+        ];
         try {
             permissionBefore = await chrome.permissions.contains({ origins: [originPattern] });
             permissionChecked = true;
             if (requestedState && !permissionBefore) {
                 const granted = await chrome.permissions.request({ origins: originsToManage });
                 if (!granted) throw new Error('SITE_PERMISSION_DENIED');
+            }
+            if (requestedState && pendingFrame && typeof activeTab.id === 'number') {
+                await clearPendingFramePermission(activeTab.id);
+                if (frameCard) frameCard.hidden = true;
             }
             await setSitePreference('access', hostname, requestedState);
             storageChanged = true;
